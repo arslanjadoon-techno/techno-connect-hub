@@ -32,11 +32,7 @@ interface CrudPageProps<T> {
   rows: T[];
   columns: Column<T>[];
   rowKey: (row: T) => string;
-  renderForm: (
-    initial: T | null,
-    onSubmit: (next: T) => void,
-    onCancel: () => void,
-  ) => ReactNode;
+  renderForm: (initial: T | null, close: () => void) => ReactNode;
   onDelete: (row: T) => void;
   createLabel?: string;
 }
