@@ -9,7 +9,7 @@ import type {
   Store,
   Ticket,
   User,
-} from "./types";
+} from "../types";
 
 const now = () => new Date().toISOString();
 
