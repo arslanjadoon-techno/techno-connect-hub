@@ -16,6 +16,12 @@ import { Route as AppTicketsRouteImport } from './routes/_app.tickets'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppChatRouteImport } from './routes/_app.chat'
 import { Route as AppTicketsIdRouteImport } from './routes/_app.tickets.$id'
+import { Route as AppAdminUsersRouteImport } from './routes/_app.admin.users'
+import { Route as AppAdminStoresRouteImport } from './routes/_app.admin.stores'
+import { Route as AppAdminStatesRouteImport } from './routes/_app.admin.states'
+import { Route as AppAdminMarketsRouteImport } from './routes/_app.admin.markets'
+import { Route as AppAdminExternalRouteImport } from './routes/_app.admin.external'
+import { Route as AppAdminDistrictsRouteImport } from './routes/_app.admin.districts'
 
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
@@ -51,6 +57,36 @@ const AppTicketsIdRoute = AppTicketsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AppTicketsRoute,
 } as any)
+const AppAdminUsersRoute = AppAdminUsersRouteImport.update({
+  id: '/admin/users',
+  path: '/admin/users',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminStoresRoute = AppAdminStoresRouteImport.update({
+  id: '/admin/stores',
+  path: '/admin/stores',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminStatesRoute = AppAdminStatesRouteImport.update({
+  id: '/admin/states',
+  path: '/admin/states',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminMarketsRoute = AppAdminMarketsRouteImport.update({
+  id: '/admin/markets',
+  path: '/admin/markets',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminExternalRoute = AppAdminExternalRouteImport.update({
+  id: '/admin/external',
+  path: '/admin/external',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAdminDistrictsRoute = AppAdminDistrictsRouteImport.update({
+  id: '/admin/districts',
+  path: '/admin/districts',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -58,6 +94,12 @@ export interface FileRoutesByFullPath {
   '/chat': typeof AppChatRoute
   '/dashboard': typeof AppDashboardRoute
   '/tickets': typeof AppTicketsRouteWithChildren
+  '/admin/districts': typeof AppAdminDistrictsRoute
+  '/admin/external': typeof AppAdminExternalRoute
+  '/admin/markets': typeof AppAdminMarketsRoute
+  '/admin/states': typeof AppAdminStatesRoute
+  '/admin/stores': typeof AppAdminStoresRoute
+  '/admin/users': typeof AppAdminUsersRoute
   '/tickets/$id': typeof AppTicketsIdRoute
 }
 export interface FileRoutesByTo {
@@ -66,6 +108,12 @@ export interface FileRoutesByTo {
   '/chat': typeof AppChatRoute
   '/dashboard': typeof AppDashboardRoute
   '/tickets': typeof AppTicketsRouteWithChildren
+  '/admin/districts': typeof AppAdminDistrictsRoute
+  '/admin/external': typeof AppAdminExternalRoute
+  '/admin/markets': typeof AppAdminMarketsRoute
+  '/admin/states': typeof AppAdminStatesRoute
+  '/admin/stores': typeof AppAdminStoresRoute
+  '/admin/users': typeof AppAdminUsersRoute
   '/tickets/$id': typeof AppTicketsIdRoute
 }
 export interface FileRoutesById {
@@ -76,6 +124,12 @@ export interface FileRoutesById {
   '/_app/chat': typeof AppChatRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/tickets': typeof AppTicketsRouteWithChildren
+  '/_app/admin/districts': typeof AppAdminDistrictsRoute
+  '/_app/admin/external': typeof AppAdminExternalRoute
+  '/_app/admin/markets': typeof AppAdminMarketsRoute
+  '/_app/admin/states': typeof AppAdminStatesRoute
+  '/_app/admin/stores': typeof AppAdminStoresRoute
+  '/_app/admin/users': typeof AppAdminUsersRoute
   '/_app/tickets/$id': typeof AppTicketsIdRoute
 }
 export interface FileRouteTypes {
@@ -86,9 +140,27 @@ export interface FileRouteTypes {
     | '/chat'
     | '/dashboard'
     | '/tickets'
+    | '/admin/districts'
+    | '/admin/external'
+    | '/admin/markets'
+    | '/admin/states'
+    | '/admin/stores'
+    | '/admin/users'
     | '/tickets/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/login' | '/chat' | '/dashboard' | '/tickets' | '/tickets/$id'
+  to:
+    | '/'
+    | '/login'
+    | '/chat'
+    | '/dashboard'
+    | '/tickets'
+    | '/admin/districts'
+    | '/admin/external'
+    | '/admin/markets'
+    | '/admin/states'
+    | '/admin/stores'
+    | '/admin/users'
+    | '/tickets/$id'
   id:
     | '__root__'
     | '/'
@@ -97,6 +169,12 @@ export interface FileRouteTypes {
     | '/_app/chat'
     | '/_app/dashboard'
     | '/_app/tickets'
+    | '/_app/admin/districts'
+    | '/_app/admin/external'
+    | '/_app/admin/markets'
+    | '/_app/admin/states'
+    | '/_app/admin/stores'
+    | '/_app/admin/users'
     | '/_app/tickets/$id'
   fileRoutesById: FileRoutesById
 }
@@ -157,6 +235,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTicketsIdRouteImport
       parentRoute: typeof AppTicketsRoute
     }
+    '/_app/admin/users': {
+      id: '/_app/admin/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AppAdminUsersRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/stores': {
+      id: '/_app/admin/stores'
+      path: '/admin/stores'
+      fullPath: '/admin/stores'
+      preLoaderRoute: typeof AppAdminStoresRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/states': {
+      id: '/_app/admin/states'
+      path: '/admin/states'
+      fullPath: '/admin/states'
+      preLoaderRoute: typeof AppAdminStatesRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/markets': {
+      id: '/_app/admin/markets'
+      path: '/admin/markets'
+      fullPath: '/admin/markets'
+      preLoaderRoute: typeof AppAdminMarketsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/external': {
+      id: '/_app/admin/external'
+      path: '/admin/external'
+      fullPath: '/admin/external'
+      preLoaderRoute: typeof AppAdminExternalRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/admin/districts': {
+      id: '/_app/admin/districts'
+      path: '/admin/districts'
+      fullPath: '/admin/districts'
+      preLoaderRoute: typeof AppAdminDistrictsRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
@@ -176,12 +296,24 @@ interface AppRouteChildren {
   AppChatRoute: typeof AppChatRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppTicketsRoute: typeof AppTicketsRouteWithChildren
+  AppAdminDistrictsRoute: typeof AppAdminDistrictsRoute
+  AppAdminExternalRoute: typeof AppAdminExternalRoute
+  AppAdminMarketsRoute: typeof AppAdminMarketsRoute
+  AppAdminStatesRoute: typeof AppAdminStatesRoute
+  AppAdminStoresRoute: typeof AppAdminStoresRoute
+  AppAdminUsersRoute: typeof AppAdminUsersRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppChatRoute: AppChatRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppTicketsRoute: AppTicketsRouteWithChildren,
+  AppAdminDistrictsRoute: AppAdminDistrictsRoute,
+  AppAdminExternalRoute: AppAdminExternalRoute,
+  AppAdminMarketsRoute: AppAdminMarketsRoute,
+  AppAdminStatesRoute: AppAdminStatesRoute,
+  AppAdminStoresRoute: AppAdminStoresRoute,
+  AppAdminUsersRoute: AppAdminUsersRoute,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
@@ -194,3 +326,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
