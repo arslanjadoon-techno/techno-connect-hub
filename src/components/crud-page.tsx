@@ -96,7 +96,7 @@ export function CrudPage<T>({
             <DialogHeader>
               <DialogTitle>{editing ? "Edit" : createLabel}</DialogTitle>
             </DialogHeader>
-            {renderForm(editing, () => { setOpen(false); setEditing(null); }, () => { setOpen(false); setEditing(null); })}
+            {renderForm(editing, () => { setOpen(false); setEditing(null); })}
             <DialogFooter />
           </DialogContent>
         </Dialog>
