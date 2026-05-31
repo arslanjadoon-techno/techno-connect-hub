@@ -35,11 +35,12 @@ interface CrudPageProps<T> {
   renderForm: (initial: T | null, close: () => void) => ReactNode;
   onDelete: (row: T) => void;
   createLabel?: string;
+  extraToolbar?: ReactNode;
 }
 
 export function CrudPage<T>({
   title, subtitle, rows, columns, rowKey, renderForm, onDelete,
-  createLabel = "Add new",
+  createLabel = "Add new", extraToolbar,
 }: CrudPageProps<T>) {
   const [editing, setEditing] = useState<T | null>(null);
   const [open, setOpen] = useState(false);
