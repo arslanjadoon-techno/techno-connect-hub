@@ -2,11 +2,21 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data-store";
-import { visibleChatGroups } from "@/lib/permissions";
+import { canManageChatGroups, visibleChatGroups } from "@/lib/permissions";
+import { ALL_DEPARTMENTS, type Department } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Send, Users as UsersIcon } from "lucide-react";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Send, Users as UsersIcon, Plus } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/chat")({
   head: () => ({ meta: [{ title: "Team Chat — Techno Ticket Portal" }] }),
@@ -19,6 +29,7 @@ function ChatPage() {
   const groups = useMemo(() => user ? visibleChatGroups(user, data.chatGroups) : [], [user, data.chatGroups]);
   const [activeId, setActiveId] = useState<string>(groups[0]?.id ?? "");
   const [text, setText] = useState("");
+  const [newOpen, setNewOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,6 +48,7 @@ function ChatPage() {
 
   if (!user) return null;
   const activeGroup = groups.find((g) => g.id === activeId);
+  const canCreate = canManageChatGroups(user);
 
   const send = () => {
     if (!text.trim() || !activeGroup) return;
@@ -57,9 +69,26 @@ function ChatPage() {
   return (
     <div className="grid h-[calc(100vh-8rem)] grid-cols-1 gap-4 lg:grid-cols-[300px_1fr]">
       <Card className="flex flex-col overflow-hidden p-0">
-        <div className="border-b p-3">
-          <h2 className="font-display font-semibold">Groups</h2>
-          <p className="text-xs text-muted-foreground">{groups.length} available</p>
+        <div className="flex items-center justify-between border-b p-3">
+          <div>
+            <h2 className="font-display font-semibold">Groups</h2>
+            <p className="text-xs text-muted-foreground">{groups.length} available</p>
+          </div>
+          {canCreate && (
+            <Dialog open={newOpen} onOpenChange={setNewOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline"><Plus className="mr-1 h-4 w-4" /> New</Button>
+              </DialogTrigger>
+              <NewGroupDialog
+                onCreate={(g) => {
+                  set("chatGroups", [...data.chatGroups, g]);
+                  setActiveId(g.id);
+                  setNewOpen(false);
+                  toast.success("Group created");
+                }}
+              />
+            </Dialog>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto p-2">
           {groups.map((g) => {
@@ -170,5 +199,77 @@ function ChatPage() {
         )}
       </Card>
     </div>
+  );
+}
+
+function NewGroupDialog({
+  onCreate,
+}: {
+  onCreate: (g: { id: string; name: string; department?: Department; memberIds: string[] }) => void;
+}) {
+  const { user } = useAuth();
+  const { data } = useData();
+  const [name, setName] = useState("");
+  const [department, setDepartment] = useState<Department | "none">("none");
+  const [memberIds, setMemberIds] = useState<string[]>(user ? [user.id] : []);
+
+  const candidates = useMemo(
+    () => department === "none" ? data.users : data.users.filter((u) => u.department === department),
+    [data.users, department],
+  );
+
+  const toggle = (id: string) =>
+    setMemberIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+
+  return (
+    <DialogContent className="max-w-lg">
+      <DialogHeader>
+        <DialogTitle>Create new chat group</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-3">
+        <div className="space-y-1.5">
+          <Label>Group name</Label>
+          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. AZ Field Ops" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Department (optional)</Label>
+          <Select value={department} onValueChange={(v) => setDepartment(v as typeof department)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No specific department</SelectItem>
+              {ALL_DEPARTMENTS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>Members ({memberIds.length})</Label>
+          <div className="max-h-60 overflow-y-auto rounded-md border p-2">
+            {candidates.map((u) => (
+              <label key={u.id} className="flex cursor-pointer items-center gap-2 rounded p-1.5 text-sm hover:bg-muted">
+                <Checkbox checked={memberIds.includes(u.id)} onCheckedChange={() => toggle(u.id)} />
+                <span>{u.firstName} {u.lastName}</span>
+                <span className="ml-auto text-xs text-muted-foreground">{u.department}</span>
+              </label>
+            ))}
+            {candidates.length === 0 && (
+              <p className="p-2 text-center text-xs text-muted-foreground">No users.</p>
+            )}
+          </div>
+        </div>
+      </div>
+      <DialogFooter>
+        <Button
+          disabled={!name.trim() || memberIds.length === 0}
+          onClick={() => onCreate({
+            id: `cg-${Date.now()}`,
+            name: name.trim(),
+            department: department === "none" ? undefined : department,
+            memberIds,
+          })}
+        >
+          Create group
+        </Button>
+      </DialogFooter>
+    </DialogContent>
   );
 }

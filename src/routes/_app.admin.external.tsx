@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useData } from "@/lib/data-store";
 import { AdminGuard, CrudPage } from "@/components/crud-page";
 import type { ExternalVendor } from "@/lib/types";
@@ -16,12 +16,19 @@ export const Route = createFileRoute("/_app/admin/external")({
 
 function ExternalPage() {
   const { data, set } = useData();
+  const [marketFilter, setMarketFilter] = useState<string>("all");
   const marketName = (id: string) => data.markets.find((m) => m.id === id)?.name ?? "—";
+
+  const rows = useMemo(
+    () => marketFilter === "all" ? data.vendors : data.vendors.filter((v) => v.marketId === marketFilter),
+    [data.vendors, marketFilter],
+  );
+
   return (
     <CrudPage<ExternalVendor>
       title="External Team"
       subtitle="Vendors hired for overflow maintenance, repairs and other on-demand work."
-      rows={data.vendors}
+      rows={rows}
       rowKey={(v) => v.id}
       columns={[
         { key: "name", header: "Name", accessor: (v) => v.name, searchValue: (v) => v.name },
@@ -40,6 +47,18 @@ function ExternalPage() {
         }} />
       )}
       createLabel="Add vendor"
+      extraToolbar={
+        <div className="flex items-center gap-2">
+          <Label className="text-xs text-muted-foreground">Market</Label>
+          <Select value={marketFilter} onValueChange={setMarketFilter}>
+            <SelectTrigger className="h-9 w-[180px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All markets</SelectItem>
+              {data.markets.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      }
     />
   );
 }

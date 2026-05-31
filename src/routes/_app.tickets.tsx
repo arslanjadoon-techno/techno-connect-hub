@@ -5,6 +5,7 @@ import { useData } from "@/lib/data-store";
 import { canCreateTicket, visibleTickets } from "@/lib/permissions";
 import {
   ALL_DEPARTMENTS, PRIORITY_META, STATUS_META,
+  type Department,
   type Ticket, type TicketCategory, type TicketPriority, type TicketStatus,
 } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -33,13 +34,43 @@ function TicketsPage() {
   const { data, set } = useData();
   const [open, setOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<TicketStatus | "all">("all");
+  const [deptFilter, setDeptFilter] = useState<Department | "all">("all");
+  const [priorityFilter, setPriorityFilter] = useState<TicketPriority | "all">("all");
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
+  const [creatorFilter, setCreatorFilter] = useState<string>("all");
+  const [timeFilter, setTimeFilter] = useState<"all" | "today" | "7d" | "30d" | "90d">("all");
   if (!user) return null;
 
   const myTickets = useMemo(() => visibleTickets(user, data.tickets), [user, data.tickets]);
-  const filtered = useMemo(
-    () => statusFilter === "all" ? myTickets : myTickets.filter((t) => t.status === statusFilter),
-    [myTickets, statusFilter],
-  );
+
+  const filtered = useMemo(() => {
+    const cutoff = (() => {
+      if (timeFilter === "all") return 0;
+      const now = Date.now();
+      const map = { today: 1, "7d": 7, "30d": 30, "90d": 90 } as const;
+      return now - map[timeFilter] * 86400000;
+    })();
+    return myTickets.filter((t) => {
+      if (statusFilter !== "all" && t.status !== statusFilter) return false;
+      if (deptFilter !== "all" && t.department !== deptFilter) return false;
+      if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
+      if (creatorFilter !== "all" && t.createdById !== creatorFilter) return false;
+      if (assigneeFilter !== "all") {
+        if (assigneeFilter === "__unassigned") {
+          if (t.assigneeId || t.externalVendorId) return false;
+        } else if (assigneeFilter.startsWith("ext:")) {
+          if (t.externalVendorId !== assigneeFilter.slice(4)) return false;
+        } else if (t.assigneeId !== assigneeFilter) return false;
+      }
+      if (cutoff && new Date(t.createdAt).getTime() < cutoff) return false;
+      return true;
+    });
+  }, [myTickets, statusFilter, deptFilter, priorityFilter, creatorFilter, assigneeFilter, timeFilter]);
+
+  const creatorName = (id: string) => {
+    const u = data.users.find((x) => x.id === id);
+    return u ? `${u.firstName} ${u.lastName}` : "—";
+  };
 
   const locationName = (t: Ticket) => {
     if (t.category === "store") {
@@ -95,9 +126,23 @@ function TicketsPage() {
       ),
     },
     {
+      key: "creator", header: "Creator",
+      searchValue: (t) => creatorName(t.createdById),
+      accessor: (t) => <span className="text-sm">{creatorName(t.createdById)}</span>,
+    },
+    {
       key: "assignee", header: "Assignee",
       searchValue: (t) => assigneeName(t),
       accessor: (t) => <span className="text-sm">{assigneeName(t)}</span>,
+    },
+    {
+      key: "created", header: "Created",
+      searchValue: (t) => t.createdAt,
+      accessor: (t) => (
+        <span className="whitespace-nowrap text-xs text-muted-foreground">
+          {new Date(t.createdAt).toLocaleDateString()}
+        </span>
+      ),
     },
     {
       key: "priority", header: "Priority",
@@ -151,6 +196,54 @@ function TicketsPage() {
         ))}
       </div>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterSelect
+          value={timeFilter} onChange={(v) => setTimeFilter(v as typeof timeFilter)}
+          placeholder="Time"
+          options={[
+            { value: "all", label: "All time" },
+            { value: "today", label: "Today" },
+            { value: "7d", label: "Last 7 days" },
+            { value: "30d", label: "Last 30 days" },
+            { value: "90d", label: "Last 90 days" },
+          ]}
+        />
+        <FilterSelect
+          value={deptFilter} onChange={(v) => setDeptFilter(v as typeof deptFilter)}
+          placeholder="Department"
+          options={[
+            { value: "all", label: "All departments" },
+            ...ALL_DEPARTMENTS.map((d) => ({ value: d, label: d })),
+          ]}
+        />
+        <FilterSelect
+          value={priorityFilter} onChange={(v) => setPriorityFilter(v as typeof priorityFilter)}
+          placeholder="Priority"
+          options={[
+            { value: "all", label: "All priorities" },
+            ...(Object.keys(PRIORITY_META) as TicketPriority[]).map((p) => ({ value: p, label: PRIORITY_META[p].label })),
+          ]}
+        />
+        <FilterSelect
+          value={creatorFilter} onChange={setCreatorFilter}
+          placeholder="Creator"
+          options={[
+            { value: "all", label: "All creators" },
+            ...data.users.map((u) => ({ value: u.id, label: `${u.firstName} ${u.lastName}` })),
+          ]}
+        />
+        <FilterSelect
+          value={assigneeFilter} onChange={setAssigneeFilter}
+          placeholder="Assignee"
+          options={[
+            { value: "all", label: "All assignees" },
+            { value: "__unassigned", label: "Unassigned" },
+            ...data.users.map((u) => ({ value: u.id, label: `${u.firstName} ${u.lastName}` })),
+            ...data.vendors.map((v) => ({ value: `ext:${v.id}`, label: `${v.name} (External)` })),
+          ]}
+        />
+      </div>
+
       <DataTable
         rows={filtered}
         columns={columns}
@@ -160,6 +253,25 @@ function TicketsPage() {
     </div>
   );
 }
+
+function FilterSelect({
+  value, onChange, options, placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  placeholder: string;
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="h-9 w-[170px]"><SelectValue placeholder={placeholder} /></SelectTrigger>
+      <SelectContent>
+        {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
+}
+
 
 function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (

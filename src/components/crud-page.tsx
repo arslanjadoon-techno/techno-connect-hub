@@ -35,11 +35,12 @@ interface CrudPageProps<T> {
   renderForm: (initial: T | null, close: () => void) => ReactNode;
   onDelete: (row: T) => void;
   createLabel?: string;
+  extraToolbar?: ReactNode;
 }
 
 export function CrudPage<T>({
   title, subtitle, rows, columns, rowKey, renderForm, onDelete,
-  createLabel = "Add new",
+  createLabel = "Add new", extraToolbar,
 }: CrudPageProps<T>) {
   const [editing, setEditing] = useState<T | null>(null);
   const [open, setOpen] = useState(false);
@@ -101,6 +102,8 @@ export function CrudPage<T>({
           </DialogContent>
         </Dialog>
       </div>
+
+      {extraToolbar && <div className="flex flex-wrap items-center gap-3">{extraToolbar}</div>}
 
       <DataTable rows={rows} columns={augmentedCols} rowKey={rowKey} searchPlaceholder={`Search ${title.toLowerCase()}...`} />
     </div>
