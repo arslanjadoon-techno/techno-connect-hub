@@ -5,6 +5,7 @@ import { useData } from "@/lib/data-store";
 import { canCreateTicket, visibleTickets } from "@/lib/permissions";
 import {
   ALL_DEPARTMENTS, PRIORITY_META, STATUS_META,
+  type Department,
   type Ticket, type TicketCategory, type TicketPriority, type TicketStatus,
 } from "@/lib/types";
 import { Button } from "@/components/ui/button";
