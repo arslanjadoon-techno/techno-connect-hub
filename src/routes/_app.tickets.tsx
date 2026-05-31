@@ -34,13 +34,43 @@ function TicketsPage() {
   const { data, set } = useData();
   const [open, setOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<TicketStatus | "all">("all");
+  const [deptFilter, setDeptFilter] = useState<Department | "all">("all");
+  const [priorityFilter, setPriorityFilter] = useState<TicketPriority | "all">("all");
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
+  const [creatorFilter, setCreatorFilter] = useState<string>("all");
+  const [timeFilter, setTimeFilter] = useState<"all" | "today" | "7d" | "30d" | "90d">("all");
   if (!user) return null;
 
   const myTickets = useMemo(() => visibleTickets(user, data.tickets), [user, data.tickets]);
-  const filtered = useMemo(
-    () => statusFilter === "all" ? myTickets : myTickets.filter((t) => t.status === statusFilter),
-    [myTickets, statusFilter],
-  );
+
+  const filtered = useMemo(() => {
+    const cutoff = (() => {
+      if (timeFilter === "all") return 0;
+      const now = Date.now();
+      const map = { today: 1, "7d": 7, "30d": 30, "90d": 90 } as const;
+      return now - map[timeFilter] * 86400000;
+    })();
+    return myTickets.filter((t) => {
+      if (statusFilter !== "all" && t.status !== statusFilter) return false;
+      if (deptFilter !== "all" && t.department !== deptFilter) return false;
+      if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
+      if (creatorFilter !== "all" && t.createdById !== creatorFilter) return false;
+      if (assigneeFilter !== "all") {
+        if (assigneeFilter === "__unassigned") {
+          if (t.assigneeId || t.externalVendorId) return false;
+        } else if (assigneeFilter.startsWith("ext:")) {
+          if (t.externalVendorId !== assigneeFilter.slice(4)) return false;
+        } else if (t.assigneeId !== assigneeFilter) return false;
+      }
+      if (cutoff && new Date(t.createdAt).getTime() < cutoff) return false;
+      return true;
+    });
+  }, [myTickets, statusFilter, deptFilter, priorityFilter, creatorFilter, assigneeFilter, timeFilter]);
+
+  const creatorName = (id: string) => {
+    const u = data.users.find((x) => x.id === id);
+    return u ? `${u.firstName} ${u.lastName}` : "—";
+  };
 
   const locationName = (t: Ticket) => {
     if (t.category === "store") {
