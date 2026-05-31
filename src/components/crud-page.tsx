@@ -103,6 +103,8 @@ export function CrudPage<T>({
         </Dialog>
       </div>
 
+      {extraToolbar && <div className="flex flex-wrap items-center gap-3">{extraToolbar}</div>}
+
       <DataTable rows={rows} columns={augmentedCols} rowKey={rowKey} searchPlaceholder={`Search ${title.toLowerCase()}...`} />
     </div>
   );
