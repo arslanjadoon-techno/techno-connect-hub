@@ -126,9 +126,23 @@ function TicketsPage() {
       ),
     },
     {
+      key: "creator", header: "Creator",
+      searchValue: (t) => creatorName(t.createdById),
+      accessor: (t) => <span className="text-sm">{creatorName(t.createdById)}</span>,
+    },
+    {
       key: "assignee", header: "Assignee",
       searchValue: (t) => assigneeName(t),
       accessor: (t) => <span className="text-sm">{assigneeName(t)}</span>,
+    },
+    {
+      key: "created", header: "Created",
+      searchValue: (t) => t.createdAt,
+      accessor: (t) => (
+        <span className="whitespace-nowrap text-xs text-muted-foreground">
+          {new Date(t.createdAt).toLocaleDateString()}
+        </span>
+      ),
     },
     {
       key: "priority", header: "Priority",
