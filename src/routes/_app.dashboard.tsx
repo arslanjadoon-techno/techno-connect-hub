@@ -1,10 +1,16 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data-store";
 import { visibleTickets, isAdmin } from "@/lib/permissions";
-import { STATUS_META, type TicketStatus, ALL_DEPARTMENTS, PRIORITY_META, type TicketPriority } from "@/lib/types";
+import {
+  ALL_DEPARTMENTS, PRIORITY_META, STATUS_META,
+  type Department, type TicketStatus, type TicketPriority,
+} from "@/lib/types";
 import { Card } from "@/components/ui/card";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   TicketCheck, Store as StoreIcon, MapPin, Building2, Network, UserCog,
   Clock, CheckCircle2, PauseCircle, AlertCircle, RotateCw, Archive,
@@ -19,6 +25,9 @@ export const Route = createFileRoute("/_app/dashboard")({
   component: DashboardPage,
 });
 
+type TimeRange = "all" | "today" | "7d" | "30d" | "90d";
+type CategoryFilter = "all" | "store" | "house";
+
 const STATUS_ICON: Record<TicketStatus, typeof Clock> = {
   pending: Clock,
   assigned: AlertCircle,
@@ -28,46 +37,81 @@ const STATUS_ICON: Record<TicketStatus, typeof Clock> = {
   reopen: RotateCw,
 };
 
+/** Per-status accent palette for the dashboard cards. */
+const STATUS_CARD: Record<TicketStatus, { gradient: string; iconBg: string; iconFg: string; ring: string }> = {
+  pending:   { gradient: "from-amber-100 via-amber-50 to-transparent dark:from-amber-500/15 dark:via-amber-500/5",
+               iconBg: "bg-amber-500/15", iconFg: "text-amber-600 dark:text-amber-400", ring: "ring-amber-500/30" },
+  assigned:  { gradient: "from-sky-100 via-sky-50 to-transparent dark:from-sky-500/15 dark:via-sky-500/5",
+               iconBg: "bg-sky-500/15", iconFg: "text-sky-600 dark:text-sky-400", ring: "ring-sky-500/30" },
+  completed: { gradient: "from-emerald-100 via-emerald-50 to-transparent dark:from-emerald-500/15 dark:via-emerald-500/5",
+               iconBg: "bg-emerald-500/15", iconFg: "text-emerald-600 dark:text-emerald-400", ring: "ring-emerald-500/30" },
+  hold:      { gradient: "from-slate-100 via-slate-50 to-transparent dark:from-slate-500/15 dark:via-slate-500/5",
+               iconBg: "bg-slate-500/15", iconFg: "text-slate-600 dark:text-slate-300", ring: "ring-slate-500/30" },
+  closed:    { gradient: "from-violet-100 via-violet-50 to-transparent dark:from-violet-500/15 dark:via-violet-500/5",
+               iconBg: "bg-violet-500/15", iconFg: "text-violet-600 dark:text-violet-400", ring: "ring-violet-500/30" },
+  reopen:    { gradient: "from-rose-100 via-rose-50 to-transparent dark:from-rose-500/15 dark:via-rose-500/5",
+               iconBg: "bg-rose-500/15", iconFg: "text-rose-600 dark:text-rose-400", ring: "ring-rose-500/30" },
+};
+
 const PIE_COLORS = ["#0d7a5f", "#c9a84c", "#3b6fa0", "#e85d3a", "#9b4423", "#4f46e5"];
 
 function DashboardPage() {
   const { user } = useAuth();
   const { data } = useData();
+  const navigate = useNavigate();
+
+  // --- Top filters ---
+  const [department, setDepartment] = useState<Department | "all">("all");
+  const [timeRange, setTimeRange] = useState<TimeRange>("all");
+  const [category, setCategory] = useState<CategoryFilter>("all");
+  const [locationId, setLocationId] = useState<string>("all");
+
   if (!user) return null;
 
-  const myTickets = useMemo(() => visibleTickets(user, data.tickets), [user, data.tickets]);
+  const baseTickets = useMemo(() => visibleTickets(user, data.tickets), [user, data.tickets]);
+
+  const myTickets = useMemo(() => {
+    const cutoff = (() => {
+      if (timeRange === "all") return 0;
+      const map = { today: 1, "7d": 7, "30d": 30, "90d": 90 } as const;
+      return Date.now() - map[timeRange] * 86400000;
+    })();
+    return baseTickets.filter((t) => {
+      if (department !== "all" && t.department !== department) return false;
+      if (category !== "all" && t.category !== category) return false;
+      if (locationId !== "all" && t.locationId !== locationId) return false;
+      if (cutoff && new Date(t.createdAt).getTime() < cutoff) return false;
+      return true;
+    });
+  }, [baseTickets, department, category, locationId, timeRange]);
 
   const counts = useMemo(() => {
-    const c: Record<TicketStatus, number> = {
-      pending: 0, assigned: 0, completed: 0, hold: 0, closed: 0, reopen: 0,
-    };
+    const c: Record<TicketStatus, number> = { pending: 0, assigned: 0, completed: 0, hold: 0, closed: 0, reopen: 0 };
     for (const t of myTickets) c[t.status]++;
     return c;
   }, [myTickets]);
 
   const admin = isAdmin(user);
 
+  const locationOptions = useMemo(() => {
+    if (category === "store") return data.stores.map((s) => ({ value: s.id, label: s.name }));
+    if (category === "house") return data.houses.map((h) => ({ value: h.id, label: h.name }));
+    return [];
+  }, [category, data.stores, data.houses]);
+
   const statusChart = useMemo(
-    () => (Object.keys(STATUS_META) as TicketStatus[]).map((s) => ({
-      name: STATUS_META[s].label, value: counts[s],
-    })),
+    () => (Object.keys(STATUS_META) as TicketStatus[]).map((s) => ({ name: STATUS_META[s].label, value: counts[s] })),
     [counts],
   );
 
   const deptChart = useMemo(
-    () => ALL_DEPARTMENTS.map((d) => ({
-      name: d,
-      value: myTickets.filter((t) => t.department === d).length,
-    })),
+    () => ALL_DEPARTMENTS.map((d) => ({ name: d, value: myTickets.filter((t) => t.department === d).length })),
     [myTickets],
   );
 
   const priorityChart = useMemo(() => {
     const prios: TicketPriority[] = ["low", "medium", "high", "urgent"];
-    return prios.map((p) => ({
-      name: PRIORITY_META[p].label,
-      value: myTickets.filter((t) => t.priority === p).length,
-    }));
+    return prios.map((p) => ({ name: PRIORITY_META[p].label, value: myTickets.filter((t) => t.priority === p).length }));
   }, [myTickets]);
 
   const trendChart = useMemo(() => {
@@ -78,10 +122,7 @@ function DashboardPage() {
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(d.getDate() - i);
-      buckets.push({
-        date: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-        created: 0,
-      });
+      buckets.push({ date: d.toLocaleDateString(undefined, { month: "short", day: "numeric" }), created: 0 });
     }
     for (const t of myTickets) {
       const dt = new Date(t.createdAt);
@@ -103,28 +144,67 @@ function DashboardPage() {
         </p>
       </header>
 
+      {/* Top filters */}
+      <Card className="flex flex-wrap items-center gap-2 p-3">
+        <span className="px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">Filters</span>
+        <FilterSelect value={department} onChange={(v) => setDepartment(v as typeof department)} placeholder="Department"
+          options={[{ value: "all", label: "All departments" }, ...ALL_DEPARTMENTS.map((d) => ({ value: d, label: d }))]} />
+        <FilterSelect value={timeRange} onChange={(v) => setTimeRange(v as TimeRange)} placeholder="Time"
+          options={[
+            { value: "all", label: "All time" },
+            { value: "today", label: "Today" },
+            { value: "7d", label: "Last 7 days" },
+            { value: "30d", label: "Last 30 days" },
+            { value: "90d", label: "Last 90 days" },
+          ]} />
+        <FilterSelect value={category} onChange={(v) => { setCategory(v as CategoryFilter); setLocationId("all"); }} placeholder="Category"
+          options={[
+            { value: "all", label: "All categories" },
+            { value: "store", label: "Store" },
+            { value: "house", label: "House / Office" },
+          ]} />
+        <FilterSelect
+          value={locationId}
+          onChange={setLocationId}
+          placeholder={category === "store" ? "Store" : category === "house" ? "House" : "Location"}
+          options={[{ value: "all", label: category === "all" ? "Select category first" : `All ${category}s` }, ...locationOptions]}
+          disabled={category === "all"}
+        />
+      </Card>
+
       <section>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-muted-foreground">
             Tickets by status
           </h2>
-          <Link to="/tickets" className="text-xs font-medium text-primary hover:underline">
+          <button
+            onClick={() => navigate({ to: "/tickets", search: { status: "all" } })}
+            className="text-xs font-medium text-primary hover:underline"
+          >
             View all tickets →
-          </Link>
+          </button>
         </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
           {(Object.keys(STATUS_META) as TicketStatus[]).map((s) => {
             const Icon = STATUS_ICON[s];
+            const palette = STATUS_CARD[s];
             return (
-              <Card key={s} className="p-4 transition-shadow hover:shadow-[var(--shadow-elegant)]">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Icon className="h-4 w-4" />
-                  {STATUS_META[s].label}
+              <button
+                key={s}
+                onClick={() => navigate({ to: "/tickets", search: { status: s } })}
+                className={`group relative overflow-hidden rounded-xl border bg-card p-4 text-left transition-all hover:shadow-[var(--shadow-elegant)] hover:-translate-y-0.5 hover:ring-2 ${palette.ring}`}
+              >
+                <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${palette.gradient} opacity-80`} />
+                <div className="relative">
+                  <div className="flex items-center justify-between">
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${palette.iconBg}`}>
+                      <Icon className={`h-4 w-4 ${palette.iconFg}`} />
+                    </span>
+                  </div>
+                  <div className="mt-3 text-xs text-muted-foreground">{STATUS_META[s].label}</div>
+                  <div className="mt-1 font-display text-3xl font-semibold">{counts[s]}</div>
                 </div>
-                <div className="mt-2 font-display text-3xl font-semibold">
-                  {counts[s]}
-                </div>
-              </Card>
+              </button>
             );
           })}
         </div>
@@ -189,15 +269,29 @@ function DashboardPage() {
               <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Pie data={priorityChart} dataKey="value" nameKey="name" outerRadius={90} innerRadius={50} paddingAngle={2}>
-                {priorityChart.map((_, i) => (
-                  <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
-                ))}
+                {priorityChart.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
             </PieChart>
           </ResponsiveContainer>
         </ChartCard>
       </section>
     </div>
+  );
+}
+
+function FilterSelect({
+  value, onChange, options, placeholder, disabled,
+}: {
+  value: string; onChange: (v: string) => void;
+  options: { value: string; label: string }[]; placeholder: string; disabled?: boolean;
+}) {
+  return (
+    <Select value={value} onValueChange={onChange} disabled={disabled}>
+      <SelectTrigger className="h-9 w-[180px]"><SelectValue placeholder={placeholder} /></SelectTrigger>
+      <SelectContent>
+        {options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+      </SelectContent>
+    </Select>
   );
 }
 
@@ -210,14 +304,11 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
   );
 }
 
-function StatCard({
-  icon: Icon, label, value,
-}: { icon: typeof Clock; label: string; value: number }) {
+function StatCard({ icon: Icon, label, value }: { icon: typeof Clock; label: string; value: number }) {
   return (
     <Card className="relative overflow-hidden p-4">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Icon className="h-4 w-4" />
-        {label}
+        <Icon className="h-4 w-4" /> {label}
       </div>
       <div className="mt-2 font-display text-3xl font-semibold">{value}</div>
       <div
