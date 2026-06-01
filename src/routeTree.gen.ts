@@ -15,6 +15,7 @@ import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppTicketsRouteImport } from './routes/_app.tickets'
+import { Route as AppSettingsRouteImport } from './routes/_app.settings'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppChatRouteImport } from './routes/_app.chat'
 import { Route as AppTicketsIdRouteImport } from './routes/_app.tickets.$id'
@@ -52,6 +53,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppTicketsRoute = AppTicketsRouteImport.update({
   id: '/tickets',
   path: '/tickets',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
 const AppDashboardRoute = AppDashboardRouteImport.update({
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/chat': typeof AppChatRoute
   '/dashboard': typeof AppDashboardRoute
+  '/settings': typeof AppSettingsRoute
   '/tickets': typeof AppTicketsRouteWithChildren
   '/admin/districts': typeof AppAdminDistrictsRoute
   '/admin/external': typeof AppAdminExternalRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/chat': typeof AppChatRoute
   '/dashboard': typeof AppDashboardRoute
+  '/settings': typeof AppSettingsRoute
   '/tickets': typeof AppTicketsRouteWithChildren
   '/admin/districts': typeof AppAdminDistrictsRoute
   '/admin/external': typeof AppAdminExternalRoute
@@ -141,6 +149,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/_app/chat': typeof AppChatRoute
   '/_app/dashboard': typeof AppDashboardRoute
+  '/_app/settings': typeof AppSettingsRoute
   '/_app/tickets': typeof AppTicketsRouteWithChildren
   '/_app/admin/districts': typeof AppAdminDistrictsRoute
   '/_app/admin/external': typeof AppAdminExternalRoute
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/chat'
     | '/dashboard'
+    | '/settings'
     | '/tickets'
     | '/admin/districts'
     | '/admin/external'
@@ -175,6 +185,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/chat'
     | '/dashboard'
+    | '/settings'
     | '/tickets'
     | '/admin/districts'
     | '/admin/external'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/_app/chat'
     | '/_app/dashboard'
+    | '/_app/settings'
     | '/_app/tickets'
     | '/_app/admin/districts'
     | '/_app/admin/external'
@@ -252,6 +264,13 @@ declare module '@tanstack/react-router' {
       path: '/tickets'
       fullPath: '/tickets'
       preLoaderRoute: typeof AppTicketsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/dashboard': {
@@ -335,6 +354,7 @@ const AppTicketsRouteWithChildren = AppTicketsRoute._addFileChildren(
 interface AppRouteChildren {
   AppChatRoute: typeof AppChatRoute
   AppDashboardRoute: typeof AppDashboardRoute
+  AppSettingsRoute: typeof AppSettingsRoute
   AppTicketsRoute: typeof AppTicketsRouteWithChildren
   AppAdminDistrictsRoute: typeof AppAdminDistrictsRoute
   AppAdminExternalRoute: typeof AppAdminExternalRoute
@@ -347,6 +367,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppChatRoute: AppChatRoute,
   AppDashboardRoute: AppDashboardRoute,
+  AppSettingsRoute: AppSettingsRoute,
   AppTicketsRoute: AppTicketsRouteWithChildren,
   AppAdminDistrictsRoute: AppAdminDistrictsRoute,
   AppAdminExternalRoute: AppAdminExternalRoute,
@@ -368,3 +389,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
