@@ -22,11 +22,12 @@ interface Props<T> {
   empty?: ReactNode;
   toolbar?: ReactNode;
   searchPlaceholder?: string;
+  onRowClick?: (row: T) => void;
 }
 
 export function DataTable<T>({
   rows, columns, pageSize = 8, rowKey, empty, toolbar,
-  searchPlaceholder = "Search...",
+  searchPlaceholder = "Search...", onRowClick,
 }: Props<T>) {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
