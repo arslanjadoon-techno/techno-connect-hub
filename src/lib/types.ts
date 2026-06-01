@@ -39,6 +39,7 @@ export interface User {
   firstName: string;
   lastName: string;
   email: string;
+  phone?: string;
   department: Department;
   role: Role;
   stateId?: string;
@@ -46,6 +47,17 @@ export interface User {
   marketId?: string;
   storeId?: string;
   avatarColor?: string;
+  avatarUrl?: string;
+}
+
+export interface AppNotification {
+  id: string;
+  userId?: string; // if undefined, visible to all
+  title: string;
+  body: string;
+  link?: string;
+  createdAt: string;
+  read: boolean;
 }
 
 export interface State { id: string; name: string; code: string; }
