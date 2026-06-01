@@ -159,3 +159,10 @@ export const seedChatMessages: ChatMessage[] = [
   { id: "m2", groupId: "cg-it", authorId: "u-user-it", authorName: "Junaid Yousuf", message: "On it 👍", createdAt: now() },
   { id: "m3", groupId: "cg-fin",authorId: "u-mgr-fin", authorName: "Bilal Ahmed", message: "Month-end closing reminder.", createdAt: now() },
 ];
+
+export const seedNotifications: AppNotification[] = [
+  { id: "n1", title: "New ticket assigned", body: "TKT-1001 — POS terminal not booting", link: "/tickets/TKT-1001", createdAt: now(), read: false },
+  { id: "n2", title: "Ticket status updated", body: "TKT-1003 moved to On Hold", link: "/tickets/TKT-1003", createdAt: now(), read: false },
+  { id: "n3", title: "New comment", body: "Sara commented on TKT-1005", link: "/tickets/TKT-1005", createdAt: now(), read: true },
+  { id: "n4", title: "Urgent ticket created", body: "TKT-1002 — AC leaking in stock room", link: "/tickets/TKT-1002", createdAt: now(), read: false },
+];
