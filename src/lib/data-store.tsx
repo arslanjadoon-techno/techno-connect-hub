@@ -1,14 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   seedChatGroups, seedChatMessages, seedDistricts, seedHouses, seedMarkets,
-  seedStates, seedStores, seedTickets, seedUsers, seedVendors,
+  seedNotifications, seedStates, seedStores, seedTickets, seedUsers, seedVendors,
 } from "./mock/seed";
 import type {
-  ChatGroup, ChatMessage, District, ExternalVendor, House, Market, State,
+  AppNotification, ChatGroup, ChatMessage, District, ExternalVendor, House, Market, State,
   Store, Ticket, TicketStatus, User,
 } from "./types";
 
-const STORAGE_KEY = "techno-ticket-store-v1";
+const STORAGE_KEY = "techno-ticket-store-v2";
 
 interface Store$ {
   users: User[];
@@ -21,6 +21,7 @@ interface Store$ {
   vendors: ExternalVendor[];
   chatGroups: ChatGroup[];
   chatMessages: ChatMessage[];
+  notifications: AppNotification[];
 }
 
 const initial: Store$ = {
@@ -34,6 +35,7 @@ const initial: Store$ = {
   vendors: seedVendors,
   chatGroups: seedChatGroups,
   chatMessages: seedChatMessages,
+  notifications: seedNotifications,
 };
 
 function loadStore(): Store$ {
