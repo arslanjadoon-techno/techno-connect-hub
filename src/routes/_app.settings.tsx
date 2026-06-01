@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_app/settings")({
 });
 
 function SettingsPage() {
-  const { user, switchTo } = useAuth();
+  const { user } = useAuth();
   const { data, set } = useData();
   const fileRef = useRef<HTMLInputElement>(null);
 
