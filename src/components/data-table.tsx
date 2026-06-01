@@ -84,7 +84,11 @@ export function DataTable<T>({
               </TableRow>
             ) : (
               slice.map((row) => (
-                <TableRow key={rowKey(row)}>
+                <TableRow
+                  key={rowKey(row)}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  className={onRowClick ? "cursor-pointer transition-colors hover:bg-accent/50" : undefined}
+                >
                   {columns.map((c) => (
                     <TableCell key={c.key} className={c.className}>{c.accessor(row)}</TableCell>
                   ))}
