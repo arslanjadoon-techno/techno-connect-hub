@@ -1,4 +1,5 @@
 import type {
+  AppNotification,
   ChatGroup,
   ChatMessage,
   District,
