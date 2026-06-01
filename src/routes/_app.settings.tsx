@@ -51,14 +51,11 @@ function SettingsPage() {
       avatarUrl: avatarUrl || undefined,
     };
     set("users", data.users.map((u) => (u.id === user.id ? next : u)));
-    // Refresh current auth session with updated user
-    switchTo(user.id);
-    // ensure local auth state picks up the new fields by replacing the user
     try {
       window.localStorage.setItem("techno-ticket-auth-v1", JSON.stringify(next));
-      window.location.reload();
     } catch { /* ignore */ }
     toast.success("Profile updated");
+    setTimeout(() => window.location.reload(), 400);
   };
 
   return (
