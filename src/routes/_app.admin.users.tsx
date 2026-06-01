@@ -16,12 +16,40 @@ export const Route = createFileRoute("/_app/admin/users")({
 
 function UsersPage() {
   const { data, set } = useData();
+  const [deptFilter, setDeptFilter] = useState<Department | "all">("all");
+  const [roleFilter, setRoleFilter] = useState<Role | "all">("all");
+
+  const filtered = data.users.filter((u) => {
+    if (deptFilter !== "all" && u.department !== deptFilter) return false;
+    if (roleFilter !== "all" && u.role !== roleFilter) return false;
+    return true;
+  });
+
   return (
     <CrudPage<User>
       title="Users"
       subtitle="Manage internal employees and their access roles."
-      rows={data.users}
+      rows={filtered}
       rowKey={(u) => u.id}
+      extraToolbar={
+        <>
+          <Select value={deptFilter} onValueChange={(v) => setDeptFilter(v as typeof deptFilter)}>
+            <SelectTrigger className="h-9 w-[180px]"><SelectValue placeholder="Department" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All departments</SelectItem>
+              {ALL_DEPARTMENTS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v as typeof roleFilter)}>
+            <SelectTrigger className="h-9 w-[180px]"><SelectValue placeholder="Role" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All roles</SelectItem>
+              {ALL_ROLES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <span className="text-xs text-muted-foreground">{filtered.length} of {data.users.length}</span>
+        </>
+      }
       columns={[
         { key: "name", header: "Name", accessor: (u) => (
             <div className="flex items-center gap-2">

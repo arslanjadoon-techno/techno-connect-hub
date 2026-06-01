@@ -22,11 +22,12 @@ interface Props<T> {
   empty?: ReactNode;
   toolbar?: ReactNode;
   searchPlaceholder?: string;
+  onRowClick?: (row: T) => void;
 }
 
 export function DataTable<T>({
   rows, columns, pageSize = 8, rowKey, empty, toolbar,
-  searchPlaceholder = "Search...",
+  searchPlaceholder = "Search...", onRowClick,
 }: Props<T>) {
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -83,7 +84,11 @@ export function DataTable<T>({
               </TableRow>
             ) : (
               slice.map((row) => (
-                <TableRow key={rowKey(row)}>
+                <TableRow
+                  key={rowKey(row)}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  className={onRowClick ? "cursor-pointer transition-colors hover:bg-accent/50" : undefined}
+                >
                   {columns.map((c) => (
                     <TableCell key={c.key} className={c.className}>{c.accessor(row)}</TableCell>
                   ))}
