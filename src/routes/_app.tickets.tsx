@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data-store";
 import { canCreateTicket, visibleTickets } from "@/lib/permissions";
@@ -21,25 +21,42 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { DataTable, type Column } from "@/components/data-table";
-import { Plus, ExternalLink } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
+
+type StatusSearch = TicketStatus | "all";
+const STATUS_KEYS: StatusSearch[] = ["all", "pending", "assigned", "completed", "hold", "closed", "reopen"];
 
 export const Route = createFileRoute("/_app/tickets")({
   head: () => ({ meta: [{ title: "Tickets — Techno Ticket Portal" }] }),
+  validateSearch: (s: Record<string, unknown>) => ({
+    status: (STATUS_KEYS.includes(s.status as StatusSearch) ? (s.status as StatusSearch) : "all") as StatusSearch,
+  }),
   component: TicketsPage,
 });
 
 function TicketsPage() {
   const { user } = useAuth();
   const { data, set } = useData();
+  const navigate = useNavigate();
+  const search = Route.useSearch();
   const [open, setOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<TicketStatus | "all">("all");
+  const [statusFilter, setStatusFilter] = useState<StatusSearch>(search.status);
   const [deptFilter, setDeptFilter] = useState<Department | "all">("all");
   const [priorityFilter, setPriorityFilter] = useState<TicketPriority | "all">("all");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [creatorFilter, setCreatorFilter] = useState<string>("all");
   const [timeFilter, setTimeFilter] = useState<"all" | "today" | "7d" | "30d" | "90d">("all");
+
+  // Sync URL -> state
+  useEffect(() => { setStatusFilter(search.status); }, [search.status]);
+
   if (!user) return null;
+
+  const setStatus = (s: StatusSearch) => {
+    setStatusFilter(s);
+    navigate({ to: "/tickets", search: { status: s }, replace: true });
+  };
 
   const myTickets = useMemo(() => visibleTickets(user, data.tickets), [user, data.tickets]);
 
@@ -73,9 +90,7 @@ function TicketsPage() {
   };
 
   const locationName = (t: Ticket) => {
-    if (t.category === "store") {
-      return data.stores.find((s) => s.id === t.locationId)?.name ?? "—";
-    }
+    if (t.category === "store") return data.stores.find((s) => s.id === t.locationId)?.name ?? "—";
     return data.houses.find((h) => h.id === t.locationId)?.name ?? "—";
   };
 
@@ -92,76 +107,34 @@ function TicketsPage() {
   };
 
   const columns: Column<Ticket>[] = [
-    {
-      key: "id", header: "ID", searchValue: (t) => t.id,
-      accessor: (t) => (
-        <Link to="/tickets/$id" params={{ id: t.id }} className="font-mono text-xs font-medium text-primary hover:underline">
-          {t.id}
-        </Link>
-      ),
-    },
-    {
-      key: "title", header: "Title",
-      searchValue: (t) => `${t.title} ${t.description}`,
+    { key: "id", header: "ID", searchValue: (t) => t.id,
+      accessor: (t) => <span className="font-mono text-xs font-medium text-primary">{t.id}</span> },
+    { key: "title", header: "Title", searchValue: (t) => `${t.title} ${t.description}`,
       accessor: (t) => (
         <div>
           <div className="font-medium">{t.title}</div>
           <div className="line-clamp-1 text-xs text-muted-foreground">{t.description}</div>
         </div>
-      ),
-    },
-    {
-      key: "dept", header: "Department",
-      searchValue: (t) => t.department,
-      accessor: (t) => <span className="text-sm">{t.department}</span>,
-    },
-    {
-      key: "loc", header: "Location",
-      searchValue: (t) => locationName(t),
+      ) },
+    { key: "dept", header: "Department", searchValue: (t) => t.department,
+      accessor: (t) => <span className="text-sm">{t.department}</span> },
+    { key: "loc", header: "Location", searchValue: (t) => locationName(t),
       accessor: (t) => (
         <div className="text-sm">
           <div>{locationName(t)}</div>
           <div className="text-xs text-muted-foreground capitalize">{t.category}</div>
         </div>
-      ),
-    },
-    {
-      key: "creator", header: "Creator",
-      searchValue: (t) => creatorName(t.createdById),
-      accessor: (t) => <span className="text-sm">{creatorName(t.createdById)}</span>,
-    },
-    {
-      key: "assignee", header: "Assignee",
-      searchValue: (t) => assigneeName(t),
-      accessor: (t) => <span className="text-sm">{assigneeName(t)}</span>,
-    },
-    {
-      key: "created", header: "Created",
-      searchValue: (t) => t.createdAt,
-      accessor: (t) => (
-        <span className="whitespace-nowrap text-xs text-muted-foreground">
-          {new Date(t.createdAt).toLocaleDateString()}
-        </span>
-      ),
-    },
-    {
-      key: "priority", header: "Priority",
-      searchValue: (t) => t.priority,
-      accessor: (t) => <Badge variant="outline" className={PRIORITY_META[t.priority].tone}>{PRIORITY_META[t.priority].label}</Badge>,
-    },
-    {
-      key: "status", header: "Status",
-      searchValue: (t) => t.status,
-      accessor: (t) => <Badge variant="outline" className={STATUS_META[t.status].tone}>{STATUS_META[t.status].label}</Badge>,
-    },
-    {
-      key: "action", header: "", className: "w-12",
-      accessor: (t) => (
-        <Link to="/tickets/$id" params={{ id: t.id }} className="inline-flex h-8 w-8 items-center justify-center rounded-md hover:bg-muted">
-          <ExternalLink className="h-4 w-4" />
-        </Link>
-      ),
-    },
+      ) },
+    { key: "creator", header: "Creator", searchValue: (t) => creatorName(t.createdById),
+      accessor: (t) => <span className="text-sm">{creatorName(t.createdById)}</span> },
+    { key: "assignee", header: "Assignee", searchValue: (t) => assigneeName(t),
+      accessor: (t) => <span className="text-sm">{assigneeName(t)}</span> },
+    { key: "created", header: "Created", searchValue: (t) => t.createdAt,
+      accessor: (t) => <span className="whitespace-nowrap text-xs text-muted-foreground">{new Date(t.createdAt).toLocaleDateString()}</span> },
+    { key: "priority", header: "Priority", searchValue: (t) => t.priority,
+      accessor: (t) => <Badge variant="outline" className={PRIORITY_META[t.priority].tone}>{PRIORITY_META[t.priority].label}</Badge> },
+    { key: "status", header: "Status", searchValue: (t) => t.status,
+      accessor: (t) => <Badge variant="outline" className={STATUS_META[t.status].tone}>{STATUS_META[t.status].label}</Badge> },
   ];
 
   const handleCreate = (t: Ticket) => {
@@ -190,58 +163,34 @@ function TicketsPage() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <FilterChip label="All" active={statusFilter === "all"} onClick={() => setStatusFilter("all")} />
+        <FilterChip label="All" active={statusFilter === "all"} onClick={() => setStatus("all")} />
         {(Object.keys(STATUS_META) as TicketStatus[]).map((s) => (
-          <FilterChip key={s} label={STATUS_META[s].label} active={statusFilter === s} onClick={() => setStatusFilter(s)} />
+          <FilterChip key={s} label={STATUS_META[s].label} active={statusFilter === s} onClick={() => setStatus(s)} />
         ))}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <FilterSelect
-          value={timeFilter} onChange={(v) => setTimeFilter(v as typeof timeFilter)}
-          placeholder="Time"
+        <FilterSelect value={timeFilter} onChange={(v) => setTimeFilter(v as typeof timeFilter)} placeholder="Time"
           options={[
             { value: "all", label: "All time" },
             { value: "today", label: "Today" },
             { value: "7d", label: "Last 7 days" },
             { value: "30d", label: "Last 30 days" },
             { value: "90d", label: "Last 90 days" },
-          ]}
-        />
-        <FilterSelect
-          value={deptFilter} onChange={(v) => setDeptFilter(v as typeof deptFilter)}
-          placeholder="Department"
-          options={[
-            { value: "all", label: "All departments" },
-            ...ALL_DEPARTMENTS.map((d) => ({ value: d, label: d })),
-          ]}
-        />
-        <FilterSelect
-          value={priorityFilter} onChange={(v) => setPriorityFilter(v as typeof priorityFilter)}
-          placeholder="Priority"
-          options={[
-            { value: "all", label: "All priorities" },
-            ...(Object.keys(PRIORITY_META) as TicketPriority[]).map((p) => ({ value: p, label: PRIORITY_META[p].label })),
-          ]}
-        />
-        <FilterSelect
-          value={creatorFilter} onChange={setCreatorFilter}
-          placeholder="Creator"
-          options={[
-            { value: "all", label: "All creators" },
-            ...data.users.map((u) => ({ value: u.id, label: `${u.firstName} ${u.lastName}` })),
-          ]}
-        />
-        <FilterSelect
-          value={assigneeFilter} onChange={setAssigneeFilter}
-          placeholder="Assignee"
+          ]} />
+        <FilterSelect value={deptFilter} onChange={(v) => setDeptFilter(v as typeof deptFilter)} placeholder="Department"
+          options={[{ value: "all", label: "All departments" }, ...ALL_DEPARTMENTS.map((d) => ({ value: d, label: d }))]} />
+        <FilterSelect value={priorityFilter} onChange={(v) => setPriorityFilter(v as typeof priorityFilter)} placeholder="Priority"
+          options={[{ value: "all", label: "All priorities" }, ...(Object.keys(PRIORITY_META) as TicketPriority[]).map((p) => ({ value: p, label: PRIORITY_META[p].label }))]} />
+        <FilterSelect value={creatorFilter} onChange={setCreatorFilter} placeholder="Creator"
+          options={[{ value: "all", label: "All creators" }, ...data.users.map((u) => ({ value: u.id, label: `${u.firstName} ${u.lastName}` }))]} />
+        <FilterSelect value={assigneeFilter} onChange={setAssigneeFilter} placeholder="Assignee"
           options={[
             { value: "all", label: "All assignees" },
             { value: "__unassigned", label: "Unassigned" },
             ...data.users.map((u) => ({ value: u.id, label: `${u.firstName} ${u.lastName}` })),
             ...data.vendors.map((v) => ({ value: `ext:${v.id}`, label: `${v.name} (External)` })),
-          ]}
-        />
+          ]} />
       </div>
 
       <DataTable
@@ -249,6 +198,7 @@ function TicketsPage() {
         columns={columns}
         rowKey={(t) => t.id}
         searchPlaceholder="Search tickets, location, assignee..."
+        onRowClick={(t) => navigate({ to: "/tickets/$id", params: { id: t.id } })}
       />
     </div>
   );
@@ -256,12 +206,7 @@ function TicketsPage() {
 
 function FilterSelect({
   value, onChange, options, placeholder,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  options: { value: string; label: string }[];
-  placeholder: string;
-}) {
+}: { value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; placeholder: string }) {
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger className="h-9 w-[170px]"><SelectValue placeholder={placeholder} /></SelectTrigger>
@@ -271,7 +216,6 @@ function FilterSelect({
     </Select>
   );
 }
-
 
 function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
