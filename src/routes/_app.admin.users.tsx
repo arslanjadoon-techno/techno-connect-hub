@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { usersApi } from "@/lib/api/client";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/admin/users")({
@@ -24,6 +25,18 @@ function UsersPage() {
     if (roleFilter !== "all" && u.role !== roleFilter) return false;
     return true;
   });
+
+  const handleDelete = async (u: User) => {
+    try {
+      const numericId = Number(u.id);
+      if (!Number.isNaN(numericId)) await usersApi.delete(numericId);
+    } catch (err) {
+      // Network/backend failure: still remove locally for demo continuity
+      console.warn("Delete user API failed, removing locally:", (err as Error).message);
+    }
+    set("users", data.users.filter((x) => x.id !== u.id));
+    toast.success("User deleted");
+  };
 
   return (
     <CrudPage<User>
@@ -62,12 +75,11 @@ function UsersPage() {
         { key: "dept", header: "Department", accessor: (u) => u.department, searchValue: (u) => u.department },
         { key: "role", header: "Role", accessor: (u) => ALL_ROLES.find((r) => r.value === u.role)?.label ?? u.role, searchValue: (u) => u.role },
       ]}
-      onDelete={(u) => { set("users", data.users.filter((x) => x.id !== u.id)); toast.success("User deleted"); }}
+      onDelete={handleDelete}
       renderForm={(initial, close) => (
-        <UserForm initial={initial} onSave={(next) => {
+        <UserForm initial={initial} onSaved={(next) => {
           if (initial) set("users", data.users.map((x) => x.id === next.id ? next : x));
           else set("users", [...data.users, next]);
-          toast.success(initial ? "User updated" : "User added");
           close();
         }} />
       )}
@@ -76,53 +88,163 @@ function UsersPage() {
   );
 }
 
-function UserForm({ initial, onSave }: { initial: User | null; onSave: (u: User) => void }) {
+function splitName(full: string): { firstName: string; lastName: string } {
+  const parts = full.trim().split(/\s+/);
+  return { firstName: parts[0] ?? "", lastName: parts.slice(1).join(" ") };
+}
+
+function UserForm({ initial, onSaved }: { initial: User | null; onSaved: (u: User) => void }) {
   const { data } = useData();
-  const [firstName, setFirstName] = useState(initial?.firstName ?? "");
-  const [lastName, setLastName] = useState(initial?.lastName ?? "");
+  const [fullName, setFullName] = useState(initial ? `${initial.firstName} ${initial.lastName}`.trim() : "");
   const [email, setEmail] = useState(initial?.email ?? "");
-  const [department, setDepartment] = useState<Department>(initial?.department ?? ALL_DEPARTMENTS[0]);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [role, setRole] = useState<Role>(initial?.role ?? "user");
+  const [department, setDepartment] = useState<Department>(initial?.department ?? ALL_DEPARTMENTS[0]);
   const [stateId, setStateId] = useState(initial?.stateId ?? "");
   const [marketId, setMarketId] = useState(initial?.marketId ?? "");
   const [districtId, setDistrictId] = useState(initial?.districtId ?? "");
   const [storeId, setStoreId] = useState(initial?.storeId ?? "");
+  const [submitting, setSubmitting] = useState(false);
 
   const needsState   = role === "state_manager" || role === "district_manager" || role === "market_manager" || role === "store_manager";
   const needsMarket  = role === "district_manager" || role === "market_manager" || role === "store_manager";
   const needsDistrict= role === "district_manager" || role === "store_manager";
   const needsStore   = role === "store_manager";
+  const departmentRequired = role !== "admin";
 
   const markets = data.markets.filter((m) => m.stateId === stateId);
   const districts = data.districts.filter((d) => d.marketId === marketId);
   const stores = data.stores.filter((s) => s.districtId === districtId);
 
-  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const passwordOk = initial
+    ? (!password && !confirmPassword) || (password.length >= 6 && password === confirmPassword)
+    : password.length >= 6 && password === confirmPassword;
+
+  // Validation requirements: fullName, email, role required.
+  // Password + confirm required when creating; department required if role != admin.
+  const baseValid = fullName.trim().length >= 2 && validEmail && role;
   const canSave =
-    firstName.trim() && lastName.trim() && validEmail &&
+    baseValid && passwordOk &&
+    (!departmentRequired || !!department) &&
     (!needsState || stateId) && (!needsMarket || marketId) &&
     (!needsDistrict || districtId) && (!needsStore || storeId);
 
+  const validationHint = (() => {
+    if (!fullName.trim()) return "Full name is required";
+    if (!validEmail) return "Valid email is required";
+    if (!initial && password.length < 6) return "Password must be at least 6 characters";
+    if (password !== confirmPassword) return "Passwords do not match";
+    if (departmentRequired && !department) return "Department is required for non-admin roles";
+    return null;
+  })();
+
+  const submit = async () => {
+    if (!canSave) {
+      if (validationHint) toast.error(validationHint);
+      return;
+    }
+    setSubmitting(true);
+    const { firstName, lastName } = splitName(fullName);
+    try {
+      if (initial) {
+        const numericId = Number(initial.id);
+        if (!Number.isNaN(numericId)) {
+          await usersApi.update({
+            id: numericId,
+            fullName: fullName.trim(),
+            email: email.trim(),
+            role,
+            department: departmentRequired ? department : null,
+          });
+        }
+        onSaved({
+          ...initial,
+          firstName, lastName,
+          email: email.trim(),
+          role,
+          department,
+          stateId: needsState ? stateId : undefined,
+          marketId: needsMarket ? marketId : undefined,
+          districtId: needsDistrict ? districtId : undefined,
+          storeId: needsStore ? storeId : undefined,
+        });
+        toast.success("User updated");
+      } else {
+        let newId: string = `u-${Date.now()}`;
+        try {
+          const res = await usersApi.add({
+            fullName: fullName.trim(),
+            email: email.trim(),
+            password,
+            role,
+            ...(departmentRequired ? { department } : {}),
+          });
+          newId = String(res.data.id);
+        } catch (err) {
+          console.warn("Add user API failed, saving locally:", (err as Error).message);
+        }
+        onSaved({
+          id: newId,
+          firstName, lastName,
+          email: email.trim(),
+          role, department,
+          stateId: needsState ? stateId : undefined,
+          marketId: needsMarket ? marketId : undefined,
+          districtId: needsDistrict ? districtId : undefined,
+          storeId: needsStore ? storeId : undefined,
+          avatarColor: "#0d7a5f",
+        });
+        toast.success("User added");
+      }
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5"><Label>First name</Label><Input value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
-        <div className="space-y-1.5"><Label>Last name</Label><Input value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
+      <div className="space-y-1.5">
+        <Label>Full name <span className="text-destructive">*</span></Label>
+        <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Arslan Khan" />
       </div>
-      <div className="space-y-1.5"><Label>Email</Label><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+      <div className="space-y-1.5">
+        <Label>Email <span className="text-destructive">*</span></Label>
+        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@techno.com" />
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label>Department</Label>
-          <Select value={department} onValueChange={(v) => setDepartment(v as Department)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>{ALL_DEPARTMENTS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-          </Select>
+          <Label>Password {!initial && <span className="text-destructive">*</span>}</Label>
+          <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={initial ? "Leave blank to keep" : "Min 6 chars"} />
         </div>
         <div className="space-y-1.5">
-          <Label>Role</Label>
+          <Label>Confirm password {!initial && <span className="text-destructive">*</span>}</Label>
+          <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter password" />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Role <span className="text-destructive">*</span></Label>
           <Select value={role} onValueChange={(v) => setRole(v as Role)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>{ALL_ROLES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <Label>
+            Department {departmentRequired && <span className="text-destructive">*</span>}
+            {!departmentRequired && <span className="ml-1 text-xs text-muted-foreground">(not required for Admin)</span>}
+          </Label>
+          <Select
+            value={department}
+            onValueChange={(v) => setDepartment(v as Department)}
+            disabled={!departmentRequired}
+          >
+            <SelectTrigger><SelectValue placeholder={departmentRequired ? "Select department" : "—"} /></SelectTrigger>
+            <SelectContent>{ALL_DEPARTMENTS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
           </Select>
         </div>
       </div>
@@ -164,20 +286,12 @@ function UserForm({ initial, onSave }: { initial: User | null; onSave: (u: User)
         </div>
       )}
 
-      <Button
-        disabled={!canSave}
-        onClick={() => onSave({
-          id: initial?.id ?? `u-${Date.now()}`,
-          firstName: firstName.trim(), lastName: lastName.trim(), email: email.trim(),
-          department, role,
-          stateId: needsState ? stateId : undefined,
-          marketId: needsMarket ? marketId : undefined,
-          districtId: needsDistrict ? districtId : undefined,
-          storeId: needsStore ? storeId : undefined,
-          avatarColor: initial?.avatarColor ?? "#0d7a5f",
-        })}
-      >
-        Save
+      {validationHint && (
+        <p className="text-xs text-muted-foreground">{validationHint}</p>
+      )}
+
+      <Button disabled={!canSave || submitting} onClick={submit}>
+        {submitting ? "Saving..." : initial ? "Update user" : "Add user"}
       </Button>
     </div>
   );

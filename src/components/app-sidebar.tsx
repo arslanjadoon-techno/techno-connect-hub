@@ -2,6 +2,7 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, TicketCheck, MessagesSquare, MapPin, Store as StoreIcon,
   Building2, Network, Users as UsersIcon, Wrench, LogOut, ShieldCheck,
+  Settings as SettingsIcon, ChevronUp,
 } from "lucide-react";
 
 import {
@@ -9,6 +10,10 @@ import {
   SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton,
   SidebarMenuItem, useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 import { isAdmin } from "@/lib/permissions";
 import { ALL_ROLES } from "@/lib/types";
@@ -103,33 +108,54 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border">
-        <div className="flex items-center gap-2 px-2 py-2">
-          <div
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
-            style={{ backgroundColor: user.avatarColor ?? "#0d7a5f" }}
-          >
-            {user.firstName[0]}{user.lastName[0]}
-          </div>
-          {!collapsed && (
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium text-sidebar-foreground">
-                {user.firstName} {user.lastName}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors hover:bg-sidebar-accent">
+              <div
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold text-white"
+                style={{
+                  backgroundColor: user.avatarColor ?? "#0d7a5f",
+                  backgroundImage: user.avatarUrl ? `url(${user.avatarUrl})` : undefined,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }}
+              >
+                {!user.avatarUrl && <>{user.firstName[0]}{user.lastName[0]}</>}
               </div>
-              <div className="truncate text-[11px] text-sidebar-foreground/70">
-                {roleLabel} • {user.department}
-              </div>
-            </div>
-          )}
-          {!collapsed && (
-            <button
-              onClick={() => { logout(); navigate({ to: "/login" }); }}
-              className="rounded-md p-1.5 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground"
-              title="Logout"
-            >
-              <LogOut className="h-4 w-4" />
+              {!collapsed && (
+                <>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-sidebar-foreground">
+                      {user.firstName} {user.lastName}
+                    </div>
+                    <div className="truncate text-[11px] text-sidebar-foreground/70">
+                      {roleLabel} • {user.department}
+                    </div>
+                  </div>
+                  <ChevronUp className="h-4 w-4 text-sidebar-foreground/70" />
+                </>
+              )}
             </button>
-          )}
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="start" className="w-56">
+            <DropdownMenuLabel className="space-y-0.5">
+              <div className="text-sm font-medium">{user.firstName} {user.lastName}</div>
+              <div className="text-xs font-normal text-muted-foreground">{user.email}</div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link to="/settings" className="flex w-full cursor-pointer items-center gap-2">
+                <SettingsIcon className="h-4 w-4" /> Settings
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => { logout(); navigate({ to: "/login" }); }}
+              className="cursor-pointer text-destructive focus:text-destructive"
+            >
+              <LogOut className="h-4 w-4" /> Logout
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </SidebarFooter>
     </Sidebar>
   );

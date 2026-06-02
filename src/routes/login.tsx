@@ -19,6 +19,7 @@ function LoginPage() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("admin@techno.com");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -27,9 +28,13 @@ function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim() || !password.trim()) {
+      toast.error("Email and password are required");
+      return;
+    }
     setLoading(true);
     try {
-      await login(email);
+      await login(email.trim(), password);
       toast.success("Signed in successfully");
       navigate({ to: "/dashboard" });
     } catch (err) {
@@ -101,7 +106,14 @@ function LoginPage() {
                   Forgot password?
                 </Link>
               </div>
-              <Input id="password" type="password" placeholder="••••••••" defaultValue="demo" />
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Signing in..." : "Sign in"}
@@ -110,14 +122,14 @@ function LoginPage() {
 
           <div className="mt-6 rounded-lg border bg-muted/40 p-3">
             <div className="mb-2 text-xs font-medium text-muted-foreground">
-              Demo accounts (click to fill):
+              Demo accounts (click to fill — used if backend is offline):
             </div>
             <div className="grid gap-1">
               {seedUsers.map((u) => (
                 <button
                   type="button"
                   key={u.id}
-                  onClick={() => setEmail(u.email)}
+                  onClick={() => { setEmail(u.email); setPassword("demo"); }}
                   className="flex items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-background"
                 >
                   <span className="truncate">{u.firstName} {u.lastName}</span>
