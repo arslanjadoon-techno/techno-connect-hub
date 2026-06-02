@@ -1,5 +1,5 @@
-import { createFileRoute, Link, Outlet, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/lib/auth";
@@ -7,20 +7,16 @@ import { useData } from "@/lib/data-store";
 import { useTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
-import { Bell, Moon, Sun, LogOut, Settings as SettingsIcon, CheckCheck } from "lucide-react";
+import { Bell, Moon, Sun, CheckCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_app")({
   component: AppLayout,
 });
 
 function AppLayout() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { data, set } = useData();
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
@@ -119,45 +115,6 @@ function AppLayout() {
                 </div>
               </PopoverContent>
             </Popover>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="ml-1 flex items-center gap-2 rounded-full p-1 hover:bg-accent">
-                  <div
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white"
-                    style={{
-                      backgroundColor: user.avatarColor ?? "#0d7a5f",
-                      backgroundImage: user.avatarUrl ? `url(${user.avatarUrl})` : undefined,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center",
-                    }}
-                  >
-                    {!user.avatarUrl && <>{user.firstName[0]}{user.lastName[0]}</>}
-                  </div>
-                  <span className="hidden text-sm font-medium sm:inline">
-                    {user.firstName} {user.lastName}
-                  </span>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel className="space-y-0.5">
-                  <div className="text-sm font-medium">{user.firstName} {user.lastName}</div>
-                  <div className="text-xs font-normal text-muted-foreground">{user.email}</div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link to="/settings" className="flex w-full items-center gap-2 cursor-pointer">
-                    <SettingsIcon className="h-4 w-4" /> Settings
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => { logout(); navigate({ to: "/login" }); }}
-                  className="cursor-pointer text-destructive focus:text-destructive"
-                >
-                  <LogOut className="h-4 w-4" /> Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </header>
           <main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
             <Outlet />
