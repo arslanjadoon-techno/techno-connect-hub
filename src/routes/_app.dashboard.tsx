@@ -11,21 +11,25 @@ import { Card } from "@/components/ui/card";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/button";
 import {
   TicketCheck, Store as StoreIcon, MapPin, Building2, Network, UserCog,
   Clock, CheckCircle2, PauseCircle, AlertCircle, RotateCw, Archive,
+  Calendar as CalendarIcon, X,
 } from "lucide-react";
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
   PieChart, Pie, Cell, LineChart, Line, Legend,
 } from "recharts";
+import type { DateRange } from "react-day-picker";
 
 export const Route = createFileRoute("/_app/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Techno Ticket Portal" }] }),
   component: DashboardPage,
 });
 
-type TimeRange = "all" | "today" | "7d" | "30d" | "90d";
 type CategoryFilter = "all" | "store" | "house";
 
 const STATUS_ICON: Record<TicketStatus, typeof Clock> = {
@@ -62,7 +66,7 @@ function DashboardPage() {
 
   // --- Top filters ---
   const [department, setDepartment] = useState<Department | "all">("all");
-  const [timeRange, setTimeRange] = useState<TimeRange>("all");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [category, setCategory] = useState<CategoryFilter>("all");
   const [locationId, setLocationId] = useState<string>("all");
 
@@ -71,19 +75,22 @@ function DashboardPage() {
   const baseTickets = useMemo(() => visibleTickets(user, data.tickets), [user, data.tickets]);
 
   const myTickets = useMemo(() => {
-    const cutoff = (() => {
-      if (timeRange === "all") return 0;
-      const map = { today: 1, "7d": 7, "30d": 30, "90d": 90 } as const;
-      return Date.now() - map[timeRange] * 86400000;
-    })();
+    const from = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+    const to = dateRange?.to
+      ? new Date(dateRange.to).setHours(23, 59, 59, 999)
+      : dateRange?.from
+        ? new Date(dateRange.from).setHours(23, 59, 59, 999)
+        : null;
     return baseTickets.filter((t) => {
       if (department !== "all" && t.department !== department) return false;
       if (category !== "all" && t.category !== category) return false;
       if (locationId !== "all" && t.locationId !== locationId) return false;
-      if (cutoff && new Date(t.createdAt).getTime() < cutoff) return false;
+      const created = new Date(t.createdAt).getTime();
+      if (from !== null && created < from) return false;
+      if (to !== null && created > to) return false;
       return true;
     });
-  }, [baseTickets, department, category, locationId, timeRange]);
+  }, [baseTickets, department, category, locationId, dateRange]);
 
   const counts = useMemo(() => {
     const c: Record<TicketStatus, number> = { pending: 0, assigned: 0, completed: 0, hold: 0, closed: 0, reopen: 0 };
@@ -149,14 +156,7 @@ function DashboardPage() {
         <span className="px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">Filters</span>
         <FilterSelect value={department} onChange={(v) => setDepartment(v as typeof department)} placeholder="Department"
           options={[{ value: "all", label: "All departments" }, ...ALL_DEPARTMENTS.map((d) => ({ value: d, label: d }))]} />
-        <FilterSelect value={timeRange} onChange={(v) => setTimeRange(v as TimeRange)} placeholder="Time"
-          options={[
-            { value: "all", label: "All time" },
-            { value: "today", label: "Today" },
-            { value: "7d", label: "Last 7 days" },
-            { value: "30d", label: "Last 30 days" },
-            { value: "90d", label: "Last 90 days" },
-          ]} />
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
         <FilterSelect value={category} onChange={(v) => { setCategory(v as CategoryFilter); setLocationId("all"); }} placeholder="Category"
           options={[
             { value: "all", label: "All categories" },
