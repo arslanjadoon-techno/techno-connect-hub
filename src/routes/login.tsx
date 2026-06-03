@@ -1,8 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { seedUsers } from "@/lib/mock/seed";
-import { ALL_ROLES } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +16,7 @@ export const Route = createFileRoute("/login")({
 function LoginPage() {
   const { user, login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("admin@techno.com");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -120,26 +118,6 @@ function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 rounded-lg border bg-muted/40 p-3">
-            <div className="mb-2 text-xs font-medium text-muted-foreground">
-              Demo accounts (click to fill — used if backend is offline):
-            </div>
-            <div className="grid gap-1">
-              {seedUsers.map((u) => (
-                <button
-                  type="button"
-                  key={u.id}
-                  onClick={() => { setEmail(u.email); setPassword("demo"); }}
-                  className="flex items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-background"
-                >
-                  <span className="truncate">{u.firstName} {u.lastName}</span>
-                  <span className="ml-2 truncate text-muted-foreground">
-                    {ALL_ROLES.find((r) => r.value === u.role)?.label}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </div>
         </Card>
       </div>
     </div>
