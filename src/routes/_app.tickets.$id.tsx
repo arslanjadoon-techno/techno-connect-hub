@@ -17,9 +17,26 @@ import { ArrowLeft, MessageSquare, Clock } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/tickets/$id")({
-  head: () => ({ meta: [{ title: "Ticket — Techno Ticket Portal" }] }),
+  head: () => ({ meta: [{ title: "Ticket Details — Techno Ticket Portal" }] }),
   component: TicketDetail,
 });
+
+/** "28-05-2026 02:33 Pm" style — matches reference screenshot. */
+function fmtDateTime(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const dd = pad(d.getDate());
+  const mm = pad(d.getMonth() + 1);
+  const yyyy = d.getFullYear();
+  let h = d.getHours();
+  const ampm = h >= 12 ? "Pm" : "Am";
+  h = h % 12 || 12;
+  return `${dd}-${mm}-${yyyy} ${pad(h)}:${pad(d.getMinutes())} ${ampm}`;
+}
+
+function titleCase(s: string): string {
+  return s.replace(/\w\S*/g, (t) => t.charAt(0).toUpperCase() + t.slice(1).toLowerCase());
+}
 
 function TicketDetail() {
   const { id } = Route.useParams();
@@ -42,9 +59,14 @@ function TicketDetail() {
   const store = data.stores.find((s) => s.id === ticket.locationId);
   const house = data.houses.find((h) => h.id === ticket.locationId);
   const loc = store ?? house;
+  const market = data.markets.find((m) => m.id === ticket.marketId);
+  const state = data.states.find((s) => s.id === ticket.stateId);
   const assignee = data.users.find((u) => u.id === ticket.assigneeId);
   const vendor = data.vendors.find((v) => v.id === ticket.externalVendorId);
   const createdBy = data.users.find((u) => u.id === ticket.createdById);
+
+  const lastAssignment = [...ticket.history].reverse().find((h) => h.status === "assigned");
+  const assignedBy = lastAssignment ? data.users.find((u) => u.id === lastAssignment.by) : undefined;
 
   const updateStatus = (status: TicketStatus) => {
     const next = transitionTicket(ticket, status, user.id);
@@ -75,50 +97,103 @@ function TicketDetail() {
   const availableStatuses: TicketStatus[] = ["pending", "assigned", "completed", "hold", "closed", "reopen"];
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5">
-      <button onClick={() => navigate({ to: "/tickets" })} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Back to tickets
-      </button>
-
-      <Card className="overflow-hidden p-0">
-        <div
-          className="border-b p-6"
-          style={{ backgroundImage: "linear-gradient(135deg, color-mix(in oklab, var(--primary) 8%, transparent), transparent)" }}
+    <div className="mx-auto max-w-6xl space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <button
+          onClick={() => navigate({ to: "/tickets" })}
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="font-mono text-xs text-muted-foreground">{ticket.id}</div>
-              <h1 className="mt-1 font-display text-2xl font-semibold">{ticket.title}</h1>
-              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{ticket.description}</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="outline" className={PRIORITY_META[ticket.priority].tone}>{PRIORITY_META[ticket.priority].label}</Badge>
-              <Badge variant="outline" className={STATUS_META[ticket.status].tone}>{STATUS_META[ticket.status].label}</Badge>
-            </div>
-          </div>
-        </div>
+          <ArrowLeft className="h-4 w-4" /> Back
+        </button>
+        <h1 className="font-display text-2xl font-semibold tracking-tight">Ticket Details</h1>
+        <div className="w-12" />
+      </div>
 
-        <div className="grid gap-6 p-6 md:grid-cols-3">
-          <Field label="Department" value={ticket.department} />
-          <Field label="Category" value={<span className="capitalize">{ticket.category}</span>} />
-          <Field label="Location" value={loc?.name ?? "—"} />
-          <Field label="Created by" value={createdBy ? `${createdBy.firstName} ${createdBy.lastName}` : "—"} />
+      {/* TICKET CREATOR */}
+      <Section title="TICKET CREATOR">
+        <FieldGrid cols={3}>
+          <Field label="Name" value={createdBy ? titleCase(`${createdBy.firstName} ${createdBy.lastName}`) : "—"} />
+          <Field label="Email" value={createdBy ? titleCase(createdBy.email) : "—"} />
+          <Field label="Created At" value={fmtDateTime(ticket.createdAt)} />
+        </FieldGrid>
+      </Section>
+
+      {/* TICKET DETAILS */}
+      <Section title="TICKET DETAILS">
+        <FieldGrid cols={4}>
+          <Field label="Ticket Id" value={`Ticket#${ticket.id.replace(/\D/g, "") || ticket.id}`} />
+          <Field label="Category" value={titleCase(ticket.category)} />
+          <Field label="Department Name" value={ticket.department} />
           <Field
-            label="Assigned to"
+            label="Status"
             value={
-              ticket.assignType === "external"
-                ? (vendor ? `${vendor.name} (External)` : "External")
-                : (assignee ? `${assignee.firstName} ${assignee.lastName}` : "Unassigned")
+              <Badge variant="outline" className={STATUS_META[ticket.status].tone}>
+                {STATUS_META[ticket.status].label}
+              </Badge>
             }
           />
-          <Field label="Last updated" value={new Date(ticket.updatedAt).toLocaleString()} />
+        </FieldGrid>
+        <div className="mt-5">
+          <FieldLabel>Description</FieldLabel>
+          <p className="mt-1 text-sm">{ticket.description || "—"}</p>
         </div>
+        <div className="mt-5">
+          <FieldGrid cols={3}>
+            <Field label="Market" value={market?.name ?? state?.name ?? "—"} />
+            <Field label={ticket.category === "store" ? "Store" : "House"} value={loc?.name ?? "—"} />
+            <Field
+              label="Priority"
+              value={
+                <Badge variant="outline" className={PRIORITY_META[ticket.priority].tone}>
+                  {PRIORITY_META[ticket.priority].label}
+                </Badge>
+              }
+            />
+          </FieldGrid>
+        </div>
+        <div className="mt-5">
+          <FieldLabel>Title</FieldLabel>
+          <p className="mt-1 text-sm font-medium">{ticket.title}</p>
+        </div>
+      </Section>
 
-        {canTransition && (
-          <div className="flex flex-wrap items-center gap-2 border-t bg-muted/30 p-4">
-            <span className="text-sm font-medium">Change status:</span>
+      {/* AGENT DETAILS */}
+      <Section title="AGENT DETAILS">
+        <FieldGrid cols={4}>
+          <Field
+            label="Assigned By"
+            value={assignedBy ? titleCase(`${assignedBy.firstName} ${assignedBy.lastName}`) : "—"}
+          />
+          <Field
+            label="Assigned To"
+            value={
+              ticket.assignType === "external"
+                ? (vendor ? `${vendor.name} (External)` : "—")
+                : (assignee ? titleCase(`${assignee.firstName} ${assignee.lastName}`) : "—")
+            }
+          />
+          <Field
+            label="Email"
+            value={
+              ticket.assignType === "external"
+                ? (vendor?.phone ?? "N/A")
+                : (assignee?.email ?? "N/A")
+            }
+          />
+          <Field
+            label="Assigned At"
+            value={lastAssignment ? fmtDateTime(lastAssignment.at) : "N/A"}
+          />
+        </FieldGrid>
+      </Section>
+
+      {/* Status changer */}
+      {canTransition && (
+        <Section title="UPDATE STATUS">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm text-muted-foreground">Change current status:</span>
             <Select value={ticket.status} onValueChange={(v) => updateStatus(v as TicketStatus)}>
-              <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {availableStatuses.map((s) => (
                   <SelectItem key={s} value={s}>{STATUS_META[s].label}</SelectItem>
@@ -126,14 +201,11 @@ function TicketDetail() {
               </SelectContent>
             </Select>
           </div>
-        )}
-      </Card>
+        </Section>
+      )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="p-5">
-          <h3 className="mb-3 flex items-center gap-2 font-display font-semibold">
-            <Clock className="h-4 w-4" /> Activity timeline
-          </h3>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Section title="ACTIVITY TIMELINE">
           <ol className="space-y-3">
             {ticket.history.map((h, i) => {
               const u = data.users.find((x) => x.id === h.by);
@@ -146,19 +218,18 @@ function TicketDetail() {
                       {" — "}
                       <span className="text-muted-foreground">{u ? `${u.firstName} ${u.lastName}` : h.by}</span>
                     </div>
-                    <div className="text-xs text-muted-foreground">{new Date(h.at).toLocaleString()}</div>
+                    <div className="text-xs text-muted-foreground">
+                      <Clock className="mr-1 inline h-3 w-3" />{fmtDateTime(h.at)}
+                    </div>
                   </div>
                 </li>
               );
             })}
           </ol>
-        </Card>
+        </Section>
 
-        <Card className="flex flex-col p-5">
-          <h3 className="mb-3 flex items-center gap-2 font-display font-semibold">
-            <MessageSquare className="h-4 w-4" /> Comments
-          </h3>
-          <div className="flex-1 space-y-3 overflow-y-auto pr-1" style={{ maxHeight: 280 }}>
+        <Section title="COMMENTS">
+          <div className="space-y-3 overflow-y-auto pr-1" style={{ maxHeight: 280 }}>
             {ticket.comments.length === 0 && (
               <p className="text-sm text-muted-foreground">No comments yet.</p>
             )}
@@ -166,7 +237,7 @@ function TicketDetail() {
               <div key={c.id} className="rounded-lg border bg-card p-3">
                 <div className="flex items-center justify-between text-xs">
                   <span className="font-medium">{c.authorName}</span>
-                  <span className="text-muted-foreground">{new Date(c.createdAt).toLocaleString()}</span>
+                  <span className="text-muted-foreground">{fmtDateTime(c.createdAt)}</span>
                 </div>
                 <p className="mt-1 text-sm">{c.message}</p>
               </div>
@@ -179,18 +250,42 @@ function TicketDetail() {
               placeholder="Write a comment..."
               rows={2}
             />
-            <Button onClick={addComment} disabled={!comment.trim()} size="sm">Post comment</Button>
+            <Button onClick={addComment} disabled={!comment.trim()} size="sm">
+              <MessageSquare className="mr-1.5 h-4 w-4" /> Post comment
+            </Button>
           </div>
-        </Card>
+        </Section>
       </div>
     </div>
   );
 }
 
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <h2 className="mb-2 text-xs font-semibold tracking-[0.18em] text-primary">{title}</h2>
+      <Card className="p-5">{children}</Card>
+    </div>
+  );
+}
+
+function FieldGrid({ cols, children }: { cols: 2 | 3 | 4; children: React.ReactNode }) {
+  const cls = cols === 4
+    ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+    : cols === 3
+    ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+    : "grid grid-cols-1 gap-4 sm:grid-cols-2";
+  return <div className={cls}>{children}</div>;
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <div className="text-xs font-medium text-muted-foreground">{children}</div>;
+}
+
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wider text-muted-foreground">{label}</div>
+      <FieldLabel>{label}</FieldLabel>
       <div className="mt-1 text-sm font-medium">{value}</div>
     </div>
   );
