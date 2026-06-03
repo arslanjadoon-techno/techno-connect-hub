@@ -49,6 +49,7 @@ interface RequestOpts {
 }
 
 export async function apiRequest<T>(path: string, opts: RequestOpts = {}): Promise<ApiEnvelope<T>> {
+  
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (opts.auth !== false) {
     const tok = getToken();
@@ -69,7 +70,7 @@ export async function apiRequest<T>(path: string, opts: RequestOpts = {}): Promi
   return json;
 }
 
-// ---------- Domain types matching backend ----------
+// ---------- Domain types matching backend ---------- //
 
 export interface BackendUser {
   id: number;
@@ -87,7 +88,7 @@ export interface BackendUser {
   updatedAt?: string;
 }
 
-// ---------- Auth ----------
+// ---------- Auth ---------- //
 
 export const authApi = {
   login: (email: string, password: string) =>
@@ -106,7 +107,7 @@ export const authApi = {
     }),
 };
 
-// ---------- Users ----------
+// ---------- Users ---------- //
 
 export interface AddUserPayload {
   fullName: string;
@@ -117,6 +118,7 @@ export interface AddUserPayload {
 }
 
 export const usersApi = {
+  getAll: () => apiRequest<BackendUser[]>(API_PATHS.getAll),
   get: (id: string | number) => apiRequest<BackendUser>(API_PATHS.user(id)),
   add: (payload: AddUserPayload) =>
     apiRequest<BackendUser>(API_PATHS.addUser, { method: "POST", body: payload }),

@@ -48,6 +48,7 @@ export interface User {
   storeId?: string;
   avatarColor?: string;
   avatarUrl?: string;
+  active?: boolean;
 }
 
 export interface AppNotification {
