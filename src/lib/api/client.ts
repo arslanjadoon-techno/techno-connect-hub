@@ -1,6 +1,13 @@
 import { API_BASE_URL, API_PATHS, AUTH_PATHS } from "@/lib/config";
 
-const TOKEN_KEY = "techno-ticket-token-v1";
+/**
+ * LocalStorage keys.
+ *  - `token` — raw JWT returned by the login API.
+ *  - `user`  — full user object exactly as returned by the login API.
+ * These keys are intentionally short / generic so other tooling can read them.
+ */
+export const TOKEN_KEY = "token";
+export const USER_KEY = "user";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -11,6 +18,21 @@ export function setToken(token: string | null) {
   try {
     if (token) window.localStorage.setItem(TOKEN_KEY, token);
     else window.localStorage.removeItem(TOKEN_KEY);
+  } catch { /* ignore */ }
+}
+
+export function getStoredUser<T = BackendUser>(): T | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(USER_KEY);
+    return raw ? (JSON.parse(raw) as T) : null;
+  } catch { return null; }
+}
+export function setStoredUser(user: unknown | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (user) window.localStorage.setItem(USER_KEY, JSON.stringify(user));
+    else window.localStorage.removeItem(USER_KEY);
   } catch { /* ignore */ }
 }
 
