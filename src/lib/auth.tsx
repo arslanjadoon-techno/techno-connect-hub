@@ -14,15 +14,30 @@ interface AuthCtx {
 const AuthContext = createContext<AuthCtx | null>(null);
 
 /** Map backend user shape -> local User used across the UI. */
-export function mapBackendUser(b: BackendUser): User {
+export function mapBackendUser(b: any): User {
   const parts = (b.fullName ?? "").trim().split(/\s+/);
   const firstName = parts[0] ?? "";
   const lastName = parts.slice(1).join(" ") || "";
-  const role: Role = (["user","manager","market_manager","district_manager","state_manager","store_manager","admin"]
-    .includes(b.role) ? b.role : "user") as Role;
-  const department: Department = (ALL_DEPARTMENTS.includes(b.department as Department)
-    ? (b.department as Department)
+
+  // 🛠️ Hybrid Extraction: Check if object exists (list API) or direct string exists (Login API)
+  const rawRole = b.role?.name || b.roleName || "user";
+  const normalizedRole = String(rawRole).toLowerCase();
+
+  // Mapping string to match UI Expected Role types ("state_manager", etc.)
+  let roleName: Role = "user";
+  if (normalizedRole === "admin") roleName = "admin";
+  else if (normalizedRole === "manager") roleName = "manager";
+  else if (normalizedRole === "statemanager" || normalizedRole === "state_manager") roleName = "state_manager";
+  else if (normalizedRole === "districtmanager" || normalizedRole === "district_manager") roleName = "district_manager";
+  else if (normalizedRole === "marketmanager" || normalizedRole === "market_manager") roleName = "market_manager";
+  else if (normalizedRole === "storemanager" || normalizedRole === "store_manager") roleName = "store_manager";
+
+  // 🛠️ Hybrid Extraction for Department
+  const rawDept = b.department?.name || b.departmentName || "Operations";
+  const department: Department = (ALL_DEPARTMENTS.includes(rawDept as Department)
+    ? (rawDept as Department)
     : "Operations");
+
   return {
     id: String(b.id),
     firstName,
@@ -30,7 +45,7 @@ export function mapBackendUser(b: BackendUser): User {
     email: b.email,
     phone: b.phone ?? undefined,
     department,
-    role,
+    roleName,
     avatarUrl: b.profileImage ?? undefined,
     avatarColor: "#0d7a5f",
   };
@@ -38,13 +53,13 @@ export function mapBackendUser(b: BackendUser): User {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
-    const stored = getStoredUser<BackendUser>();
+    const stored = getStoredUser<any>();
     return stored ? mapBackendUser(stored) : null;
   });
 
   // Keep React state in sync if the stored user changes elsewhere.
   useEffect(() => {
-    const stored = getStoredUser<BackendUser>();
+    const stored = getStoredUser<any>();
     if (stored && !user) setUser(mapBackendUser(stored));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

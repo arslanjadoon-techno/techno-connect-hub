@@ -1,4 +1,4 @@
-import { API_BASE_URL, API_PATHS, AUTH_PATHS } from "@/lib/config";
+import { API_BASE_URL, USER_API_PATHS, HIRARCHY_API_PATHS, AUTH_PATHS, STATE_API_PATHS } from "@/lib/config";
 
 /**
  * LocalStorage keys.
@@ -49,7 +49,7 @@ interface RequestOpts {
 }
 
 export async function apiRequest<T>(path: string, opts: RequestOpts = {}): Promise<ApiEnvelope<T>> {
-  
+
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (opts.auth !== false) {
     const tok = getToken();
@@ -77,11 +77,12 @@ export interface BackendUser {
   fullName: string;
   email: string;
   phone: string | null;
-  department: string | null;
-  state: string | null;
-  market: string | null;
-  district: string | null;
-  role: string;
+  role: { id: number; name: string; };
+  department: { id: number; name: string; } | null;
+  state: { id: string; name: string } | null;
+  district: { id: string; name: string } | null;
+  market: { id: string; name: string } | null;
+  store: { id: string; name: string } | null;
   profileImage?: string | null;
   active?: boolean;
   createdAt?: string;
@@ -107,6 +108,17 @@ export const authApi = {
     }),
 };
 
+// ---------- States / Department / Markets / Districts ---------- //
+
+export const hierarchyApi = {
+  getRoles: () => apiRequest<string[]>("/api/users/roles"),
+  getDepartments: () => apiRequest<{ id: number; name: string }[]>("/api/departments/get-all"),
+  getStates: () => apiRequest<{ id: number; name: string }[]>("/api/states/search", { method: "POST" }),
+  getMarkets: () => apiRequest<{ id: number; name: string; stateId: number }[]>("/api/markets/get-all"),
+  getDistricts: () => apiRequest<{ id: number; name: string; marketId: number }[]>("/api/districts/get-all"),
+  getDistrictsByState: (id: string | number) => apiRequest<BackendUser>(HIRARCHY_API_PATHS.getDistrictsByState(id)),
+};
+
 // ---------- Users ---------- //
 
 export interface AddUserPayload {
@@ -115,15 +127,40 @@ export interface AddUserPayload {
   password: string;
   role: string;
   department?: string;
+  phone?: string;
 }
 
 export const usersApi = {
-  getAll: () => apiRequest<BackendUser[]>(API_PATHS.getAll),
-  get: (id: string | number) => apiRequest<BackendUser>(API_PATHS.user(id)),
+  getAll: () => apiRequest<BackendUser[]>(USER_API_PATHS.getAll),
+  get: (id: string | number) => apiRequest<BackendUser>(USER_API_PATHS.user(id)),
   add: (payload: AddUserPayload) =>
-    apiRequest<BackendUser>(API_PATHS.addUser, { method: "POST", body: payload }),
+    apiRequest<BackendUser>(USER_API_PATHS.addUser, { method: "POST", body: payload }),
   update: (payload: Partial<BackendUser> & { id: number }) =>
-    apiRequest<BackendUser>(API_PATHS.updateUser, { method: "PUT", body: payload }),
+    apiRequest<BackendUser>(USER_API_PATHS.updateUser, { method: "PUT", body: payload }),
   delete: (id: number) =>
-    apiRequest<null>(API_PATHS.deleteUser, { method: "DELETE", body: { id } }),
+    apiRequest<null>(USER_API_PATHS.deleteUser, { method: "DELETE", body: { id } }),
+};
+
+export interface State {
+  id: number;
+  name: string;
+  symbol: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const StatesApi = {
+
+  getAll: () => apiRequest<State[]>(STATE_API_PATHS.getAll, {method: "POST"}),
+  
+  get: (id: string | number) => apiRequest<State>(STATE_API_PATHS.state(id)),
+  
+  add: (payload: { name: string; symbol: string }) =>
+    apiRequest<State>(STATE_API_PATHS.addState, { method: "POST", body: payload }),
+    
+  update: (payload: Partial<State> & { id: number }) =>
+    apiRequest<State>(STATE_API_PATHS.updateState, { method: "PUT", body: payload }),
+    
+  delete: (id: number) =>
+    apiRequest<null>(STATE_API_PATHS.deleteState, { method: "DELETE", body: { id } }),
 };

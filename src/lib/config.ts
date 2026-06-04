@@ -18,9 +18,25 @@ export const AUTH_PATHS = {
 } as const;
 
 /** Resource endpoints (under `/api`). */
-export const API_PATHS = {
+export const USER_API_PATHS = {
   getAll: "/api/users/get-all",
   user: (id: string | number) => `/api/users/${id}`,
+  addUser: "/api/users/add",
+  updateUser: "/api/users/update",
+  deleteUser: "/api/users/delete",
+} as const;
+
+export const STATE_API_PATHS = {
+  getAll: "/api/states/search",
+  state: (id: string | number) => `/api/states/${id}`,
+  addState: "/api/states/add",
+  updateState: "/api/states/update",
+  deleteState: "/api/states/delete",
+} as const;
+
+export const HIRARCHY_API_PATHS = {
+  getAll: "/api/users/get-all",
+  getDistrictsByState: (id: string | number) => `/api/districts/state/${id}`,
   addUser: "/api/users/add",
   updateUser: "/api/users/update",
   deleteUser: "/api/users/delete",

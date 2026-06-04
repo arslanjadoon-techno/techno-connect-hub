@@ -2,7 +2,7 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, TicketCheck, MessagesSquare, MapPin, Store as StoreIcon,
   Building2, Network, Users as UsersIcon, Wrench, LogOut, ShieldCheck,
-  Settings as SettingsIcon, ChevronUp,
+  Settings as SettingsIcon, ChevronUp, Home
 } from "lucide-react";
 
 import {
@@ -25,12 +25,13 @@ const mainItems = [
 ];
 
 const adminItems = [
-  { title: "States",        url: "/admin/states",    icon: MapPin },
-  { title: "Markets",       url: "/admin/markets",   icon: Network },
-  { title: "Districts",     url: "/admin/districts", icon: Building2 },
-  { title: "Stores",        url: "/admin/stores",    icon: StoreIcon },
-  { title: "Users",         url: "/admin/users",     icon: UsersIcon },
-  { title: "External Team", url: "/admin/external",  icon: Wrench },
+  { title: "Users", url: "/admin/users", icon: UsersIcon },
+  { title: "External Team", url: "/admin/external", icon: Wrench },
+  { title: "States", url: "/admin/states", icon: MapPin },
+  { title: "Districts", url: "/admin/districts", icon: Building2 },
+  { title: "Markets", url: "/admin/markets", icon: Network },
+  { title: "Stores", url: "/admin/stores", icon: StoreIcon },
+  { title: "Houses", url: "/admin/houses", icon: Home },
 ];
 
 export function AppSidebar() {
@@ -42,7 +43,7 @@ export function AppSidebar() {
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
 
   if (!user) return null;
-  const roleLabel = ALL_ROLES.find((r) => r.value === user.role)?.label ?? user.role;
+  const roleLabel = ALL_ROLES.find((r) => r.value === user.roleName)?.label ?? user.roleName;
 
   return (
     <Sidebar collapsible="icon">

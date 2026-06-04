@@ -41,9 +41,11 @@ export interface User {
   email: string;
   phone?: string;
   department: Department;
-  role: Role;
+  roleName: Role;
   stateId?: string;
+  stateName?: string;
   districtId?: string;
+  districtName?: string;
   marketId?: string;
   storeId?: string;
   avatarColor?: string;
@@ -76,8 +78,11 @@ export interface Store {
 export interface House {
   id: string;
   name: string;
-  address: string;
+  code: string;
   stateId: string;
+  marketId: string;
+  districtId: string;
+  address: string;
 }
 
 export type TicketStatus =
@@ -151,17 +156,17 @@ export const STATUS_META: Record<
   TicketStatus,
   { label: string; tone: string }
 > = {
-  pending:   { label: "Pending",   tone: "bg-warning/15 text-warning-foreground border-warning/30" },
-  assigned:  { label: "Assigned",  tone: "bg-info/15 text-info border-info/30" },
+  pending: { label: "Pending", tone: "bg-warning/15 text-warning-foreground border-warning/30" },
+  assigned: { label: "Assigned", tone: "bg-info/15 text-info border-info/30" },
   completed: { label: "Completed", tone: "bg-success/15 text-success border-success/30" },
-  hold:      { label: "On Hold",   tone: "bg-muted text-muted-foreground border-border" },
-  closed:    { label: "Closed",    tone: "bg-primary/15 text-primary border-primary/30" },
-  reopen:    { label: "Re-opened", tone: "bg-destructive/15 text-destructive border-destructive/30" },
+  hold: { label: "On Hold", tone: "bg-muted text-muted-foreground border-border" },
+  closed: { label: "Closed", tone: "bg-primary/15 text-primary border-primary/30" },
+  reopen: { label: "Re-opened", tone: "bg-destructive/15 text-destructive border-destructive/30" },
 };
 
 export const PRIORITY_META: Record<TicketPriority, { label: string; tone: string }> = {
-  low:    { label: "Low",    tone: "bg-muted text-muted-foreground" },
+  low: { label: "Low", tone: "bg-muted text-muted-foreground" },
   medium: { label: "Medium", tone: "bg-info/15 text-info" },
-  high:   { label: "High",   tone: "bg-warning/20 text-warning-foreground" },
+  high: { label: "High", tone: "bg-warning/20 text-warning-foreground" },
   urgent: { label: "Urgent", tone: "bg-destructive/15 text-destructive" },
 };

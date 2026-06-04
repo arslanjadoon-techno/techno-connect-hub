@@ -23,6 +23,7 @@ import { Route as AppAdminUsersRouteImport } from './routes/_app.admin.users'
 import { Route as AppAdminStoresRouteImport } from './routes/_app.admin.stores'
 import { Route as AppAdminStatesRouteImport } from './routes/_app.admin.states'
 import { Route as AppAdminMarketsRouteImport } from './routes/_app.admin.markets'
+import { Route as AppAdminHousesRouteImport } from './routes/_app.admin.houses'
 import { Route as AppAdminExternalRouteImport } from './routes/_app.admin.external'
 import { Route as AppAdminDistrictsRouteImport } from './routes/_app.admin.districts'
 
@@ -95,6 +96,11 @@ const AppAdminMarketsRoute = AppAdminMarketsRouteImport.update({
   path: '/admin/markets',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAdminHousesRoute = AppAdminHousesRouteImport.update({
+  id: '/admin/houses',
+  path: '/admin/houses',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAdminExternalRoute = AppAdminExternalRouteImport.update({
   id: '/admin/external',
   path: '/admin/external',
@@ -117,6 +123,7 @@ export interface FileRoutesByFullPath {
   '/tickets': typeof AppTicketsRouteWithChildren
   '/admin/districts': typeof AppAdminDistrictsRoute
   '/admin/external': typeof AppAdminExternalRoute
+  '/admin/houses': typeof AppAdminHousesRoute
   '/admin/markets': typeof AppAdminMarketsRoute
   '/admin/states': typeof AppAdminStatesRoute
   '/admin/stores': typeof AppAdminStoresRoute
@@ -134,6 +141,7 @@ export interface FileRoutesByTo {
   '/tickets': typeof AppTicketsRouteWithChildren
   '/admin/districts': typeof AppAdminDistrictsRoute
   '/admin/external': typeof AppAdminExternalRoute
+  '/admin/houses': typeof AppAdminHousesRoute
   '/admin/markets': typeof AppAdminMarketsRoute
   '/admin/states': typeof AppAdminStatesRoute
   '/admin/stores': typeof AppAdminStoresRoute
@@ -153,6 +161,7 @@ export interface FileRoutesById {
   '/_app/tickets': typeof AppTicketsRouteWithChildren
   '/_app/admin/districts': typeof AppAdminDistrictsRoute
   '/_app/admin/external': typeof AppAdminExternalRoute
+  '/_app/admin/houses': typeof AppAdminHousesRoute
   '/_app/admin/markets': typeof AppAdminMarketsRoute
   '/_app/admin/states': typeof AppAdminStatesRoute
   '/_app/admin/stores': typeof AppAdminStoresRoute
@@ -172,6 +181,7 @@ export interface FileRouteTypes {
     | '/tickets'
     | '/admin/districts'
     | '/admin/external'
+    | '/admin/houses'
     | '/admin/markets'
     | '/admin/states'
     | '/admin/stores'
@@ -189,6 +199,7 @@ export interface FileRouteTypes {
     | '/tickets'
     | '/admin/districts'
     | '/admin/external'
+    | '/admin/houses'
     | '/admin/markets'
     | '/admin/states'
     | '/admin/stores'
@@ -207,6 +218,7 @@ export interface FileRouteTypes {
     | '/_app/tickets'
     | '/_app/admin/districts'
     | '/_app/admin/external'
+    | '/_app/admin/houses'
     | '/_app/admin/markets'
     | '/_app/admin/states'
     | '/_app/admin/stores'
@@ -322,6 +334,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminMarketsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/admin/houses': {
+      id: '/_app/admin/houses'
+      path: '/admin/houses'
+      fullPath: '/admin/houses'
+      preLoaderRoute: typeof AppAdminHousesRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/admin/external': {
       id: '/_app/admin/external'
       path: '/admin/external'
@@ -358,6 +377,7 @@ interface AppRouteChildren {
   AppTicketsRoute: typeof AppTicketsRouteWithChildren
   AppAdminDistrictsRoute: typeof AppAdminDistrictsRoute
   AppAdminExternalRoute: typeof AppAdminExternalRoute
+  AppAdminHousesRoute: typeof AppAdminHousesRoute
   AppAdminMarketsRoute: typeof AppAdminMarketsRoute
   AppAdminStatesRoute: typeof AppAdminStatesRoute
   AppAdminStoresRoute: typeof AppAdminStoresRoute
@@ -371,6 +391,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTicketsRoute: AppTicketsRouteWithChildren,
   AppAdminDistrictsRoute: AppAdminDistrictsRoute,
   AppAdminExternalRoute: AppAdminExternalRoute,
+  AppAdminHousesRoute: AppAdminHousesRoute,
   AppAdminMarketsRoute: AppAdminMarketsRoute,
   AppAdminStatesRoute: AppAdminStatesRoute,
   AppAdminStoresRoute: AppAdminStoresRoute,

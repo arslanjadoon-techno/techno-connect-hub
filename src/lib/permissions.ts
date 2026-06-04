@@ -2,7 +2,7 @@ import type { ChatGroup, Ticket, User } from "./types";
 
 /** Tickets the user is allowed to see, based on role + department + geography. */
 export function visibleTickets(user: User, tickets: Ticket[]): Ticket[] {
-  switch (user.role) {
+  switch (user.roleName) {
     case "admin":
       return tickets;
     case "manager":
@@ -23,25 +23,25 @@ export function visibleTickets(user: User, tickets: Ticket[]): Ticket[] {
 
 /** Can this user create + assign tickets? */
 export function canCreateTicket(user: User): boolean {
-  return user.role !== "user";
+  return user.roleName !== "user";
 }
 
 export function canAssignTicket(user: User): boolean {
-  return user.role !== "user";
+  return user.roleName !== "user";
 }
 
 export function isAdmin(user: User): boolean {
-  return user.role === "admin";
+  return user.roleName === "admin";
 }
 
 /** Admin + any manager-level role can manage chat groups. */
 export function canManageChatGroups(user: User): boolean {
-  return user.role === "admin" || user.role.endsWith("manager");
+  return user.roleName === "admin" || user.roleName.endsWith("manager");
 }
 
 /** Chat groups visible to user. */
 export function visibleChatGroups(user: User, groups: ChatGroup[]): ChatGroup[] {
-  if (user.role === "admin") return groups;
+  if (user.roleName === "admin") return groups;
   return groups.filter(
     (g) => g.department === user.department || g.memberIds.includes(user.id),
   );
