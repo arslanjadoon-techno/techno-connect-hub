@@ -150,9 +150,21 @@ export interface State {
   updatedAt?: string;
 }
 
-export const StatesApi = {
+// Pagination params
+export interface PaginationParams {
+  page?: number;
+  size?: number;
+}
 
-  getAll: () => apiRequest<State[]>(STATE_API_PATHS.getAll, { method: "POST" }),
+export const StatesApi = {
+  getAll: (params?: PaginationParams) => {
+    let url: string = STATE_API_PATHS.getAll; 
+    
+    if (params && params.page !== undefined && params.size !== undefined) {
+      url = `${STATE_API_PATHS.getAll}?page=${params.page}&size=${params.size}`;
+    }
+    return apiRequest<State[]>(url, { method: "POST" });
+  },
 
   get: (id: string | number) => apiRequest<State>(STATE_API_PATHS.state(id)),
 
@@ -165,6 +177,7 @@ export const StatesApi = {
   delete: (id: number) =>
     apiRequest<null>(STATE_API_PATHS.deleteState, { method: "DELETE", body: { id } }),
 };
+
 
 export interface District {
   id: number;

@@ -25,30 +25,68 @@ function StatesPage() {
   const [states, setStates] = useState<State[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const isFetched = useRef(false);
 
-  // Fetch States Call
-  const fetchStates = async () => {
+  // States for tracking server side pagination parameters
+  const [page, setPage] = useState<number>(0);
+  const [size, setSize] = useState<number>(10);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+
+  // Synchronous atomic locker to prevent simultaneous duplicate fetches
+  const lastFetchedKey = useRef<string>("");
+  const isFetchingRef = useRef<boolean>(false);
+
+  // Single dynamic fetch method
+  const fetchStates = async (targetPage: number, targetSize: number) => {
+    const currentRequestKey = `${targetPage}-${targetSize}`;
+    
+    if (lastFetchedKey.current === currentRequestKey || isFetchingRef.current) {
+      return;
+    }
+    
     try {
       setLoading(true);
-      const res = await StatesApi.getAll();
+      isFetchingRef.current = true;
+      lastFetchedKey.current = currentRequestKey;
+
+      const apiClient = StatesApi.getAll as any;
+      const res = await apiClient({ page: targetPage, size: targetSize });
+      
       if (res.success) {
+        // EDGE CASE FIX: If current page has no data but database has records, fallback to previous page
+        if (res.data.length === 0 && res.pagination && res.pagination.totalRecords > 0 && targetPage > 0) {
+          const maxAvailablePage = Math.ceil(res.pagination.totalRecords / targetSize) - 1;
+          const fallbackPage = Math.max(0, maxAvailablePage);
+          
+          isFetchingRef.current = false;
+          lastFetchedKey.current = "";
+          setPage(fallbackPage);
+          return;
+        }
+
         setStates(res.data);
+        
+        if (res.pagination && typeof res.pagination.totalRecords === "number") {
+          setTotalRecords(res.pagination.totalRecords);
+        } else {
+          setTotalRecords(res.data.length);
+        }
       } else {
         toast.error(res.message || "Failed to load states");
+        lastFetchedKey.current = "";
       }
     } catch (err: any) {
       toast.error(err?.message || "Something went wrong while fetching states");
+      lastFetchedKey.current = "";
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   };
 
+  // Synchronized effect wrapper to look at exact state adjustments safely
   useEffect(() => {
-    if (isFetched.current) return;
-    isFetched.current = true;
-    fetchStates();
-  }, []);
+    fetchStates(page, size);
+  }, [page, size]);
 
   // Delete Call
   const handleDelete = async (s: State) => {
@@ -57,8 +95,8 @@ function StatesPage() {
       const res = await StatesApi.delete(s.id);
       if (res.success) {
         toast.success(res.message || "State deleted successfully");
-        const freshData = await StatesApi.getAll();
-        if (freshData.success) setStates(freshData.data);
+        lastFetchedKey.current = "";
+        fetchStates(page, size);
       } else {
         toast.error(res.message || "Could not delete state");
       }
@@ -85,8 +123,8 @@ function StatesPage() {
         });
         if (res.success) {
           toast.success(res.message || "State updated successfully");
-          const freshData = await StatesApi.getAll();
-          if (freshData.success) setStates(freshData.data);
+          lastFetchedKey.current = "";
+          fetchStates(page, size);
           close();
         } else {
           toast.error(res.message);
@@ -95,8 +133,8 @@ function StatesPage() {
         const res = await StatesApi.add(formData);
         if (res.success) {
           toast.success(res.message || "State added successfully");
-          const freshData = await StatesApi.getAll();
-          if (freshData.success) setStates(freshData.data);
+          lastFetchedKey.current = "";
+          fetchStates(page, size);
           close();
         } else {
           toast.error(res.message);
@@ -109,7 +147,7 @@ function StatesPage() {
     }
   };
 
-  if (loading) {
+  if (loading && states.length === 0) {
     return (
       <div className="flex h-[50vh] w-full flex-col items-center justify-center gap-2 text-muted-foreground">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -120,35 +158,47 @@ function StatesPage() {
 
   return (
     <div className="w-full">
-      <div className="w-full border-0 shadow-none bg-transparent [&_input]:bg-white dark:[&_input]:bg-zinc-950 [&_thead]:bg-zinc-200 dark:[&_thead]:bg-zinc-800 [&_thead]:border-b-2 [&_thead]:border-border [&_th]:font-bold [&_th]:text-zinc-900 dark:[&_th]:text-zinc-100 [&_th]:h-12 [&_tbody_tr]:bg-background [&_tbody_tr]:even:bg-zinc-50/50 dark:[&_tbody_tr]:even:bg-zinc-900/30 [&_tbody_tr]:hover:bg-muted/40 [&_th:last-child]:text-right [&_th:last-child]:pr-10 [&_td:last-child]:text-right">  <CrudPage<State>
-        title="States"
-        subtitle="Manage US states the company operates in."
-        rows={states}
-        rowKey={(s) => s.id.toString()}
-        isSaving={actionLoading}
-        columns={[
-          {
-            key: "name",
-            header: "Name",
-            accessor: (s) => <div className="py-2 text-left font-medium">{s.name}</div>,
-            searchValue: (s) => s.name
-          },
-          {
-            key: "symbol",
-            header: "Symbol (Code)",
-            accessor: (s) => <div className="font-mono py-2 text-left text-muted-foreground">{s.symbol}</div>,
-            searchValue: (s) => s.symbol
-          }
-        ]}
-        onDelete={handleDelete}
-        renderForm={(initial, close) => (
-          <StateForm
-            initial={initial}
-            isSaving={actionLoading}
-            onSave={(formData) => handleSave(initial, formData, close)}
-          />
-        )}
-      />
+      <div className="w-full border-0 shadow-none bg-transparent [&_input]:bg-white dark:[&_input]:bg-zinc-950 [&_thead]:bg-zinc-200 dark:[&_thead]:bg-zinc-800 [&_thead]:border-b-2 [&_thead]:border-border [&_th]:font-bold [&_th]:text-zinc-900 dark:[&_th]:text-zinc-100 [&_th]:h-12 [&_tbody_tr]:bg-background [&_tbody_tr]:even:bg-zinc-50/50 dark:[&_tbody_tr]:even:bg-zinc-900/30 [&_tbody_tr]:hover:bg-muted/40 [&_th:last-child]:text-right [&_th:last-child]:pr-10 [&_td:last-child]:text-right">
+        
+        {/* NO ERRORS NOW: Clean, strongly-typed component instance */}
+        <CrudPage<State>
+          title="States"
+          subtitle="Manage US states the company operates in."
+          rows={states}
+          rowKey={(s) => s.id.toString()}
+          isSaving={actionLoading}
+          isLoading={loading} // Purely accepted now by your updated interface
+          
+          rowCount={totalRecords}
+          page={page}
+          pageSize={size}
+          onPageChange={(newPage) => setPage(newPage)}
+          onPageSizeChange={(newSize) => setSize(newSize)}
+
+          columns={[
+            {
+              key: "name",
+              header: "Name",
+              accessor: (s) => <div className="py-2 text-left font-medium">{s.name}</div>,
+              searchValue: (s) => s.name
+            },
+            {
+              key: "symbol",
+              header: "Symbol (Code)",
+              accessor: (s) => <div className="font-mono py-2 text-left text-muted-foreground">{s.symbol}</div>,
+              searchValue: (s) => s.symbol
+            }
+          ]}
+          onDelete={handleDelete}
+          renderForm={(initial, close) => (
+            <StateForm
+              initial={initial}
+              isSaving={actionLoading}
+              onSave={(formData) => handleSave(initial, formData, close)}
+            />
+          )}
+        />
+
       </div>
     </div>
   );

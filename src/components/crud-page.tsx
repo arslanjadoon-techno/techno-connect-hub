@@ -38,11 +38,20 @@ interface CrudPageProps<T> {
   extraToolbar?: ReactNode;
   pageSize?: number;
   isSaving?: boolean;
+  isLoading?: boolean;
+  
+  // Backend sync parameters
+  rowCount?: number;
+  page?: number;
+  onPageChange?: (newPage: number) => void;
+  onPageSizeChange?: (newSize: number) => void;
 }
 
 export function CrudPage<T>({
   title, subtitle, rows, columns, rowKey, renderForm, onDelete,
   createLabel = "Add new", extraToolbar, pageSize = 10, isSaving = false,
+  isLoading = false, // 1. CHANGED: Destructured isLoading from props here
+  rowCount, page, onPageChange, onPageSizeChange,
 }: CrudPageProps<T>) {
   const [editing, setEditing] = useState<T | null>(null);
   const [open, setOpen] = useState(false);
@@ -79,7 +88,7 @@ export function CrudPage<T>({
             <AlertDialog 
               open={activeDeleteKey === currentKey}
               onOpenChange={(isOpen) => {
-                if (isSaving) return; // Loading ke dauran modal touch disable
+                if (isSaving) return; 
                 setActiveDeleteKey(isOpen ? currentKey : null);
               }}
             >
@@ -159,6 +168,15 @@ export function CrudPage<T>({
         rowKey={rowKey} 
         searchPlaceholder={`Search ${title.toLowerCase()}...`} 
         pageSize={pageSize}
+        isLoading={isLoading}
+        
+        {...(rowCount !== undefined && {
+          rowCount,
+          page,
+          onPageChange,
+          onPageSizeChange,
+          paginationMode: "server"
+        })}
       />
     </div>
   );
