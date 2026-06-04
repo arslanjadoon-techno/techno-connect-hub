@@ -1,4 +1,4 @@
-import { API_BASE_URL, USER_API_PATHS, HIRARCHY_API_PATHS, AUTH_PATHS, STATE_API_PATHS } from "@/lib/config";
+import { API_BASE_URL, USER_API_PATHS, HIRARCHY_API_PATHS, AUTH_PATHS, STATE_API_PATHS, DISTRICT_API_PATHS } from "@/lib/config";
 
 /**
  * LocalStorage keys.
@@ -141,6 +141,7 @@ export const usersApi = {
     apiRequest<null>(USER_API_PATHS.deleteUser, { method: "DELETE", body: { id } }),
 };
 
+
 export interface State {
   id: number;
   name: string;
@@ -151,16 +152,46 @@ export interface State {
 
 export const StatesApi = {
 
-  getAll: () => apiRequest<State[]>(STATE_API_PATHS.getAll, {method: "POST"}),
-  
+  getAll: () => apiRequest<State[]>(STATE_API_PATHS.getAll, { method: "POST" }),
+
   get: (id: string | number) => apiRequest<State>(STATE_API_PATHS.state(id)),
-  
+
   add: (payload: { name: string; symbol: string }) =>
     apiRequest<State>(STATE_API_PATHS.addState, { method: "POST", body: payload }),
-    
+
   update: (payload: Partial<State> & { id: number }) =>
     apiRequest<State>(STATE_API_PATHS.updateState, { method: "PUT", body: payload }),
-    
+
   delete: (id: number) =>
     apiRequest<null>(STATE_API_PATHS.deleteState, { method: "DELETE", body: { id } }),
+};
+
+export interface District {
+  id: number;
+  name: string;
+  stateId: number;     // Yeh laazmi hai districts ke liye
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const DistrictsApi = {
+  // 1. Get All Districts
+  getAll: () => 
+    apiRequest<District[]>(DISTRICT_API_PATHS.getAll),
+
+  // 2. Get Single District
+  get: (id: string | number) => 
+    apiRequest<District>(DISTRICT_API_PATHS.district(id)),
+
+  // 3. Add District
+  add: (payload: { name: string; stateId: number }) =>
+    apiRequest<District>(DISTRICT_API_PATHS.addDistrict, { method: "POST", body: payload }),
+
+  // 4. Update District
+  update: (payload: { id: number; name: string }) =>
+    apiRequest<District>(DISTRICT_API_PATHS.updateDistrict, { method: "PUT", body: payload }),
+
+  // 5. Delete District
+  delete: (payload: { id: number }) =>
+    apiRequest<null>(DISTRICT_API_PATHS.deleteDistrict, { method: "DELETE", body: payload }),
 };

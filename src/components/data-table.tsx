@@ -53,8 +53,8 @@ export function DataTable<T>({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative max-w-sm flex-1">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+        <div className="relative w-full sm:w-72 sm:ml-auto">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}

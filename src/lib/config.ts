@@ -34,6 +34,14 @@ export const STATE_API_PATHS = {
   deleteState: "/api/states/delete",
 } as const;
 
+export const DISTRICT_API_PATHS = {
+  getAll: "/api/districts/get-all",
+  district: (id: string | number) => `/api/districts/${id}`,
+  addDistrict: "/api/districts/add",
+  updateDistrict: "/api/districts/update",
+  deleteDistrict: "/api/districts/delete",
+} as const;
+
 export const HIRARCHY_API_PATHS = {
   getAll: "/api/users/get-all",
   getDistrictsByState: (id: string | number) => `/api/districts/state/${id}`,
