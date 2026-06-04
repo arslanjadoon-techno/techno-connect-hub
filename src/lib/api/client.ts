@@ -158,8 +158,8 @@ export interface PaginationParams {
 
 export const StatesApi = {
   getAll: (params?: PaginationParams) => {
-    let url: string = STATE_API_PATHS.getAll; 
-    
+    let url: string = STATE_API_PATHS.getAll;
+
     if (params && params.page !== undefined && params.size !== undefined) {
       url = `${STATE_API_PATHS.getAll}?page=${params.page}&size=${params.size}`;
     }
@@ -182,18 +182,31 @@ export const StatesApi = {
 export interface District {
   id: number;
   name: string;
-  stateId: number;     // Yeh laazmi hai districts ke liye
+  stateId: number;
   createdAt?: string;
   updatedAt?: string;
 }
 
 export const DistrictsApi = {
+
   // 1. Get All Districts
-  getAll: () => 
-    apiRequest<District[]>(DISTRICT_API_PATHS.getAll),
+ getAll: (params?: { page?: number; size?: number; state?: string | number }) => {
+    const queryParts: string[] = [];
+
+    if (params) {
+      if (params.page !== undefined) queryParts.push(`page=${params.page}`);
+      if (params.size !== undefined) queryParts.push(`size=${params.size}`);
+      if (params.state !== undefined && params.state !== "all") {
+        queryParts.push(`state=${params.state}`);
+      }
+    }
+
+    const queryString = queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
+    return apiRequest<District[]>(`${DISTRICT_API_PATHS.getAll}${queryString}`);
+  },
 
   // 2. Get Single District
-  get: (id: string | number) => 
+  get: (id: string | number) =>
     apiRequest<District>(DISTRICT_API_PATHS.district(id)),
 
   // 3. Add District

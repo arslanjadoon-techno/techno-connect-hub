@@ -41,48 +41,103 @@ function DistrictsPage() {
 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const isFetched = useRef(false);
 
-  const fetchData = async () => {
+  // States for tracking server side pagination parameters
+  const [page, setPage] = useState<number>(0);
+  const [size, setSize] = useState<number>(10);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+
+  // Synchronous atomic locker to prevent simultaneous duplicate fetches
+  const lastFetchedKey = useRef<string>("");
+  const isFetchingRef = useRef<boolean>(false);
+  const statesFetchedRef = useRef<boolean>(false);
+
+  // Dynamic fetch method synced directly with pagination and dropdown states filter
+  const fetchDistricts = async (targetPage: number, targetSize: number, targetState: string) => {
+    // UPDATED: Included state value inside the atomic key block to prevent race conditions on fast switching
+    const currentRequestKey = `${targetPage}-${targetSize}-${targetState}`;
+    
+    if (lastFetchedKey.current === currentRequestKey || isFetchingRef.current) {
+      return;
+    }
+    
     try {
       setLoading(true);
-      const [districtsRes, statesRes] = await Promise.all([
-        DistrictsApi.getAll(),
-        StatesApi.getAll()
-      ]);
+      isFetchingRef.current = true;
+      lastFetchedKey.current = currentRequestKey;
 
-      if (districtsRes.success) {
-        setDistricts(districtsRes.data);
-      } else {
-        toast.error(districtsRes.message || "Failed to load districts");
+      // 1. Fetch States static filter options dropdown list only once
+      if (!statesFetchedRef.current) {
+        const statesRes = await StatesApi.getAll();
+        if (statesRes.success) {
+          setStates(statesRes.data);
+          statesFetchedRef.current = true;
+        } else {
+          toast.error(statesRes.message || "Failed to load states filter options");
+        }
       }
 
-      if (statesRes.success) {
-        setStates(statesRes.data);
+      // 2. Fetch data directly from backend with flexible route queries
+      const apiClient = DistrictsApi.getAll as any;
+      const res = await apiClient({ 
+        page: targetPage, 
+        size: targetSize, 
+        state: targetState !== "all" ? targetState : undefined 
+      });
+      
+      if (res.success) {
+        // EDGE CASE FIX: If current page has no data but database has records, fallback to previous page
+        if (res.data.length === 0 && res.pagination && res.pagination.totalRecords > 0 && targetPage > 0) {
+          const maxAvailablePage = Math.ceil(res.pagination.totalRecords / targetSize) - 1;
+          const fallbackPage = Math.max(0, maxAvailablePage);
+          
+          isFetchingRef.current = false;
+          lastFetchedKey.current = "";
+          setPage(fallbackPage);
+          return;
+        }
+
+        setDistricts(res.data);
+        
+        if (res.pagination && typeof res.pagination.totalRecords === "number") {
+          setTotalRecords(res.pagination.totalRecords);
+        } else {
+          setTotalRecords(res.data.length);
+        }
       } else {
-        toast.error(statesRes.message || "Failed to load states filter options");
+        toast.error(res.message || "Failed to load districts");
+        lastFetchedKey.current = "";
       }
     } catch (err: any) {
       toast.error(err?.message || "Something went wrong while fetching data");
+      lastFetchedKey.current = "";
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   };
 
+  // UPDATED: Added selectedStateFilter into dependencies to handle reactive network triggering
   useEffect(() => {
-    if (isFetched.current) return;
-    isFetched.current = true;
-    fetchData();
-  }, []);
+    fetchDistricts(page, size, selectedStateFilter);
+  }, [page, size, selectedStateFilter]);
 
+  // Handler to safely reset page parameters when user changes the dropdown option
+  const handleStateFilterChange = (newState: string) => {
+    lastFetchedKey.current = ""; // Reset atom key to allow seamless intermediate execution
+    setPage(0); // Send user back to first page chunk
+    setSelectedStateFilter(newState);
+  };
+
+  // Delete Call
   const handleDelete = async (d: District) => {
     try {
       setActionLoading(true);
       const res = await DistrictsApi.delete({ id: d.id });
       if (res.success) {
         toast.success(res.message || "District deleted successfully");
-        const freshData = await DistrictsApi.getAll();
-        if (freshData.success) setDistricts(freshData.data);
+        lastFetchedKey.current = "";
+        fetchDistricts(page, size, selectedStateFilter);
       } else {
         toast.error(res.message || "Could not delete district");
       }
@@ -93,6 +148,7 @@ function DistrictsPage() {
     }
   };
 
+  // Save/Update Call
   const handleSave = async (
     initial: District | null,
     formData: { name: string; stateId: number },
@@ -107,8 +163,8 @@ function DistrictsPage() {
         });
         if (res.success) {
           toast.success(res.message || "District updated successfully");
-          const freshData = await DistrictsApi.getAll();
-          if (freshData.success) setDistricts(freshData.data);
+          lastFetchedKey.current = "";
+          fetchDistricts(page, size, selectedStateFilter);
           close();
         } else {
           toast.error(res.message || "Update failed");
@@ -117,8 +173,8 @@ function DistrictsPage() {
         const res = await DistrictsApi.add(formData);
         if (res.success) {
           toast.success(res.message || "District added successfully");
-          const freshData = await DistrictsApi.getAll();
-          if (freshData.success) setDistricts(freshData.data);
+          lastFetchedKey.current = "";
+          fetchDistricts(page, size, selectedStateFilter);
           close();
         } else {
           toast.error(res.message || "Failed to create district");
@@ -133,18 +189,13 @@ function DistrictsPage() {
 
   const getStateName = (id: number) => states.find((s) => s.id === id)?.name ?? "—";
 
-  const filteredDistricts = districts.filter((d) => {
-    if (selectedStateFilter === "all") return true;
-    return d.stateId === Number(selectedStateFilter);
-  });
-
   const filteredMainStatesOptions = useMemo(() => {
     return states.filter((s) =>
       s.name.toLowerCase().includes(mainFilterSearch.toLowerCase())
     );
   }, [states, mainFilterSearch]);
 
-  if (loading) {
+  if (loading && districts.length === 0) {
     return (
       <div className="flex h-[50vh] w-full flex-col items-center justify-center gap-2 text-muted-foreground">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -161,9 +212,16 @@ function DistrictsPage() {
           <CrudPage<District>
             title="Districts"
             subtitle="Manage districts and map them to operating states."
-            rows={filteredDistricts}
+            rows={districts} // UPDATED: Passing the pure direct network states array now!
             rowKey={(d) => d.id.toString()}
             isSaving={actionLoading}
+            isLoading={loading}
+            
+            rowCount={totalRecords}
+            page={page}
+            pageSize={size}
+            onPageChange={(newPage) => setPage(newPage)}
+            onPageSizeChange={(newSize) => setSize(newSize)}
             
             extraToolbar={
               <div className="relative flex flex-col pt-2.5">
@@ -173,7 +231,7 @@ function DistrictsPage() {
                 
                 <Select 
                   value={selectedStateFilter} 
-                  onValueChange={setSelectedStateFilter}
+                  onValueChange={handleStateFilterChange} // UPDATED: Uses state reset wrapper trigger
                   onOpenChange={(open) => {
                     if (!open) {
                       setMainFilterSearch("");
@@ -198,7 +256,6 @@ function DistrictsPage() {
                         value={mainFilterSearch}
                         onChange={(e) => {
                           setMainFilterSearch(e.target.value);
-                          // Re-render ke baad focus instantly maintain rakhne ke liye immediate queue execution
                           setTimeout(() => mainSearchInputRef.current?.focus(), 0);
                         }}
                         className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
