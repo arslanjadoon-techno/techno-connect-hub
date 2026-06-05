@@ -50,6 +50,14 @@ export const MARKET_API_PATHS = {
   deleteMarket: "/api/markets/delete",
 } as const;
 
+export const EXTERNAL_TEAM_API_PATHS = {
+  getAll: "/api/external-teams/get-all",
+  state: (id: string | number) => `/api/external-teams/${id}`,
+  addState: "/api/external-teams/add",
+  updateState: "/api/external-teams/update",
+  deleteState: "/api/external-teams/delete",
+} as const;
+
 export const HIRARCHY_API_PATHS = {
   getAll: "/api/users/get-all",
   getDistrictsByState: (id: string | number) => `/api/districts/state/${id}`,

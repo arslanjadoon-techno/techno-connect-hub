@@ -378,7 +378,7 @@ function CreateTicketDialog({ onCreate }: { onCreate: (t: Ticket) => void }) {
               <SelectTrigger><SelectValue placeholder="Select vendor" /></SelectTrigger>
               <SelectContent>
                 {data.vendors.map((v) => (
-                  <SelectItem key={v.id} value={v.id}>{v.name} — {v.natureOfWork}</SelectItem>
+                  <SelectItem key={v.id} value={v.id}>{v.name} — {v.workNature}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

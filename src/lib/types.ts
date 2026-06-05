@@ -133,7 +133,7 @@ export interface ExternalVendor {
   phone: string;
   marketId: string;
   address: string;
-  natureOfWork: string;
+  workNature: string;
 }
 
 export interface ChatMessage {

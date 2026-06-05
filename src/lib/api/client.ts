@@ -1,4 +1,4 @@
-import { API_BASE_URL, USER_API_PATHS, HIRARCHY_API_PATHS, AUTH_PATHS, STATE_API_PATHS, DISTRICT_API_PATHS, MARKET_API_PATHS } from "@/lib/config";
+import { API_BASE_URL, USER_API_PATHS, HIRARCHY_API_PATHS, AUTH_PATHS, STATE_API_PATHS, DISTRICT_API_PATHS, MARKET_API_PATHS, EXTERNAL_TEAM_API_PATHS } from "@/lib/config";
 
 /**
  * LocalStorage keys.
@@ -280,3 +280,64 @@ export const MarketsApi = {
 
 
 
+
+
+
+
+
+export interface ExternalVendor {
+  id: number;
+  name: string;
+  phone: string;
+  marketId: number;
+  address: string;
+  workNature: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const ExternalTeamApi = {
+  // 1. Get All Vendors (Only Pagination + Market ID filter)
+  getAll: (params?: { page?: number; size?: number; market?: string | number }) => {
+    const queryParts: string[] = [];
+
+    if (params) {
+      if (params.page !== undefined) queryParts.push(`page=${params.page}`);
+      if (params.size !== undefined) queryParts.push(`size=${params.size}`);
+      if (params.market !== undefined && params.market !== "all") {
+        queryParts.push(`market=${params.market}`);
+      }
+    }
+
+    const queryString = queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
+    return apiRequest<ExternalVendor[]>(`${EXTERNAL_TEAM_API_PATHS.getAll}${queryString}`);
+  },
+
+  // 2. Get Single Vendor
+  get: (id: string | number) =>
+    apiRequest<ExternalVendor>(EXTERNAL_TEAM_API_PATHS.state(id)),
+
+  // 3. Add Vendor
+  add: (payload: { 
+    name: string; 
+    phone: string;
+    marketId: number; 
+    address: string; 
+    workNature: string; 
+  }) =>
+    apiRequest<ExternalVendor>(EXTERNAL_TEAM_API_PATHS.addState, { method: "POST", body: payload }),
+
+  // 4. Update Vendor
+  update: (payload: { 
+    id: number; 
+    name: string; 
+    phone: string; 
+    address: string; 
+    workNature: string; 
+  }) =>
+    apiRequest<ExternalVendor>(EXTERNAL_TEAM_API_PATHS.updateState, { method: "PUT", body: payload }),
+
+  // 5. Delete Vendor
+  delete: (payload: { id: number }) =>
+    apiRequest<null>(EXTERNAL_TEAM_API_PATHS.deleteState, { method: "DELETE", body: payload }),
+};
