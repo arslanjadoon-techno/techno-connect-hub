@@ -1,4 +1,4 @@
-import { API_BASE_URL, USER_API_PATHS, HIRARCHY_API_PATHS, AUTH_PATHS, STATE_API_PATHS, DISTRICT_API_PATHS } from "@/lib/config";
+import { API_BASE_URL, USER_API_PATHS, HIRARCHY_API_PATHS, AUTH_PATHS, STATE_API_PATHS, DISTRICT_API_PATHS, MARKET_API_PATHS } from "@/lib/config";
 
 /**
  * LocalStorage keys.
@@ -13,6 +13,7 @@ export function getToken(): string | null {
   if (typeof window === "undefined") return null;
   try { return window.localStorage.getItem(TOKEN_KEY); } catch { return null; }
 }
+
 export function setToken(token: string | null) {
   if (typeof window === "undefined") return;
   try {
@@ -28,6 +29,7 @@ export function getStoredUser<T = BackendUser>(): T | null {
     return raw ? (JSON.parse(raw) as T) : null;
   } catch { return null; }
 }
+
 export function setStoredUser(user: unknown | null) {
   if (typeof window === "undefined") return;
   try {
@@ -37,6 +39,7 @@ export function setStoredUser(user: unknown | null) {
 }
 
 export interface ApiEnvelope<T> {
+  pagination: any;
   success: boolean;
   message: string;
   data: T;
@@ -119,6 +122,7 @@ export const hierarchyApi = {
   getDistrictsByState: (id: string | number) => apiRequest<BackendUser>(HIRARCHY_API_PATHS.getDistrictsByState(id)),
 };
 
+
 // ---------- Users ---------- //
 
 export interface AddUserPayload {
@@ -141,6 +145,8 @@ export const usersApi = {
     apiRequest<null>(USER_API_PATHS.deleteUser, { method: "DELETE", body: { id } }),
 };
 
+
+// ---------- States ---------- //
 
 export interface State {
   id: number;
@@ -178,6 +184,8 @@ export const StatesApi = {
     apiRequest<null>(STATE_API_PATHS.deleteState, { method: "DELETE", body: { id } }),
 };
 
+
+// ---------- Districts ---------- //
 
 export interface District {
   id: number;
@@ -221,3 +229,54 @@ export const DistrictsApi = {
   delete: (payload: { id: number }) =>
     apiRequest<null>(DISTRICT_API_PATHS.deleteDistrict, { method: "DELETE", body: payload }),
 };
+
+
+// ---------- Markets ---------- //
+
+export interface Market {
+  id: number;
+  name: string;
+  stateId: number;
+  districtId: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const MarketsApi = {
+  // Get All Markets (With Full Pagination, State, & District Filtering Support)
+  getAll: (params?: { page?: number; size?: number; state?: string | number; district?: string | number }) => {
+    const queryParts: string[] = [];
+
+    if (params) {
+      if (params.page !== undefined) queryParts.push(`page=${params.page}`);
+      if (params.size !== undefined) queryParts.push(`size=${params.size}`);
+      
+      if (params.state !== undefined && params.state !== "all") {
+        queryParts.push(`state=${params.state}`);
+      }
+      
+      // FIX: District parameter was missing here. Added now!
+      if (params.district !== undefined && params.district !== "all") {
+        queryParts.push(`district=${params.district}`);
+      }
+    }
+
+    const queryString = queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
+    return apiRequest<Market[]>(`${MARKET_API_PATHS.getAll}${queryString}`);
+  },
+
+  get: (id: string | number) => 
+    apiRequest<Market>(MARKET_API_PATHS.market(id)),
+
+  add: (payload: { name: string; stateId: number; districtId: number }) =>
+    apiRequest<Market>(MARKET_API_PATHS.addMarket, { method: "POST", body: payload }),
+
+  update: (payload: { id: number; name: string; districtId: number }) =>
+    apiRequest<Market>(MARKET_API_PATHS.updateMarket, { method: "PUT", body: payload }),
+
+  delete: (payload: { id: number }) =>
+    apiRequest<null>(MARKET_API_PATHS.deleteMarket, { method: "DELETE", body: payload }),
+};
+
+
+
