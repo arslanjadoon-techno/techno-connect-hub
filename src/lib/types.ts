@@ -66,22 +66,25 @@ export interface AppNotification {
 export interface State { id: string; name: string; code: string; }
 export interface Market { id: string; name: string; stateId: string; districtId: string; }
 export interface District { id: string; name: string; stateId: string; marketId: string; }
+
 export interface Store {
   id: string;
   name: string;
-  code: string;
+  number: string;
+  phone: string;
   stateId: string;
-  marketId: string;
   districtId: string;
+  marketId: string;
   address: string;
 }
+
 export interface House {
   id: string;
   name: string;
-  code: string;
+  phone: string;
   stateId: string;
-  marketId: string;
   districtId: string;
+  marketId: string;
   address: string;
 }
 

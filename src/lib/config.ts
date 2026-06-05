@@ -50,6 +50,22 @@ export const MARKET_API_PATHS = {
   deleteMarket: "/api/markets/delete",
 } as const;
 
+export const STORE_API_PATHS = {
+  getAll: "/api/stores/get-all",
+  store: (id: string | number) => `/api/stores/${id}`,
+  addStore: "/api/stores/add",
+  updateStore: "/api/stores/update",
+  deleteStore: "/api/stores/delete",
+} as const;
+
+export const HOUSE_API_PATHS = {
+  getAll: "/api/houses/get-all",
+  house: (id: string | number) => `/api/houses/${id}`,
+  addHouse: "/api/houses/add",
+  updateHouse: "/api/houses/update",
+  deleteHouse: "/api/houses/delete",
+} as const;
+
 export const EXTERNAL_TEAM_API_PATHS = {
   getAll: "/api/external-teams/get-all",
   state: (id: string | number) => `/api/external-teams/${id}`,

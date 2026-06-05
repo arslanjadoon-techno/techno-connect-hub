@@ -1,4 +1,7 @@
-import { API_BASE_URL, USER_API_PATHS, HIRARCHY_API_PATHS, AUTH_PATHS, STATE_API_PATHS, DISTRICT_API_PATHS, MARKET_API_PATHS, EXTERNAL_TEAM_API_PATHS } from "@/lib/config";
+import {
+  API_BASE_URL, USER_API_PATHS, HIRARCHY_API_PATHS, AUTH_PATHS, STATE_API_PATHS, DISTRICT_API_PATHS, MARKET_API_PATHS,
+  STORE_API_PATHS, HOUSE_API_PATHS, EXTERNAL_TEAM_API_PATHS
+} from "@/lib/config";
 
 /**
  * LocalStorage keys.
@@ -198,7 +201,7 @@ export interface District {
 export const DistrictsApi = {
 
   // 1. Get All Districts
- getAll: (params?: { page?: number; size?: number; state?: string | number }) => {
+  getAll: (params?: { page?: number; size?: number; state?: string | number }) => {
     const queryParts: string[] = [];
 
     if (params) {
@@ -250,11 +253,11 @@ export const MarketsApi = {
     if (params) {
       if (params.page !== undefined) queryParts.push(`page=${params.page}`);
       if (params.size !== undefined) queryParts.push(`size=${params.size}`);
-      
+
       if (params.state !== undefined && params.state !== "all") {
         queryParts.push(`state=${params.state}`);
       }
-      
+
       // FIX: District parameter was missing here. Added now!
       if (params.district !== undefined && params.district !== "all") {
         queryParts.push(`district=${params.district}`);
@@ -265,7 +268,7 @@ export const MarketsApi = {
     return apiRequest<Market[]>(`${MARKET_API_PATHS.getAll}${queryString}`);
   },
 
-  get: (id: string | number) => 
+  get: (id: string | number) =>
     apiRequest<Market>(MARKET_API_PATHS.market(id)),
 
   add: (payload: { name: string; stateId: number; districtId: number }) =>
@@ -279,11 +282,125 @@ export const MarketsApi = {
 };
 
 
+// ---------- Stores ---------- //
+
+export interface Store {
+  id: number;
+  name: string;
+  number: string;
+  address: string;
+  email: string;
+  phone: string;
+  doorCode: string;
+  stateId: number;
+  stateName: string;
+  districtId: number;
+  districtName: string;
+  marketId: number;
+  marketName: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const StoresApi = {
+  // Get All Stores (With Full Pagination, State, & District & Market Filtering Support)
+  getAll: (params?: { page?: number; size?: number; state?: string | number; district?: string | number; market?: string | number }) => {
+    const queryParts: string[] = [];
+
+    if (params) {
+      if (params.page !== undefined) queryParts.push(`page=${params.page}`);
+      if (params.size !== undefined) queryParts.push(`size=${params.size}`);
+
+      if (params.state !== undefined && params.state !== "all") {
+        queryParts.push(`state=${params.state}`);
+      }
+
+      if (params.district !== undefined && params.district !== "all") {
+        queryParts.push(`district=${params.district}`);
+      }
+
+      if (params.market !== undefined && params.market !== "all") {
+        queryParts.push(`market=${params.market}`);
+      }
+    }
+
+    const queryString = queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
+    return apiRequest<Store[]>(`${STORE_API_PATHS.getAll}${queryString}`);
+  },
+
+  get: (id: string | number) =>
+    apiRequest<Store>(STORE_API_PATHS.store(id)),
+
+  add: (payload: { name: string; address: string; email: string; phone: string; doorCode: string; stateId: number; districtId: number; marketId: number }) =>
+    apiRequest<Store>(STORE_API_PATHS.addStore, { method: "POST", body: payload }),
+
+  update: (payload: { id: number; name: string; address: string; email: string; phone: string; doorCode: string; stateId: number; districtId: number; marketId: number }) =>
+    apiRequest<Store>(STORE_API_PATHS.updateStore, { method: "PUT", body: payload }),
+
+  delete: (payload: { id: number }) =>
+    apiRequest<null>(STORE_API_PATHS.deleteStore, { method: "DELETE", body: payload }),
+};
 
 
+// ---------- Houses ---------- //
+
+export interface House {
+  id: number;
+  name: string;
+  number: string;
+  address: string;
+  phone: string;
+  stateId: number;
+  stateName: string;
+  districtId: number;
+  districtName: string;
+  marketId: number;
+  marketName: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const HousesApi = {
+  // Get All Houses (With Full Pagination, State, & District & Market Filtering Support)
+  getAll: (params?: { page?: number; size?: number; state?: string | number; district?: string | number; market?: string | number }) => {
+    const queryParts: string[] = [];
+
+    if (params) {
+      if (params.page !== undefined) queryParts.push(`page=${params.page}`);
+      if (params.size !== undefined) queryParts.push(`size=${params.size}`);
+
+      if (params.state !== undefined && params.state !== "all") {
+        queryParts.push(`state=${params.state}`);
+      }
+
+      if (params.district !== undefined && params.district !== "all") {
+        queryParts.push(`district=${params.district}`);
+      }
+
+      if (params.market !== undefined && params.market !== "all") {
+        queryParts.push(`market=${params.market}`);
+      }
+    }
+
+    const queryString = queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
+    return apiRequest<House[]>(`${HOUSE_API_PATHS.getAll}${queryString}`);
+  },
+
+  get: (id: string | number) =>
+    apiRequest<House>(HOUSE_API_PATHS.house(id)),
+
+  add: (payload: { address: string; phone: string; stateId: number; districtId: number; marketId: number }) =>
+    apiRequest<House>(HOUSE_API_PATHS.addHouse, { method: "POST", body: payload }),
+
+  update: (payload: { id: number; address: string; phone: string; stateId: number; districtId: number; marketId: number }) =>
+    apiRequest<House>(HOUSE_API_PATHS.updateHouse, { method: "PUT", body: payload }),
+
+  delete: (payload: { id: number }) =>
+    apiRequest<null>(HOUSE_API_PATHS.deleteHouse, { method: "DELETE", body: payload }),
+};
 
 
-
+// ---------- External Teams ---------- //
 
 export interface ExternalVendor {
   id: number;
@@ -318,22 +435,22 @@ export const ExternalTeamApi = {
     apiRequest<ExternalVendor>(EXTERNAL_TEAM_API_PATHS.state(id)),
 
   // 3. Add Vendor
-  add: (payload: { 
-    name: string; 
+  add: (payload: {
+    name: string;
     phone: string;
-    marketId: number; 
-    address: string; 
-    workNature: string; 
+    marketId: number;
+    address: string;
+    workNature: string;
   }) =>
     apiRequest<ExternalVendor>(EXTERNAL_TEAM_API_PATHS.addState, { method: "POST", body: payload }),
 
   // 4. Update Vendor
-  update: (payload: { 
-    id: number; 
-    name: string; 
-    phone: string; 
-    address: string; 
-    workNature: string; 
+  update: (payload: {
+    id: number;
+    name: string;
+    phone: string;
+    address: string;
+    workNature: string;
   }) =>
     apiRequest<ExternalVendor>(EXTERNAL_TEAM_API_PATHS.updateState, { method: "PUT", body: payload }),
 
