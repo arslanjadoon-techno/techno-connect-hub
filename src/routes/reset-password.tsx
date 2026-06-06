@@ -103,21 +103,34 @@ function ResetPasswordPage() {
                 Enter and confirm your new password.
               </p>
               <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="pwd">New password</Label>
-                  <Input id="pwd" type="password" value={pwd} onChange={(e) => setPwd(e.target.value)} required />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="confirm">Confirm password</Label>
-                  <Input id="confirm" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
-                </div>
-                <Button type="submit" className="w-full" disabled={loading}>
+                <PwdField label="New password" id="pwd" value={pwd} onChange={setPwd} show={showPwd} toggle={() => setShowPwd(v => !v)} />
+                <PwdField label="Confirm password" id="confirm" value={confirm} onChange={setConfirm} show={showConfirm} toggle={() => setShowConfirm(v => !v)} />
+                <Button type="submit" className="h-11 w-full" disabled={loading}>
                   {loading ? "Updating..." : "Update password"}
                 </Button>
               </form>
             </>
           )}
         </Card>
+      </div>
+    </div>
+  );
+}
+
+function PwdField({ label, id, value, onChange, show, toggle }:
+  { label: string; id: string; value: string; onChange: (v: string) => void; show: boolean; toggle: () => void }) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="relative">
+        <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input id={id} type={show ? "text" : "password"} className="h-11 pl-9 pr-10"
+          value={value} onChange={(e) => onChange(e.target.value)} required />
+        <button type="button" onClick={toggle}
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+          aria-label={show ? "Hide password" : "Show password"}>
+          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
       </div>
     </div>
   );
