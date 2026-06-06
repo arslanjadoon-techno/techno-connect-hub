@@ -41,13 +41,16 @@ export interface User {
   email: string;
   phone?: string;
   department: Department;
+  departmentName?: string;
   roleName: Role;
   stateId?: string;
   stateName?: string;
   districtId?: string;
   districtName?: string;
   marketId?: string;
+  marketName?: string;
   storeId?: string;
+  storeName?: string;
   avatarColor?: string;
   avatarUrl?: string;
   active?: boolean;

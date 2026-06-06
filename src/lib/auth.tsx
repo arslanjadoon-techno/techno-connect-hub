@@ -45,9 +45,18 @@ export function mapBackendUser(b: any): User {
     email: b.email,
     phone: b.phone ?? undefined,
     department,
+    departmentName: b.department?.name ?? b.departmentName ?? undefined,
     roleName,
+    stateId: b.state?.id ?? (b.stateId != null ? String(b.stateId) : undefined),
+    stateName: b.state?.name ?? b.stateName ?? undefined,
+    districtId: b.district?.id ?? (b.districtId != null ? String(b.districtId) : undefined),
+    districtName: b.district?.name ?? b.districtName ?? undefined,
+    marketId: b.market?.id ?? (b.marketId != null ? String(b.marketId) : undefined),
+    marketName: b.market?.name ?? b.marketName ?? undefined,
+    storeId: b.store?.id ?? (b.storeId != null ? String(b.storeId) : undefined),
+    storeName: b.store?.name ?? b.storeName ?? undefined,
     avatarUrl: b.profileImage ?? undefined,
-    avatarColor: "#0d7a5f",
+    avatarColor: "#4f46e5",
   };
 }
 
