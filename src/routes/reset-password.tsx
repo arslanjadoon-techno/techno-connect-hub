@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { ShieldCheck, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ShieldCheck, ArrowLeft, CheckCircle2, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/reset-password")({
@@ -20,6 +20,8 @@ function ResetPasswordPage() {
   const { token } = Route.useSearch();
   const [pwd, setPwd] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [showPwd, setShowPwd] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
