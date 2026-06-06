@@ -215,6 +215,37 @@ function FilterSelect({
   );
 }
 
+function DateRangePicker({ value, onChange }: { value: DateRange | undefined; onChange: (v: DateRange | undefined) => void }) {
+  const fmt = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  const label = value?.from
+    ? value.to && value.to.getTime() !== value.from.getTime()
+      ? `${fmt(value.from)} — ${fmt(value.to)}`
+      : fmt(value.from)
+    : "All time";
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="h-9 justify-start gap-2 px-3 font-normal">
+          <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+          <span className="truncate">{label}</span>
+          {value?.from && (
+            <span role="button" tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); onChange(undefined); }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); onChange(undefined); } }}
+              className="ml-1 -mr-1 inline-flex h-4 w-4 items-center justify-center rounded hover:bg-muted"
+              aria-label="Clear date range">
+              <X className="h-3 w-3" />
+            </span>
+          )}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0" align="start">
+        <Calendar mode="range" numberOfMonths={2} selected={value} onSelect={onChange} initialFocus className="pointer-events-auto" />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <button
