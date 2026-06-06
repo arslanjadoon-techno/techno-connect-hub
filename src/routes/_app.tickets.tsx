@@ -20,8 +20,11 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { DataTable, type Column } from "@/components/data-table";
-import { Plus } from "lucide-react";
+import { Plus, Calendar as CalendarIcon, X } from "lucide-react";
+import type { DateRange } from "react-day-picker";
 import { toast } from "sonner";
 
 type StatusSearch = TicketStatus | "all";
@@ -46,7 +49,7 @@ function TicketsPage() {
   const [priorityFilter, setPriorityFilter] = useState<TicketPriority | "all">("all");
   const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [creatorFilter, setCreatorFilter] = useState<string>("all");
-  const [timeFilter, setTimeFilter] = useState<"all" | "today" | "7d" | "30d" | "90d">("all");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
   // Sync URL -> state
   useEffect(() => { setStatusFilter(search.status); }, [search.status]);
@@ -61,12 +64,12 @@ function TicketsPage() {
   const myTickets = useMemo(() => visibleTickets(user, data.tickets), [user, data.tickets]);
 
   const filtered = useMemo(() => {
-    const cutoff = (() => {
-      if (timeFilter === "all") return 0;
-      const now = Date.now();
-      const map = { today: 1, "7d": 7, "30d": 30, "90d": 90 } as const;
-      return now - map[timeFilter] * 86400000;
-    })();
+    const from = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+    const to = dateRange?.to
+      ? new Date(dateRange.to).setHours(23, 59, 59, 999)
+      : dateRange?.from
+        ? new Date(dateRange.from).setHours(23, 59, 59, 999)
+        : null;
     return myTickets.filter((t) => {
       if (statusFilter !== "all" && t.status !== statusFilter) return false;
       if (deptFilter !== "all" && t.department !== deptFilter) return false;
@@ -79,10 +82,12 @@ function TicketsPage() {
           if (t.externalVendorId !== assigneeFilter.slice(4)) return false;
         } else if (t.assigneeId !== assigneeFilter) return false;
       }
-      if (cutoff && new Date(t.createdAt).getTime() < cutoff) return false;
+      const created = new Date(t.createdAt).getTime();
+      if (from !== null && created < from) return false;
+      if (to !== null && created > to) return false;
       return true;
     });
-  }, [myTickets, statusFilter, deptFilter, priorityFilter, creatorFilter, assigneeFilter, timeFilter]);
+  }, [myTickets, statusFilter, deptFilter, priorityFilter, creatorFilter, assigneeFilter, dateRange]);
 
   const creatorName = (id: string) => {
     const u = data.users.find((x) => x.id === id);
@@ -170,14 +175,7 @@ function TicketsPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <FilterSelect value={timeFilter} onChange={(v) => setTimeFilter(v as typeof timeFilter)} placeholder="Time"
-          options={[
-            { value: "all", label: "All time" },
-            { value: "today", label: "Today" },
-            { value: "7d", label: "Last 7 days" },
-            { value: "30d", label: "Last 30 days" },
-            { value: "90d", label: "Last 90 days" },
-          ]} />
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
         <FilterSelect value={deptFilter} onChange={(v) => setDeptFilter(v as typeof deptFilter)} placeholder="Department"
           options={[{ value: "all", label: "All departments" }, ...ALL_DEPARTMENTS.map((d) => ({ value: d, label: d }))]} />
         <FilterSelect value={priorityFilter} onChange={(v) => setPriorityFilter(v as typeof priorityFilter)} placeholder="Priority"
