@@ -1,9 +1,7 @@
 import type { User } from "./types";
 
-/** "Admin" for admin, "User • Finance", "State Manager • Texas", etc. */
-export function roleSubLabel(user: Pick<User,
-  "roleName" | "departmentName" | "department" | "stateName" | "districtName" | "marketName" | "storeName"
->): string {
+/** Render role label per spec: "Admin" for admin, "User • Finance", "State Manager • Texas", etc. */
+export function roleSubLabel(user: User): string {
   const map: Record<string, string> = {
     admin: "Admin",
     user: "User",

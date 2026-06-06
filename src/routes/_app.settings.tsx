@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Camera } from "lucide-react";
 import { toast } from "sonner";
+import { roleSubLabel } from "@/lib/role-label";
 
 export const Route = createFileRoute("/_app/settings")({
   head: () => ({ meta: [{ title: "Settings — Techno Ticket Portal" }] }),
@@ -97,7 +98,7 @@ function SettingsPage() {
           </div>
           <div className="flex-1 space-y-1">
             <div className="font-display text-lg font-semibold">{firstName} {lastName}</div>
-            <div className="text-sm text-muted-foreground">{user.department} • {user.role.replace("_", " ")}</div>
+            <div className="text-sm text-muted-foreground">{roleSubLabel(user)}</div>
             <p className="text-xs text-muted-foreground">JPG or PNG. Max 2MB.</p>
           </div>
         </div>
