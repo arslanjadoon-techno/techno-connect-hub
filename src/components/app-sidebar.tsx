@@ -16,12 +16,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 import { isAdmin } from "@/lib/permissions";
-import { ALL_ROLES } from "@/lib/types";
+import { roleSubLabel } from "@/lib/role-label";
+import { Sparkles } from "lucide-react";
 
 const mainItems = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Tickets", url: "/tickets", icon: TicketCheck },
   { title: "Team Chat", url: "/chat", icon: MessagesSquare },
+  { title: "AI Chat", url: "/ai-chat", icon: Sparkles },
 ];
 
 const adminItems = [
@@ -43,7 +45,7 @@ export function AppSidebar() {
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
 
   if (!user) return null;
-  const roleLabel = ALL_ROLES.find((r) => r.value === user.roleName)?.label ?? user.roleName;
+  const roleLine = roleSubLabel(user);
 
   return (
     <Sidebar collapsible="icon">
@@ -130,7 +132,7 @@ export function AppSidebar() {
                       {user.firstName} {user.lastName}
                     </div>
                     <div className="truncate text-[11px] text-sidebar-foreground/70">
-                      {roleLabel} • {user.department}
+                      {roleLine}
                     </div>
                   </div>
                   <ChevronUp className="h-4 w-4 text-sidebar-foreground/70" />
