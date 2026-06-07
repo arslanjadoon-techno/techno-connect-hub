@@ -296,3 +296,63 @@ function NewGroupDialog({
     </DialogContent>
   );
 }
+
+function DirectMessagePicker({ onPick }: { onPick: (userId: string) => void }) {
+  const { user } = useAuth();
+  const { data } = useData();
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+
+  const candidates = useMemo(() => {
+    const others = data.users.filter((u) => u.id !== user?.id);
+    const query = q.trim().toLowerCase();
+    if (!query) return others.slice(0, 30);
+    return others.filter((u) =>
+      `${u.firstName} ${u.lastName} ${u.email} ${u.department}`.toLowerCase().includes(query),
+    ).slice(0, 30);
+  }, [data.users, q, user?.id]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button size="sm" variant="ghost" className="hover-lift" title="Start direct message">
+          <MessageSquarePlus className="h-4 w-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 p-2">
+        <div className="relative mb-2">
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search user..."
+            className="h-9 pl-8"
+            autoFocus
+          />
+        </div>
+        <div className="max-h-64 overflow-y-auto">
+          {candidates.length === 0 && (
+            <p className="p-3 text-center text-xs text-muted-foreground">No users found.</p>
+          )}
+          {candidates.map((u) => (
+            <button
+              key={u.id}
+              type="button"
+              onClick={() => { onPick(u.id); setOpen(false); setQ(""); }}
+              className="flex w-full items-center gap-2 rounded-md p-2 text-left text-sm transition hover:bg-muted"
+            >
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white text-xs"
+                style={{ backgroundImage: "var(--gradient-primary)" }}>
+                <UserIcon className="h-3.5 w-3.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{u.firstName} {u.lastName}</div>
+                <div className="truncate text-xs text-muted-foreground">{u.department}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
