@@ -67,29 +67,51 @@ function ChatPage() {
     setText("");
   };
 
+  const startDirectMessage = (otherId: string) => {
+    const other = data.users.find((u) => u.id === otherId);
+    if (!other) return;
+    const dmName = `DM: ${other.firstName} ${other.lastName}`;
+    const existing = data.chatGroups.find(
+      (g) => g.name === dmName && g.memberIds.length === 2 &&
+        g.memberIds.includes(user.id) && g.memberIds.includes(other.id),
+    );
+    if (existing) { setActiveId(existing.id); return; }
+    const g = {
+      id: `cg-dm-${Date.now()}`,
+      name: dmName,
+      memberIds: [user.id, other.id],
+    };
+    set("chatGroups", [...data.chatGroups, g]);
+    setActiveId(g.id);
+    toast.success(`Chat started with ${other.firstName}`);
+  };
+
   return (
-    <div className="grid h-[calc(100vh-8rem)] grid-cols-1 gap-4 lg:grid-cols-[300px_1fr]">
+    <div className="grid h-[calc(100vh-8rem)] grid-cols-1 gap-4 lg:grid-cols-[300px_1fr] animate-fade-in">
       <Card className="flex flex-col overflow-hidden p-0">
-        <div className="flex items-center justify-between border-b p-3">
+        <div className="flex items-center justify-between gap-2 border-b p-3">
           <div>
             <h2 className="font-display font-semibold">Groups</h2>
             <p className="text-xs text-muted-foreground">{groups.length} available</p>
           </div>
-          {canCreate && (
-            <Dialog open={newOpen} onOpenChange={setNewOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" variant="outline"><Plus className="mr-1 h-4 w-4" /> New</Button>
-              </DialogTrigger>
-              <NewGroupDialog
-                onCreate={(g) => {
-                  set("chatGroups", [...data.chatGroups, g]);
-                  setActiveId(g.id);
-                  setNewOpen(false);
-                  toast.success("Group created");
-                }}
-              />
-            </Dialog>
-          )}
+          <div className="flex items-center gap-1.5">
+            <DirectMessagePicker onPick={startDirectMessage} />
+            {canCreate && (
+              <Dialog open={newOpen} onOpenChange={setNewOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline" className="hover-lift"><Plus className="mr-1 h-4 w-4" /> New</Button>
+                </DialogTrigger>
+                <NewGroupDialog
+                  onCreate={(g) => {
+                    set("chatGroups", [...data.chatGroups, g]);
+                    setActiveId(g.id);
+                    setNewOpen(false);
+                    toast.success("Group created");
+                  }}
+                />
+              </Dialog>
+            )}
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto p-2">
           {groups.map((g) => {
