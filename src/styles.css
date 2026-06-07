@@ -196,3 +196,16 @@
 /* Modern table polish */
 table tbody tr { transition: background-color .15s ease; }
 table tbody tr:hover { background-color: color-mix(in oklab, var(--accent) 60%, transparent); }
+
+/* Perf: limit offscreen paint for long lists/tables */
+.cv-auto { content-visibility: auto; contain-intrinsic-size: 600px; }
+
+/* Subtle button shine on hover */
+.btn-shine { position: relative; overflow: hidden; }
+.btn-shine::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(120deg, transparent 30%, color-mix(in oklab, white 35%, transparent) 50%, transparent 70%);
+  transform: translateX(-100%); transition: transform .6s ease;
+  pointer-events: none;
+}
+.btn-shine:hover::after { transform: translateX(100%); }

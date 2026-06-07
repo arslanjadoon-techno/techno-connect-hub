@@ -15,7 +15,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Send, Users as UsersIcon, Plus } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Send, Users as UsersIcon, Plus, MessageSquarePlus, Search, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/chat")({
@@ -66,29 +67,51 @@ function ChatPage() {
     setText("");
   };
 
+  const startDirectMessage = (otherId: string) => {
+    const other = data.users.find((u) => u.id === otherId);
+    if (!other) return;
+    const dmName = `DM: ${other.firstName} ${other.lastName}`;
+    const existing = data.chatGroups.find(
+      (g) => g.name === dmName && g.memberIds.length === 2 &&
+        g.memberIds.includes(user.id) && g.memberIds.includes(other.id),
+    );
+    if (existing) { setActiveId(existing.id); return; }
+    const g = {
+      id: `cg-dm-${Date.now()}`,
+      name: dmName,
+      memberIds: [user.id, other.id],
+    };
+    set("chatGroups", [...data.chatGroups, g]);
+    setActiveId(g.id);
+    toast.success(`Chat started with ${other.firstName}`);
+  };
+
   return (
-    <div className="grid h-[calc(100vh-8rem)] grid-cols-1 gap-4 lg:grid-cols-[300px_1fr]">
+    <div className="grid h-[calc(100vh-8rem)] grid-cols-1 gap-4 lg:grid-cols-[300px_1fr] animate-fade-in">
       <Card className="flex flex-col overflow-hidden p-0">
-        <div className="flex items-center justify-between border-b p-3">
+        <div className="flex items-center justify-between gap-2 border-b p-3">
           <div>
             <h2 className="font-display font-semibold">Groups</h2>
             <p className="text-xs text-muted-foreground">{groups.length} available</p>
           </div>
-          {canCreate && (
-            <Dialog open={newOpen} onOpenChange={setNewOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" variant="outline"><Plus className="mr-1 h-4 w-4" /> New</Button>
-              </DialogTrigger>
-              <NewGroupDialog
-                onCreate={(g) => {
-                  set("chatGroups", [...data.chatGroups, g]);
-                  setActiveId(g.id);
-                  setNewOpen(false);
-                  toast.success("Group created");
-                }}
-              />
-            </Dialog>
-          )}
+          <div className="flex items-center gap-1.5">
+            <DirectMessagePicker onPick={startDirectMessage} />
+            {canCreate && (
+              <Dialog open={newOpen} onOpenChange={setNewOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline" className="hover-lift"><Plus className="mr-1 h-4 w-4" /> New</Button>
+                </DialogTrigger>
+                <NewGroupDialog
+                  onCreate={(g) => {
+                    set("chatGroups", [...data.chatGroups, g]);
+                    setActiveId(g.id);
+                    setNewOpen(false);
+                    toast.success("Group created");
+                  }}
+                />
+              </Dialog>
+            )}
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto p-2">
           {groups.map((g) => {
@@ -271,5 +294,65 @@ function NewGroupDialog({
         </Button>
       </DialogFooter>
     </DialogContent>
+  );
+}
+
+function DirectMessagePicker({ onPick }: { onPick: (userId: string) => void }) {
+  const { user } = useAuth();
+  const { data } = useData();
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+
+  const candidates = useMemo(() => {
+    const others = data.users.filter((u) => u.id !== user?.id);
+    const query = q.trim().toLowerCase();
+    if (!query) return others.slice(0, 30);
+    return others.filter((u) =>
+      `${u.firstName} ${u.lastName} ${u.email} ${u.department}`.toLowerCase().includes(query),
+    ).slice(0, 30);
+  }, [data.users, q, user?.id]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button size="sm" variant="ghost" className="hover-lift" title="Start direct message">
+          <MessageSquarePlus className="h-4 w-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 p-2">
+        <div className="relative mb-2">
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search user..."
+            className="h-9 pl-8"
+            autoFocus
+          />
+        </div>
+        <div className="max-h-64 overflow-y-auto">
+          {candidates.length === 0 && (
+            <p className="p-3 text-center text-xs text-muted-foreground">No users found.</p>
+          )}
+          {candidates.map((u) => (
+            <button
+              key={u.id}
+              type="button"
+              onClick={() => { onPick(u.id); setOpen(false); setQ(""); }}
+              className="flex w-full items-center gap-2 rounded-md p-2 text-left text-sm transition hover:bg-muted"
+            >
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white text-xs"
+                style={{ backgroundImage: "var(--gradient-primary)" }}>
+                <UserIcon className="h-3.5 w-3.5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-medium">{u.firstName} {u.lastName}</div>
+                <div className="truncate text-xs text-muted-foreground">{u.department}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
