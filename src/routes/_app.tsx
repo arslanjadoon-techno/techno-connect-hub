@@ -17,7 +17,6 @@ export const Route = createFileRoute("/_app")({
 function AppLayout() {
   const { user } = useAuth();
   const { data, set } = useData();
-  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
 
   useEffect(() => {
