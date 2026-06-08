@@ -40,16 +40,16 @@ function LoginPage() {
   };
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
-      {/* Hero side */}
+    <div className="relative grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
+      {/* Hero side with curved right edge */}
       <div
-        className="relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex"
+        className="relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex lg:rounded-r-[40%_60%] lg:-mr-10 lg:shadow-[20px_0_60px_-20px_rgba(0,0,0,0.35)] lg:z-10"
         style={{ backgroundImage: "var(--gradient-hero)" }}
       >
         {/* Floating blobs */}
         <div className="pointer-events-none absolute -top-24 -left-24 h-80 w-80 rounded-full bg-white/10 blur-3xl animate-float-blob" />
-        <div className="pointer-events-none absolute bottom-0 right-0 h-96 w-96 rounded-full bg-fuchsia-400/20 blur-3xl animate-float-blob" style={{ animationDelay: "2s" }} />
-        <div className="pointer-events-none absolute top-1/3 right-1/4 h-48 w-48 rounded-full bg-indigo-300/20 blur-2xl animate-float-blob" style={{ animationDelay: "4s" }} />
+        <div className="pointer-events-none absolute bottom-0 right-0 h-96 w-96 rounded-full bg-white/10 blur-3xl animate-float-blob" style={{ animationDelay: "2s" }} />
+        <div className="pointer-events-none absolute top-1/3 right-1/4 h-48 w-48 rounded-full bg-white/15 blur-2xl animate-float-blob" style={{ animationDelay: "4s" }} />
 
         <div className="relative z-10 flex items-center gap-3 animate-fade-in">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
@@ -73,7 +73,7 @@ function LoginPage() {
       </div>
 
       {/* Form side */}
-      <div className="flex items-center justify-center p-6">
+      <div className="flex items-center justify-center bg-background p-6 lg:pl-16">
         <Card className="w-full max-w-md p-8 shadow-[var(--shadow-elegant)] animate-scale-in">
           <h2 className="font-display text-2xl font-semibold">Welcome back</h2>
           <p className="mt-1 text-sm text-muted-foreground">Sign in to your portal account.</p>
