@@ -57,13 +57,6 @@ function AppLayout() {
             <SidebarTrigger />
             <div className="ml-2 flex-1" />
 
-            <Button
-              variant="ghost" size="icon"
-              onClick={toggle}
-              title={theme === "dark" ? "Switch to light" : "Switch to dark"}
-            >
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
 
             <Popover>
               <PopoverTrigger asChild>
