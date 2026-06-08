@@ -60,7 +60,6 @@ function SettingsPage() {
     set("users", data.users.map((u) => (u.id === user.id ? next : u)));
     try { window.localStorage.setItem("techno-ticket-auth-v1", JSON.stringify(next)); } catch { /* ignore */ }
     toast.success("Profile updated");
-    setTimeout(() => window.location.reload(), 400);
   };
 
   const changePassword = () => {
