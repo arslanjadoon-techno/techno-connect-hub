@@ -148,6 +148,34 @@ export function AppSidebar() {
               <div className="text-xs font-normal text-muted-foreground">{user.email}</div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
+            <div className="px-2 py-1.5">
+              <div className="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Appearance</div>
+              <div role="radiogroup" className="grid grid-cols-2 gap-1.5">
+                <button
+                  role="radio"
+                  aria-checked={theme === "light"}
+                  onClick={() => setTheme("light")}
+                  className={`flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-xs transition ${theme === "light" ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+                >
+                  <span className={`flex h-3.5 w-3.5 items-center justify-center rounded-full border ${theme === "light" ? "border-primary" : "border-muted-foreground"}`}>
+                    {theme === "light" && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                  </span>
+                  <Sun className="h-3.5 w-3.5" /> Light
+                </button>
+                <button
+                  role="radio"
+                  aria-checked={theme === "dark"}
+                  onClick={() => setTheme("dark")}
+                  className={`flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-xs transition ${theme === "dark" ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+                >
+                  <span className={`flex h-3.5 w-3.5 items-center justify-center rounded-full border ${theme === "dark" ? "border-primary" : "border-muted-foreground"}`}>
+                    {theme === "dark" && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                  </span>
+                  <Moon className="h-3.5 w-3.5" /> Dark
+                </button>
+              </div>
+            </div>
+            <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link to="/settings" className="flex w-full cursor-pointer items-center gap-2">
                 <SettingsIcon className="h-4 w-4" /> Settings
