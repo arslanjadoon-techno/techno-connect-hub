@@ -171,7 +171,7 @@ function SettingsPage() {
           </div>
           <div>
             <h2 className="font-display text-lg font-semibold">Color palette</h2>
-            <p className="text-xs text-muted-foreground">Pick the accent color used across the app.</p>
+            <p className="text-xs text-muted-foreground">Pick the accent — sidebar and buttons match automatically. Saved to your device only.</p>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -190,9 +190,13 @@ function SettingsPage() {
                   className="h-10 w-10 shrink-0 rounded-lg shadow-inner"
                   style={{ backgroundImage: `linear-gradient(135deg, ${p.primary}, ${p.primaryGlow})` }}
                 />
-                <span className="flex-1">
-                  <span className="block text-sm font-medium">{p.name}</span>
-                  <span className="block text-xs text-muted-foreground">Accent theme</span>
+                <span className="flex-1 min-w-0">
+                  <span className="block truncate text-sm font-medium">{p.name}</span>
+                  <span className="mt-1 flex gap-1">
+                    {p.swatches.map((s, i) => (
+                      <span key={i} className="h-2.5 w-2.5 rounded-full ring-1 ring-black/10" style={{ backgroundColor: s }} />
+                    ))}
+                  </span>
                 </span>
                 {active && <Check className="h-4 w-4 text-primary" />}
               </button>
