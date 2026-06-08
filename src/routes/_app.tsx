@@ -4,12 +4,11 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data-store";
-import { useTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
-import { Bell, Moon, Sun, CheckCheck } from "lucide-react";
+import { Bell, CheckCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_app")({
   component: AppLayout,
