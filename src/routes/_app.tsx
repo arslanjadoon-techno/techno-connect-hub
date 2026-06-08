@@ -4,12 +4,11 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data-store";
-import { useTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 import {
   Popover, PopoverContent, PopoverTrigger,
 } from "@/components/ui/popover";
-import { Bell, Moon, Sun, CheckCheck } from "lucide-react";
+import { Bell, CheckCheck } from "lucide-react";
 
 export const Route = createFileRoute("/_app")({
   component: AppLayout,
@@ -18,7 +17,6 @@ export const Route = createFileRoute("/_app")({
 function AppLayout() {
   const { user } = useAuth();
   const { data, set } = useData();
-  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -59,13 +57,6 @@ function AppLayout() {
             <SidebarTrigger />
             <div className="ml-2 flex-1" />
 
-            <Button
-              variant="ghost" size="icon"
-              onClick={toggle}
-              title={theme === "dark" ? "Switch to light" : "Switch to dark"}
-            >
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
 
             <Popover>
               <PopoverTrigger asChild>

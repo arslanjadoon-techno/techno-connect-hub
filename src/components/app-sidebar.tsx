@@ -2,7 +2,7 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, TicketCheck, MessagesSquare, MapPin, Store as StoreIcon,
   Building2, Network, Users as UsersIcon, Wrench, LogOut, ShieldCheck,
-  Settings as SettingsIcon, ChevronUp, Home
+  Settings as SettingsIcon, ChevronUp, Home, Sun, Moon
 } from "lucide-react";
 
 import {
@@ -17,6 +17,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { isAdmin } from "@/lib/permissions";
 import { roleSubLabel } from "@/lib/role-label";
+import { useTheme } from "@/lib/theme";
 import { Sparkles } from "lucide-react";
 
 const mainItems = [
@@ -40,6 +41,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { user, logout } = useAuth();
+  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
@@ -145,6 +147,34 @@ export function AppSidebar() {
               <div className="text-sm font-medium">{user.firstName} {user.lastName}</div>
               <div className="text-xs font-normal text-muted-foreground">{user.email}</div>
             </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <div className="px-2 py-1.5">
+              <div className="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Appearance</div>
+              <div role="radiogroup" className="grid grid-cols-2 gap-1.5">
+                <button
+                  role="radio"
+                  aria-checked={theme === "light"}
+                  onClick={() => setTheme("light")}
+                  className={`flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-xs transition ${theme === "light" ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+                >
+                  <span className={`flex h-3.5 w-3.5 items-center justify-center rounded-full border ${theme === "light" ? "border-primary" : "border-muted-foreground"}`}>
+                    {theme === "light" && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                  </span>
+                  <Sun className="h-3.5 w-3.5" /> Light
+                </button>
+                <button
+                  role="radio"
+                  aria-checked={theme === "dark"}
+                  onClick={() => setTheme("dark")}
+                  className={`flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-xs transition ${theme === "dark" ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"}`}
+                >
+                  <span className={`flex h-3.5 w-3.5 items-center justify-center rounded-full border ${theme === "dark" ? "border-primary" : "border-muted-foreground"}`}>
+                    {theme === "dark" && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                  </span>
+                  <Moon className="h-3.5 w-3.5" /> Dark
+                </button>
+              </div>
+            </div>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link to="/settings" className="flex w-full cursor-pointer items-center gap-2">
