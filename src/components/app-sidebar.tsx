@@ -2,7 +2,7 @@ import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import {
   LayoutDashboard, TicketCheck, MessagesSquare, MapPin, Store as StoreIcon,
   Building2, Network, Users as UsersIcon, Wrench, LogOut, ShieldCheck,
-  Settings as SettingsIcon, ChevronUp, Home
+  Settings as SettingsIcon, ChevronUp, Home, Sun, Moon
 } from "lucide-react";
 
 import {
@@ -17,6 +17,7 @@ import {
 import { useAuth } from "@/lib/auth";
 import { isAdmin } from "@/lib/permissions";
 import { roleSubLabel } from "@/lib/role-label";
+import { useTheme } from "@/lib/theme";
 import { Sparkles } from "lucide-react";
 
 const mainItems = [
