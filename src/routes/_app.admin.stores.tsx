@@ -7,22 +7,28 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Search, XCircle } from "lucide-react";
-import { StoresApi, StatesApi, DistrictsApi, MarketsApi } from "@/lib/api/client"; 
+import { StoresApi, StatesApi, DistrictsApi, MarketsApi } from "@/lib/api/client";
 
 interface Store {
   id: number;
   name: string;
-  number: string;
+  number: string | null;
   address: string;
   email: string;
   phone: string;
   doorCode: string;
-  stateId: number;
-  stateName: string;
-  districtId: number;
-  districtName: string;
-  marketId: number;
-  marketName: string;
+  state: {
+    id: number;
+    name: string;
+  };
+  district: {
+    id: number;
+    name: string;
+  };
+  market: {
+    id: number;
+    name: string;
+  };
   createdAt?: string;
   updatedAt?: string;
 }
@@ -54,16 +60,16 @@ export const Route = createFileRoute("/_app/admin/stores")({
 function StoresPage() {
   const [stores, setStores] = useState<Store[]>([]);
   const [states, setStates] = useState<State[]>([]);
-  
+
   // Cascading lists for toolbar selection
   const [districtsForFilter, setDistrictsForFilter] = useState<District[]>([]);
   const [marketsForFilter, setMarketsForFilter] = useState<Market[]>([]);
-  
+
   // Toolbar state selection tracking
   const [selectedStateFilter, setSelectedStateFilter] = useState<string>("all");
   const [selectedDistrictFilter, setSelectedDistrictFilter] = useState<string>("all");
   const [selectedMarketFilter, setSelectedMarketFilter] = useState<string>("all");
-  
+
   // Search state query buffers
   const [mainStateSearch, setMainStateSearch] = useState("");
   const [mainDistrictSearch, setMainDistrictSearch] = useState("");
@@ -91,18 +97,18 @@ function StoresPage() {
 
   // Dynamic paginated master fetch handler
   const fetchStores = async (
-    targetPage: number, 
-    targetSize: number, 
-    targetState: string, 
+    targetPage: number,
+    targetSize: number,
+    targetState: string,
     targetDistrict: string,
     targetMarket: string
   ) => {
     const currentRequestKey = `${targetPage}-${targetSize}-${targetState}-${targetDistrict}-${targetMarket}`;
-    
+
     if (lastFetchedKey.current === currentRequestKey || isFetchingRef.current) {
       return;
     }
-    
+
     try {
       setLoading(true);
       isFetchingRef.current = true;
@@ -117,20 +123,20 @@ function StoresPage() {
         }
       }
 
-      const res = await StoresApi.getAll({ 
-        page: targetPage, 
-        size: targetSize, 
+      const res = await StoresApi.getAll({
+        page: targetPage,
+        size: targetSize,
         state: targetState !== "all" ? targetState : undefined,
         district: targetDistrict !== "all" ? targetDistrict : undefined,
         market: targetMarket !== "all" ? targetMarket : undefined
       });
-      
+
       if (res.success) {
         // Mathematical validation fallback guard if items in targeted current page turn empty
         if (res.data.length === 0 && res.pagination && res.pagination.totalRecords > 0 && targetPage > 0) {
           const maxAvailablePage = Math.ceil(res.pagination.totalRecords / targetSize) - 1;
           const fallbackPage = Math.max(0, maxAvailablePage);
-          
+
           isFetchingRef.current = false;
           lastFetchedKey.current = "";
           setPage(fallbackPage);
@@ -211,7 +217,7 @@ function StoresPage() {
   const handleStateFilterChange = (newState: string) => {
     lastFetchedKey.current = "";
     setPage(0);
-    setSelectedDistrictFilter("all"); 
+    setSelectedDistrictFilter("all");
     setSelectedMarketFilter("all");
     setDistrictsForFilter([]);
     setMarketsForFilter([]);
@@ -264,16 +270,16 @@ function StoresPage() {
 
   const handleSave = async (
     initial: Store | null,
-    formData: { 
-      name: string; 
-      number: string; 
-      address: string; 
-      email: string; 
-      phone: string; 
-      doorCode: string; 
-      stateId: number; 
-      districtId: number; 
-      marketId: number; 
+    formData: {
+      name: string;
+      number: string;
+      address: string;
+      email: string;
+      phone: string;
+      doorCode: string;
+      stateId: number;
+      districtId: number;
+      marketId: number;
     },
     close: () => void
   ) => {
@@ -343,7 +349,7 @@ function StoresPage() {
   return (
     <div className="w-full">
       <div className="w-full border-0 shadow-none bg-transparent [&_input]:bg-white dark:[&_input]:bg-zinc-950 [&_button.w-\[180px\]]:bg-white dark:[&_button.w-\[180px\]]:bg-zinc-950 [&_thead]:bg-zinc-200 dark:[&_thead]:bg-zinc-800 [&_thead]:border-b-2 [&_thead]:border-border [&_th]:font-bold [&_th]:text-zinc-900 dark:[&_th]:text-zinc-100 [&_th]:h-12 [&_tbody_tr]:bg-background [&_tbody_tr]:even:bg-zinc-50/50 dark:[&_tbody_tr]:even:bg-zinc-900/30 [&_tbody_tr]:hover:bg-muted/40 [&_th:last-child]:text-right [&_th:last-child]:pr-10 [&_td:last-child]:text-right [&_td[colspan]]:text-center [&_td[colspan]]:font-medium">
-        
+
         <div className="[&_.flex-col]:flex-row [&_.flex-col]:items-center [&_.flex-col]:justify-between [&_.max-w-sm]:order-last [&_.max-w-sm]:ml-auto">
           <CrudPage<Store>
             title="Stores"
@@ -357,7 +363,7 @@ function StoresPage() {
             pageSize={size}
             onPageChange={(newPage) => setPage(newPage)}
             onPageSizeChange={(newSize) => setSize(newSize)}
-            
+
             extraToolbar={
               <div className="flex items-end gap-3 pb-0.5">
                 {/* 1. STATE TOOLBAR FILTER */}
@@ -365,8 +371,8 @@ function StoresPage() {
                   <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">
                     State
                   </span>
-                  <Select 
-                    value={selectedStateFilter} 
+                  <Select
+                    value={selectedStateFilter}
                     onValueChange={handleStateFilterChange}
                     onOpenChange={(open) => {
                       if (!open) setMainStateSearch("");
@@ -403,8 +409,8 @@ function StoresPage() {
                   <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">
                     District
                   </span>
-                  <Select 
-                    value={selectedDistrictFilter} 
+                  <Select
+                    value={selectedDistrictFilter}
                     disabled={selectedStateFilter === "all" || filterDistrictsLoading}
                     onValueChange={handleDistrictFilterChange}
                     onOpenChange={(open) => {
@@ -448,8 +454,8 @@ function StoresPage() {
                   <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">
                     Market
                   </span>
-                  <Select 
-                    value={selectedMarketFilter} 
+                  <Select
+                    value={selectedMarketFilter}
                     disabled={selectedDistrictFilter === "all" || filterMarketsLoading}
                     onValueChange={handleMarketFilterChange}
                     onOpenChange={(open) => {
@@ -502,13 +508,13 @@ function StoresPage() {
                 </Button>
               </div>
             }
-            
+
             columns={[
               {
                 key: "number",
                 header: "Number",
                 accessor: (s) => <div className="py-2 text-left font-mono font-medium text-xs">{s.number}</div>,
-                searchValue: (s) => s.number,
+                searchValue: (s) => s.number ?? "",
               },
               {
                 key: "name",
@@ -537,20 +543,20 @@ function StoresPage() {
               {
                 key: "state",
                 header: "State",
-                accessor: (s) => <div className="py-2 text-left text-muted-foreground">{s.stateName ?? "—"}</div>,
-                searchValue: (s) => s.stateName ?? "",
+                accessor: (s) => <div className="py-2 text-left text-muted-foreground">{s.state?.name ?? "—"}</div>, // ✅ Updated
+                searchValue: (s) => s.state?.name ?? "",
               },
               {
                 key: "district",
                 header: "District",
-                accessor: (s) => <div className="py-2 text-left text-zinc-700 dark:text-zinc-300 font-medium">{s.districtName ?? "—"}</div>,
-                searchValue: (s) => s.districtName ?? "",
+                accessor: (s) => <div className="py-2 text-left text-zinc-700 dark:text-zinc-300 font-medium">{s.district?.name ?? "—"}</div>, // ✅ Updated
+                searchValue: (s) => s.district?.name ?? "",
               },
               {
                 key: "market",
                 header: "Market",
-                accessor: (s) => <div className="py-2 text-left text-zinc-700 dark:text-zinc-300 font-medium">{s.marketName ?? "—"}</div>,
-                searchValue: (s) => s.marketName ?? "",
+                accessor: (s) => <div className="py-2 text-left text-zinc-700 dark:text-zinc-300 font-medium">{s.market?.name ?? "—"}</div>, // ✅ Updated
+                searchValue: (s) => s.market?.name ?? "",
               },
             ]}
             onDelete={handleDelete}
@@ -577,16 +583,16 @@ interface StoreFormProps {
   initial: Store | null;
   states: State[];
   isSaving: boolean;
-  onSave: (data: { 
-    name: string; 
-    number: string; 
-    address: string; 
-    email: string; 
-    phone: string; 
-    doorCode: string; 
-    stateId: number; 
-    districtId: number; 
-    marketId: number; 
+  onSave: (data: {
+    name: string;
+    number: string;
+    address: string;
+    email: string;
+    phone: string;
+    doorCode: string;
+    stateId: number;
+    districtId: number;
+    marketId: number;
   }) => void;
 }
 
@@ -598,14 +604,14 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
   const [phone, setPhone] = useState(initial?.phone ?? "");
   const [doorCode, setDoorCode] = useState(initial?.doorCode ?? "");
 
-  const [stateId, setStateId] = useState<string>(initial?.stateId ? initial.stateId.toString() : "");
-  const [districtId, setDistrictId] = useState<string>(initial?.districtId ? initial.districtId.toString() : "");
-  const [marketId, setMarketId] = useState<string>(initial?.marketId ? initial.marketId.toString() : "");
+  const [stateId, setStateId] = useState<string>(initial?.state?.id ? initial.state.id.toString() : "");
+  const [districtId, setDistrictId] = useState<string>(initial?.district?.id ? initial.district.id.toString() : "");
+  const [marketId, setMarketId] = useState<string>(initial?.market?.id ? initial.market.id.toString() : "");
 
   // Form dependent state spaces
   const [districts, setDistricts] = useState<District[]>([]);
   const [markets, setMarkets] = useState<Market[]>([]);
-  
+
   const [districtsLoading, setDistrictsLoading] = useState(false);
   const [marketsLoading, setMarketsLoading] = useState(false);
 
@@ -632,8 +638,8 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
         const res = await apiClient({ state: stateId });
         if (res.success) {
           setDistricts(res.data);
-          if (initial && initial.stateId.toString() === stateId) {
-            setDistrictId(initial.districtId.toString());
+          if (initial && initial.state?.id?.toString() === stateId) {
+            setDistrictId(initial.district?.id?.toString() ?? "");
           } else {
             setDistrictId("");
             setMarketId("");
@@ -664,8 +670,8 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
         const res = await apiClient({ district: districtId });
         if (res.success) {
           setMarkets(res.data);
-          if (initial && initial.districtId.toString() === districtId) {
-            setMarketId(initial.marketId.toString());
+          if (initial && initial.district?.id?.toString() === districtId) {
+            setMarketId(initial.market?.id?.toString() ?? "");
           } else {
             setMarketId("");
           }
@@ -760,15 +766,15 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
           />
         </div>
       </div>
-      
+
       {/* Cascading Drops Hierarchy Matrix */}
       <div className="grid grid-cols-3 gap-3">
         {/* Drop 1: State Selection */}
         <div className="space-y-1.5">
           <Label>State</Label>
-          <Select 
-            value={stateId} 
-            disabled={isSaving || !!initial} 
+          <Select
+            value={stateId}
+            disabled={isSaving || !!initial}
             onValueChange={setStateId}
             onOpenChange={(open) => {
               if (!open) setStateSearch("");
@@ -805,9 +811,9 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
             <Label>District</Label>
             {districtsLoading && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
           </div>
-          <Select 
-            value={districtId} 
-            disabled={isSaving || !stateId || districtsLoading || !!initial} 
+          <Select
+            value={districtId}
+            disabled={isSaving || !stateId || districtsLoading || !!initial}
             onValueChange={setDistrictId}
             onOpenChange={(open) => {
               if (!open) setDistrictSearch("");
@@ -850,9 +856,9 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
             <Label>Market</Label>
             {marketsLoading && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
           </div>
-          <Select 
-            value={marketId} 
-            disabled={isSaving || !districtId || marketsLoading || !!initial} 
+          <Select
+            value={marketId}
+            disabled={isSaving || !districtId || marketsLoading || !!initial}
             onValueChange={setMarketId}
             onOpenChange={(open) => {
               if (!open) setMarketSearch("");
@@ -893,26 +899,26 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
       <Button
         className="w-full flex items-center justify-center gap-2"
         disabled={
-          !name.trim() || 
+          !name.trim() ||
           !address.trim() ||
           !email.trim() ||
           !phone.trim() ||
           !doorCode.trim() ||
-          !stateId || 
-          !districtId || 
+          !stateId ||
+          !districtId ||
           !marketId ||
-          isSaving || 
+          isSaving ||
           districtsLoading ||
           marketsLoading
         }
-        onClick={() => onSave({ 
-          name: name.trim(), 
+        onClick={() => onSave({
+          name: name.trim(),
           number: number.trim(),
           address: address.trim(),
           email: email.trim(),
           phone: phone.trim(),
           doorCode: doorCode.trim(),
-          stateId: Number(stateId), 
+          stateId: Number(stateId),
           districtId: Number(districtId),
           marketId: Number(marketId)
         })}

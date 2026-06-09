@@ -668,7 +668,7 @@ function HouseForm({ initial, states, isSaving, onSave }: HouseFormProps) {
     <div className="space-y-4">
 
       {/* Row 1: Address & Door Code */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3">
 
         <div className="col-span-1 space-y-1.5">
           <Label>Address</Label>

@@ -27,7 +27,7 @@ export const USER_API_PATHS = {
 } as const;
 
 export const STATE_API_PATHS = {
-  getAll: "/api/states/search",
+  getAll: "/api/states/get-all",
   state: (id: string | number) => `/api/states/${id}`,
   addState: "/api/states/add",
   updateState: "/api/states/update",

@@ -67,7 +67,20 @@ export interface AppNotification {
 }
 
 export interface State { id: string; name: string; code: string; }
-export interface Market { id: string; name: string; stateId: string; districtId: string; }
+
+export interface Market {
+  id: number;
+  name: string;
+  state: {
+    id: number;
+    name: string;
+  };
+  district: {
+    id: number;
+    name: string;
+  };
+}
+
 export interface District { id: string; name: string; stateId: string; marketId: string; }
 
 export interface Store {

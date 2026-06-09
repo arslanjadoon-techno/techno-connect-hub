@@ -133,17 +133,45 @@ export interface AddUserPayload {
   email: string;
   password: string;
   role: string;
-  department?: string;
-  phone?: string;
+  departmentId: number | null;     
+  departmentName: string | null;   
+  stateId?: number | null;      
+  districtId?: number | null; 
+  marketId?: number | null;  
+  storeId?: number | null; 
+  phone?: string | null;
 }
 
 export const usersApi = {
-  getAll: () => apiRequest<BackendUser[]>(USER_API_PATHS.getAll),
+  
+  // Handles Pagination, Department, and Role filters via query strings
+  getAll: (params?: { page?: number; size?: number; department?: string; role?: string }) => {
+    const queryParts: string[] = [];
+
+    if (params) {
+      if (params.page !== undefined) queryParts.push(`page=${params.page}`);
+      if (params.size !== undefined) queryParts.push(`size=${params.size}`);
+      
+      if (params.department !== undefined && params.department !== "all") {
+        queryParts.push(`department=${encodeURIComponent(params.department)}`);
+      }
+      
+      if (params.role !== undefined && params.role !== "all") {
+        queryParts.push(`role=${encodeURIComponent(params.role)}`);
+      }
+    }
+
+    const queryString = queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
+    return apiRequest<BackendUser[]>(`${USER_API_PATHS.getAll}${queryString}`);
+  },
+
   get: (id: string | number) => apiRequest<BackendUser>(USER_API_PATHS.user(id)),
   add: (payload: AddUserPayload) =>
     apiRequest<BackendUser>(USER_API_PATHS.addUser, { method: "POST", body: payload }),
-  update: (payload: Partial<BackendUser> & { id: number }) =>
+
+  update: (payload: Partial<AddUserPayload> & { id: number }) =>
     apiRequest<BackendUser>(USER_API_PATHS.updateUser, { method: "PUT", body: payload }),
+
   delete: (id: number) =>
     apiRequest<null>(USER_API_PATHS.deleteUser, { method: "DELETE", body: { id } }),
 };
@@ -172,7 +200,7 @@ export const StatesApi = {
     if (params && params.page !== undefined && params.size !== undefined) {
       url = `${STATE_API_PATHS.getAll}?page=${params.page}&size=${params.size}`;
     }
-    return apiRequest<State[]>(url, { method: "POST" });
+    return apiRequest<State[]>(url);
   },
 
   get: (id: string | number) => apiRequest<State>(STATE_API_PATHS.state(id)),
@@ -236,11 +264,17 @@ export const DistrictsApi = {
 
 // ---------- Markets ---------- //
 
-export interface Market {
+interface Market {
   id: number;
   name: string;
-  stateId: number;
-  districtId: number;
+  state: {
+    id: number;
+    name: string;
+  };
+  district: {
+    id: number;
+    name: string;
+  };
   createdAt?: string;
   updatedAt?: string;
 }
@@ -287,17 +321,23 @@ export const MarketsApi = {
 export interface Store {
   id: number;
   name: string;
-  number: string;
+  number: string | null;
   address: string;
   email: string;
   phone: string;
   doorCode: string;
-  stateId: number;
-  stateName: string;
-  districtId: number;
-  districtName: string;
-  marketId: number;
-  marketName: string;
+  state: {
+    id: number;
+    name: string;
+  };
+  district: {
+    id: number;
+    name: string;
+  };
+  market: {
+    id: number;
+    name: string;
+  };
   createdAt?: string;
   updatedAt?: string;
 }

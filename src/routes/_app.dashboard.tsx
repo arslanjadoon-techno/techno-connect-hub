@@ -217,11 +217,11 @@ function DashboardPage() {
           </h2>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
             <StatCard icon={TicketCheck} label="Total Tickets" value={data.tickets.length} />
-            <StatCard icon={StoreIcon}   label="Stores"        value={data.stores.length} />
-            <StatCard icon={MapPin}      label="States"        value={data.states.length} />
-            <StatCard icon={Network}     label="Markets"       value={data.markets.length} />
-            <StatCard icon={Building2}   label="Districts"     value={data.districts.length} />
-            <StatCard icon={UserCog}     label="Users"         value={data.users.length} />
+            <StatCard icon={UserCog}     label="Total Users" value={data.users.length} />
+            <StatCard icon={StoreIcon}   label="Total Stores"        value={data.stores.length} />
+            <StatCard icon={MapPin}      label="State Managers"        value={data.states.length} />
+            <StatCard icon={Building2}   label="District Managers"     value={data.districts.length} />
+            <StatCard icon={Network}     label="Market Managers"       value={data.markets.length} />
           </div>
         </section>
       )}
