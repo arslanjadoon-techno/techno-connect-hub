@@ -5,7 +5,7 @@ import {
   Building2, Network, Users as UsersIcon, Wrench, LogOut, ShieldCheck,
   Settings as SettingsIcon, ChevronUp, ChevronDown, Home, Sun, Moon,
   Sparkles, Ticket as TicketIcon, BarChart3, DollarSign,
-  Briefcase, Building,
+  Briefcase,
 } from "lucide-react";
 
 import {
@@ -63,7 +63,7 @@ const adminGroup: Group = {
   ],
 };
 
-const externalItem: Item = { title: "External", url: "/admin/external", icon: Building };
+
 
 function CollapsibleGroup({
   group, collapsed, isActive, defaultOpen,
