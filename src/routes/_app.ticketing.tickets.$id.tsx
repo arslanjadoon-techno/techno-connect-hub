@@ -16,7 +16,7 @@ import {
 import { ArrowLeft, MessageSquare, Clock } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_app/tickets/$id")({
+export const Route = createFileRoute("/_app/ticketing/tickets/$id")({
   head: () => ({ meta: [{ title: "Ticket Details — Techno Ticket Portal" }] }),
   component: TicketDetail,
 });
@@ -51,7 +51,7 @@ function TicketDetail() {
     return (
       <div className="mx-auto max-w-md py-20 text-center">
         <p className="text-muted-foreground">Ticket not found.</p>
-        <Button asChild className="mt-4"><Link to="/tickets">Back to tickets</Link></Button>
+        <Button asChild className="mt-4"><Link to="/ticketing/tickets">Back to tickets</Link></Button>
       </div>
     );
   }
@@ -100,7 +100,7 @@ function TicketDetail() {
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex items-center justify-between gap-3">
         <button
-          onClick={() => navigate({ to: "/tickets" })}
+          onClick={() => navigate({ to: "/ticketing/tickets" })}
           className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Back

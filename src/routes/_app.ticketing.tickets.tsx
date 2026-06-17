@@ -30,7 +30,7 @@ import { toast } from "sonner";
 type StatusSearch = TicketStatus | "all";
 const STATUS_KEYS: StatusSearch[] = ["all", "pending", "assigned", "completed", "hold", "closed", "reopen"];
 
-export const Route = createFileRoute("/_app/tickets")({
+export const Route = createFileRoute("/_app/ticketing/tickets")({
   head: () => ({ meta: [{ title: "Tickets — Techno Ticket Portal" }] }),
   validateSearch: (s: Record<string, unknown>) => ({
     status: (STATUS_KEYS.includes(s.status as StatusSearch) ? (s.status as StatusSearch) : "all") as StatusSearch,
@@ -58,7 +58,7 @@ function TicketsPage() {
 
   const setStatus = (s: StatusSearch) => {
     setStatusFilter(s);
-    navigate({ to: "/tickets", search: { status: s }, replace: true });
+    navigate({ to: "/ticketing/tickets", search: { status: s }, replace: true });
   };
 
   const myTickets = useMemo(() => visibleTickets(user, data.tickets), [user, data.tickets]);
@@ -196,7 +196,7 @@ function TicketsPage() {
         columns={columns}
         rowKey={(t) => t.id}
         searchPlaceholder="Search tickets, location, assignee..."
-        onRowClick={(t) => navigate({ to: "/tickets/$id", params: { id: t.id } })}
+        onRowClick={(t) => navigate({ to: "/ticketing/tickets/$id", params: { id: t.id } })}
       />
     </div>
   );

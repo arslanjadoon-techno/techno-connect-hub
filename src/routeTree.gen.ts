@@ -14,12 +14,11 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AppTicketsRouteImport } from './routes/_app.tickets'
 import { Route as AppSettingsRouteImport } from './routes/_app.settings'
-import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppChatRouteImport } from './routes/_app.chat'
 import { Route as AppAiChatRouteImport } from './routes/_app.ai-chat'
-import { Route as AppTicketsIdRouteImport } from './routes/_app.tickets.$id'
+import { Route as AppTicketingTicketsRouteImport } from './routes/_app.ticketing.tickets'
+import { Route as AppTicketingDashboardRouteImport } from './routes/_app.ticketing.dashboard'
 import { Route as AppAdminUsersRouteImport } from './routes/_app.admin.users'
 import { Route as AppAdminStoresRouteImport } from './routes/_app.admin.stores'
 import { Route as AppAdminStatesRouteImport } from './routes/_app.admin.states'
@@ -27,6 +26,7 @@ import { Route as AppAdminMarketsRouteImport } from './routes/_app.admin.markets
 import { Route as AppAdminHousesRouteImport } from './routes/_app.admin.houses'
 import { Route as AppAdminExternalRouteImport } from './routes/_app.admin.external'
 import { Route as AppAdminDistrictsRouteImport } from './routes/_app.admin.districts'
+import { Route as AppTicketingTicketsIdRouteImport } from './routes/_app.ticketing.tickets.$id'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -52,19 +52,9 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppTicketsRoute = AppTicketsRouteImport.update({
-  id: '/tickets',
-  path: '/tickets',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppDashboardRoute = AppDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
   getParentRoute: () => AppRoute,
 } as any)
 const AppChatRoute = AppChatRouteImport.update({
@@ -77,10 +67,15 @@ const AppAiChatRoute = AppAiChatRouteImport.update({
   path: '/ai-chat',
   getParentRoute: () => AppRoute,
 } as any)
-const AppTicketsIdRoute = AppTicketsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => AppTicketsRoute,
+const AppTicketingTicketsRoute = AppTicketingTicketsRouteImport.update({
+  id: '/ticketing/tickets',
+  path: '/ticketing/tickets',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppTicketingDashboardRoute = AppTicketingDashboardRouteImport.update({
+  id: '/ticketing/dashboard',
+  path: '/ticketing/dashboard',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppAdminUsersRoute = AppAdminUsersRouteImport.update({
   id: '/admin/users',
@@ -117,6 +112,11 @@ const AppAdminDistrictsRoute = AppAdminDistrictsRouteImport.update({
   path: '/admin/districts',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTicketingTicketsIdRoute = AppTicketingTicketsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AppTicketingTicketsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -125,9 +125,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/ai-chat': typeof AppAiChatRoute
   '/chat': typeof AppChatRoute
-  '/dashboard': typeof AppDashboardRoute
   '/settings': typeof AppSettingsRoute
-  '/tickets': typeof AppTicketsRouteWithChildren
   '/admin/districts': typeof AppAdminDistrictsRoute
   '/admin/external': typeof AppAdminExternalRoute
   '/admin/houses': typeof AppAdminHousesRoute
@@ -135,7 +133,9 @@ export interface FileRoutesByFullPath {
   '/admin/states': typeof AppAdminStatesRoute
   '/admin/stores': typeof AppAdminStoresRoute
   '/admin/users': typeof AppAdminUsersRoute
-  '/tickets/$id': typeof AppTicketsIdRoute
+  '/ticketing/dashboard': typeof AppTicketingDashboardRoute
+  '/ticketing/tickets': typeof AppTicketingTicketsRouteWithChildren
+  '/ticketing/tickets/$id': typeof AppTicketingTicketsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -144,9 +144,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/ai-chat': typeof AppAiChatRoute
   '/chat': typeof AppChatRoute
-  '/dashboard': typeof AppDashboardRoute
   '/settings': typeof AppSettingsRoute
-  '/tickets': typeof AppTicketsRouteWithChildren
   '/admin/districts': typeof AppAdminDistrictsRoute
   '/admin/external': typeof AppAdminExternalRoute
   '/admin/houses': typeof AppAdminHousesRoute
@@ -154,7 +152,9 @@ export interface FileRoutesByTo {
   '/admin/states': typeof AppAdminStatesRoute
   '/admin/stores': typeof AppAdminStoresRoute
   '/admin/users': typeof AppAdminUsersRoute
-  '/tickets/$id': typeof AppTicketsIdRoute
+  '/ticketing/dashboard': typeof AppTicketingDashboardRoute
+  '/ticketing/tickets': typeof AppTicketingTicketsRouteWithChildren
+  '/ticketing/tickets/$id': typeof AppTicketingTicketsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -165,9 +165,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/_app/ai-chat': typeof AppAiChatRoute
   '/_app/chat': typeof AppChatRoute
-  '/_app/dashboard': typeof AppDashboardRoute
   '/_app/settings': typeof AppSettingsRoute
-  '/_app/tickets': typeof AppTicketsRouteWithChildren
   '/_app/admin/districts': typeof AppAdminDistrictsRoute
   '/_app/admin/external': typeof AppAdminExternalRoute
   '/_app/admin/houses': typeof AppAdminHousesRoute
@@ -175,7 +173,9 @@ export interface FileRoutesById {
   '/_app/admin/states': typeof AppAdminStatesRoute
   '/_app/admin/stores': typeof AppAdminStoresRoute
   '/_app/admin/users': typeof AppAdminUsersRoute
-  '/_app/tickets/$id': typeof AppTicketsIdRoute
+  '/_app/ticketing/dashboard': typeof AppTicketingDashboardRoute
+  '/_app/ticketing/tickets': typeof AppTicketingTicketsRouteWithChildren
+  '/_app/ticketing/tickets/$id': typeof AppTicketingTicketsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -186,9 +186,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/ai-chat'
     | '/chat'
-    | '/dashboard'
     | '/settings'
-    | '/tickets'
     | '/admin/districts'
     | '/admin/external'
     | '/admin/houses'
@@ -196,7 +194,9 @@ export interface FileRouteTypes {
     | '/admin/states'
     | '/admin/stores'
     | '/admin/users'
-    | '/tickets/$id'
+    | '/ticketing/dashboard'
+    | '/ticketing/tickets'
+    | '/ticketing/tickets/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -205,9 +205,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/ai-chat'
     | '/chat'
-    | '/dashboard'
     | '/settings'
-    | '/tickets'
     | '/admin/districts'
     | '/admin/external'
     | '/admin/houses'
@@ -215,7 +213,9 @@ export interface FileRouteTypes {
     | '/admin/states'
     | '/admin/stores'
     | '/admin/users'
-    | '/tickets/$id'
+    | '/ticketing/dashboard'
+    | '/ticketing/tickets'
+    | '/ticketing/tickets/$id'
   id:
     | '__root__'
     | '/'
@@ -225,9 +225,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/_app/ai-chat'
     | '/_app/chat'
-    | '/_app/dashboard'
     | '/_app/settings'
-    | '/_app/tickets'
     | '/_app/admin/districts'
     | '/_app/admin/external'
     | '/_app/admin/houses'
@@ -235,7 +233,9 @@ export interface FileRouteTypes {
     | '/_app/admin/states'
     | '/_app/admin/stores'
     | '/_app/admin/users'
-    | '/_app/tickets/$id'
+    | '/_app/ticketing/dashboard'
+    | '/_app/ticketing/tickets'
+    | '/_app/ticketing/tickets/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -283,25 +283,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_app/tickets': {
-      id: '/_app/tickets'
-      path: '/tickets'
-      fullPath: '/tickets'
-      preLoaderRoute: typeof AppTicketsRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/_app/settings': {
       id: '/_app/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/_app/dashboard': {
-      id: '/_app/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AppDashboardRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/chat': {
@@ -318,12 +304,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAiChatRouteImport
       parentRoute: typeof AppRoute
     }
-    '/_app/tickets/$id': {
-      id: '/_app/tickets/$id'
-      path: '/$id'
-      fullPath: '/tickets/$id'
-      preLoaderRoute: typeof AppTicketsIdRouteImport
-      parentRoute: typeof AppTicketsRoute
+    '/_app/ticketing/tickets': {
+      id: '/_app/ticketing/tickets'
+      path: '/ticketing/tickets'
+      fullPath: '/ticketing/tickets'
+      preLoaderRoute: typeof AppTicketingTicketsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/ticketing/dashboard': {
+      id: '/_app/ticketing/dashboard'
+      path: '/ticketing/dashboard'
+      fullPath: '/ticketing/dashboard'
+      preLoaderRoute: typeof AppTicketingDashboardRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/admin/users': {
       id: '/_app/admin/users'
@@ -374,27 +367,31 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminDistrictsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/ticketing/tickets/$id': {
+      id: '/_app/ticketing/tickets/$id'
+      path: '/$id'
+      fullPath: '/ticketing/tickets/$id'
+      preLoaderRoute: typeof AppTicketingTicketsIdRouteImport
+      parentRoute: typeof AppTicketingTicketsRoute
+    }
   }
 }
 
-interface AppTicketsRouteChildren {
-  AppTicketsIdRoute: typeof AppTicketsIdRoute
+interface AppTicketingTicketsRouteChildren {
+  AppTicketingTicketsIdRoute: typeof AppTicketingTicketsIdRoute
 }
 
-const AppTicketsRouteChildren: AppTicketsRouteChildren = {
-  AppTicketsIdRoute: AppTicketsIdRoute,
+const AppTicketingTicketsRouteChildren: AppTicketingTicketsRouteChildren = {
+  AppTicketingTicketsIdRoute: AppTicketingTicketsIdRoute,
 }
 
-const AppTicketsRouteWithChildren = AppTicketsRoute._addFileChildren(
-  AppTicketsRouteChildren,
-)
+const AppTicketingTicketsRouteWithChildren =
+  AppTicketingTicketsRoute._addFileChildren(AppTicketingTicketsRouteChildren)
 
 interface AppRouteChildren {
   AppAiChatRoute: typeof AppAiChatRoute
   AppChatRoute: typeof AppChatRoute
-  AppDashboardRoute: typeof AppDashboardRoute
   AppSettingsRoute: typeof AppSettingsRoute
-  AppTicketsRoute: typeof AppTicketsRouteWithChildren
   AppAdminDistrictsRoute: typeof AppAdminDistrictsRoute
   AppAdminExternalRoute: typeof AppAdminExternalRoute
   AppAdminHousesRoute: typeof AppAdminHousesRoute
@@ -402,14 +399,14 @@ interface AppRouteChildren {
   AppAdminStatesRoute: typeof AppAdminStatesRoute
   AppAdminStoresRoute: typeof AppAdminStoresRoute
   AppAdminUsersRoute: typeof AppAdminUsersRoute
+  AppTicketingDashboardRoute: typeof AppTicketingDashboardRoute
+  AppTicketingTicketsRoute: typeof AppTicketingTicketsRouteWithChildren
 }
 
 const AppRouteChildren: AppRouteChildren = {
   AppAiChatRoute: AppAiChatRoute,
   AppChatRoute: AppChatRoute,
-  AppDashboardRoute: AppDashboardRoute,
   AppSettingsRoute: AppSettingsRoute,
-  AppTicketsRoute: AppTicketsRouteWithChildren,
   AppAdminDistrictsRoute: AppAdminDistrictsRoute,
   AppAdminExternalRoute: AppAdminExternalRoute,
   AppAdminHousesRoute: AppAdminHousesRoute,
@@ -417,6 +414,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminStatesRoute: AppAdminStatesRoute,
   AppAdminStoresRoute: AppAdminStoresRoute,
   AppAdminUsersRoute: AppAdminUsersRoute,
+  AppTicketingDashboardRoute: AppTicketingDashboardRoute,
+  AppTicketingTicketsRoute: AppTicketingTicketsRouteWithChildren,
 }
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
