@@ -59,7 +59,7 @@ function TicketDetail() {
   const store = data.stores.find((s) => s.id === ticket.locationId);
   const house = data.houses.find((h) => h.id === ticket.locationId);
   const loc = store ?? house;
-  const market = data.markets.find((m) => m.id === ticket.marketId);
+  const market = data.markets.find((m) => String(m.id) === String(ticket.marketId));
   const state = data.states.find((s) => s.id === ticket.stateId);
   const assignee = data.users.find((u) => u.id === ticket.assigneeId);
   const vendor = data.vendors.find((v) => v.id === ticket.externalVendorId);
