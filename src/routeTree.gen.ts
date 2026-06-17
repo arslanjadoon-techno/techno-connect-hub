@@ -19,6 +19,7 @@ import { Route as AppChatRouteImport } from './routes/_app.chat'
 import { Route as AppAiChatRouteImport } from './routes/_app.ai-chat'
 import { Route as AppTicketingTicketsRouteImport } from './routes/_app.ticketing.tickets'
 import { Route as AppTicketingDashboardRouteImport } from './routes/_app.ticketing.dashboard'
+import { Route as AppCommissionDashboardRouteImport } from './routes/_app.commission.dashboard'
 import { Route as AppAdminUsersRouteImport } from './routes/_app.admin.users'
 import { Route as AppAdminStoresRouteImport } from './routes/_app.admin.stores'
 import { Route as AppAdminStatesRouteImport } from './routes/_app.admin.states'
@@ -26,6 +27,7 @@ import { Route as AppAdminMarketsRouteImport } from './routes/_app.admin.markets
 import { Route as AppAdminHousesRouteImport } from './routes/_app.admin.houses'
 import { Route as AppAdminExternalRouteImport } from './routes/_app.admin.external'
 import { Route as AppAdminDistrictsRouteImport } from './routes/_app.admin.districts'
+import { Route as AppAdminDepartmentsRouteImport } from './routes/_app.admin.departments'
 import { Route as AppTicketingTicketsIdRouteImport } from './routes/_app.ticketing.tickets.$id'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -77,6 +79,11 @@ const AppTicketingDashboardRoute = AppTicketingDashboardRouteImport.update({
   path: '/ticketing/dashboard',
   getParentRoute: () => AppRoute,
 } as any)
+const AppCommissionDashboardRoute = AppCommissionDashboardRouteImport.update({
+  id: '/commission/dashboard',
+  path: '/commission/dashboard',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppAdminUsersRoute = AppAdminUsersRouteImport.update({
   id: '/admin/users',
   path: '/admin/users',
@@ -112,6 +119,11 @@ const AppAdminDistrictsRoute = AppAdminDistrictsRouteImport.update({
   path: '/admin/districts',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAdminDepartmentsRoute = AppAdminDepartmentsRouteImport.update({
+  id: '/admin/departments',
+  path: '/admin/departments',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppTicketingTicketsIdRoute = AppTicketingTicketsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -126,6 +138,7 @@ export interface FileRoutesByFullPath {
   '/ai-chat': typeof AppAiChatRoute
   '/chat': typeof AppChatRoute
   '/settings': typeof AppSettingsRoute
+  '/admin/departments': typeof AppAdminDepartmentsRoute
   '/admin/districts': typeof AppAdminDistrictsRoute
   '/admin/external': typeof AppAdminExternalRoute
   '/admin/houses': typeof AppAdminHousesRoute
@@ -133,6 +146,7 @@ export interface FileRoutesByFullPath {
   '/admin/states': typeof AppAdminStatesRoute
   '/admin/stores': typeof AppAdminStoresRoute
   '/admin/users': typeof AppAdminUsersRoute
+  '/commission/dashboard': typeof AppCommissionDashboardRoute
   '/ticketing/dashboard': typeof AppTicketingDashboardRoute
   '/ticketing/tickets': typeof AppTicketingTicketsRouteWithChildren
   '/ticketing/tickets/$id': typeof AppTicketingTicketsIdRoute
@@ -145,6 +159,7 @@ export interface FileRoutesByTo {
   '/ai-chat': typeof AppAiChatRoute
   '/chat': typeof AppChatRoute
   '/settings': typeof AppSettingsRoute
+  '/admin/departments': typeof AppAdminDepartmentsRoute
   '/admin/districts': typeof AppAdminDistrictsRoute
   '/admin/external': typeof AppAdminExternalRoute
   '/admin/houses': typeof AppAdminHousesRoute
@@ -152,6 +167,7 @@ export interface FileRoutesByTo {
   '/admin/states': typeof AppAdminStatesRoute
   '/admin/stores': typeof AppAdminStoresRoute
   '/admin/users': typeof AppAdminUsersRoute
+  '/commission/dashboard': typeof AppCommissionDashboardRoute
   '/ticketing/dashboard': typeof AppTicketingDashboardRoute
   '/ticketing/tickets': typeof AppTicketingTicketsRouteWithChildren
   '/ticketing/tickets/$id': typeof AppTicketingTicketsIdRoute
@@ -166,6 +182,7 @@ export interface FileRoutesById {
   '/_app/ai-chat': typeof AppAiChatRoute
   '/_app/chat': typeof AppChatRoute
   '/_app/settings': typeof AppSettingsRoute
+  '/_app/admin/departments': typeof AppAdminDepartmentsRoute
   '/_app/admin/districts': typeof AppAdminDistrictsRoute
   '/_app/admin/external': typeof AppAdminExternalRoute
   '/_app/admin/houses': typeof AppAdminHousesRoute
@@ -173,6 +190,7 @@ export interface FileRoutesById {
   '/_app/admin/states': typeof AppAdminStatesRoute
   '/_app/admin/stores': typeof AppAdminStoresRoute
   '/_app/admin/users': typeof AppAdminUsersRoute
+  '/_app/commission/dashboard': typeof AppCommissionDashboardRoute
   '/_app/ticketing/dashboard': typeof AppTicketingDashboardRoute
   '/_app/ticketing/tickets': typeof AppTicketingTicketsRouteWithChildren
   '/_app/ticketing/tickets/$id': typeof AppTicketingTicketsIdRoute
@@ -187,6 +205,7 @@ export interface FileRouteTypes {
     | '/ai-chat'
     | '/chat'
     | '/settings'
+    | '/admin/departments'
     | '/admin/districts'
     | '/admin/external'
     | '/admin/houses'
@@ -194,6 +213,7 @@ export interface FileRouteTypes {
     | '/admin/states'
     | '/admin/stores'
     | '/admin/users'
+    | '/commission/dashboard'
     | '/ticketing/dashboard'
     | '/ticketing/tickets'
     | '/ticketing/tickets/$id'
@@ -206,6 +226,7 @@ export interface FileRouteTypes {
     | '/ai-chat'
     | '/chat'
     | '/settings'
+    | '/admin/departments'
     | '/admin/districts'
     | '/admin/external'
     | '/admin/houses'
@@ -213,6 +234,7 @@ export interface FileRouteTypes {
     | '/admin/states'
     | '/admin/stores'
     | '/admin/users'
+    | '/commission/dashboard'
     | '/ticketing/dashboard'
     | '/ticketing/tickets'
     | '/ticketing/tickets/$id'
@@ -226,6 +248,7 @@ export interface FileRouteTypes {
     | '/_app/ai-chat'
     | '/_app/chat'
     | '/_app/settings'
+    | '/_app/admin/departments'
     | '/_app/admin/districts'
     | '/_app/admin/external'
     | '/_app/admin/houses'
@@ -233,6 +256,7 @@ export interface FileRouteTypes {
     | '/_app/admin/states'
     | '/_app/admin/stores'
     | '/_app/admin/users'
+    | '/_app/commission/dashboard'
     | '/_app/ticketing/dashboard'
     | '/_app/ticketing/tickets'
     | '/_app/ticketing/tickets/$id'
@@ -318,6 +342,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTicketingDashboardRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/commission/dashboard': {
+      id: '/_app/commission/dashboard'
+      path: '/commission/dashboard'
+      fullPath: '/commission/dashboard'
+      preLoaderRoute: typeof AppCommissionDashboardRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/admin/users': {
       id: '/_app/admin/users'
       path: '/admin/users'
@@ -367,6 +398,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminDistrictsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/admin/departments': {
+      id: '/_app/admin/departments'
+      path: '/admin/departments'
+      fullPath: '/admin/departments'
+      preLoaderRoute: typeof AppAdminDepartmentsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/ticketing/tickets/$id': {
       id: '/_app/ticketing/tickets/$id'
       path: '/$id'
@@ -392,6 +430,7 @@ interface AppRouteChildren {
   AppAiChatRoute: typeof AppAiChatRoute
   AppChatRoute: typeof AppChatRoute
   AppSettingsRoute: typeof AppSettingsRoute
+  AppAdminDepartmentsRoute: typeof AppAdminDepartmentsRoute
   AppAdminDistrictsRoute: typeof AppAdminDistrictsRoute
   AppAdminExternalRoute: typeof AppAdminExternalRoute
   AppAdminHousesRoute: typeof AppAdminHousesRoute
@@ -399,6 +438,7 @@ interface AppRouteChildren {
   AppAdminStatesRoute: typeof AppAdminStatesRoute
   AppAdminStoresRoute: typeof AppAdminStoresRoute
   AppAdminUsersRoute: typeof AppAdminUsersRoute
+  AppCommissionDashboardRoute: typeof AppCommissionDashboardRoute
   AppTicketingDashboardRoute: typeof AppTicketingDashboardRoute
   AppTicketingTicketsRoute: typeof AppTicketingTicketsRouteWithChildren
 }
@@ -407,6 +447,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAiChatRoute: AppAiChatRoute,
   AppChatRoute: AppChatRoute,
   AppSettingsRoute: AppSettingsRoute,
+  AppAdminDepartmentsRoute: AppAdminDepartmentsRoute,
   AppAdminDistrictsRoute: AppAdminDistrictsRoute,
   AppAdminExternalRoute: AppAdminExternalRoute,
   AppAdminHousesRoute: AppAdminHousesRoute,
@@ -414,6 +455,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminStatesRoute: AppAdminStatesRoute,
   AppAdminStoresRoute: AppAdminStoresRoute,
   AppAdminUsersRoute: AppAdminUsersRoute,
+  AppCommissionDashboardRoute: AppCommissionDashboardRoute,
   AppTicketingDashboardRoute: AppTicketingDashboardRoute,
   AppTicketingTicketsRoute: AppTicketingTicketsRouteWithChildren,
 }
