@@ -25,7 +25,7 @@ import {
 } from "recharts";
 import type { DateRange } from "react-day-picker";
 
-export const Route = createFileRoute("/_app/dashboard")({
+export const Route = createFileRoute("/_app/ticketing/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Techno Ticket Portal" }] }),
   component: DashboardPage,
 });
