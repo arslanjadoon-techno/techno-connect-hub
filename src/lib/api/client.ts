@@ -1,6 +1,6 @@
 import {
   API_BASE_URL, USER_API_PATHS, HIRARCHY_API_PATHS, AUTH_PATHS, STATE_API_PATHS, DISTRICT_API_PATHS, MARKET_API_PATHS,
-  STORE_API_PATHS, HOUSE_API_PATHS, EXTERNAL_TEAM_API_PATHS
+  STORE_API_PATHS, HOUSE_API_PATHS, EXTERNAL_TEAM_API_PATHS, DEPARTMENT_API_PATHS,
 } from "@/lib/config";
 
 /**
@@ -497,4 +497,31 @@ export const ExternalTeamApi = {
   // 5. Delete Vendor
   delete: (payload: { id: number }) =>
     apiRequest<null>(EXTERNAL_TEAM_API_PATHS.deleteState, { method: "DELETE", body: payload }),
+};
+
+
+// ---------- Departments ---------- //
+
+export interface DepartmentEntity {
+  id: number;
+  name: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const DepartmentsApi = {
+  getAll: (params?: PaginationParams) => {
+    let url: string = DEPARTMENT_API_PATHS.getAll;
+    if (params && params.page !== undefined && params.size !== undefined) {
+      url = `${DEPARTMENT_API_PATHS.getAll}?page=${params.page}&size=${params.size}`;
+    }
+    return apiRequest<DepartmentEntity[]>(url);
+  },
+  get: (id: string | number) => apiRequest<DepartmentEntity>(DEPARTMENT_API_PATHS.department(id)),
+  add: (payload: { name: string }) =>
+    apiRequest<DepartmentEntity>(DEPARTMENT_API_PATHS.addDepartment, { method: "POST", body: payload }),
+  update: (payload: { id: number; name: string }) =>
+    apiRequest<DepartmentEntity>(DEPARTMENT_API_PATHS.updateDepartment, { method: "PUT", body: payload }),
+  delete: (id: number) =>
+    apiRequest<null>(DEPARTMENT_API_PATHS.deleteDepartment, { method: "DELETE", body: { id } }),
 };

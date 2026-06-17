@@ -25,7 +25,7 @@ import {
 } from "recharts";
 import type { DateRange } from "react-day-picker";
 
-export const Route = createFileRoute("/_app/dashboard")({
+export const Route = createFileRoute("/_app/ticketing/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — Techno Ticket Portal" }] }),
   component: DashboardPage,
 });
@@ -178,7 +178,7 @@ function DashboardPage() {
             Tickets by status
           </h2>
           <button
-            onClick={() => navigate({ to: "/tickets", search: { status: "all" } })}
+            onClick={() => navigate({ to: "/ticketing/tickets", search: { status: "all" } })}
             className="text-xs font-medium text-primary hover:underline"
           >
             View all tickets →
@@ -191,7 +191,7 @@ function DashboardPage() {
             return (
               <button
                 key={s}
-                onClick={() => navigate({ to: "/tickets", search: { status: s } })}
+                onClick={() => navigate({ to: "/ticketing/tickets", search: { status: s } })}
                 className={`group relative overflow-hidden rounded-xl border bg-card p-4 text-left transition-all hover:shadow-[var(--shadow-elegant)] hover:-translate-y-0.5 hover:ring-2 ${palette.ring}`}
               >
                 <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${palette.gradient} opacity-80`} />

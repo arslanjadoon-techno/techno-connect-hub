@@ -1,87 +1,157 @@
-# Project-wide modernization plan
+# MIS Multi-Portal Restructure Plan
 
-Scope is big, so here's a clear breakdown. Existing features and API calls stay intact — only UI, layout, and a few small additions change.
-
-## 1. Theme & global look
-- Refresh `src/styles.css` tokens (new primary palette — modern indigo/violet + soft neutrals, keeping emerald as accent option) in both light and dark mode.
-- Add smooth global transitions, refined shadows, subtle gradients, and reusable animation utilities (`fade-in`, `scale-in`, `hover-lift`).
-- Buttons: add hover lift + glow, active scale, focus ring polish (in `button.tsx` variants).
-- Cards/Tables: rounded-2xl, soft borders, hover row highlight, zebra rows, sticky headers, smooth sort/filter transitions.
-
-## 2. Toast color contract
-Configure `sonner` Toaster (`src/components/ui/sonner.tsx`) so:
-- `toast.error` → red bg + white text
-- `toast.success` → green bg + white text
-- `toast()` / `toast.info` → white bg + dark text
-Applied globally; no caller changes needed.
-
-## 3. Login page (`src/routes/login.tsx`)
-- Animated gradient hero side with floating blobs / subtle motion.
-- Modern floating-label inputs with focus ring + icon prefixes.
-- Password field: eye/eye-off toggle for show/hide.
-- Move "Forgot password?" link from above the password field to **below** the password field, right-aligned.
-- Form entrance animation (fade + slide).
-
-## 4. Forgot password / OTP / Reset
-- `forgot-password.tsx`: modern card + animation, matching style.
-- `reset-password.tsx`: replace single OTP input with a 6-box OTP component (using existing `input-otp` UI primitive), animated focus, auto-advance, paste support. New password fields get the same show/hide eye toggle.
-
-## 5. Top bar profile role label
-In `src/components/app-sidebar.tsx` (or wherever profile/role is rendered), read user from localStorage and render role line as:
-- `admin` → just "Admin" (no dot, no extra)
-- `user` → `User • {departmentName}`
-- `manager` → `Manager • {departmentName}`
-- `state_manager` → `State Manager • {stateName}`
-- `district_manager` → `District Manager • {districtName}`
-- `market_manager` → `Market Manager • {marketName}`
-- `store_manager` → `Store Manager • {storeName}`
-Helper added in `src/lib/auth.tsx` or a small `roleLabel.ts` util.
-
-## 6. Tickets page date filter
-In `src/routes/_app.tickets.tsx`:
-- Remove the preset time dropdown.
-- Add a calendar date-range picker (same component/pattern as dashboard) supporting custom range.
-- Filtering logic updated to use `from`/`to` dates; existing ticket fetching API untouched.
-
-## 7. New AI Chat page
-- New route `src/routes/_app.ai-chat.tsx` (sidebar entry placed under "Team Chat").
-- Modern chat UI built from AI Elements primitives (`conversation`, `message`, `prompt-input`, `shimmer`) — install via `bun x ai-elements@latest add conversation message prompt-input shimmer`.
-- Behavior: user sends a query → static assistant reply: *"We're still working on this feature — it'll be available soon."* → after that reply, the composer/input is disabled so no further queries can be sent (with a small "Coming soon" hint).
-- No backend call, no persistence.
-
-## 8. Settings page
-In `src/routes/_app.settings.tsx`:
-- Add a "Profile" section with editable: full name, phone, email, avatar image upload (preview + change/remove).
-- Save updates the user object in localStorage (no API exists for this yet) and shows a green success toast.
-- Keep all other current settings intact.
-
-## 9. Mobile responsiveness pass
-- Sidebar collapses to drawer on small screens (use existing `Sheet` pattern).
-- Tables become horizontally scrollable with sticky first column where useful.
-- Login / OTP / dashboard cards stack cleanly under `sm`.
-- Header actions condense to icon buttons on mobile.
-
-## 10. General polish across admin/dashboard/chat/tickets
-- Apply new card, table, button, badge styles uniformly.
-- Add page-enter `animate-fade-in` to route components.
-- Status & priority badges get refined tones using the new tokens.
+Transform the ticketing app into a unified MIS (Management Information System) that hosts multiple portals (Ticketing, Commission, future portals) with a clean folder hierarchy and reorganized navigation.
 
 ---
 
-## Technical notes
-- No new backend, no schema changes, no auth changes.
-- All existing API calls (`src/lib/api/*`, server functions, data store) remain untouched.
-- New deps: `ai-elements` primitives only (frontend). No payment, no cloud, no DB work.
-- Files touched (high-level):
-  - `src/styles.css`, `src/components/ui/{button,input,sonner,card,table}.tsx`
-  - `src/routes/login.tsx`, `forgot-password.tsx`, `reset-password.tsx`
-  - `src/components/app-sidebar.tsx`
-  - `src/routes/_app.tickets.tsx`, `_app.settings.tsx`, `_app.chat.tsx`
-  - New: `src/routes/_app.ai-chat.tsx`, `src/components/ai-elements/*`
-  - Small util: `src/lib/role-label.ts`
+## 1. Login Page Redesign
 
-## Out of scope (confirm if you want these too)
-- Backend endpoint for saving profile edits (currently local only).
-- Real AI integration for the AI chat (static placeholder for now, as requested).
+**File:** `src/routes/login.tsx`
 
-Approve this and I'll start implementing in order: theme/toasts → login/OTP → sidebar role label → tickets calendar → settings → AI chat → mobile polish.
+- **Left (blue/gradient) side:** Add 5–7 animated floating bubbles (absolute-positioned circles with `blur`, varied sizes, gradient backgrounds, subtle `animate-float` keyframes) for visual depth.
+- **Right side:** Change background from pure white to a soft grey (`bg-muted/40` or `#F4F5F7`), and wrap the form in a pure white card (`bg-card shadow-2xl rounded-2xl`) so it visually pops.
+- Keep curved divider and existing form logic intact.
+
+Add `@keyframes float` and `.animate-float` utility to `src/styles.css`.
+
+---
+
+## 2. Sidebar Reorganization
+
+**File:** `src/components/app-sidebar.tsx`
+
+New menu hierarchy (top → bottom):
+
+```text
+• AI Chat                    → /ai-chat        (default after login)
+• Team Chat                  → /chat
+▼ Ticketing Portal
+    – Dashboard              → /ticketing/dashboard
+    – Tickets                → /ticketing/tickets
+▼ Commission Portal
+    – Dashboard              → /commission/dashboard
+─────────── Administration ───────────
+▼ User Manager
+    – Users                  → /admin/users
+    – Departments            → /admin/departments   (NEW)
+    – States                 → /admin/states
+    – Districts              → /admin/districts
+    – Markets                → /admin/markets
+    – Houses                 → /admin/houses
+    – Stores                 → /admin/stores
+    – External               → /admin/external
+```
+
+- Use shadcn `Collapsible` for the three dropdown groups (Ticketing, Commission, User Manager); auto-expand the group containing the active route.
+- Add decorative bubble accents in sidebar header (absolute-positioned blurred circles behind the logo) for a stylish look.
+- Each menu item keeps its icon; portal headers get a distinct color accent based on the active palette.
+
+**Post-login redirect:** Update `src/lib/auth.tsx` (and `src/routes/index.tsx`) so successful login navigates to `/ai-chat` instead of `/dashboard`.
+
+---
+
+## 3. Folder Hierarchy (Code Organization)
+
+Reorganize routes so each portal is self-contained. Because TanStack Start uses **flat dot-separated** route filenames (not directories), the "folder hierarchy" is expressed via filename prefixes — each portal still feels like its own folder.
+
+### Route file moves
+
+| Old | New |
+|---|---|
+| `src/routes/_app.dashboard.tsx`         | `src/routes/_app.ticketing.dashboard.tsx` |
+| `src/routes/_app.tickets.tsx`           | `src/routes/_app.ticketing.tickets.tsx` |
+| `src/routes/_app.tickets.$id.tsx`       | `src/routes/_app.ticketing.tickets.$id.tsx` |
+| _(new)_                                 | `src/routes/_app.commission.dashboard.tsx` |
+| _(new)_                                 | `src/routes/_app.admin.departments.tsx` |
+
+### Supporting code folders
+
+```text
+src/
+  features/
+    ticketing/        ← ticket components, hooks, types, api fns
+      components/
+      api.ts
+      types.ts
+    commission/       ← commission portal scaffolding
+      components/
+      api.ts
+      types.ts
+    admin/
+      departments/    ← Departments CRUD logic
+        api.ts
+        types.ts
+```
+
+Existing ticket-related UI bits currently inline in route files get extracted into `src/features/ticketing/components/` so future portals follow the same pattern.
+
+Update `src/routeTree.gen.ts` to reflect the renamed routes (regenerated by Vite plugin, but we'll edit it directly since the project commits it).
+
+---
+
+## 4. Departments Page (NEW)
+
+**File:** `src/routes/_app.admin.departments.tsx`
+
+- Mirror the exact pattern of `_app.admin.states.tsx` / `_app.admin.stores.tsx`:
+  - Paginated table via shared `DataTable` / `CrudPage` components.
+  - Fields: `id`, `name`, `description`, `createdAt`.
+  - Add / Edit dialog with form validation.
+  - Delete confirmation modal.
+- **API integration** in `src/features/admin/departments/api.ts`:
+  - `getDepartments({ page, pageSize, search })` → paginated list (same shape as states `getAll`).
+  - `createDepartment(data)`, `updateDepartment(id, data)`, `deleteDepartment(id)`.
+- Add mock seed data in `src/lib/mock/seed.ts` so the page works against the existing mock store.
+- Add `Department` type to `src/lib/types.ts`.
+
+---
+
+## 5. Auth & Route Guard Updates
+
+- `src/lib/auth.tsx`: after successful login → `navigate({ to: '/ai-chat' })`.
+- `src/routes/index.tsx`: if authenticated → redirect to `/ai-chat`; else `/login`.
+- Update internal links anywhere `to="/dashboard"` or `to="/tickets"` exist (sidebar, breadcrumbs, ticket detail back-button, AI chat suggestions) to use the new `/ticketing/...` paths.
+
+---
+
+## 6. Permissions
+
+`src/lib/permissions.ts`: add `departments.*` permissions mirroring `states.*`; grant to admin role.
+
+---
+
+## Files Created
+- `src/routes/_app.ticketing.dashboard.tsx`
+- `src/routes/_app.ticketing.tickets.tsx`
+- `src/routes/_app.ticketing.tickets.$id.tsx`
+- `src/routes/_app.commission.dashboard.tsx`
+- `src/routes/_app.admin.departments.tsx`
+- `src/features/ticketing/{api.ts,types.ts,components/...}`
+- `src/features/commission/{api.ts,types.ts}`
+- `src/features/admin/departments/{api.ts,types.ts}`
+
+## Files Edited
+- `src/components/app-sidebar.tsx` — new menu hierarchy + bubbles
+- `src/routes/login.tsx` — bubbles + grey bg + white card
+- `src/styles.css` — float keyframes, bubble utilities
+- `src/lib/auth.tsx` — post-login redirect to `/ai-chat`
+- `src/routes/index.tsx` — root redirect target
+- `src/lib/types.ts` — `Department` type
+- `src/lib/mock/seed.ts` — department seed data
+- `src/lib/permissions.ts` — department perms
+- `src/routeTree.gen.ts` — regenerate for renamed/new routes
+- `src/routes/_app.ai-chat.tsx`, `src/routes/_app.chat.tsx` — any internal links to renamed ticketing routes
+
+## Files Deleted (after moves)
+- `src/routes/_app.dashboard.tsx`
+- `src/routes/_app.tickets.tsx`
+- `src/routes/_app.tickets.$id.tsx`
+
+---
+
+## Out of Scope (for this iteration)
+- Commission Portal real business logic (only a placeholder dashboard with KPI cards saying "Coming soon" + structure).
+- Real backend endpoints for Departments (mock-only, mirroring existing admin pages).
+- Migrating existing tickets data — IDs and routes inside ticket objects remain unchanged; only the URL prefix changes.
+
+Existing features (auth flows, AI chat, team chat, current APIs, theme palettes, settings) remain untouched and functional.

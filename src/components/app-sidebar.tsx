@@ -1,8 +1,11 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import {
   LayoutDashboard, TicketCheck, MessagesSquare, MapPin, Store as StoreIcon,
   Building2, Network, Users as UsersIcon, Wrench, LogOut, ShieldCheck,
-  Settings as SettingsIcon, ChevronUp, Home, Sun, Moon
+  Settings as SettingsIcon, ChevronUp, ChevronDown, Home, Sun, Moon,
+  Sparkles, Ticket as TicketIcon, BarChart3, DollarSign,
+  Briefcase,
 } from "lucide-react";
 
 import {
@@ -18,24 +21,108 @@ import { useAuth } from "@/lib/auth";
 import { isAdmin } from "@/lib/permissions";
 import { roleSubLabel } from "@/lib/role-label";
 import { useTheme } from "@/lib/theme";
-import { Sparkles } from "lucide-react";
 
-const mainItems = [
-  { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-  { title: "Tickets", url: "/tickets", icon: TicketCheck },
-  { title: "Team Chat", url: "/chat", icon: MessagesSquare },
+type Item = { title: string; url: string; icon: any };
+type Group = { title: string; icon: any; items: Item[] };
+
+const topItems: Item[] = [
   { title: "AI Chat", url: "/ai-chat", icon: Sparkles },
+  { title: "Team Chat", url: "/chat", icon: MessagesSquare },
 ];
 
-const adminItems = [
-  { title: "Users", url: "/admin/users", icon: UsersIcon },
-  { title: "External Team", url: "/admin/external", icon: Wrench },
-  { title: "States", url: "/admin/states", icon: MapPin },
-  { title: "Districts", url: "/admin/districts", icon: Building2 },
-  { title: "Markets", url: "/admin/markets", icon: Network },
-  { title: "Stores", url: "/admin/stores", icon: StoreIcon },
-  { title: "Houses", url: "/admin/houses", icon: Home },
+const portalGroups: Group[] = [
+  {
+    title: "Ticketing Portal",
+    icon: TicketIcon,
+    items: [
+      { title: "Dashboard", url: "/ticketing/dashboard", icon: LayoutDashboard },
+      { title: "Tickets", url: "/ticketing/tickets", icon: TicketCheck },
+    ],
+  },
+  {
+    title: "Commission Portal",
+    icon: DollarSign,
+    items: [
+      { title: "Dashboard", url: "/commission/dashboard", icon: BarChart3 },
+    ],
+  },
 ];
+
+const adminGroup: Group = {
+  title: "User Manager",
+  icon: UsersIcon,
+  items: [
+    { title: "Users", url: "/admin/users", icon: UsersIcon },
+    { title: "Departments", url: "/admin/departments", icon: Briefcase },
+    { title: "States", url: "/admin/states", icon: MapPin },
+    { title: "Districts", url: "/admin/districts", icon: Building2 },
+    { title: "Markets", url: "/admin/markets", icon: Network },
+    { title: "Stores", url: "/admin/stores", icon: StoreIcon },
+    { title: "Houses", url: "/admin/houses", icon: Home },
+    { title: "External Team", url: "/admin/external", icon: Wrench },
+  ],
+};
+
+
+
+function CollapsibleGroup({
+  group, collapsed, isActive, defaultOpen,
+}: {
+  group: Group;
+  collapsed: boolean;
+  isActive: (p: string) => boolean;
+  defaultOpen: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  useEffect(() => { if (defaultOpen) setOpen(true); }, [defaultOpen]);
+  const Icon = group.icon;
+
+  if (collapsed) {
+    return (
+      <SidebarMenu>
+        {group.items.map((item) => (
+          <SidebarMenuItem key={item.url}>
+            <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
+              <Link to={item.url} className="flex items-center gap-2">
+                <item.icon className="h-4 w-4" />
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        ))}
+      </SidebarMenu>
+    );
+  }
+
+  return (
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition hover:bg-sidebar-accent ${defaultOpen ? "text-primary" : "text-sidebar-foreground"}`}
+        >
+          <Icon className="h-4 w-4" />
+          <span className="flex-1 text-left">{group.title}</span>
+          {open ? <ChevronUp className="h-4 w-4 opacity-70" /> : <ChevronDown className="h-4 w-4 opacity-70" />}
+        </button>
+      </SidebarMenuItem>
+      {open && (
+        <div className="ml-3 mt-0.5 border-l border-sidebar-border/70 pl-2 animate-fade-in">
+          {group.items.map((item) => (
+            <SidebarMenuItem key={item.url}>
+              <SidebarMenuButton asChild isActive={isActive(item.url)} size="sm">
+                <Link to={item.url} className="flex items-center gap-2">
+                  <item.icon className="h-4 w-4" />
+                  <span>{item.title}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </div>
+      )}
+    </SidebarMenu>
+  );
+}
 
 export function AppSidebar() {
   const { state } = useSidebar();
@@ -45,27 +132,31 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (r) => r.location.pathname });
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
+  const groupActive = (g: Group) => g.items.some((i) => isActive(i.url));
 
   if (!user) return null;
   const roleLine = roleSubLabel(user);
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="border-b border-sidebar-border">
-        <div className="flex items-center gap-2 px-2 py-3">
+      <SidebarHeader className="relative overflow-hidden border-b border-sidebar-border">
+        {/* Decorative bubbles */}
+        <div className="pointer-events-none absolute -top-8 -right-6 h-24 w-24 rounded-full bg-primary/15 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-10 -left-6 h-20 w-20 rounded-full bg-primary/10 blur-2xl" />
+        <div className="relative flex items-center gap-2 px-2 py-3">
           <div
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-            style={{ backgroundImage: "var(--gradient-gold)" }}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg shadow-md"
+            style={{ backgroundImage: "var(--gradient-primary, var(--gradient-gold))" }}
           >
-            <ShieldCheck className="h-5 w-5 text-[oklch(0.25_0.05_80)]" />
+            <ShieldCheck className="h-5 w-5 text-white" />
           </div>
           {!collapsed && (
             <div className="min-w-0">
               <div className="truncate font-display text-sm font-semibold text-sidebar-foreground">
-                Techno Communications
+                Techno MIS
               </div>
               <div className="truncate text-[11px] text-sidebar-foreground/70">
-                Ticket Portal
+                Management Information System
               </div>
             </div>
           )}
@@ -74,12 +165,12 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+          {!collapsed && <SidebarGroupLabel>Workspace</SidebarGroupLabel>}
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainItems.map((item) => (
+              {topItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)}>
+                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
                     <Link to={item.url} className="flex items-center gap-2">
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
@@ -91,22 +182,31 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
+        <SidebarGroup>
+          {!collapsed && <SidebarGroupLabel>Portals</SidebarGroupLabel>}
+          <SidebarGroupContent>
+            {portalGroups.map((g) => (
+              <CollapsibleGroup
+                key={g.title}
+                group={g}
+                collapsed={collapsed}
+                isActive={isActive}
+                defaultOpen={groupActive(g)}
+              />
+            ))}
+          </SidebarGroupContent>
+        </SidebarGroup>
+
         {isAdmin(user) && (
           <SidebarGroup>
-            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            {!collapsed && <SidebarGroupLabel>Administration</SidebarGroupLabel>}
             <SidebarGroupContent>
-              <SidebarMenu>
-                {adminItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={isActive(item.url)}>
-                      <Link to={item.url} className="flex items-center gap-2">
-                        <item.icon className="h-4 w-4" />
-                        {!collapsed && <span>{item.title}</span>}
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
+              <CollapsibleGroup
+                group={adminGroup}
+                collapsed={collapsed}
+                isActive={isActive}
+                defaultOpen={groupActive(adminGroup)}
+              />
             </SidebarGroupContent>
           </SidebarGroup>
         )}

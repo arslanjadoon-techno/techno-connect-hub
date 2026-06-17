@@ -21,7 +21,7 @@ function LoginPage() {
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => { if (user) navigate({ to: "/dashboard" }); }, [user, navigate]);
+  useEffect(() => { if (user) navigate({ to: "/ai-chat" }); }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +33,7 @@ function LoginPage() {
     try {
       await login(email.trim(), password);
       toast.success("Signed in successfully");
-      navigate({ to: "/dashboard" });
+      navigate({ to: "/ai-chat" });
     } catch (err) {
       toast.error((err as Error).message);
     } finally { setLoading(false); }
@@ -46,35 +46,45 @@ function LoginPage() {
         className="relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex lg:rounded-r-[40%_60%] lg:-mr-10 lg:shadow-[20px_0_60px_-20px_rgba(0,0,0,0.35)] lg:z-10"
         style={{ backgroundImage: "var(--gradient-hero)" }}
       >
-        {/* Floating blobs */}
+        {/* Floating big blobs */}
         <div className="pointer-events-none absolute -top-24 -left-24 h-80 w-80 rounded-full bg-white/10 blur-3xl animate-float-blob" />
         <div className="pointer-events-none absolute bottom-0 right-0 h-96 w-96 rounded-full bg-white/10 blur-3xl animate-float-blob" style={{ animationDelay: "2s" }} />
         <div className="pointer-events-none absolute top-1/3 right-1/4 h-48 w-48 rounded-full bg-white/15 blur-2xl animate-float-blob" style={{ animationDelay: "4s" }} />
+
+        {/* Small decorative bubbles (crisp circles) */}
+        <span className="pointer-events-none absolute left-[12%] top-[18%] h-3 w-3 rounded-full bg-white/40 animate-float-blob" />
+        <span className="pointer-events-none absolute left-[28%] top-[60%] h-2 w-2 rounded-full bg-white/30 animate-float-blob" style={{ animationDelay: "1.5s" }} />
+        <span className="pointer-events-none absolute right-[18%] top-[22%] h-4 w-4 rounded-full bg-white/30 animate-float-blob" style={{ animationDelay: "2.5s" }} />
+        <span className="pointer-events-none absolute right-[30%] bottom-[18%] h-2.5 w-2.5 rounded-full bg-white/40 animate-float-blob" style={{ animationDelay: "3.2s" }} />
+        <span className="pointer-events-none absolute left-[45%] bottom-[30%] h-6 w-6 rounded-full border border-white/30 animate-float-blob" style={{ animationDelay: "1s" }} />
+        <span className="pointer-events-none absolute left-[55%] top-[14%] h-8 w-8 rounded-full border border-white/20 animate-float-blob" style={{ animationDelay: "4.5s" }} />
+        <span className="pointer-events-none absolute right-[10%] bottom-[40%] h-3 w-3 rounded-full bg-white/50 animate-float-blob" style={{ animationDelay: "0.8s" }} />
 
         <div className="relative z-10 flex items-center gap-3 animate-fade-in">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
             <ShieldCheck className="h-6 w-6 text-white" />
           </div>
           <div>
-            <div className="font-display text-lg font-semibold">Techno Communications</div>
-            <div className="text-xs text-white/70">Internal Ticket Portal</div>
+            <div className="font-display text-lg font-semibold">Techno MIS</div>
+            <div className="text-xs text-white/70">Management Information System</div>
           </div>
         </div>
 
         <div className="relative z-10 max-w-md space-y-4 animate-fade-in" style={{ animationDelay: ".1s" }}>
           <h1 className="font-display text-4xl font-semibold leading-tight">
-            One portal for every store, every ticket, every team.
+            One platform for every portal, every team, every decision.
           </h1>
           <p className="text-white/80">
-            Track, assign, and resolve internal issues with role-aware visibility and real-time team collaboration.
+            Ticketing, commission, and more — unified inside a single MIS workspace with role-aware
+            visibility and real-time collaboration.
           </p>
         </div>
         <div className="relative z-10 text-xs text-white/60">© Techno Communications LLC</div>
       </div>
 
-      {/* Form side */}
-      <div className="flex items-center justify-center bg-background p-6 lg:pl-16">
-        <Card className="w-full max-w-md p-8 shadow-[var(--shadow-elegant)] animate-scale-in">
+      {/* Form side — soft grey backdrop with crisp white card on top */}
+      <div className="flex items-center justify-center bg-muted/40 p-6 lg:pl-16">
+        <Card className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-2xl animate-scale-in">
           <h2 className="font-display text-2xl font-semibold">Welcome back</h2>
           <p className="mt-1 text-sm text-muted-foreground">Sign in to your portal account.</p>
 
