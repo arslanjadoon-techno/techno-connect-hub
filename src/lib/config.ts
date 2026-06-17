@@ -74,6 +74,14 @@ export const EXTERNAL_TEAM_API_PATHS = {
   deleteState: "/api/external-teams/delete",
 } as const;
 
+export const DEPARTMENT_API_PATHS = {
+  getAll: "/api/departments/get-all",
+  department: (id: string | number) => `/api/departments/${id}`,
+  addDepartment: "/api/departments/add",
+  updateDepartment: "/api/departments/update",
+  deleteDepartment: "/api/departments/delete",
+} as const;
+
 export const HIRARCHY_API_PATHS = {
   getAll: "/api/users/get-all",
   getDistrictsByState: (id: string | number) => `/api/districts/state/${id}`,
