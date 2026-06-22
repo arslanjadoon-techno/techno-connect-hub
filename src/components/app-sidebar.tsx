@@ -130,7 +130,7 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
-  const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const pathname = useLocation().pathname;
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
   const groupActive = (g: Group) => g.items.some((i) => isActive(i.url));
 
