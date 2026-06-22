@@ -1,157 +1,144 @@
-# MIS Multi-Portal Restructure Plan
+# Migration Plan: TanStack Start → Vite + React + React Router DOM
 
-Transform the ticketing app into a unified MIS (Management Information System) that hosts multiple portals (Ticketing, Commission, future portals) with a clean folder hierarchy and reorganized navigation.
+## Goal
+Convert this project from TanStack Start (SSR + file-based routing) to a plain **client-side Vite + React SPA** using **react-router-dom**, keeping all current UI/UX and pages intact. Reorganize code into portal-based folders for maintainability.
 
----
-
-## 1. Login Page Redesign
-
-**File:** `src/routes/login.tsx`
-
-- **Left (blue/gradient) side:** Add 5–7 animated floating bubbles (absolute-positioned circles with `blur`, varied sizes, gradient backgrounds, subtle `animate-float` keyframes) for visual depth.
-- **Right side:** Change background from pure white to a soft grey (`bg-muted/40` or `#F4F5F7`), and wrap the form in a pure white card (`bg-card shadow-2xl rounded-2xl`) so it visually pops.
-- Keep curved divider and existing form logic intact.
-
-Add `@keyframes float` and `.animate-float` utility to `src/styles.css`.
+## Why
+User wants to run/deploy this as a standard CSR React app (easier local run, no SSR/server-functions/Cloudflare worker complexity). All current backend calls already go through `src/lib/api/client.ts` (REST) — no server functions are actually needed.
 
 ---
 
-## 2. Sidebar Reorganization
-
-**File:** `src/components/app-sidebar.tsx`
-
-New menu hierarchy (top → bottom):
-
-```text
-• AI Chat                    → /ai-chat        (default after login)
-• Team Chat                  → /chat
-▼ Ticketing Portal
-    – Dashboard              → /ticketing/dashboard
-    – Tickets                → /ticketing/tickets
-▼ Commission Portal
-    – Dashboard              → /commission/dashboard
-─────────── Administration ───────────
-▼ User Manager
-    – Users                  → /admin/users
-    – Departments            → /admin/departments   (NEW)
-    – States                 → /admin/states
-    – Districts              → /admin/districts
-    – Markets                → /admin/markets
-    – Houses                 → /admin/houses
-    – Stores                 → /admin/stores
-    – External               → /admin/external
-```
-
-- Use shadcn `Collapsible` for the three dropdown groups (Ticketing, Commission, User Manager); auto-expand the group containing the active route.
-- Add decorative bubble accents in sidebar header (absolute-positioned blurred circles behind the logo) for a stylish look.
-- Each menu item keeps its icon; portal headers get a distinct color accent based on the active palette.
-
-**Post-login redirect:** Update `src/lib/auth.tsx` (and `src/routes/index.tsx`) so successful login navigates to `/ai-chat` instead of `/dashboard`.
-
----
-
-## 3. Folder Hierarchy (Code Organization)
-
-Reorganize routes so each portal is self-contained. Because TanStack Start uses **flat dot-separated** route filenames (not directories), the "folder hierarchy" is expressed via filename prefixes — each portal still feels like its own folder.
-
-### Route file moves
-
-| Old | New |
-|---|---|
-| `src/routes/_app.dashboard.tsx`         | `src/routes/_app.ticketing.dashboard.tsx` |
-| `src/routes/_app.tickets.tsx`           | `src/routes/_app.ticketing.tickets.tsx` |
-| `src/routes/_app.tickets.$id.tsx`       | `src/routes/_app.ticketing.tickets.$id.tsx` |
-| _(new)_                                 | `src/routes/_app.commission.dashboard.tsx` |
-| _(new)_                                 | `src/routes/_app.admin.departments.tsx` |
-
-### Supporting code folders
+## 1. New Folder Structure
 
 ```text
 src/
-  features/
-    ticketing/        ← ticket components, hooks, types, api fns
-      components/
-      api.ts
-      types.ts
-    commission/       ← commission portal scaffolding
-      components/
-      api.ts
-      types.ts
-    admin/
-      departments/    ← Departments CRUD logic
-        api.ts
-        types.ts
+  main.tsx                  # Vite entry (ReactDOM.createRoot)
+  App.tsx                   # <BrowserRouter> + providers + <AppRoutes/>
+  routes.tsx                # All route definitions (react-router v6 nested routes)
+  styles.css                # unchanged (Tailwind v4)
+
+  components/               # unchanged (ui/, app-sidebar, data-table, crud-page)
+  hooks/                    # unchanged
+  lib/                      # auth, theme, data-store, api, types, utils, permissions, role-label, mock
+    api/client.ts           # unchanged
+    (remove) config.server.ts, error-capture.ts, error-page.ts, lovable-error-reporting.ts
+
+  portals/
+    auth/                   # login, forgot-password, reset-password
+      LoginPage.tsx
+      ForgotPasswordPage.tsx
+      ResetPasswordPage.tsx
+    shell/                  # _app layout + shared shell pieces
+      AppLayout.tsx         # sidebar + header + <Outlet/>
+    ai-chat/
+      AiChatPage.tsx
+    team-chat/
+      TeamChatPage.tsx
+    settings/
+      SettingsPage.tsx
+    ticketing/
+      DashboardPage.tsx
+      TicketsPage.tsx
+      TicketDetailPage.tsx
+    commission/
+      DashboardPage.tsx
+    admin/                  # User Manager portal
+      UsersPage.tsx
+      DepartmentsPage.tsx
+      DistrictsPage.tsx
+      StatesPage.tsx
+      MarketsPage.tsx
+      HousesPage.tsx
+      StoresPage.tsx
+      ExternalPage.tsx
 ```
 
-Existing ticket-related UI bits currently inline in route files get extracted into `src/features/ticketing/components/` so future portals follow the same pattern.
+Each portal folder owns its pages so future portals (and per-portal components/hooks/api) can sit beside their routes.
 
-Update `src/routeTree.gen.ts` to reflect the renamed routes (regenerated by Vite plugin, but we'll edit it directly since the project commits it).
+## 2. Tooling Changes
+
+**Remove (package.json):**
+- `@tanstack/react-start`, `@tanstack/react-router`, `@tanstack/react-router-devtools`, `@tanstack/router-plugin`
+- `@lovable.dev/vite-tanstack-config`, `nitro`, Cloudflare worker config
+- `src/server.ts`, `src/start.ts`, `src/router.tsx`, `src/routeTree.gen.ts`, `src/routes/**`
+- `src/lib/config.server.ts`, `src/lib/error-capture.ts`, `src/lib/error-page.ts`
+
+**Add:**
+- `react-router-dom@^6`
+- `vite.config.ts` → plain `@vitejs/plugin-react` + `@tailwindcss/vite` + path alias `@`
+- `index.html` (root) with `<div id="root">` and `<script type="module" src="/src/main.tsx">`
+
+**Keep:** React 19, Tailwind v4, shadcn ui, TanStack Query (still used for data fetching), Zod, lucide-react, recharts, sonner, fonts via `<link>` in `index.html`.
+
+## 3. Routing Map (react-router-dom v6)
+
+```text
+/                       → redirect to /ai-chat
+/login                  → LoginPage
+/forgot-password        → ForgotPasswordPage
+/reset-password         → ResetPasswordPage
+
+/  (AppLayout, requires auth)
+  /ai-chat              → AiChatPage
+  /chat                 → TeamChatPage
+  /settings             → SettingsPage
+  /ticketing/dashboard  → Ticketing/DashboardPage
+  /ticketing/tickets    → Ticketing/TicketsPage
+  /ticketing/tickets/:id→ Ticketing/TicketDetailPage
+  /commission/dashboard → Commission/DashboardPage
+  /admin/users          → Admin/UsersPage
+  /admin/departments    → Admin/DepartmentsPage
+  /admin/districts      → Admin/DistrictsPage
+  /admin/states         → Admin/StatesPage
+  /admin/markets        → Admin/MarketsPage
+  /admin/houses         → Admin/HousesPage
+  /admin/stores         → Admin/StoresPage
+  /admin/external       → Admin/ExternalPage
+* (404)                 → NotFoundPage
+```
+
+Auth gating: `<ProtectedRoute>` wrapper reading from `useAuth()`; redirect to `/login` when unauthenticated.
+
+## 4. Code Translation Rules
+
+| TanStack Start | React Router DOM v6 |
+|---|---|
+| `createFileRoute(...)({ component })` | `<Route element={<Component/>} />` in `routes.tsx` |
+| `<Link to="/x" params={{id}}/>` | `<Link to={`/x/${id}`}/>` |
+| `useNavigate()` from `@tanstack/react-router` | `useNavigate()` from `react-router-dom` |
+| `useParams()` | same name, from `react-router-dom` |
+| `redirect({to})` in beforeLoad | `<Navigate to=... replace/>` |
+| `Outlet` from `@tanstack/react-router` | `Outlet` from `react-router-dom` |
+| `head()` meta | set `document.title` via small `usePageTitle` hook |
+| `createServerFn` | not used — call API client directly (already does) |
+
+## 5. App Shell
+
+`AppLayout.tsx` becomes the page wrapper currently in `src/routes/_app.tsx`: sidebar + header + main `<Outlet/>`. Providers (`QueryClientProvider`, `ThemeProvider`, `AuthProvider`, `DataProvider`, `Toaster`) move into `App.tsx`.
+
+## 6. What is NOT changing
+- All UI styling, theme palettes, sidebar, login bubbles, modals — pixel identical.
+- All page logic (tickets, chat, AI chat, settings, admin CRUD) — copy/paste with import path updates only.
+- API client, auth context, theme context, data store, mock seed, permissions.
+- Tailwind tokens in `styles.css`.
+
+## 7. Migration Steps (execution order)
+1. Update `package.json` (remove TanStack/Lovable Vite config, add react-router-dom, plain vite plugins). Add `index.html`, new `vite.config.ts`, new `src/main.tsx`, new `src/App.tsx`, new `src/routes.tsx`.
+2. Create `src/portals/**` folders and move each route's page body into its new portal file, swapping imports (`@tanstack/react-router` → `react-router-dom`, removing `createFileRoute`, replacing `<Link to params>` with string paths).
+3. Move `_app.tsx` shell into `portals/shell/AppLayout.tsx`; add `ProtectedRoute`.
+4. Delete `src/routes/**`, `src/router.tsx`, `src/routeTree.gen.ts`, `src/server.ts`, `src/start.ts`, `src/lib/config.server.ts`, `src/lib/error-capture.ts`, `src/lib/error-page.ts`, `src/lib/lovable-error-reporting.ts`.
+5. Verify build & run.
+
+## 8. Out of scope
+- No backend / API behaviour changes.
+- No visual redesign — UI must look identical.
+- No new features.
 
 ---
 
-## 4. Departments Page (NEW)
+⚠️ **Heads up:** This project's template is `tanstack_start_ts_2026-05-29` and the Lovable platform expects TanStack Start. After this migration:
+- The Lovable preview/hosting may not auto-detect the new entry — the preview could break on Lovable until the platform template is switched.
+- You'll lose SSR (fine, app is fully client-rendered anyway), server functions (not used), and the Lovable Cloud / server-side knowledge integrations tuned for TanStack Start.
+- Running **locally** with `bun install && bun run dev` will work as a plain Vite SPA.
 
-**File:** `src/routes/_app.admin.departments.tsx`
-
-- Mirror the exact pattern of `_app.admin.states.tsx` / `_app.admin.stores.tsx`:
-  - Paginated table via shared `DataTable` / `CrudPage` components.
-  - Fields: `id`, `name`, `description`, `createdAt`.
-  - Add / Edit dialog with form validation.
-  - Delete confirmation modal.
-- **API integration** in `src/features/admin/departments/api.ts`:
-  - `getDepartments({ page, pageSize, search })` → paginated list (same shape as states `getAll`).
-  - `createDepartment(data)`, `updateDepartment(id, data)`, `deleteDepartment(id)`.
-- Add mock seed data in `src/lib/mock/seed.ts` so the page works against the existing mock store.
-- Add `Department` type to `src/lib/types.ts`.
-
----
-
-## 5. Auth & Route Guard Updates
-
-- `src/lib/auth.tsx`: after successful login → `navigate({ to: '/ai-chat' })`.
-- `src/routes/index.tsx`: if authenticated → redirect to `/ai-chat`; else `/login`.
-- Update internal links anywhere `to="/dashboard"` or `to="/tickets"` exist (sidebar, breadcrumbs, ticket detail back-button, AI chat suggestions) to use the new `/ticketing/...` paths.
-
----
-
-## 6. Permissions
-
-`src/lib/permissions.ts`: add `departments.*` permissions mirroring `states.*`; grant to admin role.
-
----
-
-## Files Created
-- `src/routes/_app.ticketing.dashboard.tsx`
-- `src/routes/_app.ticketing.tickets.tsx`
-- `src/routes/_app.ticketing.tickets.$id.tsx`
-- `src/routes/_app.commission.dashboard.tsx`
-- `src/routes/_app.admin.departments.tsx`
-- `src/features/ticketing/{api.ts,types.ts,components/...}`
-- `src/features/commission/{api.ts,types.ts}`
-- `src/features/admin/departments/{api.ts,types.ts}`
-
-## Files Edited
-- `src/components/app-sidebar.tsx` — new menu hierarchy + bubbles
-- `src/routes/login.tsx` — bubbles + grey bg + white card
-- `src/styles.css` — float keyframes, bubble utilities
-- `src/lib/auth.tsx` — post-login redirect to `/ai-chat`
-- `src/routes/index.tsx` — root redirect target
-- `src/lib/types.ts` — `Department` type
-- `src/lib/mock/seed.ts` — department seed data
-- `src/lib/permissions.ts` — department perms
-- `src/routeTree.gen.ts` — regenerate for renamed/new routes
-- `src/routes/_app.ai-chat.tsx`, `src/routes/_app.chat.tsx` — any internal links to renamed ticketing routes
-
-## Files Deleted (after moves)
-- `src/routes/_app.dashboard.tsx`
-- `src/routes/_app.tickets.tsx`
-- `src/routes/_app.tickets.$id.tsx`
-
----
-
-## Out of Scope (for this iteration)
-- Commission Portal real business logic (only a placeholder dashboard with KPI cards saying "Coming soon" + structure).
-- Real backend endpoints for Departments (mock-only, mirroring existing admin pages).
-- Migrating existing tickets data — IDs and routes inside ticket objects remain unchanged; only the URL prefix changes.
-
-Existing features (auth flows, AI chat, team chat, current APIs, theme palettes, settings) remain untouched and functional.
+Confirm you want to proceed knowing the Lovable preview behaviour may change, and I'll execute the migration.

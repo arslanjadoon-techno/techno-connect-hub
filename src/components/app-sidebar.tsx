@@ -1,4 +1,4 @@
-import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard, TicketCheck, MessagesSquare, MapPin, Store as StoreIcon,
@@ -130,7 +130,7 @@ export function AppSidebar() {
   const { user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
-  const pathname = useRouterState({ select: (r) => r.location.pathname });
+  const pathname = useLocation().pathname;
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
   const groupActive = (g: Group) => g.items.some((i) => isActive(i.url));
 
@@ -282,7 +282,7 @@ export function AppSidebar() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => { logout(); navigate({ to: "/login" }); }}
+              onClick={() => { logout(); navigate("/login"); }}
               className="cursor-pointer text-destructive focus:text-destructive"
             >
               <LogOut className="h-4 w-4" /> Logout
