@@ -6,13 +6,6 @@ import { Card } from "@/components/ui/card";
 import { ShieldCheck, ArrowLeft, CheckCircle2, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
-({
-  head: () => ({ meta: [{ title: "Reset password — Techno Ticket Portal" }] }),
-  validateSearch: (search: Record<string, unknown>) => ({
-    token: typeof search.token === "string" ? search.token : "",
-  }),
-  component: ResetPasswordPage,
-});
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
