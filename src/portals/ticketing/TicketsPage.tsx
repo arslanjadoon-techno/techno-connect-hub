@@ -190,7 +190,7 @@ export default function TicketsPage() {
         columns={columns}
         rowKey={(t) => t.id}
         searchPlaceholder="Search tickets, location, assignee..."
-        onRowClick={(t) => navigate(`ticketing/tickets/${t.id`)}
+        onRowClick={(t) => navigate(`/ticketing/tickets/${t.id}`)}
       />
     </div>
   );
