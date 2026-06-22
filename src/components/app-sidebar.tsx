@@ -282,7 +282,7 @@ export function AppSidebar() {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={() => { logout(); navigate({ to: "/login" }); }}
+              onClick={() => { logout(); navigate("/login"); }}
               className="cursor-pointer text-destructive focus:text-destructive"
             >
               <LogOut className="h-4 w-4" /> Logout
