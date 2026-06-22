@@ -29,13 +29,6 @@ import { toast } from "sonner";
 type StatusSearch = TicketStatus | "all";
 const STATUS_KEYS: StatusSearch[] = ["all", "pending", "assigned", "completed", "hold", "closed", "reopen"];
 
-({
-  head: () => ({ meta: [{ title: "Tickets — Techno Ticket Portal" }] }),
-  validateSearch: (s: Record<string, unknown>) => ({
-    status: (STATUS_KEYS.includes(s.status as StatusSearch) ? (s.status as StatusSearch) : "all") as StatusSearch,
-  }),
-  component: TicketsPage,
-});
 
 export default function TicketsPage() {
   const { user } = useAuth();
