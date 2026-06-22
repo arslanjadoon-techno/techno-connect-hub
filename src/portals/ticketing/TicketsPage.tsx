@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data-store";
 import { canCreateTicket, visibleTickets } from "@/lib/permissions";
@@ -41,7 +41,9 @@ export default function TicketsPage() {
   const { user } = useAuth();
   const { data, set } = useData();
   const navigate = useNavigate();
-  const search = Route.useSearch();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawStatus = searchParams.get("status") as StatusSearch | null;
+  const search = { status: (rawStatus && STATUS_KEYS.includes(rawStatus) ? rawStatus : "all") as StatusSearch };
   const [open, setOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusSearch>(search.status);
   const [deptFilter, setDeptFilter] = useState<Department | "all">("all");
@@ -57,7 +59,7 @@ export default function TicketsPage() {
 
   const setStatus = (s: StatusSearch) => {
     setStatusFilter(s);
-    navigate({ to: "/ticketing/tickets", search: { status: s }, replace: true });
+    setSearchParams({ status: s }, { replace: true });
   };
 
   const myTickets = useMemo(() => visibleTickets(user, data.tickets), [user, data.tickets]);

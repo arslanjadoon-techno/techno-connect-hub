@@ -35,11 +35,6 @@ interface District {
   stateId: number;
 }
 
-({
-  head: () => ({ meta: [{ title: "Markets — Admin" }] }),
-  component: () => <AdminGuard><MarketsPage /></AdminGuard>,
-});
-
 export default function MarketsPage() {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [states, setStates] = useState<State[]>([]);

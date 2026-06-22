@@ -7,11 +7,6 @@ import { Card } from "@/components/ui/card";
 import { ShieldCheck, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
-({
-  head: () => ({ meta: [{ title: "Sign in — Techno Ticket Portal" }] }),
-  component: LoginPage,
-});
-
 export default function LoginPage() {
   const { user, login } = useAuth();
   const navigate = useNavigate();

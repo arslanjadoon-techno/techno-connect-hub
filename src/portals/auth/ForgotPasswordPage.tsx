@@ -8,11 +8,6 @@ import { ShieldCheck, ArrowLeft, MailCheck, CheckCircle2, Mail, Lock, Eye, EyeOf
 import { authApi } from "@/lib/api/client";
 import { toast } from "sonner";
 
-({
-  head: () => ({ meta: [{ title: "Forgot password — Techno Ticket Portal" }] }),
-  component: ForgotPasswordPage,
-});
-
 type Step = "email" | "otp" | "reset" | "done";
 
 export default function ForgotPasswordPage() {

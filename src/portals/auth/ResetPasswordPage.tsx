@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";import { useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,8 @@ import { toast } from "sonner";
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
-  const { token } = Route.useSearch();
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("token") ?? "";
   const [pwd, setPwd] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPwd, setShowPwd] = useState(false);

@@ -1,11 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { DollarSign, TrendingUp, Users, Wallet } from "lucide-react";
 
-({
-  head: () => ({ meta: [{ title: "Dashboard — Commission Portal" }] }),
-  component: CommissionDashboard,
-});
-
 const KPIS = [
   { label: "Total Commission (MTD)", value: "$ —", icon: DollarSign, accent: "from-emerald-500/20 to-emerald-500/5", iconFg: "text-emerald-600 dark:text-emerald-400" },
   { label: "Active Agents", value: "—", icon: Users, accent: "from-sky-500/20 to-sky-500/5", iconFg: "text-sky-600 dark:text-sky-400" },

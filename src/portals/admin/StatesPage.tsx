@@ -15,11 +15,6 @@ interface State {
   updatedAt?: string;
 }
 
-({
-  head: () => ({ meta: [{ title: "States — Admin" }] }),
-  component: () => <AdminGuard><StatesPage /></AdminGuard>,
-});
-
 export default function StatesPage() {
   const [states, setStates] = useState<State[]>([]);
   const [loading, setLoading] = useState(true);

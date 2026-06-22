@@ -408,11 +408,7 @@
 // import { usersApi, type BackendUser } from "@/lib/api/client";
 // import { toast } from "sonner";
 
-// export const Route = createFileRoute("/_app/admin/users")({
-//   head: () => ({ meta: [{ title: "Users — Admin" }] }),
-//   component: () => <AdminGuard><UsersPage /></AdminGuard>,
-// });
-
+// 
 // // 🛠️ Helper to format roles: "stateManager" or "state_manager" -> "State Manager"
 // function formatRoleName(roleStr: string): string {
 //   if (!roleStr) return "—";
@@ -858,11 +854,7 @@
 // import { toast } from "sonner";
 // import { Loader2, Search, XCircle } from "lucide-react";
 
-// export const Route = createFileRoute("/_app/admin/users")({
-//   head: () => ({ meta: [{ title: "Users — Admin" }] }),
-//   component: () => <AdminGuard><UsersPage /></AdminGuard>,
-// });
-
+// 
 // function formatRoleName(roleStr: string): string {
 //   if (!roleStr) return "—";
 //   const spaced = roleStr.replace(/([A-Z])/g, " $1").replace(/_/g, " ").trim();
@@ -1506,10 +1498,6 @@ import { usersApi, hierarchyApi, StatesApi, DistrictsApi, MarketsApi, StoresApi,
 import { toast } from "sonner";
 import { Loader2, Search, XCircle } from "lucide-react";
 
-export const Route = createFileRoute("/_app/admin/users")({
-  head: () => ({ meta: [{ title: "Users — Admin" }] }),
-  component: () => <AdminGuard><UsersPage /></AdminGuard>,
-});
 
 
 function formatRoleName(roleStr: string): string {

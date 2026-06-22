@@ -4,11 +4,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Sparkles, Send, Bot, User as UserIcon } from "lucide-react";
 
-({
-  head: () => ({ meta: [{ title: "AI Chat — Techno Ticket Portal" }] }),
-  component: AIChatPage,
-});
-
 type Msg = { id: string; role: "user" | "assistant"; text: string };
 
 const STATIC_REPLY =

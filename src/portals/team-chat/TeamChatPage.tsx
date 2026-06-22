@@ -18,11 +18,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Send, Users as UsersIcon, Plus, MessageSquarePlus, Search, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 
-({
-  head: () => ({ meta: [{ title: "Team Chat — Techno Ticket Portal" }] }),
-  component: ChatPage,
-});
-
 function ChatPage() {
   const { user } = useAuth();
   const { data, set } = useData();

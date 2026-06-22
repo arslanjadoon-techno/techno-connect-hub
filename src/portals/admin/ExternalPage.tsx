@@ -24,11 +24,6 @@ interface Market {
   name: string;
 }
 
-({
-  head: () => ({ meta: [{ title: "External Team — Admin" }] }),
-  component: () => <AdminGuard><ExternalPage /></AdminGuard>,
-});
-
 export default function ExternalPage() {
   const [vendors, setVendors] = useState<ExternalVendor[]>([]);
   const [markets, setMarkets] = useState<Market[]>([]);

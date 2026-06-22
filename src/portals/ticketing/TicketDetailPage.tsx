@@ -15,11 +15,6 @@ import {
 import { ArrowLeft, MessageSquare, Clock } from "lucide-react";
 import { toast } from "sonner";
 
-({
-  head: () => ({ meta: [{ title: "Ticket Details — Techno Ticket Portal" }] }),
-  component: TicketDetail,
-});
-
 /** "28-05-2026 02:33 Pm" style — matches reference screenshot. */
 function fmtDateTime(iso: string): string {
   const d = new Date(iso);

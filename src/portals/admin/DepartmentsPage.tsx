@@ -7,11 +7,6 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { DepartmentsApi, type DepartmentEntity } from "@/lib/api/client";
 
-({
-  head: () => ({ meta: [{ title: "Departments — Admin" }] }),
-  component: () => <AdminGuard><DepartmentsPage /></AdminGuard>,
-});
-
 export default function DepartmentsPage() {
   const [rows, setRows] = useState<DepartmentEntity[]>([]);
   const [loading, setLoading] = useState(true);

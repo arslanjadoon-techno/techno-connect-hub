@@ -10,11 +10,6 @@ import { toast } from "sonner";
 import { roleSubLabel } from "@/lib/role-label";
 import { PALETTES, useTheme } from "@/lib/theme";
 
-({
-  head: () => ({ meta: [{ title: "Settings — Techno Ticket Portal" }] }),
-  component: SettingsPage,
-});
-
 export default function SettingsPage() {
   const { user } = useAuth();
   const { data, set } = useData();

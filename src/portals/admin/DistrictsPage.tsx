@@ -25,11 +25,6 @@ interface State {
   symbol: string;
 }
 
-({
-  head: () => ({ meta: [{ title: "Districts — Admin" }] }),
-  component: () => <AdminGuard><DistrictsPage /></AdminGuard>,
-});
-
 export default function DistrictsPage() {
   const [districts, setDistricts] = useState<District[]>([]);
   const [states, setStates] = useState<State[]>([]);

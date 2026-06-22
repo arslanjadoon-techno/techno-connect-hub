@@ -42,11 +42,6 @@ interface Market {
   districtId: number;
 }
 
-({
-  head: () => ({ meta: [{ title: "Houses — Admin" }] }),
-  component: () => <AdminGuard><HousesPage /></AdminGuard>,
-});
-
 export default function HousesPage() {
 
   const [houses, setHouses] = useState<House[]>([]);
