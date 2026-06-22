@@ -47,3 +47,5 @@ function CommissionDashboard() {
     </div>
   );
 }
+
+export default CommissionDashboard;

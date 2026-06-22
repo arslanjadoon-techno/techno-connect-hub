@@ -284,3 +284,5 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
     </div>
   );
 }
+
+export default TicketDetail;

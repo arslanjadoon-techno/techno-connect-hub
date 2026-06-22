@@ -348,3 +348,5 @@ function StatCard({ icon: Icon, label, value }: { icon: typeof Clock; label: str
     </Card>
   );
 }
+
+export default DashboardPage;

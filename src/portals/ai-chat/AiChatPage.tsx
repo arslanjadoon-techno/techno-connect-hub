@@ -167,3 +167,5 @@ function AIChatPage() {
     </div>
   );
 }
+
+export default AIChatPage;

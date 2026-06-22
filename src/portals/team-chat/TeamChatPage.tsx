@@ -350,3 +350,5 @@ function DirectMessagePicker({ onPick }: { onPick: (userId: string) => void }) {
     </Popover>
   );
 }
+
+export default ChatPage;
