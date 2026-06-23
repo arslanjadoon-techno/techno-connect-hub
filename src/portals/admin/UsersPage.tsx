@@ -1,1512 +1,22 @@
-// // import { useState } from "react";
-// import { useData } from "@/lib/data-store";
-// import { AdminGuard, CrudPage } from "@/components/crud-page";
-// import { ALL_DEPARTMENTS, ALL_ROLES, type Department, type Role, type User } from "@/lib/types";
-// import { Input } from "@/components/ui/input";
-// import { Label } from "@/components/ui/label";
-// import { Button } from "@/components/ui/button";
-// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// import { usersApi } from "@/lib/api/client";
-// import { toast } from "sonner";
-
-// ({
-//   head: () => ({ meta: [{ title: "Users — Admin" }] }),
-//   component: () => <AdminGuard><UsersPage /></AdminGuard>,
-// });
-
-// export default function UsersPage() {
-//   const { data, set } = useData();
-//   const [deptFilter, setDeptFilter] = useState<Department | "all">("all");
-//   const [roleFilter, setRoleFilter] = useState<Role | "all">("all");
-
-//   const filtered = data.users.filter((u) => {
-//     if (deptFilter !== "all" && u.department !== deptFilter) return false;
-//     if (roleFilter !== "all" && u.role !== roleFilter) return false;
-//     return true;
-//   });
-
-//   const handleDelete = async (u: User) => {
-//     try {
-//       const numericId = Number(u.id);
-//       if (!Number.isNaN(numericId)) await usersApi.delete(numericId);
-//     } catch (err) {
-//       // Network/backend failure: still remove locally for demo continuity
-//       console.warn("Delete user API failed, removing locally:", (err as Error).message);
-//     }
-//     set("users", data.users.filter((x) => x.id !== u.id));
-//     toast.success("User deleted");
-//   };
-
-//   return (
-//     <CrudPage<User>
-//       title="Users"
-//       subtitle="Manage internal employees and their access roles."
-//       rows={filtered}
-//       rowKey={(u) => u.id}
-//       extraToolbar={
-//         <>
-//           <Select value={deptFilter} onValueChange={(v) => setDeptFilter(v as typeof deptFilter)}>
-//             <SelectTrigger className="h-9 w-[180px]"><SelectValue placeholder="Department" /></SelectTrigger>
-//             <SelectContent>
-//               <SelectItem value="all">All departments</SelectItem>
-//               {ALL_DEPARTMENTS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
-//             </SelectContent>
-//           </Select>
-//           <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v as typeof roleFilter)}>
-//             <SelectTrigger className="h-9 w-[180px]"><SelectValue placeholder="Role" /></SelectTrigger>
-//             <SelectContent>
-//               <SelectItem value="all">All roles</SelectItem>
-//               {ALL_ROLES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
-//             </SelectContent>
-//           </Select>
-//           <span className="text-xs text-muted-foreground">{filtered.length} of {data.users.length}</span>
-//         </>
-//       }
-//       columns={[
-//         { key: "name", header: "Name", accessor: (u) => (
-//             <div className="flex items-center gap-2">
-//               <div className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white" style={{ backgroundColor: u.avatarColor ?? "#0d7a5f" }}>
-//                 {u.firstName[0]}{u.lastName[0]}
-//               </div>
-//               <div><div className="font-medium">{u.firstName} {u.lastName}</div><div className="text-xs text-muted-foreground">{u.email}</div></div>
-//             </div>
-//           ), searchValue: (u) => `${u.firstName} ${u.lastName} ${u.email}` },
-//         { key: "dept", header: "Department", accessor: (u) => u.department, searchValue: (u) => u.department },
-//         { key: "role", header: "Role", accessor: (u) => ALL_ROLES.find((r) => r.value === u.role)?.label ?? u.role, searchValue: (u) => u.role },
-//       ]}
-//       onDelete={handleDelete}
-//       renderForm={(initial, close) => (
-//         <UserForm initial={initial} onSaved={(next) => {
-//           if (initial) set("users", data.users.map((x) => x.id === next.id ? next : x));
-//           else set("users", [...data.users, next]);
-//           close();
-//         }} />
-//       )}
-//       createLabel="Add user"
-//     />
-//   );
-// }
-
-// function splitName(full: string): { firstName: string; lastName: string } {
-//   const parts = full.trim().split(/\s+/);
-//   return { firstName: parts[0] ?? "", lastName: parts.slice(1).join(" ") };
-// }
-
-// function UserForm({ initial, onSaved }: { initial: User | null; onSaved: (u: User) => void }) {
-//   const { data } = useData();
-//   const [fullName, setFullName] = useState(initial ? `${initial.firstName} ${initial.lastName}`.trim() : "");
-//   const [email, setEmail] = useState(initial?.email ?? "");
-//   const [password, setPassword] = useState("");
-//   const [confirmPassword, setConfirmPassword] = useState("");
-//   const [role, setRole] = useState<Role>(initial?.role ?? "user");
-//   const [department, setDepartment] = useState<Department>(initial?.department ?? ALL_DEPARTMENTS[0]);
-//   const [stateId, setStateId] = useState(initial?.stateId ?? "");
-//   const [marketId, setMarketId] = useState(initial?.marketId ?? "");
-//   const [districtId, setDistrictId] = useState(initial?.districtId ?? "");
-//   const [storeId, setStoreId] = useState(initial?.storeId ?? "");
-//   const [submitting, setSubmitting] = useState(false);
-
-//   const needsState   = role === "state_manager" || role === "district_manager" || role === "market_manager" || role === "store_manager";
-//   const needsMarket  = role === "district_manager" || role === "market_manager" || role === "store_manager";
-//   const needsDistrict= role === "district_manager" || role === "store_manager";
-//   const needsStore   = role === "store_manager";
-//   const departmentRequired = role !== "admin";
-
-//   const markets = data.markets.filter((m) => m.stateId === stateId);
-//   const districts = data.districts.filter((d) => d.marketId === marketId);
-//   const stores = data.stores.filter((s) => s.districtId === districtId);
-
-//   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-//   const passwordOk = initial
-//     ? (!password && !confirmPassword) || (password.length >= 6 && password === confirmPassword)
-//     : password.length >= 6 && password === confirmPassword;
-
-//   // Validation requirements: fullName, email, role required.
-//   // Password + confirm required when creating; department required if role != admin.
-//   const baseValid = fullName.trim().length >= 2 && validEmail && role;
-//   const canSave =
-//     baseValid && passwordOk &&
-//     (!departmentRequired || !!department) &&
-//     (!needsState || stateId) && (!needsMarket || marketId) &&
-//     (!needsDistrict || districtId) && (!needsStore || storeId);
-
-//   const validationHint = (() => {
-//     if (!fullName.trim()) return "Full name is required";
-//     if (!validEmail) return "Valid email is required";
-//     if (!initial && password.length < 6) return "Password must be at least 6 characters";
-//     if (password !== confirmPassword) return "Passwords do not match";
-//     if (departmentRequired && !department) return "Department is required for non-admin roles";
-//     return null;
-//   })();
-
-//   const submit = async () => {
-//     if (!canSave) {
-//       if (validationHint) toast.error(validationHint);
-//       return;
-//     }
-//     setSubmitting(true);
-//     const { firstName, lastName } = splitName(fullName);
-//     try {
-//       if (initial) {
-//         const numericId = Number(initial.id);
-//         if (!Number.isNaN(numericId)) {
-//           await usersApi.update({
-//             id: numericId,
-//             fullName: fullName.trim(),
-//             email: email.trim(),
-//             role,
-//             department: departmentRequired ? department : null,
-//           });
-//         }
-//         onSaved({
-//           ...initial,
-//           firstName, lastName,
-//           email: email.trim(),
-//           role,
-//           department,
-//           stateId: needsState ? stateId : undefined,
-//           marketId: needsMarket ? marketId : undefined,
-//           districtId: needsDistrict ? districtId : undefined,
-//           storeId: needsStore ? storeId : undefined,
-//         });
-//         toast.success("User updated");
-//       } else {
-//         let newId: string = `u-${Date.now()}`;
-//         try {
-//           const res = await usersApi.add({
-//             fullName: fullName.trim(),
-//             email: email.trim(),
-//             password,
-//             role,
-//             ...(departmentRequired ? { department } : {}),
-//           });
-//           newId = String(res.data.id);
-//         } catch (err) {
-//           console.warn("Add user API failed, saving locally:", (err as Error).message);
-//         }
-//         onSaved({
-//           id: newId,
-//           firstName, lastName,
-//           email: email.trim(),
-//           role, department,
-//           stateId: needsState ? stateId : undefined,
-//           marketId: needsMarket ? marketId : undefined,
-//           districtId: needsDistrict ? districtId : undefined,
-//           storeId: needsStore ? storeId : undefined,
-//           avatarColor: "#0d7a5f",
-//         });
-//         toast.success("User added");
-//       }
-//     } catch (err) {
-//       toast.error((err as Error).message);
-//     } finally {
-//       setSubmitting(false);
-//     }
-//   };
-
-//   return (
-//     <div className="space-y-3">
-//       <div className="space-y-1.5">
-//         <Label>Full name <span className="text-destructive">*</span></Label>
-//         <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Arslan Khan" />
-//       </div>
-//       <div className="space-y-1.5">
-//         <Label>Email <span className="text-destructive">*</span></Label>
-//         <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@techno.com" />
-//       </div>
-//       <div className="grid grid-cols-2 gap-3">
-//         <div className="space-y-1.5">
-//           <Label>Password {!initial && <span className="text-destructive">*</span>}</Label>
-//           <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={initial ? "Leave blank to keep" : "Min 6 chars"} />
-//         </div>
-//         <div className="space-y-1.5">
-//           <Label>Confirm password {!initial && <span className="text-destructive">*</span>}</Label>
-//           <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter password" />
-//         </div>
-//       </div>
-//       <div className="grid grid-cols-2 gap-3">
-//         <div className="space-y-1.5">
-//           <Label>Role <span className="text-destructive">*</span></Label>
-//           <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-//             <SelectTrigger><SelectValue /></SelectTrigger>
-//             <SelectContent>{ALL_ROLES.map((r) => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}</SelectContent>
-//           </Select>
-//         </div>
-//         <div className="space-y-1.5">
-//           <Label>
-//             Department {departmentRequired && <span className="text-destructive">*</span>}
-//             {!departmentRequired && <span className="ml-1 text-xs text-muted-foreground">(not required for Admin)</span>}
-//           </Label>
-//           <Select
-//             value={department}
-//             onValueChange={(v) => setDepartment(v as Department)}
-//             disabled={!departmentRequired}
-//           >
-//             <SelectTrigger><SelectValue placeholder={departmentRequired ? "Select department" : "—"} /></SelectTrigger>
-//             <SelectContent>{ALL_DEPARTMENTS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-//           </Select>
-//         </div>
-//       </div>
-
-//       {needsState && (
-//         <div className="space-y-1.5">
-//           <Label>State</Label>
-//           <Select value={stateId} onValueChange={(v) => { setStateId(v); setMarketId(""); setDistrictId(""); setStoreId(""); }}>
-//             <SelectTrigger><SelectValue placeholder="Select state" /></SelectTrigger>
-//             <SelectContent>{data.states.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-//           </Select>
-//         </div>
-//       )}
-//       {needsMarket && (
-//         <div className="space-y-1.5">
-//           <Label>Market</Label>
-//           <Select value={marketId} onValueChange={(v) => { setMarketId(v); setDistrictId(""); setStoreId(""); }}>
-//             <SelectTrigger><SelectValue placeholder="Select market" /></SelectTrigger>
-//             <SelectContent>{markets.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
-//           </Select>
-//         </div>
-//       )}
-//       {needsDistrict && (
-//         <div className="space-y-1.5">
-//           <Label>District</Label>
-//           <Select value={districtId} onValueChange={(v) => { setDistrictId(v); setStoreId(""); }}>
-//             <SelectTrigger><SelectValue placeholder="Select district" /></SelectTrigger>
-//             <SelectContent>{districts.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
-//           </Select>
-//         </div>
-//       )}
-//       {needsStore && (
-//         <div className="space-y-1.5">
-//           <Label>Store</Label>
-//           <Select value={storeId} onValueChange={setStoreId}>
-//             <SelectTrigger><SelectValue placeholder="Select store" /></SelectTrigger>
-//             <SelectContent>{stores.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-//           </Select>
-//         </div>
-//       )}
-
-//       {validationHint && (
-//         <p className="text-xs text-muted-foreground">{validationHint}</p>
-//       )}
-
-//       <Button disabled={!canSave || submitting} onClick={submit}>
-//         {submitting ? "Saving..." : initial ? "Update user" : "Add user"}
-//       </Button>
-//     </div>
-//   );
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// // import { useState, useEffect } from "react";
-// import { useData } from "@/lib/data-store";
-// import { AdminGuard, CrudPage } from "@/components/crud-page";
-// import { type Department, type Role, type User } from "@/lib/types";
-// import { Input } from "@/components/ui/input";
-// import { Label } from "@/components/ui/label";
-// import { Button } from "@/components/ui/button";
-// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// import { usersApi, type BackendUser } from "@/lib/api/client";
-// import { toast } from "sonner";
-
-// 
-// // 🛠️ Helper to format roles: "stateManager" or "state_manager" -> "State Manager"
-// function formatRoleName(roleStr: string): string {
-//   if (!roleStr) return "—";
-//   // Insert space before capital letters and replace underscores with spaces
-//   const spaced = roleStr.replace(/([A-Z])/g, " $1").replace(/_/g, " ").trim();
-//   // Capitalize the first letter of each word
-//   return spaced
-//     .split(/\s+/)
-//     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-//     .join(" ");
-// }
-
-// // 🔄 Helper function to map Backend entity to Frontend view state
-// function mapBackendToFrontendUser(bu: BackendUser): User & { phone?: string; stateName?: string; marketName?: string; districtName?: string; storeName?: string } {
-//   const parts = (bu.fullName || "").trim().split(/\s+/);
-
-//   const roleNameFromBackend = bu.role?.name?.toLowerCase() as Role || "user";
-//   const departmentNameFromBackend = bu.department?.name as Department;
-
-//   return {
-//     id: String(bu.id),
-//     firstName: parts[0] ?? "",
-//     lastName: parts.slice(1).join(" ") || "",
-//     email: bu.email || "",
-//     roleName: roleNameFromBackend,
-//     department: departmentNameFromBackend,
-//     avatarColor: "#0d7a5f", 
-//     active: bu.active ?? true,
-
-//     // Raw IDs for Form
-//     stateId: bu.state?.id ? String(bu.state.id) : "",
-//     marketId: bu.market?.id ? String(bu.market.id) : "",
-//     districtId: bu.district?.id ? String(bu.district.id) : "",
-//     storeId: bu.store?.id ? String(bu.store.id) : "",
-
-//     // UI View Text for Extended Columns
-//     phone: bu.phone || "—",
-//     stateName: bu.state?.name || "—",
-//     marketName: bu.market?.name || "—",
-//     districtName: bu.district?.name || "—",
-//     storeName: bu.store?.name || "—",
-//   };
-// }
-
-// function UsersPage() {
-//   const { data, set } = useData();
-//   const [deptFilter, setDeptFilter] = useState<string>("all");
-//   const [roleFilter, setRoleFilter] = useState<string>("all");
-//   const [loading, setLoading] = useState(false);
-
-//   const [dynamicRoles, setDynamicRoles] = useState<string[]>([]);
-//   const [dynamicDepts, setDynamicDepts] = useState<{ id: number; name: string }[]>([]);
-
-//   // Injecting header styling programmatically on component mount to give theme background color
-//   useEffect(() => {
-//     const styleTag = document.createElement("style");
-//     styleTag.innerHTML = `
-//       /* Theme background fallback injection for the table header row */
-//       .crud-page-table thead tr, 
-//       table thead tr { 
-//         background-color: rgba(13, 122, 95, 0.08) !important; 
-//       }
-//       table thead th {
-//         color: #0d7a5f !important;
-//         font-weight: 600 !important;
-//       }
-//     `;
-//     document.head.appendChild(styleTag);
-//     return () => {
-//       document.head.removeChild(styleTag);
-//     };
-//   }, []);
-
-//   // 📥 1. REAL API: Fetch users, roles, and departments (GET Requests)
-//   useEffect(() => {
-//     let isMounted = true;
-
-//     async function fetchAllData() {
-//       setLoading(true);
-//       try {
-//         const token = localStorage.getItem("token") || "";
-//         const headers = {
-//           "Content-Type": "application/json",
-//           "Authorization": token ? `Bearer ${token}` : "",
-//         };
-
-//         const [usersRes, rolesRes, deptsRes] = await Promise.all([
-//           usersApi.getAll(),
-//           fetch("http://localhost:4570/api/users/roles", { method: "GET", headers }).then(r => r.json().catch(() => ({ data: [] }))),
-//           fetch("http://localhost:4570/api/departments/get-all", { method: "GET", headers }).then(r => r.json().catch(() => ({ data: [] })))
-//         ]);
-
-//         if (isMounted) {
-//           if (usersRes.success && Array.isArray(usersRes.data)) {
-//             const mappedUsers = usersRes.data.map(mapBackendToFrontendUser);
-//             set("users", mappedUsers);
-//           }
-//           if (rolesRes && Array.isArray(rolesRes.data)) {
-//             setDynamicRoles(rolesRes.data);
-//           } else if (Array.isArray(rolesRes)) {
-//             setDynamicRoles(rolesRes);
-//           }
-//           if (deptsRes && Array.isArray(deptsRes.data)) {
-//             setDynamicDepts(deptsRes.data);
-//           } else if (Array.isArray(deptsRes)) {
-//             setDynamicDepts(deptsRes);
-//           }
-//         }
-//       } catch (err) {
-//         if (isMounted) {
-//           toast.error((err as Error).message || "Failed to fetch real users/filters data");
-//         }
-//         console.error("Fetch operational data error:", err);
-//       } finally {
-//         if (isMounted) setLoading(false);
-//       }
-//     }
-
-//     fetchAllData();
-
-//     return () => {
-//       isMounted = false;
-//     };
-//   }, []);
-
-//   const filtered = data.users.filter((u) => {
-//     if (deptFilter !== "all" && (u.department || "").toLowerCase() !== deptFilter.toLowerCase()) return false;
-//     if (roleFilter !== "all" && (u.roleName || "").toLowerCase() !== roleFilter.toLowerCase()) return false;
-//     return true;
-//   });
-
-//   const handleDelete = async (u: User) => {
-//     const numericId = Number(u.id);
-//     if (Number.isNaN(numericId)) {
-//       toast.error("Invalid local ID structure");
-//       return;
-//     }
-
-//     try {
-//       await usersApi.delete(numericId);
-//       set("users", data.users.filter((x) => x.id !== u.id));
-//       toast.success("User deleted successfully from database");
-//     } catch (err) {
-//       toast.error((err as Error).message || "Backend deletion failed");
-//       console.error("Delete user error:", err);
-//     }
-//   };
-
-//   return (
-//     <CrudPage<any>
-//       title="Users"
-//       subtitle="Manage internal employees and their access roles."
-//       rows={filtered}
-//       rowKey={(u) => u.id}
-//       extraToolbar={
-//         <>
-//           <Select value={deptFilter} onValueChange={setDeptFilter}>
-//             <SelectTrigger className="h-9 w-[180px]"><SelectValue placeholder="Department" /></SelectTrigger>
-//             <SelectContent>
-//               <SelectItem value="all">All departments</SelectItem>
-//               {dynamicDepts.map((d) => (
-//                 <SelectItem key={d.id} value={d.name}>{d.name || "—"}</SelectItem>
-//               ))}
-//             </SelectContent>
-//           </Select>
-
-//           <Select value={roleFilter} onValueChange={setRoleFilter}>
-//             <SelectTrigger className="h-9 w-[180px]"><SelectValue placeholder="Role" /></SelectTrigger>
-//             <SelectContent>
-//               <SelectItem value="all">All roles</SelectItem>
-//               {/* 🛠️ Fixed: Capitalized dynamically using Pascal Word Case mapping */}
-//               {dynamicRoles.map((roleStr) => (
-//                 <SelectItem key={roleStr} value={roleStr}>{formatRoleName(roleStr)}</SelectItem>
-//               ))}
-//             </SelectContent>
-//           </Select>
-
-//           <span className="text-xs text-muted-foreground">
-//             {loading ? "Loading..." : `${filtered.length} of ${data.users.length}`}
-//           </span>
-//         </>
-//       }
-//       columns={[
-//         {
-//           key: "name", header: "Name", accessor: (u) => (
-//             <div className="flex items-center gap-2">
-//               <div className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold text-white" style={{ backgroundColor: u.avatarColor ?? "#0d7a5f" }}>
-//                 {(u.firstName?.[0] || "")}{(u.lastName?.[0] || "")}
-//               </div>
-//               <div className="font-medium">{u.firstName} {u.lastName}</div>
-//             </div>
-//           ), searchValue: (u) => `${u.firstName} ${u.lastName}`
-//         },
-//         { key: "email", header: "Email", accessor: (u) => u.email || "—", searchValue: (u) => u.email },
-//         { key: "phone", header: "Phone", accessor: (u) => u.phone || "—" },
-//         { key: "dept", header: "Department", accessor: (u) => u.department || "—", searchValue: (u) => u.department },
-//         // 🛠️ Fixed: Capitalized table row column mapping using the formatRoleName utility
-//         { key: "role", header: "Role", accessor: (u) => formatRoleName(String(u.roleName || "")), searchValue: (u) => u.roleName },
-//         { key: "state", header: "State", accessor: (u) => u.stateName || "—" },
-//         { key: "market", header: "Market", accessor: (u) => u.marketName || "—" },
-//         { key: "district", header: "District", accessor: (u) => u.districtName || "—" },
-//         { key: "store", header: "Store", accessor: (u) => u.storeName || "—" },
-//       ]}
-//       onDelete={handleDelete}
-//       renderForm={(initial, close) => (
-//         <UserForm initial={initial} dynamicRoles={dynamicRoles} dynamicDepts={dynamicDepts} onSaved={(next) => {
-//           if (initial) set("users", data.users.map((x) => x.id === next.id ? next : x));
-//           else set("users", [...data.users, next]);
-//           close();
-//         }} />
-//       )}
-//       createLabel="Add user"
-//     />
-//   );
-// }
-
-// function UserForm({ initial, dynamicRoles, dynamicDepts, onSaved }: { initial: User | null; dynamicRoles: string[]; dynamicDepts: any[]; onSaved: (u: User) => void }) {
-//   const { data } = useData();
-//   const [fullName, setFullName] = useState(initial ? `${initial.firstName} ${initial.lastName}`.trim() : "");
-//   const [email, setEmail] = useState(initial?.email ?? "");
-//   const [password, setPassword] = useState("");
-//   const [confirmPassword, setConfirmPassword] = useState("");
-//   const [role, setRole] = useState<Role>(initial?.roleName ?? ("user" as Role));
-//   const [department, setDepartment] = useState<Department>(initial?.department ?? ("Administration" as Department));
-
-//   const [stateId, setStateId] = useState(initial?.stateId ?? "");
-//   const [marketId, setMarketId] = useState(initial?.marketId ?? "");
-//   const [districtId, setDistrictId] = useState(initial?.districtId ?? "");
-//   const [storeId, setStoreId] = useState(initial?.storeId ?? "");
-//   const [submitting, setSubmitting] = useState(false);
-
-//   const lowercaseRole = String(role).toLowerCase();
-//   const needsState = lowercaseRole === "state_manager" || lowercaseRole === "statemanager" || lowercaseRole === "district_manager" || lowercaseRole === "districtmanager" || lowercaseRole === "market_manager" || lowercaseRole === "marketmanager" || lowercaseRole === "store_manager" || lowercaseRole === "storemanager";
-//   const needsMarket = lowercaseRole === "district_manager" || lowercaseRole === "districtmanager" || lowercaseRole === "market_manager" || lowercaseRole === "marketmanager" || lowercaseRole === "store_manager" || lowercaseRole === "storemanager";
-//   const needsDistrict = lowercaseRole === "district_manager" || lowercaseRole === "districtmanager" || lowercaseRole === "store_manager" || lowercaseRole === "storemanager";
-//   const needsStore = lowercaseRole === "store_manager" || lowercaseRole === "storemanager";
-//   const departmentRequired = lowercaseRole !== "admin";
-
-//   const markets = data.markets.filter((m) => m.stateId === stateId);
-//   const districts = data.districts.filter((d) => d.marketId === marketId);
-//   const stores = data.stores.filter((s) => s.districtId === districtId);
-
-//   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-//   const passwordOk = initial
-//     ? (!password && !confirmPassword) || (password.length >= 6 && password === confirmPassword)
-//     : password.length >= 6 && password === confirmPassword;
-
-//   const baseValid = fullName.trim().length >= 2 && validEmail && role;
-//   const canSave =
-//     baseValid && passwordOk &&
-//     (!departmentRequired || !!department) &&
-//     (!needsState || stateId) && (!needsMarket || marketId) &&
-//     (!needsDistrict || districtId) && (!needsStore || storeId);
-
-//   const validationHint = (() => {
-//     if (!fullName.trim()) return "Full name is required";
-//     if (!validEmail) return "Valid email is required";
-//     if (!initial && password.length < 6) return "Password must be at least 6 characters";
-//     if (password !== confirmPassword) return "Passwords do not match";
-//     if (departmentRequired && !department) return "Department is required for non-admin roles";
-//     return null;
-//   })();
-
-//   const submit = async () => {
-//     if (!canSave) {
-//       if (validationHint) toast.error(validationHint);
-//       return;
-//     }
-//     setSubmitting(true);
-//     try {
-//       const payload = {
-//         fullName: fullName.trim(),
-//         email: email.trim(),
-//         role: { id: 0, name: role },
-//         department: departmentRequired && department ? { id: 0, name: department } : null,
-//         state: needsState && stateId ? { id: String(stateId), name: "" } : null,
-//         market: needsMarket && marketId ? { id: String(marketId), name: "" } : null,
-//         district: needsDistrict && districtId ? { id: String(districtId), name: "" } : null,
-//         store: needsStore && storeId ? { id: String(storeId), name: "" } : null,
-//       };
-
-//       if (initial) {
-//         const numericId = Number(initial.id);
-//         const response = await usersApi.update({ id: numericId, ...payload });
-//         if (response.success) {
-//           onSaved(mapBackendToFrontendUser(response.data));
-//           toast.success("User updated on backend");
-//         }
-//       } else {
-//         const response = await usersApi.add({ ...payload, password } as any);
-//         if (response.success) {
-//           onSaved(mapBackendToFrontendUser(response.data));
-//           toast.success("User successfully added to database");
-//         }
-//       }
-//     } catch (err) {
-//       toast.error((err as Error).message || "An API operation error occurred");
-//       console.error("Form Submit Error:", err);
-//     } finally {
-//       setSubmitting(false);
-//     }
-//   };
-
-//   return (
-//     <div className="space-y-3">
-//       <div className="space-y-1.5">
-//         <Label>Full name <span className="text-destructive">*</span></Label>
-//         <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Arslan Khan" autoComplete="off" />
-//       </div>
-//       <div className="space-y-1.5">
-//         <Label>Email <span className="text-destructive">*</span></Label>
-//         <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@techno.com" autoComplete="new-password" />
-//       </div>
-//       <div className="grid grid-cols-2 gap-3">
-//         <div className="space-y-1.5">
-//           <Label>Password {!initial && <span className="text-destructive">*</span>}</Label>
-//           <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={initial ? "Leave blank to keep" : "Min 6 chars"} autoComplete="new-password" />
-//         </div>
-//         <div className="space-y-1.5">
-//           <Label>Confirm password {!initial && <span className="text-destructive">*</span>}</Label>
-//           <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter password" autoComplete="new-password" />
-//         </div>
-//       </div>
-//       <div className="grid grid-cols-2 gap-3">
-//         <div className="space-y-1.5">
-//           <Label>Role <span className="text-destructive">*</span></Label>
-//           <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-//             <SelectTrigger><SelectValue /></SelectTrigger>
-//             <SelectContent>
-//               {/* 🛠️ Fixed: Modal user form also uses elegant Pascal Case parsing */}
-//               {dynamicRoles.map((roleStr) => (
-//                 <SelectItem key={roleStr} value={roleStr}>{formatRoleName(roleStr)}</SelectItem>
-//               ))}
-//             </SelectContent>
-//           </Select>
-//         </div>
-//         <div className="space-y-1.5">
-//           <Label>
-//             Department {departmentRequired && <span className="text-destructive">*</span>}
-//             {!departmentRequired && <span className="ml-1 text-xs text-muted-foreground">(saved as "all" for Admin)</span>}
-//           </Label>
-//           <Select
-//             value={departmentRequired ? department : "all"}
-//             onValueChange={(v) => setDepartment(v as Department)}
-//             disabled={!departmentRequired}
-//           >
-//             <SelectTrigger><SelectValue placeholder={departmentRequired ? "Select department" : "—"} /></SelectTrigger>
-//             <SelectContent>
-//               {dynamicDepts.map((d) => <SelectItem key={d.id} value={d.name}>{d.name || "—"}</SelectItem>)}
-//             </SelectContent>
-//           </Select>
-//         </div>
-//       </div>
-
-//       {needsState && (
-//         <div className="space-y-1.5">
-//           <Label>State</Label>
-//           <Select value={stateId} onValueChange={(v) => { setStateId(v); setMarketId(""); setDistrictId(""); setStoreId(""); }}>
-//             <SelectTrigger><SelectValue placeholder="Select state" /></SelectTrigger>
-//             <SelectContent>{data.states.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-//           </Select>
-//         </div>
-//       )}
-//       {needsMarket && (
-//         <div className="space-y-1.5">
-//           <Label>Market</Label>
-//           <Select value={marketId} onValueChange={(v) => { setMarketId(v); setDistrictId(""); setStoreId(""); }}>
-//             <SelectTrigger><SelectValue placeholder="Select market" /></SelectTrigger>
-//             <SelectContent>{markets.map((m) => <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>)}</SelectContent>
-//           </Select>
-//         </div>
-//       )}
-//       {needsDistrict && (
-//         <div className="space-y-1.5">
-//           <Label>District</Label>
-//           <Select value={districtId} onValueChange={(v) => { setDistrictId(v); setStoreId(""); }}>
-//             <SelectTrigger><SelectValue placeholder="Select district" /></SelectTrigger>
-//             <SelectContent>{districts.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}</SelectContent>
-//           </Select>
-//         </div>
-//       )}
-//       {needsStore && (
-//         <div className="space-y-1.5">
-//           <Label>Store</Label>
-//           <Select value={storeId} onValueChange={setStoreId}>
-//             <SelectTrigger><SelectValue placeholder="Select store" /></SelectTrigger>
-//             <SelectContent>{stores.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}</SelectContent>
-//           </Select>
-//         </div>
-//       )}
-
-//       {validationHint && <p className="text-xs text-muted-foreground">{validationHint}</p>}
-
-//       <Button disabled={!canSave || submitting} onClick={submit}>
-//         {submitting ? "Saving..." : initial ? "Update user" : "Add user"}
-//       </Button>
-//     </div>
-//   );
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// // import { useState, useEffect, useRef, useMemo } from "react";
-// import { AdminGuard, CrudPage } from "@/components/crud-page";
-// import { useData } from "@/lib/data-store";
-// import { type Department, type Role, type User } from "@/lib/types";
-// import { Input } from "@/components/ui/input";
-// import { Label } from "@/components/ui/label";
-// import { Button } from "@/components/ui/button";
-// import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-// import { usersApi, hierarchyApi, type BackendUser } from "@/lib/api/client";
-// import { toast } from "sonner";
-// import { Loader2, Search, XCircle } from "lucide-react";
-
-// 
-// function formatRoleName(roleStr: string): string {
-//   if (!roleStr) return "—";
-//   const spaced = roleStr.replace(/([A-Z])/g, " $1").replace(/_/g, " ").trim();
-//   return spaced
-//     .split(/\s+/)
-//     .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-//     .join(" ");
-// }
-
-// function mapBackendToFrontendUser(bu: any): User & { phone?: string; stateName?: string; marketName?: string; districtName?: string; storeName?: string } {
-//   const parts = (bu.fullName || "").trim().split(/\s+/);
-
-//   const roleNameFromBackend = (bu.roleName || "user").toLowerCase() as Role;
-//   const departmentNameFromBackend = bu.departmentName as Department;
-
-//   return {
-//     id: String(bu.id),
-//     firstName: parts[0] ?? "",
-//     lastName: parts.slice(1).join(" ") || "",
-//     email: bu.email || "",
-//     roleName: roleNameFromBackend,
-//     department: departmentNameFromBackend,
-//     avatarColor: "#0d7a5f",
-//     active: bu.active ?? true,
-
-//     // Raw IDs for Forms (Fallback to string conversion)
-//     stateId: bu.stateId ? String(bu.stateId) : "",
-//     marketId: bu.marketId ? String(bu.marketId) : "",
-//     districtId: bu.districtId ? String(bu.districtId) : "",
-//     storeId: bu.storeId ? String(bu.storeId) : "",
-
-//     phone: bu.phone || "—",
-//     stateName: bu.stateName || "—",
-//     marketName: bu.marketName || "—",
-//     districtName: bu.districtName || "—",
-//     storeName: bu.storeName || "—",
-//   };
-// }
-
-// function UsersPage() {
-//   const [users, setUsers] = useState<any[]>([]);
-//   const [deptFilter, setDeptFilter] = useState<string>("all");
-//   const [roleFilter, setRoleFilter] = useState<string>("all");
-
-//   const [dynamicRoles, setDynamicRoles] = useState<string[]>([]);
-//   const [dynamicDepts, setDynamicDepts] = useState<{ id: number; name: string }[]>([]);
-
-//   // Search input filters queries buffers
-//   const [mainDeptSearch, setMainDeptSearch] = useState("");
-//   const [mainRoleSearch, setMainRoleSearch] = useState("");
-
-//   const mainDeptSearchRef = useRef<HTMLInputElement>(null);
-//   const mainRoleSearchRef = useRef<HTMLInputElement>(null);
-
-//   const [loading, setLoading] = useState(true);
-//   const [actionLoading, setActionLoading] = useState(false);
-
-//   // Pagination states
-//   const [page, setPage] = useState<number>(0);
-//   const [size, setSize] = useState<number>(10);
-//   const [totalRecords, setTotalRecords] = useState<number>(0);
-
-//   const lastFetchedKey = useRef<string>("");
-//   const isFetchingRef = useRef<boolean>(false);
-//   const initialLookupsFetchedRef = useRef<boolean>(false);
-
-//   useEffect(() => {
-//     const styleTag = document.createElement("style");
-//     styleTag.innerHTML = `
-//       .crud-page-table thead tr, table thead tr { 
-//         background-color: rgba(13, 122, 95, 0.08) !important; 
-//       }
-//       table thead th {
-//         color: #0d7a5f !important;
-//         font-weight: 600 !important;
-//       }
-//     `;
-//     document.head.appendChild(styleTag);
-//     return () => {
-//       document.head.removeChild(styleTag);
-//     };
-//   }, []);
-
-//   const fetchUsers = async (targetPage: number, targetSize: number, targetDept: string, targetRole: string) => {
-//     const currentRequestKey = `${targetPage}-${targetSize}-${targetDept}-${targetRole}`;
-
-//     if (lastFetchedKey.current === currentRequestKey || isFetchingRef.current) {
-//       return;
-//     }
-
-//     try {
-//       setLoading(true);
-//       isFetchingRef.current = true;
-//       lastFetchedKey.current = currentRequestKey;
-
-//       // Single invocation fetch for dynamic roles and departments mapping lookups
-//       if (!initialLookupsFetchedRef.current) {
-//         const [rolesRes, deptsRes] = await Promise.all([
-//           hierarchyApi.getRoles(),
-//           hierarchyApi.getDepartments()
-//         ]);
-
-//         if (rolesRes.success && Array.isArray(rolesRes.data)) setDynamicRoles(rolesRes.data);
-//         if (deptsRes.success && Array.isArray(deptsRes.data)) setDynamicDepts(deptsRes.data);
-
-//         if (rolesRes.success && deptsRes.success) {
-//           initialLookupsFetchedRef.current = true;
-//         }
-//       }
-
-//       // Hit users endpoint matching advanced structural layout filters
-//       const apiClient = usersApi.getAll as any;
-//       const res = await apiClient({
-//         page: targetPage,
-//         size: targetSize,
-//         department: targetDept !== "all" ? targetDept : undefined,
-//         role: targetRole !== "all" ? targetRole : undefined
-//       });
-
-//       if (res.success) {
-//         if (res.data.length === 0 && res.pagination && res.pagination.totalRecords > 0 && targetPage > 0) {
-//           const maxAvailablePage = Math.ceil(res.pagination.totalRecords / targetSize) - 1;
-//           const fallbackPage = Math.max(0, maxAvailablePage);
-
-//           isFetchingRef.current = false;
-//           lastFetchedKey.current = "";
-//           setPage(fallbackPage);
-//           return;
-//         }
-
-//         const mapped = res.data.map(mapBackendToFrontendUser);
-//         setUsers(mapped);
-//         setTotalRecords(res.pagination?.totalRecords ?? mapped.length);
-//       } else {
-//         toast.error(res.message || "Failed to load users data layout matrix");
-//         lastFetchedKey.current = "";
-//       }
-//     } catch (err: any) {
-//       toast.error(err?.message || "Something went wrong while retrieving records");
-//       lastFetchedKey.current = "";
-//     } finally {
-//       setLoading(false);
-//       isFetchingRef.current = false;
-//     }
-//   };
-
-//   useEffect(() => {
-//     fetchUsers(page, size, deptFilter, roleFilter);
-//   }, [page, size, deptFilter, roleFilter]);
-
-//   const handleDeptFilterChange = (val: string) => {
-//     lastFetchedKey.current = "";
-//     setPage(0);
-//     setDeptFilter(val);
-//   };
-
-//   const handleRoleFilterChange = (val: string) => {
-//     lastFetchedKey.current = "";
-//     setPage(0);
-//     setRoleFilter(val);
-//   };
-
-//   const handleResetFilters = () => {
-//     if (deptFilter === "all" && roleFilter === "all") return;
-//     lastFetchedKey.current = "";
-//     setPage(0);
-//     setDeptFilter("all");
-//     setRoleFilter("all");
-//     toast.success("Filters cleared successfully");
-//   };
-
-//   const handleDelete = async (u: any) => {
-//     const numericId = Number(u.id);
-//     if (Number.isNaN(numericId)) {
-//       toast.error("Invalid internal configuration parsing ID structure");
-//       return;
-//     }
-
-//     try {
-//       setActionLoading(true);
-//       const res = await usersApi.delete(numericId);
-//       if (res.success) {
-//         toast.success(res.message || "User record safely removed");
-//         lastFetchedKey.current = "";
-//         fetchUsers(page, size, deptFilter, roleFilter);
-//       } else {
-//         toast.error(res.message || "Deletion sequence failed");
-//       }
-//     } catch (err: any) {
-//       toast.error(err?.message || "Backend constraint deletion crash");
-//     } finally {
-//       setActionLoading(false);
-//     }
-//   };
-
-//   const filteredMainDeptsOptions = useMemo(() => {
-//     return dynamicDepts.filter((d) => (d.name || "").toLowerCase().includes(mainDeptSearch.toLowerCase()));
-//   }, [dynamicDepts, mainDeptSearch]);
-
-//   const filteredMainRolesOptions = useMemo(() => {
-//     return dynamicRoles.filter((r) => r.toLowerCase().includes(mainRoleSearch.toLowerCase()));
-//   }, [dynamicRoles, mainRoleSearch]);
-
-//   if (loading && users.length === 0) {
-//     return (
-//       <div className="flex h-[50vh] w-full flex-col items-center justify-center gap-2 text-muted-foreground">
-//         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-//         <p className="text-sm font-medium">Loading Identity & Access Portal...</p>
-//       </div>
-//     );
-//   }
-
-//   return (
-//     <div className="w-full">
-//       <div className="w-full border-0 shadow-none bg-transparent [&_input]:bg-white dark:[&_input]:bg-zinc-950 [&_button.w-\[180px\]]:bg-white dark:[&_button.w-\[180px\]]:bg-zinc-950 [&_tbody_tr]:bg-background [&_tbody_tr]:even:bg-zinc-50/50 dark:[&_tbody_tr]:even:bg-zinc-900/30 [&_tbody_tr]:hover:bg-muted/40 [&_th:last-child]:text-right [&_th:last-child]:pr-10 [&_td:last-child]:text-right [&_td[colspan]]:text-center [&_td[colspan]]:font-medium">
-//         <div className="[&_.flex-col]:flex-row [&_.flex-col]:items-center [&_.flex-col]:justify-between [&_.max-w-sm]:order-last [&_.max-w-sm]:ml-auto">
-//           <CrudPage<any>
-//             title="Users"
-//             subtitle="Manage internal employees and their access roles."
-//             rows={users}
-//             rowKey={(u) => u.id}
-//             isSaving={actionLoading}
-//             isLoading={loading}
-//             rowCount={totalRecords}
-//             page={page}
-//             pageSize={size}
-//             onPageChange={(newPage) => setPage(newPage)}
-//             onPageSizeChange={(newSize) => setSize(newSize)}
-//             createLabel="Add user"
-//             extraToolbar={
-//               <div className="flex items-end gap-3 pb-0.5">
-//                 {/* Department Filters Option Setup */}
-//                 <div className="relative flex flex-col pt-2.5">
-//                   <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">
-//                     Department
-//                   </span>
-//                   <Select value={deptFilter} onValueChange={handleDeptFilterChange} onOpenChange={(open) => { if (!open) setMainDeptSearch(""); else setTimeout(() => mainDeptSearchRef.current?.focus(), 100); }}>
-//                     <SelectTrigger className="w-[180px] h-9 focus:ring-0 border-muted-foreground/40"><SelectValue placeholder="Department" /></SelectTrigger>
-//                     <SelectContent onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}>
-//                       <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
-//                         <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
-//                         <input ref={mainDeptSearchRef} placeholder="Search depts..." value={mainDeptSearch} onChange={(e) => { setMainDeptSearch(e.target.value); setTimeout(() => mainDeptSearchRef.current?.focus(), 0); }} className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground" />
-//                       </div>
-//                       <SelectItem value="all">All departments</SelectItem>
-//                       {filteredMainDeptsOptions.map((d) => (
-//                         <SelectItem key={d.id} value={d.name}>{d.name || "—"}</SelectItem>
-//                       ))}
-//                     </SelectContent>
-//                   </Select>
-//                 </div>
-
-//                 {/* Role Filters Option Setup */}
-//                 <div className="relative flex flex-col pt-2.5">
-//                   <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">
-//                     Role
-//                   </span>
-//                   <Select value={roleFilter} onValueChange={handleRoleFilterChange} onOpenChange={(open) => { if (!open) setMainRoleSearch(""); else setTimeout(() => mainRoleSearchRef.current?.focus(), 100); }}>
-//                     <SelectTrigger className="w-[180px] h-9 focus:ring-0 border-muted-foreground/40"><SelectValue placeholder="Role" /></SelectTrigger>
-//                     <SelectContent onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}>
-//                       <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
-//                         <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
-//                         <input ref={mainRoleSearchRef} placeholder="Search roles..." value={mainRoleSearch} onChange={(e) => { setMainRoleSearch(e.target.value); setTimeout(() => mainRoleSearchRef.current?.focus(), 0); }} className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground" />
-//                       </div>
-//                       <SelectItem value="all">All roles</SelectItem>
-//                       {filteredMainRolesOptions.map((roleStr) => (
-//                         <SelectItem key={roleStr} value={roleStr}>{formatRoleName(roleStr)}</SelectItem>
-//                       ))}
-//                     </SelectContent>
-//                   </Select>
-//                 </div>
-
-//                 <Button type="button" variant="ghost" size="sm" disabled={deptFilter === "all" && roleFilter === "all"} onClick={handleResetFilters} className="h-9 px-3 text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-dashed border-muted-foreground/30 transition-all duration-300 ease-out group active:scale-95">
-//                   <XCircle className="h-3.5 w-3.5 mr-1.5 text-muted-foreground/70 group-hover:rotate-90 transition-transform duration-300" />
-//                   Reset Filters
-//                 </Button>
-//               </div>
-//             }
-//             columns={[
-//               {
-//                 key: "name", header: "Name", accessor: (u) => (
-//                   <div className="flex items-center gap-2 py-1">
-//                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white" style={{ backgroundColor: u.avatarColor ?? "#0d7a5f" }}>
-//                       {(u.firstName?.[0] || "")}{(u.lastName?.[0] || "")}
-//                     </div>
-//                     <div className="font-medium text-zinc-900 dark:text-zinc-100">{u.firstName} {u.lastName}</div>
-//                   </div>
-//                 ), searchValue: (u) => `${u.firstName} {u.lastName}`
-//               },
-//               { key: "email", header: "Email", accessor: (u) => u.email || "—", searchValue: (u) => u.email },
-//               { key: "phone", header: "Phone", accessor: (u) => u.phone || "—" },
-//               { key: "dept", header: "Department", accessor: (u) => u.department || "—", searchValue: (u) => u.department },
-//               { key: "role", header: "Role", accessor: (u) => formatRoleName(String(u.roleName || "")), searchValue: (u) => u.roleName },
-//               { key: "state", header: "State", accessor: (u) => u.stateName || "—" },
-//               { key: "market", header: "Market", accessor: (u) => u.marketName || "—" },
-//               { key: "district", header: "District", accessor: (u) => u.districtName || "—" },
-//               { key: "store", header: "Store", accessor: (u) => u.storeName || "—" },
-//             ]}
-//             onDelete={handleDelete}
-//             renderForm={(initial, close) => (
-//               <UserForm
-//                 initial={initial}
-//                 dynamicRoles={dynamicRoles}
-//                 dynamicDepts={dynamicDepts}
-//                 onSaved={() => {
-//                   lastFetchedKey.current = "";
-//                   fetchUsers(page, size, deptFilter, roleFilter);
-//                   close();
-//                 }}
-//               />
-//             )}
-//           />
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
-// // ==========================================
-// // FORM COMPONENT MODAL INSTANCE
-// // ==========================================
-
-// function UserForm({ initial, dynamicRoles, dynamicDepts, onSaved }: { initial: any | null; dynamicRoles: string[]; dynamicDepts: any[]; onSaved: () => void }) {
-//   const { data, set } = useData();
-//   const [fullName, setFullName] = useState(initial ? `${initial.firstName} ${initial.lastName}`.trim() : "");
-//   const [email, setEmail] = useState(initial?.email ?? "");
-
-//   // Password buffers fields removed from edit mode configuration layout matrix
-//   const [password, setPassword] = useState("");
-//   const [confirmPassword, setConfirmPassword] = useState("");
-
-//   const [role, setRole] = useState<Role>(initial?.roleName ?? ("user" as Role));
-//   const [department, setDepartment] = useState<Department>(initial?.department ?? ("Administration" as Department));
-
-//   const [stateId, setStateId] = useState(initial?.stateId ?? "");
-//   const [marketId, setMarketId] = useState(initial?.marketId ?? "");
-//   const [districtId, setDistrictId] = useState(initial?.districtId ?? "");
-//   const [storeId, setStoreId] = useState(initial?.storeId ?? "");
-//   const [submitting, setSubmitting] = useState(false);
-
-//   const lowercaseRole = String(role).toLowerCase();
-//   const needsState = lowercaseRole === "state_manager" || lowercaseRole === "statemanager" || lowercaseRole === "district_manager" || lowercaseRole === "districtmanager" || lowercaseRole === "market_manager" || lowercaseRole === "marketmanager" || lowercaseRole === "store_manager" || lowercaseRole === "storemanager";
-//   const needsMarket = lowercaseRole === "district_manager" || lowercaseRole === "districtmanager" || lowercaseRole === "market_manager" || lowercaseRole === "marketmanager" || lowercaseRole === "store_manager" || lowercaseRole === "storemanager";
-//   const needsDistrict = lowercaseRole === "district_manager" || lowercaseRole === "districtmanager" || lowercaseRole === "store_manager" || lowercaseRole === "storemanager";
-//   const needsStore = lowercaseRole === "store_manager" || lowercaseRole === "storemanager";
-//   const departmentRequired = lowercaseRole !== "admin";
-
-//   const markets = data.markets.filter((m) => String(m.stateId) === String(stateId));
-//   const districts = data.districts.filter((d) => String(d.marketId) === String(marketId));
-//   const stores = data.stores.filter((s) => String(s.districtId) === String(districtId));
-
-//   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-
-//   // Adjusted conditional password checker logic
-//   const passwordOk = initial
-//     ? true
-//     : password.length >= 6 && password === confirmPassword;
-
-//   const baseValid = fullName.trim().length >= 2 && validEmail && role;
-//   const canSave =
-//     baseValid && passwordOk &&
-//     (!departmentRequired || !!department) &&
-//     (!needsState || stateId) && (!needsMarket || marketId) &&
-//     (!needsDistrict || districtId) && (!needsStore || storeId);
-
-//   const validationHint = (() => {
-//     if (!fullName.trim()) return "Full name is required";
-//     if (!validEmail) return "Valid email address structure is required";
-//     if (!initial && password.length < 6) return "Password must be at least 6 characters";
-//     if (!initial && password !== confirmPassword) return "Form entry passwords do not match";
-//     if (departmentRequired && !department) return "Department assignment is required";
-//     return null;
-//   })();
-
-//   const submit = async () => {
-//     if (!canSave) {
-//       if (validationHint) toast.error(validationHint);
-//       return;
-//     }
-//     try {
-//       setSubmitting(true);
-//       const payload = {
-//         fullName: fullName.trim(),
-//         email: email.trim(),
-//         role: { id: 0, name: role },
-//         department: departmentRequired && department ? { id: 0, name: department } : null,
-//         state: needsState && stateId ? { id: String(stateId), name: "" } : null,
-//         market: needsMarket && marketId ? { id: String(marketId), name: "" } : null,
-//         district: needsDistrict && districtId ? { id: String(districtId), name: "" } : null,
-//         store: needsStore && storeId ? { id: String(storeId), name: "" } : null,
-//       };
-
-//       if (initial) {
-//         const numericId = Number(initial.id);
-//         const updateApi = usersApi.update as any;
-//         const response = await updateApi({ id: numericId, ...payload });
-//         if (response.success) {
-//           toast.success("User configuration updated successfully");
-//           onSaved();
-//         }
-//       } else {
-//         const addApi = usersApi.add as any;
-//         const response = await addApi({ ...payload, password });
-//         if (response.success) {
-//           toast.success("User safely saved to database");
-//           onSaved();
-//         }
-//       }
-//     } catch (err: any) {
-//       toast.error(err?.message || "An error occurred during submission workflow");
-//     } finally {
-//       setSubmitting(false);
-//     }
-//   };
-
-//   return (
-//     <div className="space-y-4">
-//       <div className="space-y-1.5">
-//         <Label>Full name <span className="text-destructive">*</span></Label>
-//         <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Arslan Khan" autoComplete="off" />
-//       </div>
-
-//       <div className="space-y-1.5">
-//         <Label>Email <span className="text-destructive">*</span></Label>
-//         <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@techno.com" autoComplete="new-password" />
-//       </div>
-
-//       {/* CONDITIONAL UNMOUNT: Password inputs display strictly when adding a new record instance */}
-//       {!initial && (
-//         <div className="grid grid-cols-2 gap-3">
-//           <div className="space-y-1.5">
-//             <Label>Password <span className="text-destructive">*</span></Label>
-//             <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 6 chars" autoComplete="new-password" />
-//           </div>
-//           <div className="space-y-1.5">
-//             <Label>Confirm password <span className="text-destructive">*</span></Label>
-//             <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter password" autoComplete="new-password" />
-//           </div>
-//         </div>
-//       )}
-
-//       <div className="grid grid-cols-2 gap-3">
-//         <div className="space-y-1.5">
-//           <Label>Role <span className="text-destructive">*</span></Label>
-//           <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-//             <SelectTrigger><SelectValue /></SelectTrigger>
-//             <SelectContent>
-//               {dynamicRoles.map((roleStr) => (
-//                 <SelectItem key={roleStr} value={roleStr}>{formatRoleName(roleStr)}</SelectItem>
-//               ))}
-//             </SelectContent>
-//           </Select>
-//         </div>
-
-//         <div className="space-y-1.5">
-//           <Label>
-//             Department {departmentRequired && <span className="text-destructive">*</span>}
-//             {!departmentRequired && <span className="ml-1 text-xs text-muted-foreground">(all for Admin)</span>}
-//           </Label>
-//           <Select value={departmentRequired ? department : "all"} onValueChange={(v) => setDepartment(v as Department)} disabled={!departmentRequired}>
-//             <SelectTrigger><SelectValue placeholder={departmentRequired ? "Select department" : "—"} /></SelectTrigger>
-//             <SelectContent>
-//               {dynamicDepts.map((d) => <SelectItem key={d.id} value={d.name}>{d.name || "—"}</SelectItem>)}
-//             </SelectContent>
-//           </Select>
-//         </div>
-//       </div>
-
-//       {/* Cascading Matrix Fields for Operations Roles Assignment */}
-//       {needsState && (
-//         <div className="space-y-1.5">
-//           <Label>State</Label>
-//           <Select value={stateId} onValueChange={(v) => { setStateId(v); setMarketId(""); setDistrictId(""); setStoreId(""); }}>
-//             <SelectTrigger><SelectValue placeholder="Select state" /></SelectTrigger>
-//             <SelectContent>{data.states.map((s) => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}</SelectContent>
-//           </Select>
-//         </div>
-//       )}
-//       {needsMarket && (
-//         <div className="space-y-1.5">
-//           <Label>Market</Label>
-//           <Select value={marketId} disabled={!stateId} onValueChange={(v) => { setMarketId(v); setDistrictId(""); setStoreId(""); }}>
-//             <SelectTrigger><SelectValue placeholder={!stateId ? "Choose operating state" : "Select market"} /></SelectTrigger>
-//             <SelectContent>{markets.map((m) => <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>)}</SelectContent>
-//           </Select>
-//         </div>
-//       )}
-//       {needsDistrict && (
-//         <div className="space-y-1.5">
-//           <Label>District</Label>
-//           <Select value={districtId} disabled={!marketId} onValueChange={(v) => { setDistrictId(v); setStoreId(""); }}>
-//             <SelectTrigger><SelectValue placeholder={!marketId ? "Choose mapped market" : "Select district"} /></SelectTrigger>
-//             <SelectContent>{districts.map((d) => <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>)}</SelectContent>
-//           </Select>
-//         </div>
-//       )}
-//       {needsStore && (
-//         <div className="space-y-1.5">
-//           <Label>Store</Label>
-//           <Select value={storeId} disabled={!districtId} onValueChange={setStoreId}>
-//             <SelectTrigger><SelectValue placeholder={!districtId ? "Choose local district" : "Select store"} /></SelectTrigger>
-//             <SelectContent>{stores.map((s) => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}</SelectContent>
-//           </Select>
-//         </div>
-//       )}
-
-//       <Button className="w-full flex items-center justify-center gap-2 mt-2" disabled={!canSave || submitting} onClick={submit}>
-//         {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-//         {initial ? "Update user configuration" : "Create user instance"}
-//       </Button>
-//     </div>
-//   );
-// }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 import { useState, useEffect, useRef, useMemo } from "react";
-import { AdminGuard, CrudPage } from "@/components/crud-page";
-import { type Department, type Role, type User } from "@/lib/types";
+import { CrudPage } from "@/components/crud-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { usersApi, hierarchyApi, StatesApi, DistrictsApi, MarketsApi, StoresApi, type BackendUser } from "@/lib/api/client";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { usersApi, hierarchyApi, StatesApi, DistrictsApi, MarketsApi, StoresApi } from "@/lib/api/client";
 import { toast } from "sonner";
-import { Loader2, Search, XCircle } from "lucide-react";
+import { Loader2, Search, XCircle, Shield, CheckCircle2, AlertCircle, Layers } from "lucide-react";
 
-
-
+// ==========================================
+// HELPERS
+// ==========================================
 function formatRoleName(roleStr: string): string {
   if (!roleStr) return "—";
-
   let spaced = roleStr.replace(/([A-Z])/g, " $1").replace(/_/g, " ");
-
   spaced = spaced.replace(/(?<!\s)(manager)/i, " Manager");
-
   return spaced
     .trim()
     .split(/\s+/)
@@ -1514,45 +24,52 @@ function formatRoleName(roleStr: string): string {
     .join(" ");
 }
 
-function mapBackendToFrontendUser(bu: any): User & { phone?: string; stateName?: string; marketName?: string; districtName?: string; storeName?: string } {
+function mapBackendToFrontendUser(bu: any): any {
   const parts = (bu.fullName || "").trim().split(/\s+/);
-  const roleNameFromBackend = (bu.roleName || "user").toLowerCase() as Role;
-  const departmentNameFromBackend = bu.departmentName as Department;
-
   return {
     id: String(bu.id),
     firstName: parts[0] ?? "",
     lastName: parts.slice(1).join(" ") || "",
+    fullName: bu.fullName || "",
     email: bu.email || "",
-    roleName: roleNameFromBackend,
-    department: departmentNameFromBackend,
-    avatarColor: "#0d7a5f", 
-    active: bu.active ?? true,
-    stateId: bu.stateId ? String(bu.stateId) : "",
-    marketId: bu.marketId ? String(bu.marketId) : "",
-    districtId: bu.districtId ? String(bu.districtId) : "",
-    storeId: bu.storeId ? String(bu.storeId) : "",
     phone: bu.phone || "—",
-    stateName: bu.stateName || "—",
-    marketName: bu.marketName || "—",
-    districtName: bu.districtName || "—",
-    storeName: bu.storeName || "—",
+
+    // 🌟 FIXED: Agar object hai to .name uthaye, warna string, warna fallback
+    department: bu.department && typeof bu.department === "object"
+      ? bu.department.name
+      : (bu.department || "—"),
+
+    assignedPortals: bu.assignedPortals || [],
+    portalAccess: bu.portalAccess || [],
+    states: bu.states || [],
+    districts: bu.districts || [],
+    markets: bu.markets || [],
+    stores: bu.stores || [],
+    allowedUserManagement: bu.allowedUserManagement ?? false,
+    active: bu.active ?? true,
+    avatarColor: "#0d7a5f",
   };
 }
 
+// ==========================================
+// MAIN USERS PAGE COMPONENT
+// ==========================================
 function UsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [deptFilter, setDeptFilter] = useState<string>("all");
-  const [roleFilter, setRoleFilter] = useState<string>("all");
-  
+
+  // 🌟 ROLES FILTER REPLACED WITH PORTALS FILTER
+  const [portalFilter, setPortalFilter] = useState<string>("all");
+
   const [dynamicRoles, setDynamicRoles] = useState<string[]>([]);
   const [dynamicDepts, setDynamicDepts] = useState<{ id: number; name: string }[]>([]);
+  const [portalsMasterList, setPortalsMasterList] = useState<any[]>([]);
 
   const [mainDeptSearch, setMainDeptSearch] = useState("");
-  const [mainRoleSearch, setMainRoleSearch] = useState("");
+  const [mainPortalSearch, setMainPortalSearch] = useState(""); // Portal Toolbar Search state
 
   const mainDeptSearchRef = useRef<HTMLInputElement>(null);
-  const mainRoleSearchRef = useRef<HTMLInputElement>(null);
+  const mainPortalSearchRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -1568,59 +85,73 @@ function UsersPage() {
   useEffect(() => {
     const styleTag = document.createElement("style");
     styleTag.innerHTML = `
-      .crud-page-table thead tr, table thead tr { 
-        background-color: rgba(244, 244, 245, 1) !important; 
-      }
-      table thead th {
-        color: #18181b !important;
-        font-weight: 600 !important;
-      }
+      .crud-page-table thead tr, table thead tr { background-color: rgba(244, 244, 245, 1) !important; }
+      table thead th { color: #18181b !important; font-weight: 600 !important; }
     `;
     document.head.appendChild(styleTag);
-    return () => {
-      document.head.removeChild(styleTag);
-    };
+    return () => { document.head.removeChild(styleTag); };
   }, []);
 
-  const fetchUsers = async (targetPage: number, targetSize: number, targetDept: string, targetRole: string) => {
-    const currentRequestKey = `${targetPage}-${targetSize}-${targetDept}-${targetRole}`;
+  // 🌟 Fetching Portals with Authorized Token Header Injection Pattern
+  const fetchPortalsMaster = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch("http://localhost:4570/api/portals/get-all", {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": token ? `Bearer ${token}` : "", // Token integrated identically to api client
+        },
+      });
+      const res = await response.json();
+      if (res.success && Array.isArray(res.data)) {
+        setPortalsMasterList(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to load portals structure:", err);
+    }
+  };
+
+  const fetchInitialLookups = async () => {
+    if (initialLookupsFetchedRef.current) return;
+    try {
+      await fetchPortalsMaster();
+      const [rolesRes, deptsRes] = await Promise.all([
+        hierarchyApi.getRoles(),
+        hierarchyApi.getDepartments()
+      ]);
+      if (rolesRes.success && Array.isArray(rolesRes.data)) setDynamicRoles(rolesRes.data);
+      if (deptsRes.success && Array.isArray(deptsRes.data)) setDynamicDepts(deptsRes.data);
+      if (rolesRes.success && deptsRes.success) {
+        initialLookupsFetchedRef.current = true;
+      }
+    } catch (err) {
+      console.error("Failed to load initial lookups:", err);
+    }
+  };
+
+  const fetchUsers = async (targetPage: number, targetSize: number, targetDept: string, targetPortal: string) => {
+    const currentRequestKey = `${targetPage}-${targetSize}-${targetDept}-${targetPortal}`;
     if (lastFetchedKey.current === currentRequestKey || isFetchingRef.current) return;
-    
+
     try {
       setLoading(true);
       isFetchingRef.current = true;
       lastFetchedKey.current = currentRequestKey;
 
-      if (!initialLookupsFetchedRef.current) {
-        const [rolesRes, deptsRes] = await Promise.all([
-          hierarchyApi.getRoles(),
-          hierarchyApi.getDepartments()
-        ]);
-        if (rolesRes.success && Array.isArray(rolesRes.data)) setDynamicRoles(rolesRes.data);
-        if (deptsRes.success && Array.isArray(deptsRes.data)) setDynamicDepts(deptsRes.data);
-        if (rolesRes.success && deptsRes.success) initialLookupsFetchedRef.current = true;
-      }
-
       const res = await usersApi.getAll({
         page: targetPage,
         size: targetSize,
         department: targetDept !== "all" ? targetDept : undefined,
-        role: targetRole !== "all" ? targetRole : undefined
+        portal: targetPortal !== "all" ? targetPortal : undefined
       });
 
       if (res.success) {
-        if (res.data.length === 0 && res.pagination && res.pagination.totalRecords > 0 && targetPage > 0) {
-          const maxAvailablePage = Math.ceil(res.pagination.totalRecords / targetSize) - 1;
-          setPage(Math.max(0, maxAvailablePage));
-          return;
-        }
         setUsers(res.data.map(mapBackendToFrontendUser));
         setTotalRecords(res.pagination?.totalRecords ?? res.data.length);
-      } else {
-        toast.error(res.message || "Failed to load records mapping structure");
       }
     } catch (err: any) {
-      toast.error(err?.message || "Something went wrong while retrieving records");
+      toast.error(err?.message || "Something went wrong fetching records");
     } finally {
       setLoading(false);
       isFetchingRef.current = false;
@@ -1628,8 +159,12 @@ function UsersPage() {
   };
 
   useEffect(() => {
-    fetchUsers(page, size, deptFilter, roleFilter);
-  }, [page, size, deptFilter, roleFilter]);
+    fetchInitialLookups();
+  }, []);
+
+  useEffect(() => {
+    fetchUsers(page, size, deptFilter, portalFilter);
+  }, [page, size, deptFilter, portalFilter]);
 
   const handleDelete = async (u: any) => {
     try {
@@ -1638,7 +173,7 @@ function UsersPage() {
       if (res.success) {
         toast.success("User record safely removed");
         lastFetchedKey.current = "";
-        fetchUsers(page, size, deptFilter, roleFilter);
+        fetchUsers(page, size, deptFilter, portalFilter);
       }
     } catch (err: any) {
       toast.error(err?.message || "Deletion framework error encountered");
@@ -1651,9 +186,20 @@ function UsersPage() {
     return dynamicDepts.filter((d) => (d.name || "").toLowerCase().includes(mainDeptSearch.toLowerCase()));
   }, [dynamicDepts, mainDeptSearch]);
 
-  const filteredMainRolesOptions = useMemo(() => {
-    return dynamicRoles.filter((r) => r.toLowerCase().includes(mainRoleSearch.toLowerCase()));
-  }, [dynamicRoles, mainRoleSearch]);
+  const filteredMainPortalsOptions = useMemo(() => {
+    return portalsMasterList.filter((p) => (p.name || "").toLowerCase().includes(mainPortalSearch.toLowerCase()));
+  }, [portalsMasterList, mainPortalSearch]);
+
+  const getPortalColor = (name: string) => {
+    const colors: Record<string, string> = {
+      ticketing: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
+      ranker: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400",
+      commission: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400",
+      leasing: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400",
+      attendence: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400",
+    };
+    return colors[name.toLowerCase().trim()] || "bg-zinc-50 text-zinc-700 border-zinc-200";
+  };
 
   if (loading && users.length === 0) {
     return (
@@ -1669,7 +215,7 @@ function UsersPage() {
       <div className="w-full border-0 shadow-none bg-transparent [&_input]:bg-white dark:[&_input]:bg-zinc-950 [&_button.w-\[180px\]]:bg-white dark:[&_button.w-\[180px\]]:bg-zinc-950 [&_tbody_tr]:bg-background [&_tbody_tr]:even:bg-zinc-50/50 dark:[&_tbody_tr]:even:bg-zinc-900/30 [&_tbody_tr]:hover:bg-muted/40 [&_th:last-child]:text-right [&_th:last-child]:pr-10 [&_td:last-child]:text-right">
         <CrudPage<any>
           title="Users"
-          subtitle="Manage internal employees and their access roles."
+          subtitle="Manage internal employees and their specific nested multi-portal access mapping configurations."
           rows={users}
           rowKey={(u) => u.id}
           isSaving={actionLoading}
@@ -1697,54 +243,86 @@ function UsersPage() {
                 </Select>
               </div>
 
+              {/* 🌟 ROLES DROP-DOWN REPLACED WITH PORTALS SELECTION FILTER */}
               <div className="relative flex flex-col pt-2.5">
-                <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">Role</span>
-                <Select value={roleFilter} onValueChange={(val) => { lastFetchedKey.current = ""; setPage(0); setRoleFilter(val); }} onOpenChange={(open) => { if (!open) setMainRoleSearch(""); else setTimeout(() => mainRoleSearchRef.current?.focus(), 100); }}>
-                  <SelectTrigger className="w-[180px] h-9 focus:ring-0 border-muted-foreground/40"><SelectValue placeholder="Role" /></SelectTrigger>
+                <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">Portal Focus</span>
+                <Select value={portalFilter} onValueChange={(val) => { lastFetchedKey.current = ""; setPage(0); setPortalFilter(val); }} onOpenChange={(open) => { if (!open) setMainPortalSearch(""); else setTimeout(() => mainPortalSearchRef.current?.focus(), 100); }}>
+                  <SelectTrigger className="w-[180px] h-9 focus:ring-0 border-muted-foreground/40">
+                    <SelectValue placeholder="Select Portal" />
+                  </SelectTrigger>
                   <SelectContent onKeyDown={(e) => e.stopPropagation()}>
                     <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
                       <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
-                      <input ref={mainRoleSearchRef} placeholder="Search roles..." value={mainRoleSearch} onChange={(e) => setMainRoleSearch(e.target.value)} className="w-full text-xs bg-transparent outline-none" />
+                      <input ref={mainPortalSearchRef} placeholder="Search portals..." value={mainPortalSearch} onChange={(e) => setMainPortalSearch(e.target.value)} className="w-full text-xs bg-transparent outline-none" />
                     </div>
-                    <SelectItem value="all">All roles</SelectItem>
-                    {filteredMainRolesOptions.map((roleStr) => <SelectItem key={roleStr} value={roleStr}>{formatRoleName(roleStr)}</SelectItem>)}
+                    <SelectItem value="all">All Portals</SelectItem>
+                    {filteredMainPortalsOptions.map((p) => (
+                      <SelectItem key={p.id} value={p.name} className="capitalize">
+                        {p.name} Portal
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              <Button type="button" variant="ghost" size="sm" disabled={deptFilter === "all" && roleFilter === "all"} onClick={() => { lastFetchedKey.current = ""; setPage(0); setDeptFilter("all"); setRoleFilter("all"); }} className="h-9 px-3 text-xs border border-dashed border-muted-foreground/30"><XCircle className="h-3.5 w-3.5 mr-1.5" />Reset Filters</Button>
+              <Button type="button" variant="ghost" size="sm" disabled={deptFilter === "all" && portalFilter === "all"} onClick={() => { lastFetchedKey.current = ""; setPage(0); setDeptFilter("all"); setPortalFilter("all"); }} className="h-9 px-3 text-xs border border-dashed border-muted-foreground/30"><XCircle className="h-3.5 w-3.5 mr-1.5" />Reset Filters</Button>
             </div>
           }
           columns={[
             {
               key: "name", header: "Name", accessor: (u) => (
                 <div className="flex items-center gap-2 py-1">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white" style={{ backgroundColor: u.avatarColor ?? "#0d7a5f" }}>
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white uppercase" style={{ backgroundColor: u.avatarColor ?? "#0d7a5f" }}>
                     {(u.firstName?.[0] || "")}{(u.lastName?.[0] || "")}
                   </div>
-                  <div className="font-medium text-zinc-900 dark:text-zinc-100">{u.firstName} {u.lastName}</div>
+                  <div>
+                    <div className="font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                      {u.fullName}
+                      {!u.active && <Badge variant="destructive" className="h-4 px-1 text-[9px]">Inactive</Badge>}
+                      {u.allowedUserManagement && (
+                        <Shield className="h-3.5 w-3.5 text-indigo-500 fill-indigo-500/10">
+                          <title>User Manager Enabled</title>
+                        </Shield>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              ), searchValue: (u) => `${u.firstName} ${u.lastName}`
+              ), searchValue: (u) => u.fullName
             },
             { key: "email", header: "Email", accessor: (u) => u.email || "—", searchValue: (u) => u.email },
             { key: "phone", header: "Phone", accessor: (u) => u.phone || "—" },
-            { key: "dept", header: "Department", accessor: (u) => u.department || "—", searchValue: (u) => u.department },
-            { key: "role", header: "Role", accessor: (u) => formatRoleName(String(u.roleName || "")), searchValue: (u) => u.roleName },
-            
-            // 🌟 Fixed: Reordered Hierarchy Columns according to specified layout priority criteria
-            { key: "state", header: "State", accessor: (u) => u.stateName || "—" },
-            { key: "district", header: "District", accessor: (u) => u.districtName || "—" },
-            { key: "market", header: "Market", accessor: (u) => u.marketName || "—" },
-            { key: "store", header: "Store", accessor: (u) => u.storeName || "—" },
+            { key: "dept", header: "Department", accessor: (u) => u.department || "—" },
+            {
+              key: "assignedPortals",
+              header: "Portal Access Control",
+              accessor: (u) => (
+                <div className="flex flex-wrap gap-1.5 max-w-[360px] py-1">
+                  {Array.isArray(u.portalAccess) && u.portalAccess.length > 0 ? (
+                    u.portalAccess.map((pa: any) => (
+                      <Badge key={pa.portalId} variant="outline" className={`text-[11px] px-2 py-0.5 rounded-md font-medium shadow-none border ${getPortalColor(pa.portalName)}`}>
+                        {formatRoleName(pa.portalName)}: <span className="font-bold underline ml-1">{formatRoleName(pa.roleName)}</span>
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-muted-foreground text-xs italic">No portals assigned</span>
+                  )}
+                </div>
+              )
+            },
+            { key: "states", header: "States Managed", accessor: (u) => (u.states?.map((x: any) => x.name || x).join(", ") || "—") },
+            { key: "districts", header: "Districts Managed", accessor: (u) => (u.districts?.map((x: any) => x.name || x).join(", ") || "—") },
+            { key: "markets", header: "Markets Managed", accessor: (u) => (u.markets?.map((x: any) => x.name || x).join(", ") || "—") },
+            { key: "stores", header: "Stores Managed", accessor: (u) => (u.stores?.map((x: any) => x.name || x).join(", ") || "—") },
           ]}
           onDelete={handleDelete}
           renderForm={(initial, close) => (
             <UserForm
               initial={initial}
               dynamicRoles={dynamicRoles}
+              portalsMasterList={portalsMasterList}
               onSaved={() => {
                 lastFetchedKey.current = "";
-                fetchUsers(page, size, deptFilter, roleFilter);
+                fetchUsers(page, size, deptFilter, portalFilter);
                 close();
               }}
             />
@@ -1758,91 +336,114 @@ function UsersPage() {
 // ==========================================
 // FORM COMPONENT MODAL INSTANCE
 // ==========================================
-
-function UserForm({ initial, dynamicRoles, onSaved }: { initial: any | null; dynamicRoles: string[]; onSaved: () => void }) {
-  const [fullName, setFullName] = useState(initial ? `${initial.firstName} ${initial.lastName}`.trim() : "");
+function UserForm({
+  initial,
+  dynamicRoles,
+  portalsMasterList,
+  onSaved
+}: {
+  initial: any | null;
+  dynamicRoles: string[];
+  portalsMasterList: any[];
+  onSaved: () => void
+}) {
+  const [fullName, setFullName] = useState(initial?.fullName ?? "");
   const [email, setEmail] = useState(initial?.email ?? "");
+  const [phone, setPhone] = useState(initial?.phone === "—" ? "" : (initial?.phone ?? ""));
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  
-  const [role, setRole] = useState<Role>(initial?.roleName ?? ("user" as Role));
-  
-  // 🌟 Fixed: Default set to "placeholder" string token value to prevent auto-selecting backend indices
-  const [department, setDepartment] = useState<string>(initial?.department ?? "placeholder");
+  const [department, setDepartment] = useState<string>(initial?.department === "—" ? "placeholder" : (initial?.department ?? "placeholder"));
+  const [allowedUserManagement, setAllowedUserManagement] = useState<boolean>(initial?.allowedUserManagement ?? false);
+  const [active, setActive] = useState<boolean>(initial?.active ?? true);
 
-  // Real Dynamic Options Lookups Buffers arrays
+  const [portalConfig, setPortalConfig] = useState<Record<string, { enabled: boolean; roleName: string }>>(() => {
+    const initMap: Record<string, { enabled: boolean; roleName: string }> = {};
+    portalsMasterList.forEach(p => {
+      initMap[p.name] = { enabled: false, roleName: "user" };
+    });
+    if (initial && Array.isArray(initial.portalAccess)) {
+      initial.portalAccess.forEach((pa: any) => {
+        initMap[pa.portalName] = { enabled: true, roleName: pa.roleName };
+      });
+    }
+    return initMap;
+  });
+
   const [dbDepts, setDbDepts] = useState<any[]>([]);
   const [dbStates, setDbStates] = useState<any[]>([]);
   const [dbDistricts, setDbDistricts] = useState<any[]>([]);
   const [dbMarkets, setDbMarkets] = useState<any[]>([]);
   const [dbStores, setDbStores] = useState<any[]>([]);
 
-  const [stateId, setStateId] = useState(initial?.stateId ?? "");
-  const [districtId, setDistrictId] = useState(initial?.districtId ?? "");
-  const [marketId, setMarketId] = useState(initial?.marketId ?? "");
-  const [storeId, setStoreId] = useState(initial?.storeId ?? "");
+  const [stateId, setStateId] = useState("");
+  const [districtId, setDistrictId] = useState("");
+  const [marketId, setMarketId] = useState("");
+  const [storeId, setStoreId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const lowercaseRole = String(role).toLowerCase();
+  const activeRolesList = Object.keys(portalConfig)
+    .filter(k => portalConfig[k].enabled)
+    .map(k => portalConfig[k].roleName.toLowerCase());
 
-  // Dynamic Validation Framework Flags
-  const isAdmin = lowercaseRole === "admin";
-  const isUserOrManager = lowercaseRole === "user" || lowercaseRole === "manager";
+  const needsState = activeRolesList.some(r => ["state_manager", "statemanager", "district_manager", "districtmanager", "market_manager", "marketmanager", "store_manager", "storemanager"].includes(r));
+  const needsDistrict = activeRolesList.some(r => ["district_manager", "districtmanager", "market_manager", "marketmanager", "store_manager", "storemanager"].includes(r));
+  const needsMarket = activeRolesList.some(r => ["market_manager", "marketmanager", "store_manager", "storemanager"].includes(r));
+  const needsStore = activeRolesList.some(r => ["store_manager", "storemanager"].includes(r));
 
-  const needsState = ["state_manager", "statemanager", "district_manager", "districtmanager", "market_manager", "marketmanager", "store_manager", "storemanager"].includes(lowercaseRole);
-  const needsDistrict = ["district_manager", "districtmanager", "market_manager", "marketmanager", "store_manager", "storemanager"].includes(lowercaseRole);
-  const needsMarket = ["market_manager", "marketmanager", "store_manager", "storemanager"].includes(lowercaseRole);
-  const needsStore = ["store_manager", "storemanager"].includes(lowercaseRole);
-
-  // 🌟 Fetching dynamic data via API lookups
   useEffect(() => {
-    hierarchyApi.getDepartments().then(res => { if(res.success) setDbDepts(res.data); });
-    StatesApi.getAll().then(res => { if(res.success && res.data) setDbStates(res.data); });
+    hierarchyApi.getDepartments().then(res => { if (res.success) setDbDepts(res.data); });
+    StatesApi.getAll().then(res => { if (res.success && res.data) setDbStates(res.data); });
   }, []);
 
   useEffect(() => {
-    if (stateId) {
-      DistrictsApi.getAll({ state: stateId, size: 1000 }).then(res => { if(res.success && res.data) setDbDistricts(res.data); });
-    } else {
-      setDbDistricts([]);
-    }
+    if (stateId) DistrictsApi.getAll({ state: stateId, size: 1000 }).then(res => { if (res.success && res.data) setDbDistricts(res.data); });
+    else setDbDistricts([]);
   }, [stateId]);
 
   useEffect(() => {
-    if (districtId) {
-      MarketsApi.getAll({ district: districtId, size: 1000 }).then(res => { if(res.success && res.data) setDbMarkets(res.data); });
-    } else {
-      setDbMarkets([]);
-    }
+    if (districtId) MarketsApi.getAll({ district: districtId, size: 1000 }).then(res => { if (res.success && res.data) setDbMarkets(res.data); });
+    else setDbMarkets([]);
   }, [districtId]);
 
   useEffect(() => {
-    if (marketId) {
-      StoresApi.getAll({ market: marketId, size: 1000 }).then(res => { if(res.success && res.data) setDbStores(res.data); });
-    } else {
-      setDbStores([]);
-    }
+    if (marketId) StoresApi.getAll({ market: marketId, size: 1000 }).then(res => { if (res.success && res.data) setDbStores(res.data); });
+    else setDbStores([]);
   }, [marketId]);
+
+  const handlePortalToggle = (pName: string, checked: boolean) => {
+    setPortalConfig(prev => ({
+      ...prev,
+      [pName]: { ...prev[pName], enabled: checked }
+    }));
+  };
+
+  const handlePortalRoleChange = (pName: string, selectedRole: string) => {
+    setPortalConfig(prev => ({
+      ...prev,
+      [pName]: { ...prev[pName], roleName: selectedRole }
+    }));
+  };
 
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
   const passwordOk = initial ? true : password.length >= 6 && password === confirmPassword;
-  
-  // 🌟 Fixed validation rules as per assignment configuration specifications
-  const isDeptFilled = isAdmin ? true : isUserOrManager ? (department !== "placeholder" && !!department) : true;
-  const isHierarchyFilled = 
-    (!needsState || !!stateId) && 
-    (!needsDistrict || !!districtId) && 
-    (!needsMarket || !!marketId) && 
+
+  const isDeptFilled = department !== "placeholder" && !!department;
+  const isHierarchyFilled =
+    (!needsState || !!stateId) &&
+    (!needsDistrict || !!districtId) &&
+    (!needsMarket || !!marketId) &&
     (!needsStore || !!storeId);
 
-  const canSave = fullName.trim().length >= 2 && validEmail && role && passwordOk && isDeptFilled && isHierarchyFilled;
+  const hasSelectedPortals = Object.values(portalConfig).some(p => p.enabled);
+  const canSave = fullName.trim().length >= 2 && validEmail && passwordOk && isDeptFilled && isHierarchyFilled && hasSelectedPortals;
 
   const validationHint = (() => {
     if (!fullName.trim()) return "Full name is required";
     if (!validEmail) return "Valid email address structure is required";
     if (!initial && password.length < 6) return "Password must be at least 6 characters";
     if (!initial && password !== confirmPassword) return "Form entry passwords do not match";
-    if (isUserOrManager && department === "placeholder") return "Department assignment is required for User/Manager roles";
+    if (department === "placeholder") return "Department assignment is required";
+    if (!hasSelectedPortals) return "Please enable access control mapping for at least one portal";
     if (needsState && !stateId) return "State mapping selection is required";
     if (needsDistrict && !districtId) return "District mapping selection is required";
     if (needsMarket && !marketId) return "Market mapping selection is required";
@@ -1857,42 +458,58 @@ function UserForm({ initial, dynamicRoles, onSaved }: { initial: any | null; dyn
     }
     try {
       setSubmitting(true);
-      
-      // 🌟 Fixed final department output values payload assignment routing
-      let finalDeptPayload = null;
-      if (isAdmin) {
-        finalDeptPayload = { id: 0, name: "all" };
-      } else if (department !== "placeholder" && department) {
-        finalDeptPayload = { id: 0, name: department };
-      }
+      const assignedPortals: string[] = [];
+      const portalAccess: any[] = [];
 
-    const selectedDeptObj = dbDepts.find(d => d.name === department);
-      const departmentId = isAdmin ? 0 : (selectedDeptObj ? Number(selectedDeptObj.id) : null);
-      const departmentName = isAdmin ? "all" : (department !== "placeholder" ? department : null);
+      Object.keys(portalConfig).forEach(k => {
+        if (portalConfig[k].enabled) {
+          const masterObjectRef = portalsMasterList.find(p => p.name === k);
+          assignedPortals.push(k);
+          portalAccess.push({
+            portalId: masterObjectRef?.id ?? 0,
+            portalName: k,
+            roleId: 1,
+            roleName: portalConfig[k].roleName
+          });
+        }
+      });
+
+      const selectedStateObj = dbStates.find(s => s.id.toString() === stateId);
+      const selectedDistrictObj = dbDistricts.find(d => d.id.toString() === districtId);
+      const selectedMarketObj = dbMarkets.find(m => m.id.toString() === marketId);
+      const selectedStoreObj = dbStores.find(s => s.id.toString() === storeId);
+
+      // 🌟 FIXED HERE: String 'IT' ke bajay database se us department ka poora Object find kiya
+      const selectedDeptObj = dbDepts.find(d => d.name === department);
 
       const payload = {
         fullName: fullName.trim(),
         email: email.trim(),
-        roleName: role,
-        departmentId: departmentId,
-        departmentName: departmentName,
-        stateId: needsState && stateId ? Number(stateId) : null,
-        districtId: needsDistrict && districtId ? Number(districtId) : null,
-        marketId: needsMarket && marketId ? Number(marketId) : null,
-        storeId: needsStore && storeId ? Number(storeId) : null,
-      };
+        phone: phone.trim() || null,
 
+        // 🌟 FIXED HERE: Backend ki IdNameDTO mapping ke mutabik structure pass kiya
+        department: selectedDeptObj ? { id: selectedDeptObj.id, name: selectedDeptObj.name } : null,
+
+        allowedUserManagement,
+        active,
+        assignedPortals,
+        portalAccess,
+        states: needsState && selectedStateObj ? [{ id: Number(selectedStateObj.id), name: selectedStateObj.name }] : [],
+        districts: needsDistrict && selectedDistrictObj ? [{ id: Number(selectedDistrictObj.id), name: selectedDistrictObj.name }] : [],
+        markets: needsMarket && selectedMarketObj ? [{ id: Number(selectedMarketObj.id), name: selectedMarketObj.name }] : [],
+        stores: needsStore && selectedStoreObj ? [{ id: Number(selectedStoreObj.id), name: selectedStoreObj.name }] : [],
+      };
 
       if (initial) {
         const response = await usersApi.update({ id: Number(initial.id), ...payload });
         if (response.success) {
-          toast.success("User configuration updated successfully");
+          toast.success("User config sync finalized");
           onSaved();
         }
       } else {
         const response = await usersApi.add({ ...payload, password } as any);
         if (response.success) {
-          toast.success("User safely saved to database");
+          toast.success("User created successfully");
           onSaved();
         }
       }
@@ -1904,108 +521,176 @@ function UserForm({ initial, dynamicRoles, onSaved }: { initial: any | null; dyn
   };
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-1.5">
-        <Label>Full name <span className="text-destructive">*</span></Label>
-        <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Arslan Khan" autoComplete="off" />
+    <div className="space-y-4 max-h-[82vh] overflow-y-auto px-1 scrollbar-thin">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Full name <span className="text-destructive">*</span></Label>
+          <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Arslan Khan" autoComplete="off" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Email <span className="text-destructive">*</span></Label>
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@techno.com" autoComplete="new-password" />
+        </div>
       </div>
-      
-      <div className="space-y-1.5">
-        <Label>Email <span className="text-destructive">*</span></Label>
-        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@techno.com" autoComplete="new-password" />
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label>Phone <span className="text-muted-foreground text-xs">(Optional)</span></Label>
+          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. +923001234567" />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Department <span className="text-destructive">*</span></Label>
+          <Select value={department} onValueChange={setDepartment}>
+            <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="placeholder" disabled>Select department</SelectItem>
+              {dbDepts.map((d) => <SelectItem key={d.id} value={d.name}>{d.name || "—"}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {!initial && (
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label>Password <span className="text-destructive">*</span></Label>
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 6 chars" autoComplete="new-password" />
+            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 6 chars" />
           </div>
           <div className="space-y-1.5">
             <Label>Confirm password <span className="text-destructive">*</span></Label>
-            <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter password" autoComplete="new-password" />
+            <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter password" />
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label>Role <span className="text-destructive">*</span></Label>
-          <Select value={role} onValueChange={(v) => { setRole(v as Role); if(v.toLowerCase() === "admin") setDepartment("placeholder"); }}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {dynamicRoles.map((roleStr) => <SelectItem key={roleStr} value={roleStr}>{formatRoleName(roleStr)}</SelectItem>)}
-            </SelectContent>
-          </Select>
+      <div className="bg-zinc-50 dark:bg-zinc-900 p-3 rounded-lg border border-zinc-200/60 dark:border-zinc-800 grid grid-cols-2 gap-4">
+        <div className="flex items-center justify-between space-x-2">
+          <div className="flex flex-col space-y-0.5">
+            <Label className="text-sm font-semibold">User Manager Access</Label>
+            <span className="text-[11px] text-muted-foreground">Allows managing user directories administration</span>
+          </div>
+          <Switch checked={allowedUserManagement} onCheckedChange={setAllowedUserManagement} />
         </div>
-        
-        <div className="space-y-1.5">
-          <Label>
-            Department {isUserOrManager && <span className="text-destructive">*</span>}
-            {isAdmin && <span className="ml-1 text-xs text-muted-foreground">("all" for Admins)</span>}
-          </Label>
-          <Select value={isAdmin ? "all" : department} onValueChange={setDepartment} disabled={isAdmin}>
-            <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
-            <SelectContent>
-              {isAdmin ? (
-                <SelectItem value="all">all</SelectItem>
-              ) : (
-                <>
-                  <SelectItem value="placeholder" disabled>Select department</SelectItem>
-                  {dbDepts.map((d) => <SelectItem key={d.id} value={d.name}>{d.name || "—"}</SelectItem>)}
-                </>
-              )}
-            </SelectContent>
-          </Select>
+
+        <div className="flex items-center justify-between space-x-2">
+          <div className="flex flex-col space-y-0.5">
+            <Label className="text-sm font-semibold">Account Status</Label>
+            <span className="text-[11px] text-muted-foreground">Toggle active status state for portal operations logging</span>
+          </div>
+          <Switch checked={active} onCheckedChange={setActive} />
         </div>
       </div>
 
-      {/* 🌟 Prioritized Hierarchical Cascading Chains Grid Setup */}
+      <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
+        <div className="bg-zinc-100 dark:bg-zinc-900 px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+          <span className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-primary" /> Multi-Portal Authority Setup Matrix
+          </span>
+          <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">Required: At least 1</span>
+        </div>
+
+        <div className="p-3 bg-white dark:bg-zinc-950 divide-y divide-zinc-100 dark:divide-zinc-900">
+          {portalsMasterList.map((p) => {
+            const isEnabled = portalConfig[p.name]?.enabled ?? false;
+            const currentRoleValue = portalConfig[p.name]?.roleName ?? "user";
+
+            return (
+              <div key={p.id} className="flex flex-col sm:flex-row sm:items-center justify-between py-3 gap-3 first:pt-1 last:pb-1">
+                <div className="flex items-center gap-3">
+                  <Switch
+                    id={`portal-toggle-${p.name}`}
+                    checked={isEnabled}
+                    onCheckedChange={(checked) => handlePortalToggle(p.name, checked)}
+                  />
+                  <div>
+                    <label htmlFor={`portal-toggle-${p.name}`} className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 cursor-pointer block capitalize">
+                      {p.name} Portal
+                    </label>
+                    <span className="text-xs text-muted-foreground block">{p.description}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 min-w-[200px]">
+                  <span className="text-xs text-muted-foreground shrink-0">Assigned Role:</span>
+                  <Select
+                    disabled={!isEnabled}
+                    value={currentRoleValue}
+                    onValueChange={(val) => handlePortalRoleChange(p.name, val)}
+                  >
+                    <SelectTrigger className={`h-8 text-xs font-medium ${isEnabled ? "border-primary/50 ring-1 ring-primary/10" : "bg-zinc-50 border-zinc-200"}`}>
+                      <SelectValue placeholder="Choose role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {dynamicRoles.map((r) => (
+                        <SelectItem key={r} value={r} className="text-xs">
+                          {formatRoleName(r)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {needsState && (
-        <div className="space-y-1.5">
-          <Label>State <span className="text-destructive">*</span></Label>
-          <Select value={stateId} onValueChange={(v) => { setStateId(v); setDistrictId(""); setMarketId(""); setStoreId(""); }}>
-            <SelectTrigger><SelectValue placeholder="Select state" /></SelectTrigger>
-            <SelectContent>{dbStates.map((s) => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}</SelectContent>
-          </Select>
+        <div className="p-4 bg-zinc-50/50 dark:bg-zinc-900/40 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 space-y-3 animate-fade-in">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 pb-1 border-b border-zinc-200/60">
+            <AlertCircle className="h-3.5 w-3.5" /> Regional Authority Hierarchy Configuration Setup
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {needsState && (
+              <div className="space-y-1.5">
+                <Label>State <span className="text-destructive">*</span></Label>
+                <Select value={stateId} onValueChange={(v) => { setStateId(v); setDistrictId(""); setMarketId(""); setStoreId(""); }}>
+                  <SelectTrigger className="bg-white dark:bg-zinc-950"><SelectValue placeholder="Select state" /></SelectTrigger>
+                  <SelectContent>{dbStates.map((s) => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {needsDistrict && (
+              <div className="space-y-1.5">
+                <Label>District <span className="text-destructive">*</span></Label>
+                <Select value={districtId} disabled={!stateId} onValueChange={(v) => { setDistrictId(v); setMarketId(""); setStoreId(""); }}>
+                  <SelectTrigger className="bg-white dark:bg-zinc-950"><SelectValue placeholder={!stateId ? "Choose state first" : "Select district"} /></SelectTrigger>
+                  <SelectContent>{dbDistricts.map((d) => <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {needsMarket && (
+              <div className="space-y-1.5">
+                <Label>Market <span className="text-destructive">*</span></Label>
+                <Select value={marketId} disabled={!districtId} onValueChange={(v) => { setMarketId(v); setStoreId(""); }}>
+                  <SelectTrigger className="bg-white dark:bg-zinc-950"><SelectValue placeholder={!districtId ? "Choose district first" : "Select market"} /></SelectTrigger>
+                  <SelectContent>{dbMarkets.map((m) => <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {needsStore && (
+              <div className="space-y-1.5">
+                <Label>Store <span className="text-destructive">*</span></Label>
+                <Select value={storeId} disabled={!marketId} onValueChange={setStoreId}>
+                  <SelectTrigger className="bg-white dark:bg-zinc-950"><SelectValue placeholder={!marketId ? "Choose market first" : "Select store"} /></SelectTrigger>
+                  <SelectContent>{dbStores.map((s) => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {needsDistrict && (
-        <div className="space-y-1.5">
-          <Label>District <span className="text-destructive">*</span></Label>
-          <Select value={districtId} disabled={!stateId} onValueChange={(v) => { setDistrictId(v); setMarketId(""); setStoreId(""); }}>
-            <SelectTrigger><SelectValue placeholder={!stateId ? "Choose state first" : "Select district"} /></SelectTrigger>
-            <SelectContent>{dbDistricts.map((d) => <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>)}</SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {needsMarket && (
-        <div className="space-y-1.5">
-          <Label>Market <span className="text-destructive">*</span></Label>
-          <Select value={marketId} disabled={!districtId} onValueChange={(v) => { setMarketId(v); setStoreId(""); }}>
-            <SelectTrigger><SelectValue placeholder={!districtId ? "Choose district first" : "Select market"} /></SelectTrigger>
-            <SelectContent>{dbMarkets.map((m) => <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>)}</SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {needsStore && (
-        <div className="space-y-1.5">
-          <Label>Store <span className="text-destructive">*</span></Label>
-          <Select value={storeId} disabled={!marketId} onValueChange={setStoreId}>
-            <SelectTrigger><SelectValue placeholder={!marketId ? "Choose market first" : "Select store"} /></SelectTrigger>
-            <SelectContent>{dbStores.map((s) => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}</SelectContent>
-          </Select>
-        </div>
-      )}
-
-      <Button className="w-full flex items-center justify-center gap-2 mt-2" disabled={!canSave || submitting} onClick={submit}>
+      <Button className="w-full flex items-center justify-center gap-2 mt-2 h-10 font-medium" disabled={!canSave || submitting} onClick={submit}>
         {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-        {initial ? "Update user configuration" : "Create user instance"}
+        {initial ? "Save updated user configuration framework" : "Create new user instance matrix"}
       </Button>
     </div>
   );
 }
+
 export default UsersPage;

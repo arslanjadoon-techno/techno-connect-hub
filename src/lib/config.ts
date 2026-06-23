@@ -89,3 +89,7 @@ export const HIRARCHY_API_PATHS = {
   updateUser: "/api/users/update",
   deleteUser: "/api/users/delete",
 } as const;
+
+export const PORTAL_API_PATHS = {
+  getAll: "/api/portals/get-all",
+} as const;

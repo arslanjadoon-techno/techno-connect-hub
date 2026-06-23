@@ -1,6 +1,6 @@
 import {
   API_BASE_URL, USER_API_PATHS, HIRARCHY_API_PATHS, AUTH_PATHS, STATE_API_PATHS, DISTRICT_API_PATHS, MARKET_API_PATHS,
-  STORE_API_PATHS, HOUSE_API_PATHS, EXTERNAL_TEAM_API_PATHS, DEPARTMENT_API_PATHS,
+  STORE_API_PATHS, HOUSE_API_PATHS, EXTERNAL_TEAM_API_PATHS, DEPARTMENT_API_PATHS, PORTAL_API_PATHS
 } from "@/lib/config";
 
 /**
@@ -133,31 +133,31 @@ export interface AddUserPayload {
   email: string;
   password: string;
   role: string;
-  departmentId: number | null;     
-  departmentName: string | null;   
-  stateId?: number | null;      
-  districtId?: number | null; 
-  marketId?: number | null;  
-  storeId?: number | null; 
+  departmentId: number | null;
+  departmentName: string | null;
+  stateId?: number | null;
+  districtId?: number | null;
+  marketId?: number | null;
+  storeId?: number | null;
   phone?: string | null;
 }
 
 export const usersApi = {
-  
-  // Handles Pagination, Department, and Role filters via query strings
-  getAll: (params?: { page?: number; size?: number; department?: string; role?: string }) => {
+
+  getAll: (params?: { page?: number; size?: number; department?: string; portal?: string }) => {
     const queryParts: string[] = [];
 
     if (params) {
       if (params.page !== undefined) queryParts.push(`page=${params.page}`);
       if (params.size !== undefined) queryParts.push(`size=${params.size}`);
-      
+
       if (params.department !== undefined && params.department !== "all") {
         queryParts.push(`department=${encodeURIComponent(params.department)}`);
       }
-      
-      if (params.role !== undefined && params.role !== "all") {
-        queryParts.push(`role=${encodeURIComponent(params.role)}`);
+
+      // 🌟 FIXED: URL parameters build karte waqt bhi role query string ko portal mapping me update kar diya
+      if (params.portal !== undefined && params.portal !== "all") {
+        queryParts.push(`portal=${encodeURIComponent(params.portal)}`);
       }
     }
 
@@ -524,4 +524,24 @@ export const DepartmentsApi = {
     apiRequest<DepartmentEntity>(DEPARTMENT_API_PATHS.updateDepartment, { method: "PUT", body: payload }),
   delete: (id: number) =>
     apiRequest<null>(DEPARTMENT_API_PATHS.deleteDepartment, { method: "DELETE", body: { id } }),
+};
+
+// ---------- Portals ---------- //
+
+export interface Portal {
+  id: number;
+  name: string;
+  description: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const PortalApi = {
+  getAll: (params?: PaginationParams) => {
+    let url: string = PORTAL_API_PATHS.getAll;
+    if (params && params.page !== undefined && params.size !== undefined) {
+      url = `${PORTAL_API_PATHS.getAll}?page=${params.page}&size=${params.size}`;
+    }
+    return apiRequest<Portal[]>(url);
+  }
 };
