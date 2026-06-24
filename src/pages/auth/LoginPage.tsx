@@ -25,7 +25,12 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      await login(email.trim(), password);
+      const result = await login(email.trim(), password);
+      if ("requires2FA" in result) {
+        toast.message("Two-factor authentication required");
+        navigate(`/verify-2fa?email=${encodeURIComponent(result.email)}`);
+        return;
+      }
       toast.success("Signed in successfully");
       navigate("/ai-chat");
     } catch (err) {
