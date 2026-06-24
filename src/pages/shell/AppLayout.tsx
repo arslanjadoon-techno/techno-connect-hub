@@ -7,6 +7,7 @@ import { useData } from "@/lib/data-store";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Bell, CheckCheck } from "lucide-react";
+import { UserMenu } from "@/components/user-menu";
 
 export default function AppLayout() {
   const { user } = useAuth();

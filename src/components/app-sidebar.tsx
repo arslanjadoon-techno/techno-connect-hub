@@ -586,8 +586,6 @@ const dynamicPortalGroups = allowedPortalsList
           </SidebarGroup>
         )}
       </SidebarContent>
-
-      </SidebarContent>
-
+    </Sidebar>
   );
 }
