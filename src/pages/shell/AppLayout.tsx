@@ -7,6 +7,7 @@ import { useData } from "@/lib/data-store";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Bell, CheckCheck } from "lucide-react";
+import { UserMenu } from "@/components/user-menu";
 
 export default function AppLayout() {
   const { user } = useAuth();
@@ -100,6 +101,11 @@ export default function AppLayout() {
                 </div>
               </PopoverContent>
             </Popover>
+
+            <div className="ml-1">
+              <UserMenu />
+            </div>
+
           </header>
           <main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
             <Outlet />
