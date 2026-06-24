@@ -2,29 +2,29 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { type ReactNode } from "react";
 
-import AppLayout from "@/portals/shell/AppLayout";
-import LoginPage from "@/portals/auth/LoginPage";
-import ForgotPasswordPage from "@/portals/auth/ForgotPasswordPage";
-import ResetPasswordPage from "@/portals/auth/ResetPasswordPage";
+import AppLayout from "@/pages/shell/AppLayout";
+import LoginPage from "@/pages/auth/LoginPage";
+import ForgotPasswordPage from "@/pages/auth/ForgotPasswordPage";
+import ResetPasswordPage from "@/pages/auth/ResetPasswordPage";
 
-import AiChatPage from "@/portals/ai-chat/AiChatPage";
-import TeamChatPage from "@/portals/team-chat/TeamChatPage";
-import SettingsPage from "@/portals/settings/SettingsPage";
+import AiChatPage from "@/pages/ai-chat/AiChatPage";
+import TeamChatPage from "@/pages/team-chat/TeamChatPage";
+import SettingsPage from "@/pages/settings/SettingsPage";
 
-import TicketingDashboardPage from "@/portals/ticketing/DashboardPage";
-import TicketsPage from "@/portals/ticketing/TicketsPage";
-import TicketDetailPage from "@/portals/ticketing/TicketDetailPage";
+import TicketingDashboardPage from "@/pages/portals/ticketing/DashboardPage";
+import TicketsPage from "@/pages/portals/ticketing/TicketsPage";
+import TicketDetailPage from "@/pages/portals/ticketing/TicketDetailPage";
 
-import CommissionDashboardPage from "@/portals/commission/DashboardPage";
+import CommissionDashboardPage from "@/pages/portals/commission/DashboardPage";
 
-import UsersPage from "@/portals/admin/UsersPage";
-import DepartmentsPage from "@/portals/admin/DepartmentsPage";
-import DistrictsPage from "@/portals/admin/DistrictsPage";
-import StatesPage from "@/portals/admin/StatesPage";
-import MarketsPage from "@/portals/admin/MarketsPage";
-import HousesPage from "@/portals/admin/HousesPage";
-import StoresPage from "@/portals/admin/StoresPage";
-import ExternalPage from "@/portals/admin/ExternalPage";
+import UsersPage from "@/pages/user-manager/UsersPage";
+import DepartmentsPage from "@/pages/user-manager/DepartmentsPage";
+import DistrictsPage from "@/pages/user-manager/DistrictsPage";
+import StatesPage from "@/pages/user-manager/StatesPage";
+import MarketsPage from "@/pages/user-manager/MarketsPage";
+import HousesPage from "@/pages/user-manager/HousesPage";
+import StoresPage from "@/pages/user-manager/StoresPage";
+import ExternalPage from "@/pages/user-manager/ExternalPage";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user } = useAuth();
