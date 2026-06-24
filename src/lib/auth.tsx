@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (email: string, password: string): Promise<User> => {
     const res = await authApi.login(email, password);
     // Persist exactly per spec: `token` and `user` keys in localStorage.
-    setToken(res.data.token);
+    setToken(res.data.token ?? null);
     setStoredUser(res.data.user);
     const u = mapBackendUser(res.data.user);
     setUser(u);
