@@ -6,6 +6,8 @@ import AppLayout from "@/pages/shell/AppLayout";
 import LoginPage from "@/pages/auth/LoginPage";
 import ForgotPasswordPage from "@/pages/auth/ForgotPasswordPage";
 import ResetPasswordPage from "@/pages/auth/ResetPasswordPage";
+import Setup2FAPage from "@/pages/auth/Setup2FAPage";
+import Verify2FAPage from "@/pages/auth/Verify2FAPage";
 
 import AiChatPage from "@/pages/ai-chat/AiChatPage";
 import TeamChatPage from "@/pages/team-chat/TeamChatPage";
@@ -51,6 +53,8 @@ export function AppRoutes() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
+      <Route path="/setup-2fa" element={<Setup2FAPage />} />
+      <Route path="/verify-2fa" element={<Verify2FAPage />} />
 
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/ai-chat" element={<AiChatPage />} />

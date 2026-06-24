@@ -1,11 +1,12 @@
-import { Link, useNavigate, useSearchParams } from "react-router-dom";import { useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { ShieldCheck, ArrowLeft, CheckCircle2, Lock, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-
+import AuthHero from "./AuthHero";
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -33,37 +34,14 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
-      <div
-        className="relative hidden flex-col justify-between p-10 text-white lg:flex"
-        style={{ backgroundImage: "var(--gradient-primary)" }}
-      >
-        <div className="flex items-center gap-3">
-          <div
-            className="flex h-11 w-11 items-center justify-center rounded-xl"
-            style={{ backgroundImage: "var(--gradient-gold)" }}
-          >
-            <ShieldCheck className="h-6 w-6 text-[oklch(0.25_0.05_80)]" />
-          </div>
-          <div>
-            <div className="font-display text-lg font-semibold">Techno Communications</div>
-            <div className="text-xs text-white/70">Internal Ticket Portal</div>
-          </div>
-        </div>
-        <div className="relative z-10 max-w-md space-y-4">
-          <h1 className="font-display text-4xl font-semibold leading-tight">
-            Choose a new password.
-          </h1>
-          <p className="text-white/80">
-            Use 8+ characters with a mix of letters, numbers, and symbols for the best
-            protection.
-          </p>
-        </div>
-        <div className="text-xs text-white/60">© Techno Communications LLC</div>
-      </div>
+    <div className="relative grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
+      <AuthHero
+        title="Choose a new password."
+        subtitle="Use 8+ characters with a mix of letters, numbers, and symbols for the best protection."
+      />
 
-      <div className="flex items-center justify-center p-6">
-        <Card className="w-full max-w-md p-8">
+      <div className="flex items-center justify-center bg-muted/40 p-6 lg:pl-16">
+        <Card className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-2xl animate-scale-in">
           <Link
             to="/login"
             className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"

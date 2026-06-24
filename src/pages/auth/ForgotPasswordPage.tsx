@@ -1,12 +1,14 @@
-import { Link, useNavigate } from "react-router-dom";import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { ShieldCheck, ArrowLeft, MailCheck, CheckCircle2, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, MailCheck, CheckCircle2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { authApi } from "@/lib/api/client";
 import { toast } from "sonner";
+import AuthHero from "./AuthHero";
 
 type Step = "email" | "otp" | "reset" | "done";
 
@@ -58,36 +60,14 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
-      <div
-        className="relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex"
-        style={{ backgroundImage: "var(--gradient-hero)" }}
-      >
-        <div className="pointer-events-none absolute -top-24 -left-24 h-80 w-80 rounded-full bg-white/10 blur-3xl animate-float-blob" />
-        <div className="pointer-events-none absolute bottom-0 right-0 h-96 w-96 rounded-full bg-fuchsia-400/20 blur-3xl animate-float-blob" style={{ animationDelay: "2s" }} />
+    <div className="relative grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
+      <AuthHero
+        title="Recover your account in 3 quick steps."
+        subtitle="We'll email a one-time code to verify it's you, then you can set a new password."
+      />
 
-        <div className="relative z-10 flex items-center gap-3 animate-fade-in">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
-            <ShieldCheck className="h-6 w-6 text-white" />
-          </div>
-          <div>
-            <div className="font-display text-lg font-semibold">Techno Communications</div>
-            <div className="text-xs text-white/70">Internal Ticket Portal</div>
-          </div>
-        </div>
-        <div className="relative z-10 max-w-md space-y-4 animate-fade-in" style={{ animationDelay: ".1s" }}>
-          <h1 className="font-display text-4xl font-semibold leading-tight">
-            Recover your account in 3 quick steps.
-          </h1>
-          <p className="text-white/80">
-            We'll email a one-time code to verify it's you, then you can set a new password.
-          </p>
-        </div>
-        <div className="relative z-10 text-xs text-white/60">© Techno Communications LLC</div>
-      </div>
-
-      <div className="flex items-center justify-center p-6">
-        <Card className="w-full max-w-md p-8 shadow-[var(--shadow-elegant)] animate-scale-in">
+      <div className="flex items-center justify-center bg-muted/40 p-6 lg:pl-16">
+        <Card className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-2xl animate-scale-in">
           <Link to="/login" className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
           </Link>

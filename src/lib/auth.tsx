@@ -7,7 +7,10 @@ import {
 
 interface AuthCtx {
   user: User | null;
-  login: (email: string, password: string) => Promise<User>;
+  /** Returns the User on full login, or { requires2FA: true } when backend asks for a code. */
+  login: (email: string, password: string) => Promise<User | { requires2FA: true; email: string }>;
+  /** Establish session from a token + backend user (used after 2FA verification). */
+  setSession: (token: string, backendUser: any) => User;
   logout: () => void;
 }
 
@@ -72,15 +75,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (stored && !user) setUser(mapBackendUser(stored));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const login = useCallback(async (email: string, password: string): Promise<User> => {
-    const res = await authApi.login(email, password);
-    // Persist exactly per spec: `token` and `user` keys in localStorage.
-    setToken(res.data.token);
-    setStoredUser(res.data.user);
-    const u = mapBackendUser(res.data.user);
+  const setSession = useCallback((token: string, backendUser: any): User => {
+    setToken(token);
+    setStoredUser(backendUser);
+    const u = mapBackendUser(backendUser);
     setUser(u);
     return u;
   }, []);
+
+  const login = useCallback(async (email: string, password: string) => {
+    const res = await authApi.login(email, password);
+    const requires2FA =
+      (res as any).data?.requires2FA === true ||
+      (res as any).data?.twoFactorRequired === true ||
+      (!res.data?.token && !res.data?.user);
+    if (requires2FA) {
+      return { requires2FA: true as const, email };
+    }
+    return setSession(res.data.token as string, res.data.user);
+  }, [setSession]);
 
   const logout = useCallback(() => {
     setToken(null);
@@ -88,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const value = useMemo(() => ({ user, login, logout }), [user, login, logout]);
+  const value = useMemo(() => ({ user, login, setSession, logout }), [user, login, setSession, logout]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

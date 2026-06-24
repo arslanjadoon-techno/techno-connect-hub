@@ -97,9 +97,14 @@ export interface BackendUser {
 
 // ---------- Auth ---------- //
 
+export interface TwoFaSetupData {
+  secretKey: string;
+  qrCodeUrl: string;
+}
+
 export const authApi = {
   login: (email: string, password: string) =>
-    apiRequest<{ token: string; user: BackendUser }>(AUTH_PATHS.login, {
+    apiRequest<{ token?: string; user?: BackendUser; requires2FA?: boolean; twoFactorRequired?: boolean }>(AUTH_PATHS.login, {
       method: "POST", body: { email, password }, auth: false,
     }),
   forgotPassword: (email: string) =>
@@ -111,6 +116,14 @@ export const authApi = {
       method: "POST",
       body: { email, otp, newPassword, confirmPassword },
       auth: false,
+    }),
+  twoFaSetup: (email: string) =>
+    apiRequest<TwoFaSetupData>(AUTH_PATHS.twoFaSetup, { method: "POST", body: { email }, auth: false }),
+  twoFaVerifyEnable: (email: string, code: string) =>
+    apiRequest<null>(AUTH_PATHS.twoFaVerifyEnable, { method: "POST", body: { email, code }, auth: false }),
+  twoFaLoginVerify: (email: string, code: string) =>
+    apiRequest<{ token: string; user: BackendUser }>(AUTH_PATHS.twoFaLoginVerify, {
+      method: "POST", body: { email, code }, auth: false,
     }),
 };
 

@@ -15,6 +15,9 @@ export const AUTH_PATHS = {
   forgotPassword: "/auth/forgot-password",
   verifyOtp: "/auth/verify-otp",
   resetPassword: "/auth/reset-password",
+  twoFaSetup: "/auth/2fa/setup",
+  twoFaVerifyEnable: "/auth/2fa/verify-and-enable",
+  twoFaLoginVerify: "/auth/login/verify-2fa",
 } as const;
 
 /** Resource endpoints (under `/api`). */

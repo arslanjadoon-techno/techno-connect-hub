@@ -25,7 +25,12 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      await login(email.trim(), password);
+      const result = await login(email.trim(), password);
+      if ("requires2FA" in result) {
+        toast.message("Two-factor authentication required");
+        navigate(`/verify-2fa?email=${encodeURIComponent(result.email)}`);
+        return;
+      }
       toast.success("Signed in successfully");
       navigate("/ai-chat");
     } catch (err) {
@@ -125,6 +130,12 @@ export default function LoginPage() {
             <Button type="submit" className="h-11 w-full text-base" disabled={loading}>
               {loading ? "Signing in..." : "Sign in"}
             </Button>
+            <p className="pt-1 text-center text-xs text-muted-foreground">
+              Want to enable Google Authenticator?{" "}
+              <Link to="/setup-2fa" className="font-medium text-primary hover:underline">
+                Set up 2FA
+              </Link>
+            </p>
           </form>
         </Card>
       </div>
