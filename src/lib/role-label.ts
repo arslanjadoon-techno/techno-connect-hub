@@ -18,7 +18,7 @@ export function roleSubLabel(user: User): string {
   switch (roleKey) {
     case "user":
     case "manager":
-      extra = user.departmentName || user.department;
+      extra = user.departmentName ?? user.department ?? undefined;
       break;
     case "state_manager":
       extra = user.stateName;
