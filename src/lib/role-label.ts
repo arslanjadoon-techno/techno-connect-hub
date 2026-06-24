@@ -11,10 +11,11 @@ export function roleSubLabel(user: User): string {
     market_manager: "Market Manager",
     store_manager: "Store Manager",
   };
-  const role = map[user.roleName] ?? user.roleName;
-  if (user.roleName === "admin") return role;
+  const roleKey = user.roleName ?? "user";
+  const role = map[roleKey] ?? roleKey;
+  if (roleKey === "admin") return role;
   let extra: string | undefined;
-  switch (user.roleName) {
+  switch (roleKey) {
     case "user":
     case "manager":
       extra = user.departmentName || user.department;

@@ -36,7 +36,7 @@ export function isAdmin(user: User): boolean {
 
 /** Admin + any manager-level role can manage chat groups. */
 export function canManageChatGroups(user: User): boolean {
-  return user.roleName === "admin" || user.roleName.endsWith("manager");
+  return user.roleName === "admin" || (user.roleName?.endsWith("manager") ?? false);
 }
 
 /** Chat groups visible to user. */
