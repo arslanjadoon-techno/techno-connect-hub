@@ -167,6 +167,33 @@ export default function SettingsPage() {
         </div>
       </Card>
 
+      {/* Two-factor authentication */}
+      <Card className="p-6 hover-lift">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg text-white" style={{ backgroundImage: "var(--gradient-primary)" }}>
+              <ShieldCheck className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="font-display text-lg font-semibold">Bypass 2FA on login</h2>
+              <p className="mt-1 max-w-md text-xs text-muted-foreground">
+                When enabled, sign-in skips the Google Authenticator step. Recommended only for
+                trusted devices — turn this off again on shared machines.
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={bypass2fa}
+            onCheckedChange={(v) => {
+              setBypass2fa(v);
+              toast.success(v ? "2FA will be bypassed on next login" : "2FA required on next login");
+            }}
+            aria-label="Bypass 2FA on login"
+          />
+        </div>
+      </Card>
+
+
       {/* Theme palette */}
       <Card className="p-6 hover-lift">
         <div className="mb-4 flex items-center gap-2">
