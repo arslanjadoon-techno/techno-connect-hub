@@ -5,10 +5,15 @@ import {
   authApi, setToken, setStoredUser, getStoredUser, type BackendUser,
 } from "./api/client";
 
+export type LoginResult =
+  | { kind: "authenticated"; user: User }
+  | { kind: "setup2fa"; email: string; secretKey: string; qrCodeUrl: string }
+  | { kind: "verify2fa"; email: string };
+
 interface AuthCtx {
   user: User | null;
-  /** Returns the User on full login, or { requires2FA: true } when backend asks for a code. */
-  login: (email: string, password: string) => Promise<User | { requires2FA: true; email: string }>;
+  /** Handles all four backend login cases: blocked, bypass-2fa, setup-2fa, verify-2fa. */
+  login: (email: string, password: string) => Promise<LoginResult>;
   /** Establish session from a token + backend user (used after 2FA verification). */
   setSession: (token: string, backendUser: any) => User;
   logout: () => void;
