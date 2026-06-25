@@ -107,7 +107,7 @@ interface Ctx {
 }
 const ThemeContext = createContext<Ctx | null>(null);
 
-function applyPalette(p: Palette) {
+function applyPalette(p: Palette, theme: Theme) {
   const r = document.documentElement.style;
   // Accent / button colors
   r.setProperty("--primary", p.primary);
@@ -115,15 +115,30 @@ function applyPalette(p: Palette) {
   r.setProperty("--ring", p.ring);
   r.setProperty("--gradient-primary", `linear-gradient(135deg, ${p.primary}, ${p.primaryGlow})`);
   r.setProperty("--gradient-hero", p.heroGradient);
-  // Sidebar (whole side menu)
-  r.setProperty("--sidebar", p.sidebar);
-  r.setProperty("--sidebar-foreground", p.sidebarForeground);
-  r.setProperty("--sidebar-primary", p.primaryGlow);
-  r.setProperty("--sidebar-primary-foreground", p.sidebar);
-  r.setProperty("--sidebar-accent", p.sidebarAccent);
-  r.setProperty("--sidebar-accent-foreground", p.sidebarForeground);
-  r.setProperty("--sidebar-border", p.sidebarBorder);
-  r.setProperty("--sidebar-ring", p.primaryGlow);
+
+  // In dark mode, sidebar should sit ABOVE the dark background — use a slightly
+  // lighter card-like surface (still tinted with the palette hue) so the menu,
+  // header, and content are clearly separated. In light mode keep the rich
+  // dark sidebar from the palette.
+  if (theme === "dark") {
+    r.setProperty("--sidebar", "oklch(0.24 0.05 275)");
+    r.setProperty("--sidebar-foreground", "oklch(0.97 0.01 270)");
+    r.setProperty("--sidebar-primary", p.primaryGlow);
+    r.setProperty("--sidebar-primary-foreground", "oklch(0.14 0.03 275)");
+    r.setProperty("--sidebar-accent", "oklch(0.32 0.07 280)");
+    r.setProperty("--sidebar-accent-foreground", "oklch(0.97 0.01 270)");
+    r.setProperty("--sidebar-border", "oklch(1 0 0 / 12%)");
+    r.setProperty("--sidebar-ring", p.primaryGlow);
+  } else {
+    r.setProperty("--sidebar", p.sidebar);
+    r.setProperty("--sidebar-foreground", p.sidebarForeground);
+    r.setProperty("--sidebar-primary", p.primaryGlow);
+    r.setProperty("--sidebar-primary-foreground", p.sidebar);
+    r.setProperty("--sidebar-accent", p.sidebarAccent);
+    r.setProperty("--sidebar-accent-foreground", p.sidebarForeground);
+    r.setProperty("--sidebar-border", p.sidebarBorder);
+    r.setProperty("--sidebar-ring", p.primaryGlow);
+  }
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
