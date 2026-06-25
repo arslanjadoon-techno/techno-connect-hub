@@ -1,14 +1,17 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data-store";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Camera, Eye, EyeOff, Check, Palette as PaletteIcon, Lock } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Camera, Eye, EyeOff, Check, Palette as PaletteIcon, Lock, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { roleSubLabel } from "@/lib/role-label";
 import { PALETTES, useTheme } from "@/lib/theme";
+
+const BYPASS_2FA_KEY = "techno-bypass-2fa";
 
 export default function SettingsPage() {
   const { user } = useAuth();
