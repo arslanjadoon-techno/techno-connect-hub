@@ -26,14 +26,27 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const result = await login(email.trim(), password);
-      if ("requires2FA" in result) {
-        toast.message("Two-factor authentication required");
-        navigate(`/verify-2fa?email=${encodeURIComponent(result.email)}`);
+      if (result.kind === "authenticated") {
+        toast.success("Signed in successfully");
+        navigate("/ai-chat");
         return;
       }
-      toast.success("Signed in successfully");
-      navigate("/ai-chat");
+      if (result.kind === "setup2fa") {
+        toast.message("Set up Google Authenticator to continue");
+        navigate("/setup-2fa", {
+          state: {
+            email: result.email,
+            secretKey: result.secretKey,
+            qrCodeUrl: result.qrCodeUrl,
+          },
+        });
+        return;
+      }
+      // verify2fa
+      toast.message("Enter the 6-digit code from Google Authenticator");
+      navigate(`/verify-2fa?email=${encodeURIComponent(result.email)}`);
     } catch (err) {
+      // Blocked account or wrong credentials — backend message surfaces here.
       toast.error((err as Error).message);
     } finally { setLoading(false); }
   };
@@ -42,7 +55,7 @@ export default function LoginPage() {
     <div className="relative grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
       {/* Hero side with curved right edge */}
       <div
-        className="relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex lg:rounded-r-[40%_60%] lg:-mr-10 lg:shadow-[20px_0_60px_-20px_rgba(0,0,0,0.35)] lg:z-10"
+        className="relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex lg:clip-wave-right lg:-mr-16 lg:z-10"
         style={{ backgroundImage: "var(--gradient-hero)" }}
       >
         {/* Floating big blobs */}

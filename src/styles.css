@@ -199,6 +199,21 @@ table tbody tr:hover { background-color: color-mix(in oklab, var(--accent) 60%, 
 /* Perf: limit offscreen paint for long lists/tables */
 .cv-auto { content-visibility: auto; contain-intrinsic-size: 600px; }
 
+/* Auth hero: single-cycle vertical sine wave clipped along the right edge.
+   17 points = one full period from top to bottom, amplitude ±5%. */
+@media (min-width: 1024px) {
+  .clip-wave-right {
+    clip-path: polygon(
+      0 0, 95% 0,
+      96.91% 6.25%, 98.54% 12.5%, 99.62% 18.75%, 100% 25%,
+      99.62% 31.25%, 98.54% 37.5%, 96.91% 43.75%, 95% 50%,
+      93.09% 56.25%, 91.46% 62.5%, 90.38% 68.75%, 90% 75%,
+      90.38% 81.25%, 91.46% 87.5%, 93.09% 93.75%, 95% 100%,
+      0 100%
+    );
+  }
+}
+
 /* Subtle button shine on hover */
 .btn-shine { position: relative; overflow: hidden; }
 .btn-shine::after {

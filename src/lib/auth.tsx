@@ -5,10 +5,15 @@ import {
   authApi, setToken, setStoredUser, getStoredUser, type BackendUser,
 } from "./api/client";
 
+export type LoginResult =
+  | { kind: "authenticated"; user: User }
+  | { kind: "setup2fa"; email: string; secretKey: string; qrCodeUrl: string }
+  | { kind: "verify2fa"; email: string };
+
 interface AuthCtx {
   user: User | null;
-  /** Returns the User on full login, or { requires2FA: true } when backend asks for a code. */
-  login: (email: string, password: string) => Promise<User | { requires2FA: true; email: string }>;
+  /** Handles all four backend login cases: blocked, bypass-2fa, setup-2fa, verify-2fa. */
+  login: (email: string, password: string) => Promise<LoginResult>;
   /** Establish session from a token + backend user (used after 2FA verification). */
   setSession: (token: string, backendUser: any) => User;
   logout: () => void;
@@ -83,16 +88,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return u;
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
+    // apiRequest already throws when success=false (blocked account → message surfaces in toast).
     const res = await authApi.login(email, password);
-    const requires2FA =
-      (res as any).data?.requires2FA === true ||
-      (res as any).data?.twoFactorRequired === true ||
-      (!res.data?.token && !res.data?.user);
-    if (requires2FA) {
-      return { requires2FA: true as const, email };
+    const d: any = res.data ?? {};
+
+    // Case 2: Bypass-2FA — backend returned a usable JWT immediately.
+    if (d.token) {
+      const user = setSession(d.token as string, d.user);
+      return { kind: "authenticated", user };
     }
-    return setSession(res.data.token as string, res.data.user);
+
+    // Case 3: First-time setup — backend returned a QR + secret to register the device.
+    if (d.qrCodeUrl) {
+      return {
+        kind: "setup2fa",
+        email,
+        secretKey: d.secretKey ?? "",
+        qrCodeUrl: d.qrCodeUrl as string,
+      };
+    }
+
+    // Case 4: Subsequent login — only the 6-digit verification step remains.
+    return { kind: "verify2fa", email };
   }, [setSession]);
 
   const logout = useCallback(() => {
