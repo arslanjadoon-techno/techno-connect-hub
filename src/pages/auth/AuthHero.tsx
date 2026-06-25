@@ -19,7 +19,7 @@ export default function AuthHero({
 }) {
   return (
     <div
-      className="relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex lg:rounded-r-[40%_60%] lg:-mr-10 lg:shadow-[20px_0_60px_-20px_rgba(0,0,0,0.35)] lg:z-10"
+      className="relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex lg:clip-wave-right lg:-mr-16 lg:z-10"
       style={{ backgroundImage: "var(--gradient-hero)" }}
     >
       {/* Big floating blobs */}
