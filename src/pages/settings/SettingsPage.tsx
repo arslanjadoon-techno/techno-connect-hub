@@ -1,14 +1,17 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data-store";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Camera, Eye, EyeOff, Check, Palette as PaletteIcon, Lock } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Camera, Eye, EyeOff, Check, Palette as PaletteIcon, Lock, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { roleSubLabel } from "@/lib/role-label";
 import { PALETTES, useTheme } from "@/lib/theme";
+
+const BYPASS_2FA_KEY = "techno-bypass-2fa";
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -29,6 +32,14 @@ export default function SettingsPage() {
   const [showCur, setShowCur] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConf, setShowConf] = useState(false);
+
+  // Bypass 2FA preference (stored locally; backend honors it on next login)
+  const [bypass2fa, setBypass2fa] = useState<boolean>(() => {
+    try { return window.localStorage.getItem(BYPASS_2FA_KEY) === "true"; } catch { return false; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem(BYPASS_2FA_KEY, String(bypass2fa)); } catch { /* ignore */ }
+  }, [bypass2fa]);
 
   if (!user) return null;
 
@@ -155,6 +166,33 @@ export default function SettingsPage() {
           <Button onClick={changePassword} className="hover-lift">Update password</Button>
         </div>
       </Card>
+
+      {/* Two-factor authentication */}
+      <Card className="p-6 hover-lift">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg text-white" style={{ backgroundImage: "var(--gradient-primary)" }}>
+              <ShieldCheck className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="font-display text-lg font-semibold">Bypass 2FA on login</h2>
+              <p className="mt-1 max-w-md text-xs text-muted-foreground">
+                When enabled, sign-in skips the Google Authenticator step. Recommended only for
+                trusted devices — turn this off again on shared machines.
+              </p>
+            </div>
+          </div>
+          <Switch
+            checked={bypass2fa}
+            onCheckedChange={(v) => {
+              setBypass2fa(v);
+              toast.success(v ? "2FA will be bypassed on next login" : "2FA required on next login");
+            }}
+            aria-label="Bypass 2FA on login"
+          />
+        </div>
+      </Card>
+
 
       {/* Theme palette */}
       <Card className="p-6 hover-lift">
