@@ -1,4 +1,4 @@
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,26 +7,39 @@ import { Card } from "@/components/ui/card";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { ArrowLeft, Mail, ShieldCheck, Smartphone, Copy, CheckCircle2 } from "lucide-react";
 import { authApi, type TwoFaSetupData } from "@/lib/api/client";
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import AuthHero from "./AuthHero";
 import ThemedQRCode from "./ThemedQRCode";
 
 /**
- * Two-step 2FA setup:
- *  1. Enter email -> POST /auth/2fa/setup -> render themed QR + secret
- *  2. Enter 6-digit code from Authenticator -> POST /auth/2fa/verify-and-enable
+ * Two-step 2FA setup. Two entry paths:
+ *   A. Direct visit / settings — user types email, we call /auth/2fa/setup for a QR.
+ *   B. Redirected from /auth/login when backend returned qrCodeUrl+secretKey directly
+ *      (Case 3 of the auth doc). The QR is read from location.state, no extra call.
+ * After scanning, POST /auth/2fa/verify-and-enable returns a JWT — store it and
+ * navigate straight to the dashboard (Case 3 final step).
  */
 export default function Setup2FAPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [params] = useSearchParams();
-  const initialEmail = params.get("email") ?? "";
+  const stateData = (location.state ?? null) as
+    | { email?: string; secretKey?: string; qrCodeUrl?: string }
+    | null;
+  const initialEmail = stateData?.email ?? params.get("email") ?? "";
+  const { setSession } = useAuth();
   const [email, setEmail] = useState(initialEmail);
-  const [setup, setSetup] = useState<TwoFaSetupData | null>(null);
+  const [setup, setSetup] = useState<TwoFaSetupData | null>(
+    stateData?.qrCodeUrl
+      ? { qrCodeUrl: stateData.qrCodeUrl, secretKey: stateData.secretKey ?? "" }
+      : null,
+  );
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
-  // Auto-trigger setup when the page is opened with ?email=... (e.g. from settings)
+  // Auto-trigger setup only when arriving with an email but no pre-fetched QR.
   useEffect(() => {
     if (initialEmail && !setup) handleSetup(initialEmail);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -51,7 +64,14 @@ export default function Setup2FAPage() {
     if (code.length < 6) return;
     setLoading(true);
     try {
-      await authApi.twoFaVerifyEnable(email.trim(), code.trim());
+      const res: any = await authApi.twoFaVerifyEnable(email.trim(), code.trim());
+      // New backend returns token+user here; if present, log the user straight in.
+      if (res?.data?.token && res?.data?.user) {
+        setSession(res.data.token, res.data.user);
+        toast.success("2FA enabled — signed in");
+        navigate("/ai-chat");
+        return;
+      }
       toast.success("2FA enabled successfully");
       setDone(true);
       setTimeout(() => navigate("/login"), 1500);
