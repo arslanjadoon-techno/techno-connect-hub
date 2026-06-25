@@ -165,9 +165,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const p = PALETTES.find((x) => x.id === paletteId) ?? PALETTES[0];
-    applyPalette(p);
+    applyPalette(p, theme);
     try { window.localStorage.setItem(PALETTE_KEY, p.id); } catch { /* ignore */ }
-  }, [paletteId]);
+  }, [paletteId, theme]);
 
   const palette = useMemo(() => PALETTES.find((p) => p.id === paletteId) ?? PALETTES[0], [paletteId]);
 
