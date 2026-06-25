@@ -26,14 +26,27 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const result = await login(email.trim(), password);
-      if ("requires2FA" in result) {
-        toast.message("Two-factor authentication required");
-        navigate(`/verify-2fa?email=${encodeURIComponent(result.email)}`);
+      if (result.kind === "authenticated") {
+        toast.success("Signed in successfully");
+        navigate("/ai-chat");
         return;
       }
-      toast.success("Signed in successfully");
-      navigate("/ai-chat");
+      if (result.kind === "setup2fa") {
+        toast.message("Set up Google Authenticator to continue");
+        navigate("/setup-2fa", {
+          state: {
+            email: result.email,
+            secretKey: result.secretKey,
+            qrCodeUrl: result.qrCodeUrl,
+          },
+        });
+        return;
+      }
+      // verify2fa
+      toast.message("Enter the 6-digit code from Google Authenticator");
+      navigate(`/verify-2fa?email=${encodeURIComponent(result.email)}`);
     } catch (err) {
+      // Blocked account or wrong credentials — backend message surfaces here.
       toast.error((err as Error).message);
     } finally { setLoading(false); }
   };
