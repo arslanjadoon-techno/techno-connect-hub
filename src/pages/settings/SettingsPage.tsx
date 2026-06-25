@@ -33,6 +33,14 @@ export default function SettingsPage() {
   const [showNew, setShowNew] = useState(false);
   const [showConf, setShowConf] = useState(false);
 
+  // Bypass 2FA preference (stored locally; backend honors it on next login)
+  const [bypass2fa, setBypass2fa] = useState<boolean>(() => {
+    try { return window.localStorage.getItem(BYPASS_2FA_KEY) === "true"; } catch { return false; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem(BYPASS_2FA_KEY, String(bypass2fa)); } catch { /* ignore */ }
+  }, [bypass2fa]);
+
   if (!user) return null;
 
   const onPickImage = (file: File) => {
