@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { CrudPage } from "@/components/crud-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { MultiSelect } from "@/components/multi-select";
 import { usersApi, hierarchyApi, StatesApi, DistrictsApi, MarketsApi, StoresApi } from "@/lib/api/client";
 import { toast } from "sonner";
-import { Loader2, Search, XCircle, Shield, CheckCircle2, AlertCircle, Layers } from "lucide-react";
+import { Loader2, Search, XCircle, Shield, CheckCircle2, AlertCircle } from "lucide-react";
+import { getUserAvatarColor } from "./user-colors";
 
 // ==========================================
 // HELPERS
@@ -28,17 +31,16 @@ function mapBackendToFrontendUser(bu: any): any {
   const parts = (bu.fullName || "").trim().split(/\s+/);
   return {
     id: String(bu.id),
+    _raw: bu,
     firstName: parts[0] ?? "",
     lastName: parts.slice(1).join(" ") || "",
     fullName: bu.fullName || "",
     email: bu.email || "",
     phone: bu.phone || "—",
-
-    // 🌟 FIXED: Agar object hai to .name uthaye, warna string, warna fallback
     department: bu.department && typeof bu.department === "object"
       ? bu.department.name
       : (bu.department || "—"),
-
+    departmentObj: bu.department && typeof bu.department === "object" ? bu.department : null,
     assignedPortals: bu.assignedPortals || [],
     portalAccess: bu.portalAccess || [],
     states: bu.states || [],
@@ -47,7 +49,7 @@ function mapBackendToFrontendUser(bu: any): any {
     stores: bu.stores || [],
     allowedUserManagement: bu.allowedUserManagement ?? false,
     active: bu.active ?? true,
-    avatarColor: "#0d7a5f",
+    avatarColor: getUserAvatarColor(bu.id),
   };
 }
 
@@ -82,15 +84,7 @@ function UsersPage() {
   const isFetchingRef = useRef<boolean>(false);
   const initialLookupsFetchedRef = useRef<boolean>(false);
 
-  useEffect(() => {
-    const styleTag = document.createElement("style");
-    styleTag.innerHTML = `
-      .crud-page-table thead tr, table thead tr { background-color: rgba(244, 244, 245, 1) !important; }
-      table thead th { color: #18181b !important; font-weight: 600 !important; }
-    `;
-    document.head.appendChild(styleTag);
-    return () => { document.head.removeChild(styleTag); };
-  }, []);
+  const navigate = useNavigate();
 
   // 🌟 Fetching Portals with Authorized Token Header Injection Pattern
   const fetchPortalsMaster = async () => {
@@ -182,6 +176,40 @@ function UsersPage() {
     }
   };
 
+  const handleToggleActive = async (u: any, nextValue: boolean) => {
+    try {
+      setActionLoading(true);
+      // Optimistic UI
+      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, active: nextValue } : x));
+      const raw = u._raw ?? {};
+      const payload: any = {
+        id: Number(u.id),
+        fullName: raw.fullName ?? u.fullName,
+        email: raw.email ?? u.email,
+        phone: raw.phone ?? (u.phone === "—" ? null : u.phone),
+        department: raw.department ?? u.departmentObj ?? null,
+        allowedUserManagement: raw.allowedUserManagement ?? u.allowedUserManagement,
+        active: nextValue,
+        assignedPortals: raw.assignedPortals ?? u.assignedPortals,
+        portalAccess: raw.portalAccess ?? u.portalAccess,
+        states: raw.states ?? u.states,
+        districts: raw.districts ?? u.districts,
+        markets: raw.markets ?? u.markets,
+        stores: raw.stores ?? u.stores,
+      };
+      const res = await usersApi.update(payload);
+      if (res.success) {
+        toast.success(`User ${nextValue ? "activated" : "deactivated"}`);
+      }
+    } catch (err: any) {
+      // revert
+      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, active: !nextValue } : x));
+      toast.error(err?.message || "Failed to update status");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const filteredMainDeptsOptions = useMemo(() => {
     return dynamicDepts.filter((d) => (d.name || "").toLowerCase().includes(mainDeptSearch.toLowerCase()));
   }, [dynamicDepts, mainDeptSearch]);
@@ -268,17 +296,20 @@ function UsersPage() {
               <Button type="button" variant="ghost" size="sm" disabled={deptFilter === "all" && portalFilter === "all"} onClick={() => { lastFetchedKey.current = ""; setPage(0); setDeptFilter("all"); setPortalFilter("all"); }} className="h-9 px-3 text-xs border border-dashed border-muted-foreground/30"><XCircle className="h-3.5 w-3.5 mr-1.5" />Reset Filters</Button>
             </div>
           }
+          onRowClick={(u: any) => navigate(`/admin/users/${u.id}`)}
           columns={[
             {
               key: "name", header: "Name", accessor: (u) => (
                 <div className="flex items-center gap-2 py-1">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white uppercase" style={{ backgroundColor: u.avatarColor ?? "#0d7a5f" }}>
+                  <div
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white uppercase"
+                    style={{ backgroundColor: u.avatarColor }}
+                  >
                     {(u.firstName?.[0] || "")}{(u.lastName?.[0] || "")}
                   </div>
                   <div>
                     <div className="font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
                       {u.fullName}
-                      {!u.active && <Badge variant="destructive" className="h-4 px-1 text-[9px]">Inactive</Badge>}
                       {u.allowedUserManagement && (
                         <Shield className="h-3.5 w-3.5 text-indigo-500 fill-indigo-500/10">
                           <title>User Manager Enabled</title>
@@ -293,26 +324,19 @@ function UsersPage() {
             { key: "phone", header: "Phone", accessor: (u) => u.phone || "—" },
             { key: "dept", header: "Department", accessor: (u) => u.department || "—" },
             {
-              key: "assignedPortals",
-              header: "Portal Access Control",
+              key: "active",
+              header: "Active",
+              className: "w-24",
               accessor: (u) => (
-                <div className="flex flex-wrap gap-1.5 max-w-[360px] py-1">
-                  {Array.isArray(u.portalAccess) && u.portalAccess.length > 0 ? (
-                    u.portalAccess.map((pa: any) => (
-                      <Badge key={pa.portalId} variant="outline" className={`text-[11px] px-2 py-0.5 rounded-md font-medium shadow-none border ${getPortalColor(pa.portalName)}`}>
-                        {formatRoleName(pa.portalName)}: <span className="font-bold underline ml-1">{formatRoleName(pa.roleName)}</span>
-                      </Badge>
-                    ))
-                  ) : (
-                    <span className="text-muted-foreground text-xs italic">No portals assigned</span>
-                  )}
+                <div onClick={(e) => e.stopPropagation()}>
+                  <Switch
+                    checked={!!u.active}
+                    disabled={actionLoading}
+                    onCheckedChange={(v) => handleToggleActive(u, v)}
+                  />
                 </div>
               )
             },
-            { key: "states", header: "States Managed", accessor: (u) => (u.states?.map((x: any) => x.name || x).join(", ") || "—") },
-            { key: "districts", header: "Districts Managed", accessor: (u) => (u.districts?.map((x: any) => x.name || x).join(", ") || "—") },
-            { key: "markets", header: "Markets Managed", accessor: (u) => (u.markets?.map((x: any) => x.name || x).join(", ") || "—") },
-            { key: "stores", header: "Stores Managed", accessor: (u) => (u.stores?.map((x: any) => x.name || x).join(", ") || "—") },
           ]}
           onDelete={handleDelete}
           renderForm={(initial, close) => (
@@ -375,10 +399,13 @@ function UserForm({
   const [dbMarkets, setDbMarkets] = useState<any[]>([]);
   const [dbStores, setDbStores] = useState<any[]>([]);
 
-  const [stateId, setStateId] = useState("");
-  const [districtId, setDistrictId] = useState("");
-  const [marketId, setMarketId] = useState("");
-  const [storeId, setStoreId] = useState("");
+  const initialIds = (arr: any[] | undefined) =>
+    Array.isArray(arr) ? arr.map((x: any) => String(x?.id ?? x)).filter(Boolean) : [];
+
+  const [stateIds, setStateIds] = useState<string[]>(initialIds(initial?.states));
+  const [districtIds, setDistrictIds] = useState<string[]>(initialIds(initial?.districts));
+  const [marketIds, setMarketIds] = useState<string[]>(initialIds(initial?.markets));
+  const [storeIds, setStoreIds] = useState<string[]>(initialIds(initial?.stores));
   const [submitting, setSubmitting] = useState(false);
 
   const activeRolesList = Object.keys(portalConfig)
@@ -392,23 +419,11 @@ function UserForm({
 
   useEffect(() => {
     hierarchyApi.getDepartments().then(res => { if (res.success) setDbDepts(res.data); });
-    StatesApi.getAll().then(res => { if (res.success && res.data) setDbStates(res.data); });
+    StatesApi.getAll({ size: 1000 } as any).then(res => { if (res.success && res.data) setDbStates(res.data); });
+    DistrictsApi.getAll({ size: 5000 } as any).then(res => { if (res.success && res.data) setDbDistricts(res.data); });
+    MarketsApi.getAll({ size: 5000 } as any).then(res => { if (res.success && res.data) setDbMarkets(res.data); });
+    StoresApi.getAll({ size: 5000 } as any).then(res => { if (res.success && res.data) setDbStores(res.data); });
   }, []);
-
-  useEffect(() => {
-    if (stateId) DistrictsApi.getAll({ state: stateId, size: 1000 }).then(res => { if (res.success && res.data) setDbDistricts(res.data); });
-    else setDbDistricts([]);
-  }, [stateId]);
-
-  useEffect(() => {
-    if (districtId) MarketsApi.getAll({ district: districtId, size: 1000 }).then(res => { if (res.success && res.data) setDbMarkets(res.data); });
-    else setDbMarkets([]);
-  }, [districtId]);
-
-  useEffect(() => {
-    if (marketId) StoresApi.getAll({ market: marketId, size: 1000 }).then(res => { if (res.success && res.data) setDbStores(res.data); });
-    else setDbStores([]);
-  }, [marketId]);
 
   const handlePortalToggle = (pName: string, checked: boolean) => {
     setPortalConfig(prev => ({
@@ -429,10 +444,10 @@ function UserForm({
 
   const isDeptFilled = department !== "placeholder" && !!department;
   const isHierarchyFilled =
-    (!needsState || !!stateId) &&
-    (!needsDistrict || !!districtId) &&
-    (!needsMarket || !!marketId) &&
-    (!needsStore || !!storeId);
+    (!needsState || stateIds.length > 0) &&
+    (!needsDistrict || districtIds.length > 0) &&
+    (!needsMarket || marketIds.length > 0) &&
+    (!needsStore || storeIds.length > 0);
 
   const hasSelectedPortals = Object.values(portalConfig).some(p => p.enabled);
   const canSave = fullName.trim().length >= 2 && validEmail && passwordOk && isDeptFilled && isHierarchyFilled && hasSelectedPortals;
@@ -444,10 +459,10 @@ function UserForm({
     if (!initial && password !== confirmPassword) return "Form entry passwords do not match";
     if (department === "placeholder") return "Department assignment is required";
     if (!hasSelectedPortals) return "Please enable access control mapping for at least one portal";
-    if (needsState && !stateId) return "State mapping selection is required";
-    if (needsDistrict && !districtId) return "District mapping selection is required";
-    if (needsMarket && !marketId) return "Market mapping selection is required";
-    if (needsStore && !storeId) return "Store mapping selection is required";
+    if (needsState && stateIds.length === 0) return "Select at least one state";
+    if (needsDistrict && districtIds.length === 0) return "Select at least one district";
+    if (needsMarket && marketIds.length === 0) return "Select at least one market";
+    if (needsStore && storeIds.length === 0) return "Select at least one store";
     return null;
   })();
 
@@ -474,30 +489,28 @@ function UserForm({
         }
       });
 
-      const selectedStateObj = dbStates.find(s => s.id.toString() === stateId);
-      const selectedDistrictObj = dbDistricts.find(d => d.id.toString() === districtId);
-      const selectedMarketObj = dbMarkets.find(m => m.id.toString() === marketId);
-      const selectedStoreObj = dbStores.find(s => s.id.toString() === storeId);
+      const pickObjs = (list: any[], ids: string[]) =>
+        list.filter(x => ids.includes(String(x.id))).map(x => ({ id: Number(x.id), name: x.name }));
+      const selectedStates = pickObjs(dbStates, stateIds);
+      const selectedDistricts = pickObjs(dbDistricts, districtIds);
+      const selectedMarkets = pickObjs(dbMarkets, marketIds);
+      const selectedStores = pickObjs(dbStores, storeIds);
 
-      // 🌟 FIXED HERE: String 'IT' ke bajay database se us department ka poora Object find kiya
       const selectedDeptObj = dbDepts.find(d => d.name === department);
 
       const payload = {
         fullName: fullName.trim(),
         email: email.trim(),
         phone: phone.trim() || null,
-
-        // 🌟 FIXED HERE: Backend ki IdNameDTO mapping ke mutabik structure pass kiya
         department: selectedDeptObj ? { id: selectedDeptObj.id, name: selectedDeptObj.name } : null,
-
         allowedUserManagement,
         active,
         assignedPortals,
         portalAccess,
-        states: needsState && selectedStateObj ? [{ id: Number(selectedStateObj.id), name: selectedStateObj.name }] : [],
-        districts: needsDistrict && selectedDistrictObj ? [{ id: Number(selectedDistrictObj.id), name: selectedDistrictObj.name }] : [],
-        markets: needsMarket && selectedMarketObj ? [{ id: Number(selectedMarketObj.id), name: selectedMarketObj.name }] : [],
-        stores: needsStore && selectedStoreObj ? [{ id: Number(selectedStoreObj.id), name: selectedStoreObj.name }] : [],
+        states: needsState ? selectedStates : [],
+        districts: needsDistrict ? selectedDistricts : [],
+        markets: needsMarket ? selectedMarkets : [],
+        stores: needsStore ? selectedStores : [],
       };
 
       if (initial) {
@@ -644,41 +657,49 @@ function UserForm({
           <div className="grid grid-cols-2 gap-3">
             {needsState && (
               <div className="space-y-1.5">
-                <Label>State <span className="text-destructive">*</span></Label>
-                <Select value={stateId} onValueChange={(v) => { setStateId(v); setDistrictId(""); setMarketId(""); setStoreId(""); }}>
-                  <SelectTrigger className="bg-white dark:bg-zinc-950"><SelectValue placeholder="Select state" /></SelectTrigger>
-                  <SelectContent>{dbStates.map((s) => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <Label>States <span className="text-destructive">*</span></Label>
+                <MultiSelect
+                  options={dbStates.map(s => ({ value: String(s.id), label: s.name }))}
+                  value={stateIds}
+                  onChange={setStateIds}
+                  placeholder="Select states"
+                />
               </div>
             )}
 
             {needsDistrict && (
               <div className="space-y-1.5">
-                <Label>District <span className="text-destructive">*</span></Label>
-                <Select value={districtId} disabled={!stateId} onValueChange={(v) => { setDistrictId(v); setMarketId(""); setStoreId(""); }}>
-                  <SelectTrigger className="bg-white dark:bg-zinc-950"><SelectValue placeholder={!stateId ? "Choose state first" : "Select district"} /></SelectTrigger>
-                  <SelectContent>{dbDistricts.map((d) => <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <Label>Districts <span className="text-destructive">*</span></Label>
+                <MultiSelect
+                  options={dbDistricts.map(d => ({ value: String(d.id), label: d.name }))}
+                  value={districtIds}
+                  onChange={setDistrictIds}
+                  placeholder="Select districts"
+                />
               </div>
             )}
 
             {needsMarket && (
               <div className="space-y-1.5">
-                <Label>Market <span className="text-destructive">*</span></Label>
-                <Select value={marketId} disabled={!districtId} onValueChange={(v) => { setMarketId(v); setStoreId(""); }}>
-                  <SelectTrigger className="bg-white dark:bg-zinc-950"><SelectValue placeholder={!districtId ? "Choose district first" : "Select market"} /></SelectTrigger>
-                  <SelectContent>{dbMarkets.map((m) => <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <Label>Markets <span className="text-destructive">*</span></Label>
+                <MultiSelect
+                  options={dbMarkets.map(m => ({ value: String(m.id), label: m.name }))}
+                  value={marketIds}
+                  onChange={setMarketIds}
+                  placeholder="Select markets"
+                />
               </div>
             )}
 
             {needsStore && (
               <div className="space-y-1.5">
-                <Label>Store <span className="text-destructive">*</span></Label>
-                <Select value={storeId} disabled={!marketId} onValueChange={setStoreId}>
-                  <SelectTrigger className="bg-white dark:bg-zinc-950"><SelectValue placeholder={!marketId ? "Choose market first" : "Select store"} /></SelectTrigger>
-                  <SelectContent>{dbStores.map((s) => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <Label>Stores <span className="text-destructive">*</span></Label>
+                <MultiSelect
+                  options={dbStores.map(s => ({ value: String(s.id), label: s.name }))}
+                  value={storeIds}
+                  onChange={setStoreIds}
+                  placeholder="Select stores"
+                />
               </div>
             )}
           </div>

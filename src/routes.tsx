@@ -20,6 +20,7 @@ import TicketDetailPage from "@/pages/portals/ticketing/TicketDetailPage";
 import CommissionDashboardPage from "@/pages/portals/commission/DashboardPage";
 
 import UsersPage from "@/pages/user-manager/UsersPage";
+import UserDetailPage from "@/pages/user-manager/UserDetailPage";
 import DepartmentsPage from "@/pages/user-manager/DepartmentsPage";
 import DistrictsPage from "@/pages/user-manager/DistrictsPage";
 import StatesPage from "@/pages/user-manager/StatesPage";
@@ -68,6 +69,7 @@ export function AppRoutes() {
         <Route path="/commission/dashboard" element={<CommissionDashboardPage />} />
 
         <Route path="/admin/users" element={<UsersPage />} />
+        <Route path="/admin/users/:id" element={<UserDetailPage />} />
         <Route path="/admin/departments" element={<DepartmentsPage />} />
         <Route path="/admin/districts" element={<DistrictsPage />} />
         <Route path="/admin/states" element={<StatesPage />} />
