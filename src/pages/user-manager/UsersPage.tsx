@@ -444,10 +444,10 @@ function UserForm({
 
   const isDeptFilled = department !== "placeholder" && !!department;
   const isHierarchyFilled =
-    (!needsState || !!stateId) &&
-    (!needsDistrict || !!districtId) &&
-    (!needsMarket || !!marketId) &&
-    (!needsStore || !!storeId);
+    (!needsState || stateIds.length > 0) &&
+    (!needsDistrict || districtIds.length > 0) &&
+    (!needsMarket || marketIds.length > 0) &&
+    (!needsStore || storeIds.length > 0);
 
   const hasSelectedPortals = Object.values(portalConfig).some(p => p.enabled);
   const canSave = fullName.trim().length >= 2 && validEmail && passwordOk && isDeptFilled && isHierarchyFilled && hasSelectedPortals;
@@ -459,10 +459,10 @@ function UserForm({
     if (!initial && password !== confirmPassword) return "Form entry passwords do not match";
     if (department === "placeholder") return "Department assignment is required";
     if (!hasSelectedPortals) return "Please enable access control mapping for at least one portal";
-    if (needsState && !stateId) return "State mapping selection is required";
-    if (needsDistrict && !districtId) return "District mapping selection is required";
-    if (needsMarket && !marketId) return "Market mapping selection is required";
-    if (needsStore && !storeId) return "Store mapping selection is required";
+    if (needsState && stateIds.length === 0) return "Select at least one state";
+    if (needsDistrict && districtIds.length === 0) return "Select at least one district";
+    if (needsMarket && marketIds.length === 0) return "Select at least one market";
+    if (needsStore && storeIds.length === 0) return "Select at least one store";
     return null;
   })();
 
