@@ -31,17 +31,16 @@ function mapBackendToFrontendUser(bu: any): any {
   const parts = (bu.fullName || "").trim().split(/\s+/);
   return {
     id: String(bu.id),
+    _raw: bu,
     firstName: parts[0] ?? "",
     lastName: parts.slice(1).join(" ") || "",
     fullName: bu.fullName || "",
     email: bu.email || "",
     phone: bu.phone || "—",
-
-    // 🌟 FIXED: Agar object hai to .name uthaye, warna string, warna fallback
     department: bu.department && typeof bu.department === "object"
       ? bu.department.name
       : (bu.department || "—"),
-
+    departmentObj: bu.department && typeof bu.department === "object" ? bu.department : null,
     assignedPortals: bu.assignedPortals || [],
     portalAccess: bu.portalAccess || [],
     states: bu.states || [],
@@ -50,7 +49,7 @@ function mapBackendToFrontendUser(bu: any): any {
     stores: bu.stores || [],
     allowedUserManagement: bu.allowedUserManagement ?? false,
     active: bu.active ?? true,
-    avatarColor: "#0d7a5f",
+    avatarColor: getUserAvatarColor(bu.id),
   };
 }
 
