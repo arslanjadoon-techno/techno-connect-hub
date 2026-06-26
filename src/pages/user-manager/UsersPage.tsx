@@ -84,15 +84,7 @@ function UsersPage() {
   const isFetchingRef = useRef<boolean>(false);
   const initialLookupsFetchedRef = useRef<boolean>(false);
 
-  useEffect(() => {
-    const styleTag = document.createElement("style");
-    styleTag.innerHTML = `
-      .crud-page-table thead tr, table thead tr { background-color: rgba(244, 244, 245, 1) !important; }
-      table thead th { color: #18181b !important; font-weight: 600 !important; }
-    `;
-    document.head.appendChild(styleTag);
-    return () => { document.head.removeChild(styleTag); };
-  }, []);
+  const navigate = useNavigate();
 
   // 🌟 Fetching Portals with Authorized Token Header Injection Pattern
   const fetchPortalsMaster = async () => {
