@@ -72,57 +72,61 @@ export function CrudPage<T>({
   const augmentedCols: Column<T>[] = [
     ...columns,
     {
-      key: "__actions", 
-      header: "Actions", 
-      className: "w-24 text-right pr-6", 
+      key: "__actions",
+      header: "Actions",
+      className: "w-32 text-right pr-6",
       accessor: (row) => {
         const currentKey = rowKey(row);
         const isThisDeleting = isSaving && activeDeleteKey === currentKey;
 
         return (
-          <div className="flex justify-end gap-1">
-            <Button
-              size="icon" variant="ghost"
-              disabled={isSaving}
-              onClick={() => { setEditing(row); setOpen(true); }}
-              title="Edit"
-            >
-              <Pencil className="h-4 w-4" />
-            </Button>
-            
-            <AlertDialog 
+          <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+            {extraRowActions?.(row)}
+            {!hideEdit && (
+              <Button
+                size="icon" variant="ghost"
+                disabled={isSaving}
+                onClick={() => { setEditing(row); setOpen(true); }}
+                title="Edit"
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            )}
+
+            {!hideDelete && (
+            <AlertDialog
               open={activeDeleteKey === currentKey}
               onOpenChange={(isOpen) => {
-                if (isSaving) return; 
+                if (isSaving) return;
                 setActiveDeleteKey(isOpen ? currentKey : null);
               }}
             >
               <AlertDialogTrigger asChild>
-                <Button 
-                  size="icon" 
-                  variant="ghost" 
-                  title="Delete" 
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  title="Delete"
                   disabled={isSaving}
                   onClick={() => setActiveDeleteKey(currentKey)}
                 >
                   <Trash2 className="h-4 w-4 text-destructive" />
                 </Button>
               </AlertDialogTrigger>
-              
+
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete record?</AlertDialogTitle>
                   <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel 
+                  <AlertDialogCancel
                     disabled={isSaving}
                     onClick={() => setActiveDeleteKey(null)}
                   >
                     Cancel
                   </AlertDialogCancel>
-                  
-                  <Button 
+
+                  <Button
                     variant="destructive"
                     className="flex items-center gap-2"
                     disabled={isSaving}
@@ -136,6 +140,7 @@ export function CrudPage<T>({
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
+            )}
           </div>
         );
       },
@@ -146,7 +151,7 @@ export function CrudPage<T>({
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-semibold">{title}</h1>
+          {title && <h1 className="font-display text-2xl font-semibold">{title}</h1>}
           {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         </div>
         <Dialog open={open} onOpenChange={(o) => { if (isSaving) return; setOpen(o); if (!o) setEditing(null); }}>
@@ -167,14 +172,15 @@ export function CrudPage<T>({
 
       {extraToolbar && <div className="flex flex-wrap items-center gap-3">{extraToolbar}</div>}
 
-      <DataTable 
-        rows={rows} 
-        columns={augmentedCols} 
-        rowKey={rowKey} 
-        searchPlaceholder={`Search ${title.toLowerCase()}...`} 
+      <DataTable
+        rows={rows}
+        columns={augmentedCols}
+        rowKey={rowKey}
+        searchPlaceholder={`Search ${(title ?? "records").toLowerCase()}...`}
         pageSize={pageSize}
         isLoading={isLoading}
-        
+        onRowClick={onRowClick}
+
         {...(rowCount !== undefined && {
           rowCount,
           page,
