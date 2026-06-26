@@ -356,24 +356,6 @@ function UsersPage() {
     </div>
   );
 }
-          onDelete={handleDelete}
-          renderForm={(initial, close) => (
-            <UserForm
-              initial={initial}
-              dynamicRoles={dynamicRoles}
-              portalsMasterList={portalsMasterList}
-              onSaved={() => {
-                lastFetchedKey.current = "";
-                fetchUsers(page, size, deptFilter, portalFilter);
-                close();
-              }}
-            />
-          )}
-        />
-      </div>
-    </div>
-  );
-}
 
 // ==========================================
 // FORM COMPONENT MODAL INSTANCE
