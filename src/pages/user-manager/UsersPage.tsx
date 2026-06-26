@@ -489,22 +489,20 @@ function UserForm({
         }
       });
 
-      const selectedStateObj = dbStates.find(s => s.id.toString() === stateId);
-      const selectedDistrictObj = dbDistricts.find(d => d.id.toString() === districtId);
-      const selectedMarketObj = dbMarkets.find(m => m.id.toString() === marketId);
-      const selectedStoreObj = dbStores.find(s => s.id.toString() === storeId);
+      const pickObjs = (list: any[], ids: string[]) =>
+        list.filter(x => ids.includes(String(x.id))).map(x => ({ id: Number(x.id), name: x.name }));
+      const selectedStates = pickObjs(dbStates, stateIds);
+      const selectedDistricts = pickObjs(dbDistricts, districtIds);
+      const selectedMarkets = pickObjs(dbMarkets, marketIds);
+      const selectedStores = pickObjs(dbStores, storeIds);
 
-      // 🌟 FIXED HERE: String 'IT' ke bajay database se us department ka poora Object find kiya
       const selectedDeptObj = dbDepts.find(d => d.name === department);
 
       const payload = {
         fullName: fullName.trim(),
         email: email.trim(),
         phone: phone.trim() || null,
-
-        // 🌟 FIXED HERE: Backend ki IdNameDTO mapping ke mutabik structure pass kiya
         department: selectedDeptObj ? { id: selectedDeptObj.id, name: selectedDeptObj.name } : null,
-
         allowedUserManagement,
         active,
         assignedPortals,
