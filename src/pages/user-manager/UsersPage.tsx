@@ -657,41 +657,49 @@ function UserForm({
           <div className="grid grid-cols-2 gap-3">
             {needsState && (
               <div className="space-y-1.5">
-                <Label>State <span className="text-destructive">*</span></Label>
-                <Select value={stateId} onValueChange={(v) => { setStateId(v); setDistrictId(""); setMarketId(""); setStoreId(""); }}>
-                  <SelectTrigger className="bg-white dark:bg-zinc-950"><SelectValue placeholder="Select state" /></SelectTrigger>
-                  <SelectContent>{dbStates.map((s) => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <Label>States <span className="text-destructive">*</span></Label>
+                <MultiSelect
+                  options={dbStates.map(s => ({ value: String(s.id), label: s.name }))}
+                  value={stateIds}
+                  onChange={setStateIds}
+                  placeholder="Select states"
+                />
               </div>
             )}
 
             {needsDistrict && (
               <div className="space-y-1.5">
-                <Label>District <span className="text-destructive">*</span></Label>
-                <Select value={districtId} disabled={!stateId} onValueChange={(v) => { setDistrictId(v); setMarketId(""); setStoreId(""); }}>
-                  <SelectTrigger className="bg-white dark:bg-zinc-950"><SelectValue placeholder={!stateId ? "Choose state first" : "Select district"} /></SelectTrigger>
-                  <SelectContent>{dbDistricts.map((d) => <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <Label>Districts <span className="text-destructive">*</span></Label>
+                <MultiSelect
+                  options={dbDistricts.map(d => ({ value: String(d.id), label: d.name }))}
+                  value={districtIds}
+                  onChange={setDistrictIds}
+                  placeholder="Select districts"
+                />
               </div>
             )}
 
             {needsMarket && (
               <div className="space-y-1.5">
-                <Label>Market <span className="text-destructive">*</span></Label>
-                <Select value={marketId} disabled={!districtId} onValueChange={(v) => { setMarketId(v); setStoreId(""); }}>
-                  <SelectTrigger className="bg-white dark:bg-zinc-950"><SelectValue placeholder={!districtId ? "Choose district first" : "Select market"} /></SelectTrigger>
-                  <SelectContent>{dbMarkets.map((m) => <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <Label>Markets <span className="text-destructive">*</span></Label>
+                <MultiSelect
+                  options={dbMarkets.map(m => ({ value: String(m.id), label: m.name }))}
+                  value={marketIds}
+                  onChange={setMarketIds}
+                  placeholder="Select markets"
+                />
               </div>
             )}
 
             {needsStore && (
               <div className="space-y-1.5">
-                <Label>Store <span className="text-destructive">*</span></Label>
-                <Select value={storeId} disabled={!marketId} onValueChange={setStoreId}>
-                  <SelectTrigger className="bg-white dark:bg-zinc-950"><SelectValue placeholder={!marketId ? "Choose market first" : "Select store"} /></SelectTrigger>
-                  <SelectContent>{dbStores.map((s) => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}</SelectContent>
-                </Select>
+                <Label>Stores <span className="text-destructive">*</span></Label>
+                <MultiSelect
+                  options={dbStores.map(s => ({ value: String(s.id), label: s.name }))}
+                  value={storeIds}
+                  onChange={setStoreIds}
+                  placeholder="Select stores"
+                />
               </div>
             )}
           </div>
