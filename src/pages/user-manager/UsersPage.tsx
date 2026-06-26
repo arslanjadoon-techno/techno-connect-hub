@@ -507,10 +507,10 @@ function UserForm({
         active,
         assignedPortals,
         portalAccess,
-        states: needsState && selectedStateObj ? [{ id: Number(selectedStateObj.id), name: selectedStateObj.name }] : [],
-        districts: needsDistrict && selectedDistrictObj ? [{ id: Number(selectedDistrictObj.id), name: selectedDistrictObj.name }] : [],
-        markets: needsMarket && selectedMarketObj ? [{ id: Number(selectedMarketObj.id), name: selectedMarketObj.name }] : [],
-        stores: needsStore && selectedStoreObj ? [{ id: Number(selectedStoreObj.id), name: selectedStoreObj.name }] : [],
+        states: needsState ? selectedStates : [],
+        districts: needsDistrict ? selectedDistricts : [],
+        markets: needsMarket ? selectedMarkets : [],
+        stores: needsStore ? selectedStores : [],
       };
 
       if (initial) {
