@@ -27,7 +27,7 @@ export function AdminGuard({ children }: { children: ReactNode }) {
 }
 
 interface CrudPageProps<T> {
-  title: string;
+  title?: string;
   subtitle?: string;
   rows: T[];
   columns: Column<T>[];
@@ -39,7 +39,11 @@ interface CrudPageProps<T> {
   pageSize?: number;
   isSaving?: boolean;
   isLoading?: boolean;
-  
+  onRowClick?: (row: T) => void;
+  extraRowActions?: (row: T) => ReactNode;
+  hideEdit?: boolean;
+  hideDelete?: boolean;
+
   // Backend sync parameters
   rowCount?: number;
   page?: number;
@@ -50,7 +54,8 @@ interface CrudPageProps<T> {
 export function CrudPage<T>({
   title, subtitle, rows, columns, rowKey, renderForm, onDelete,
   createLabel = "Add new", extraToolbar, pageSize = 10, isSaving = false,
-  isLoading = false, // 1. CHANGED: Destructured isLoading from props here
+  isLoading = false,
+  onRowClick, extraRowActions, hideEdit = false, hideDelete = false,
   rowCount, page, onPageChange, onPageSizeChange,
 }: CrudPageProps<T>) {
   const [editing, setEditing] = useState<T | null>(null);
