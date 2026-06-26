@@ -296,17 +296,20 @@ function UsersPage() {
               <Button type="button" variant="ghost" size="sm" disabled={deptFilter === "all" && portalFilter === "all"} onClick={() => { lastFetchedKey.current = ""; setPage(0); setDeptFilter("all"); setPortalFilter("all"); }} className="h-9 px-3 text-xs border border-dashed border-muted-foreground/30"><XCircle className="h-3.5 w-3.5 mr-1.5" />Reset Filters</Button>
             </div>
           }
+          onRowClick={(u: any) => navigate(`/admin/users/${u.id}`)}
           columns={[
             {
               key: "name", header: "Name", accessor: (u) => (
                 <div className="flex items-center gap-2 py-1">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white uppercase" style={{ backgroundColor: u.avatarColor ?? "#0d7a5f" }}>
+                  <div
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white uppercase"
+                    style={{ backgroundColor: u.avatarColor }}
+                  >
                     {(u.firstName?.[0] || "")}{(u.lastName?.[0] || "")}
                   </div>
                   <div>
                     <div className="font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
                       {u.fullName}
-                      {!u.active && <Badge variant="destructive" className="h-4 px-1 text-[9px]">Inactive</Badge>}
                       {u.allowedUserManagement && (
                         <Shield className="h-3.5 w-3.5 text-indigo-500 fill-indigo-500/10">
                           <title>User Manager Enabled</title>
@@ -321,27 +324,38 @@ function UsersPage() {
             { key: "phone", header: "Phone", accessor: (u) => u.phone || "—" },
             { key: "dept", header: "Department", accessor: (u) => u.department || "—" },
             {
-              key: "assignedPortals",
-              header: "Portal Access Control",
+              key: "active",
+              header: "Active",
+              className: "w-24",
               accessor: (u) => (
-                <div className="flex flex-wrap gap-1.5 max-w-[360px] py-1">
-                  {Array.isArray(u.portalAccess) && u.portalAccess.length > 0 ? (
-                    u.portalAccess.map((pa: any) => (
-                      <Badge key={pa.portalId} variant="outline" className={`text-[11px] px-2 py-0.5 rounded-md font-medium shadow-none border ${getPortalColor(pa.portalName)}`}>
-                        {formatRoleName(pa.portalName)}: <span className="font-bold underline ml-1">{formatRoleName(pa.roleName)}</span>
-                      </Badge>
-                    ))
-                  ) : (
-                    <span className="text-muted-foreground text-xs italic">No portals assigned</span>
-                  )}
+                <div onClick={(e) => e.stopPropagation()}>
+                  <Switch
+                    checked={!!u.active}
+                    disabled={actionLoading}
+                    onCheckedChange={(v) => handleToggleActive(u, v)}
+                  />
                 </div>
               )
             },
-            { key: "states", header: "States Managed", accessor: (u) => (u.states?.map((x: any) => x.name || x).join(", ") || "—") },
-            { key: "districts", header: "Districts Managed", accessor: (u) => (u.districts?.map((x: any) => x.name || x).join(", ") || "—") },
-            { key: "markets", header: "Markets Managed", accessor: (u) => (u.markets?.map((x: any) => x.name || x).join(", ") || "—") },
-            { key: "stores", header: "Stores Managed", accessor: (u) => (u.stores?.map((x: any) => x.name || x).join(", ") || "—") },
           ]}
+          onDelete={handleDelete}
+          renderForm={(initial, close) => (
+            <UserForm
+              initial={initial}
+              dynamicRoles={dynamicRoles}
+              portalsMasterList={portalsMasterList}
+              onSaved={() => {
+                lastFetchedKey.current = "";
+                fetchUsers(page, size, deptFilter, portalFilter);
+                close();
+              }}
+            />
+          )}
+        />
+      </div>
+    </div>
+  );
+}
           onDelete={handleDelete}
           renderForm={(initial, close) => (
             <UserForm
