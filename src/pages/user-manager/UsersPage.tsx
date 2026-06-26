@@ -176,6 +176,40 @@ function UsersPage() {
     }
   };
 
+  const handleToggleActive = async (u: any, nextValue: boolean) => {
+    try {
+      setActionLoading(true);
+      // Optimistic UI
+      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, active: nextValue } : x));
+      const raw = u._raw ?? {};
+      const payload: any = {
+        id: Number(u.id),
+        fullName: raw.fullName ?? u.fullName,
+        email: raw.email ?? u.email,
+        phone: raw.phone ?? (u.phone === "—" ? null : u.phone),
+        department: raw.department ?? u.departmentObj ?? null,
+        allowedUserManagement: raw.allowedUserManagement ?? u.allowedUserManagement,
+        active: nextValue,
+        assignedPortals: raw.assignedPortals ?? u.assignedPortals,
+        portalAccess: raw.portalAccess ?? u.portalAccess,
+        states: raw.states ?? u.states,
+        districts: raw.districts ?? u.districts,
+        markets: raw.markets ?? u.markets,
+        stores: raw.stores ?? u.stores,
+      };
+      const res = await usersApi.update(payload);
+      if (res.success) {
+        toast.success(`User ${nextValue ? "activated" : "deactivated"}`);
+      }
+    } catch (err: any) {
+      // revert
+      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, active: !nextValue } : x));
+      toast.error(err?.message || "Failed to update status");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const filteredMainDeptsOptions = useMemo(() => {
     return dynamicDepts.filter((d) => (d.name || "").toLowerCase().includes(mainDeptSearch.toLowerCase()));
   }, [dynamicDepts, mainDeptSearch]);
