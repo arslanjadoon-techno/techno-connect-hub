@@ -55,7 +55,7 @@ export default function LoginPage() {
     <div className="relative grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
       {/* Hero side with curved right edge */}
       <div
-        className="relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex lg:clip-wave-right lg:-mr-16 lg:z-10"
+        className="relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex clip-wave-right lg:-mr-16 lg:z-10"
         style={{ backgroundImage: "var(--gradient-hero)" }}
       >
         {/* Floating big blobs */}
