@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { CrudPage } from "@/components/crud-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,9 +7,11 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { MultiSelect } from "@/components/multi-select";
 import { usersApi, hierarchyApi, StatesApi, DistrictsApi, MarketsApi, StoresApi } from "@/lib/api/client";
 import { toast } from "sonner";
-import { Loader2, Search, XCircle, Shield, CheckCircle2, AlertCircle, Layers } from "lucide-react";
+import { Loader2, Search, XCircle, Shield, CheckCircle2, AlertCircle } from "lucide-react";
+import { getUserAvatarColor } from "./user-colors";
 
 // ==========================================
 // HELPERS
