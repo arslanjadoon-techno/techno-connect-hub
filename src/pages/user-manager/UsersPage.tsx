@@ -399,10 +399,13 @@ function UserForm({
   const [dbMarkets, setDbMarkets] = useState<any[]>([]);
   const [dbStores, setDbStores] = useState<any[]>([]);
 
-  const [stateId, setStateId] = useState("");
-  const [districtId, setDistrictId] = useState("");
-  const [marketId, setMarketId] = useState("");
-  const [storeId, setStoreId] = useState("");
+  const initialIds = (arr: any[] | undefined) =>
+    Array.isArray(arr) ? arr.map((x: any) => String(x?.id ?? x)).filter(Boolean) : [];
+
+  const [stateIds, setStateIds] = useState<string[]>(initialIds(initial?.states));
+  const [districtIds, setDistrictIds] = useState<string[]>(initialIds(initial?.districts));
+  const [marketIds, setMarketIds] = useState<string[]>(initialIds(initial?.markets));
+  const [storeIds, setStoreIds] = useState<string[]>(initialIds(initial?.stores));
   const [submitting, setSubmitting] = useState(false);
 
   const activeRolesList = Object.keys(portalConfig)
@@ -416,23 +419,11 @@ function UserForm({
 
   useEffect(() => {
     hierarchyApi.getDepartments().then(res => { if (res.success) setDbDepts(res.data); });
-    StatesApi.getAll().then(res => { if (res.success && res.data) setDbStates(res.data); });
+    StatesApi.getAll({ size: 1000 } as any).then(res => { if (res.success && res.data) setDbStates(res.data); });
+    DistrictsApi.getAll({ size: 5000 } as any).then(res => { if (res.success && res.data) setDbDistricts(res.data); });
+    MarketsApi.getAll({ size: 5000 } as any).then(res => { if (res.success && res.data) setDbMarkets(res.data); });
+    StoresApi.getAll({ size: 5000 } as any).then(res => { if (res.success && res.data) setDbStores(res.data); });
   }, []);
-
-  useEffect(() => {
-    if (stateId) DistrictsApi.getAll({ state: stateId, size: 1000 }).then(res => { if (res.success && res.data) setDbDistricts(res.data); });
-    else setDbDistricts([]);
-  }, [stateId]);
-
-  useEffect(() => {
-    if (districtId) MarketsApi.getAll({ district: districtId, size: 1000 }).then(res => { if (res.success && res.data) setDbMarkets(res.data); });
-    else setDbMarkets([]);
-  }, [districtId]);
-
-  useEffect(() => {
-    if (marketId) StoresApi.getAll({ market: marketId, size: 1000 }).then(res => { if (res.success && res.data) setDbStores(res.data); });
-    else setDbStores([]);
-  }, [marketId]);
 
   const handlePortalToggle = (pName: string, checked: boolean) => {
     setPortalConfig(prev => ({
