@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { usersApi } from "@/lib/api/client";
+import { usersApi, hierarchyApi } from "@/lib/api/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,9 +11,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ArrowLeft, Loader2, Trash2, Mail, Phone, Building2, Shield,
-  MapPin, Map as MapIcon, Store, Home, CheckCircle2, XCircle, Layers,
+  MapPin, Map as MapIcon, Store, Home, CheckCircle2, XCircle, Layers, Pencil, X,
 } from "lucide-react";
 import { getUserAvatarColor } from "./user-colors";
+import { UserForm } from "./UsersPage";
 
 function Section({ icon: Icon, title, children, empty }: any) {
   return (
@@ -46,6 +47,9 @@ export default function UserDetailPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [dynamicRoles, setDynamicRoles] = useState<string[]>([]);
+  const [portalsMasterList, setPortalsMasterList] = useState<any[]>([]);
 
   const fetchUser = async () => {
     if (!id) return;
@@ -60,7 +64,21 @@ export default function UserDetailPage() {
     }
   };
 
-  useEffect(() => { fetchUser(); }, [id]);
+  const fetchLookups = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const [rolesRes, portalsRes] = await Promise.all([
+        hierarchyApi.getRoles(),
+        fetch("http://localhost:4570/api/portals/get-all", {
+          headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
+        }).then(r => r.json()),
+      ]);
+      if (rolesRes.success && Array.isArray(rolesRes.data)) setDynamicRoles(rolesRes.data);
+      if (portalsRes?.success && Array.isArray(portalsRes.data)) setPortalsMasterList(portalsRes.data);
+    } catch {}
+  };
+
+  useEffect(() => { fetchUser(); fetchLookups(); }, [id]);
 
   const handleDelete = async () => {
     if (!user) return;
@@ -87,13 +105,27 @@ export default function UserDetailPage() {
     );
   }
   if (!user) {
-    return (
-      <div className="py-20 text-center text-muted-foreground">User not found.</div>
-    );
+    return <div className="py-20 text-center text-muted-foreground">User not found.</div>;
   }
 
   const initials = (user.fullName || "?").split(/\s+/).map((p: string) => p[0]).slice(0, 2).join("").toUpperCase();
   const avatarBg = getUserAvatarColor(user.id);
+
+  // Build a UserForm-compatible "initial" object from raw backend record
+  const formInitial = {
+    id: String(user.id),
+    fullName: user.fullName,
+    email: user.email,
+    phone: user.phone ?? "",
+    department: user.department && typeof user.department === "object" ? user.department.name : (user.department ?? "—"),
+    allowedUserManagement: user.allowedUserManagement ?? false,
+    active: user.active ?? true,
+    portalAccess: user.portalAccess ?? [],
+    states: user.states ?? [],
+    districts: user.districts ?? [],
+    markets: user.markets ?? [],
+    stores: user.stores ?? [],
+  };
 
   return (
     <div className="space-y-5">
@@ -102,6 +134,15 @@ export default function UserDetailPage() {
           <ArrowLeft className="h-4 w-4" /> Back to users
         </Button>
         <div className="flex gap-2">
+          {!editMode ? (
+            <Button variant="outline" className="gap-2" onClick={() => setEditMode(true)}>
+              <Pencil className="h-4 w-4" /> Edit details
+            </Button>
+          ) : (
+            <Button variant="outline" className="gap-2" onClick={() => setEditMode(false)}>
+              <X className="h-4 w-4" /> Cancel edit
+            </Button>
+          )}
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" className="gap-2" disabled={deleting}>
@@ -167,47 +208,75 @@ export default function UserDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Portal access */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-            <Layers className="h-4 w-4 text-primary" /> Portal Access
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          {Array.isArray(user.portalAccess) && user.portalAccess.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {user.portalAccess.map((pa: any) => (
-                <div key={pa.portalId} className="rounded-lg border p-3 bg-card hover:bg-accent/30 transition">
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground">{pa.portalName}</div>
-                  <div className="font-semibold capitalize">{pa.roleName}</div>
+      {editMode ? (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Edit user</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {portalsMasterList.length === 0 ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Loading editor...
+              </div>
+            ) : (
+              <UserForm
+                initial={formInitial}
+                dynamicRoles={dynamicRoles}
+                portalsMasterList={portalsMasterList}
+                onSaved={() => {
+                  toast.success("User updated");
+                  setEditMode(false);
+                  fetchUser();
+                }}
+              />
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* Portal access */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+                <Layers className="h-4 w-4 text-primary" /> Portal Access
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {Array.isArray(user.portalAccess) && user.portalAccess.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {user.portalAccess.map((pa: any) => (
+                    <div key={pa.portalId} className="rounded-lg border p-3 bg-card hover:bg-accent/30 transition">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">{pa.portalName}</div>
+                      <div className="font-semibold capitalize">{pa.roleName}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-xs italic text-muted-foreground">No portal access assigned</p>
-          )}
-        </CardContent>
-      </Card>
+              ) : (
+                <p className="text-xs italic text-muted-foreground">No portal access assigned</p>
+              )}
+            </CardContent>
+          </Card>
 
-      {/* Hierarchy sections */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Section icon={MapPin} title="States">
-          {(user.states ?? []).map((s: any) => chip(s.name, s.id))}
-        </Section>
-        <Section icon={MapIcon} title="Districts">
-          {(user.districts ?? []).map((s: any) => chip(s.name, s.id))}
-        </Section>
-        <Section icon={Store} title="Markets">
-          {(user.markets ?? []).map((s: any) => chip(s.name, s.id))}
-        </Section>
-        <Section icon={Store} title="Stores">
-          {(user.stores ?? []).map((s: any) => chip(s.name, s.id))}
-        </Section>
-        <Section icon={Home} title="Houses">
-          {(user.houses ?? []).map((s: any) => chip(s.name, s.id))}
-        </Section>
-      </div>
+          {/* Hierarchy sections */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Section icon={MapPin} title="States">
+              {(user.states ?? []).map((s: any) => chip(s.name, s.id))}
+            </Section>
+            <Section icon={MapIcon} title="Districts">
+              {(user.districts ?? []).map((s: any) => chip(s.name, s.id))}
+            </Section>
+            <Section icon={Store} title="Markets">
+              {(user.markets ?? []).map((s: any) => chip(s.name, s.id))}
+            </Section>
+            <Section icon={Store} title="Stores">
+              {(user.stores ?? []).map((s: any) => chip(s.name, s.id))}
+            </Section>
+            <Section icon={Home} title="Houses">
+              {(user.houses ?? []).map((s: any) => chip(s.name, s.id))}
+            </Section>
+          </div>
+        </>
+      )}
     </div>
   );
 }
