@@ -451,11 +451,11 @@ export function UserForm({
     (!needsStore || storeIds.length > 0);
 
   const hasSelectedPortals = Object.values(portalConfig).some(p => p.enabled);
-  const canSave = fullName.trim().length >= 2 && validEmail && passwordOk && isDeptFilled && isHierarchyFilled && hasSelectedPortals;
+  const canSave = fullName.trim().length >= 2 && identityOk && passwordOk && isDeptFilled && isHierarchyFilled && hasSelectedPortals;
 
   const validationHint = (() => {
     if (!fullName.trim()) return "Full name is required";
-    if (!validEmail) return "Valid email address structure is required";
+    if (!identityOk) return "Email or NTID is required";
     if (!initial && password.length < 6) return "Password must be at least 6 characters";
     if (!initial && password !== confirmPassword) return "Form entry passwords do not match";
     if (department === "placeholder") return "Department assignment is required";
