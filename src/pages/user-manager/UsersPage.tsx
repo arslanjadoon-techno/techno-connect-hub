@@ -338,6 +338,7 @@ function UsersPage() {
               )
             },
           ]}
+          hideEdit
           onDelete={handleDelete}
           renderForm={(initial, close) => (
             <UserForm
