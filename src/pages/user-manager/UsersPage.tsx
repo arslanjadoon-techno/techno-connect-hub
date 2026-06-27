@@ -440,7 +440,7 @@ export function UserForm({
     }));
   };
 
-  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const identityOk = email.trim().length >= 2;
   const passwordOk = initial ? true : password.length >= 6 && password === confirmPassword;
 
   const isDeptFilled = department !== "placeholder" && !!department;
