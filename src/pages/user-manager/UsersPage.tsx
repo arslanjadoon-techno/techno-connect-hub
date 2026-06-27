@@ -361,7 +361,7 @@ function UsersPage() {
 // ==========================================
 // FORM COMPONENT MODAL INSTANCE
 // ==========================================
-function UserForm({
+export function UserForm({
   initial,
   dynamicRoles,
   portalsMasterList,
