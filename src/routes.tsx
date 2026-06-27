@@ -18,6 +18,7 @@ import TicketsPage from "@/pages/portals/ticketing/TicketsPage";
 import TicketDetailPage from "@/pages/portals/ticketing/TicketDetailPage";
 
 import CommissionDashboardPage from "@/pages/portals/commission/DashboardPage";
+import CommissionPage from "@/pages/portals/commission/CommissionPage";
 
 import UsersPage from "@/pages/user-manager/UsersPage";
 import UserDetailPage from "@/pages/user-manager/UserDetailPage";
