@@ -66,8 +66,10 @@ export function AppRoutes() {
         <Route path="/ticketing/dashboard" element={<TicketingDashboardPage />} />
         <Route path="/ticketing/tickets" element={<TicketsPage />} />
         <Route path="/ticketing/tickets/:id" element={<TicketDetailPage />} />
+        <Route path="/ticketing/external" element={<ExternalPage />} />
 
         <Route path="/commission/dashboard" element={<CommissionDashboardPage />} />
+        <Route path="/commission/commission" element={<CommissionPage />} />
 
         <Route path="/admin/users" element={<UsersPage />} />
         <Route path="/admin/users/:id" element={<UserDetailPage />} />
