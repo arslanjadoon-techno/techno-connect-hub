@@ -542,8 +542,8 @@ export function UserForm({
           <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Arslan Khan" autoComplete="off" />
         </div>
         <div className="space-y-1.5">
-          <Label>Email <span className="text-destructive">*</span></Label>
-          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@techno.com" autoComplete="new-password" />
+          <Label>Email or NTID <span className="text-destructive">*</span></Label>
+          <Input type="text" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@techno.com or NTID" autoComplete="new-password" />
         </div>
       </div>
 
