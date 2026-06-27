@@ -193,6 +193,16 @@
 .hover-lift:hover { transform: translateY(-2px); box-shadow: var(--shadow-elegant); }
 
 /* Modern table polish + global zebra striping (clearly visible) */
+table thead tr {
+  background-color: oklch(0.94 0.01 270);
+}
+.dark table thead tr {
+  background-color: oklch(0.26 0.04 275);
+}
+table thead th {
+  font-weight: 600;
+  color: var(--color-foreground);
+}
 table tbody tr { transition: background-color .15s ease; }
 table tbody tr:nth-child(even) {
   background-color: oklch(0.22 0.04 270 / 0.07);
