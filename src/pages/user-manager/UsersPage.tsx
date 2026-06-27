@@ -240,7 +240,7 @@ function UsersPage() {
 
   return (
     <div className="w-full">
-      <div className="w-full border-0 shadow-none bg-transparent [&_input]:bg-white dark:[&_input]:bg-zinc-950 [&_button.w-\[180px\]]:bg-white dark:[&_button.w-\[180px\]]:bg-zinc-950 [&_tbody_tr]:bg-background [&_tbody_tr]:even:bg-zinc-50/50 dark:[&_tbody_tr]:even:bg-zinc-900/30 [&_tbody_tr]:hover:bg-muted/40 [&_th:last-child]:text-right [&_th:last-child]:pr-10 [&_td:last-child]:text-right">
+      <div className="w-full border-0 shadow-none bg-transparent [&_input]:bg-white dark:[&_input]:bg-zinc-950 [&_button.w-\[180px\]]:bg-white dark:[&_button.w-\[180px\]]:bg-zinc-950 [&_th:last-child]:text-right [&_th:last-child]:pr-10 [&_td:last-child]:text-right">
         <CrudPage<any>
           title="Users"
           subtitle="Manage internal employees and their specific nested multi-portal access mapping configurations."
@@ -338,6 +338,7 @@ function UsersPage() {
               )
             },
           ]}
+          hideEdit
           onDelete={handleDelete}
           renderForm={(initial, close) => (
             <UserForm
@@ -360,7 +361,7 @@ function UsersPage() {
 // ==========================================
 // FORM COMPONENT MODAL INSTANCE
 // ==========================================
-function UserForm({
+export function UserForm({
   initial,
   dynamicRoles,
   portalsMasterList,
@@ -439,7 +440,7 @@ function UserForm({
     }));
   };
 
-  const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const identityOk = email.trim().length >= 2;
   const passwordOk = initial ? true : password.length >= 6 && password === confirmPassword;
 
   const isDeptFilled = department !== "placeholder" && !!department;
@@ -450,11 +451,11 @@ function UserForm({
     (!needsStore || storeIds.length > 0);
 
   const hasSelectedPortals = Object.values(portalConfig).some(p => p.enabled);
-  const canSave = fullName.trim().length >= 2 && validEmail && passwordOk && isDeptFilled && isHierarchyFilled && hasSelectedPortals;
+  const canSave = fullName.trim().length >= 2 && identityOk && passwordOk && isDeptFilled && isHierarchyFilled && hasSelectedPortals;
 
   const validationHint = (() => {
     if (!fullName.trim()) return "Full name is required";
-    if (!validEmail) return "Valid email address structure is required";
+    if (!identityOk) return "Email or NTID is required";
     if (!initial && password.length < 6) return "Password must be at least 6 characters";
     if (!initial && password !== confirmPassword) return "Form entry passwords do not match";
     if (department === "placeholder") return "Department assignment is required";
@@ -541,8 +542,8 @@ function UserForm({
           <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Arslan Khan" autoComplete="off" />
         </div>
         <div className="space-y-1.5">
-          <Label>Email <span className="text-destructive">*</span></Label>
-          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@techno.com" autoComplete="new-password" />
+          <Label>Email or NTID <span className="text-destructive">*</span></Label>
+          <Input type="text" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@techno.com or NTID" autoComplete="new-password" />
         </div>
       </div>
 

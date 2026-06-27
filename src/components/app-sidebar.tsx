@@ -336,6 +336,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     items: [
       { title: "Dashboard", url: "/ticketing/dashboard", icon: LayoutDashboard },
       { title: "Tickets", url: "/ticketing/tickets", icon: TicketCheck },
+      { title: "External Team", url: "/ticketing/external", icon: Wrench },
     ],
   },
   commission: {
@@ -343,6 +344,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     icon: DollarSign,
     items: [
       { title: "Dashboard", url: "/commission/dashboard", icon: BarChart3 },
+      { title: "Commission", url: "/commission/commission", icon: DollarSign },
     ],
   },
   leasing: {
@@ -379,7 +381,6 @@ const adminGroup: Group = {
     { title: "Markets", url: "/admin/markets", icon: Network },
     { title: "Stores", url: "/admin/stores", icon: StoreIcon },
     { title: "Houses", url: "/admin/houses", icon: Home },
-    { title: "External Team", url: "/admin/external", icon: Wrench },
   ],
 };
 
