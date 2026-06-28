@@ -187,6 +187,12 @@ export const usersApi = {
 
   delete: (id: number) =>
     apiRequest<null>(USER_API_PATHS.deleteUser, { method: "DELETE", body: { id } }),
+
+  updatePassword: (payload: { email: string; oldPassword: string; newPassword: string }) =>
+    apiRequest<null>(USER_API_PATHS.updatePassword, { method: "PUT", body: payload }),
+
+  toggle2FaBypass: (payload: { email: string; bypassStatus: boolean }) =>
+    apiRequest<null>(USER_API_PATHS.toggle2FaBypass, { method: "PUT", body: payload }),
 };
 
 

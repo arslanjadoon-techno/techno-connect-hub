@@ -36,6 +36,25 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/** Commission Dashboard sirf un users ko milta hai jin ka commission portal role 'admin' ho. */
+function CommissionAdminOnly({ children }: { children: ReactNode }) {
+  let isAdmin = false;
+  try {
+    const raw = window.localStorage.getItem("user");
+    if (raw) {
+      const u = JSON.parse(raw);
+      const access = Array.isArray(u?.portalAccess) ? u.portalAccess : [];
+      isAdmin = access.some(
+        (p: any) =>
+          p?.portalName?.toLowerCase() === "commission" &&
+          p?.roleName?.toLowerCase() === "admin",
+      );
+    }
+  } catch { /* ignore */ }
+  if (!isAdmin) return <Navigate to="/commission/commission" replace />;
+  return <>{children}</>;
+}
+
 function NotFound() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -68,7 +87,7 @@ export function AppRoutes() {
         <Route path="/ticketing/tickets/:id" element={<TicketDetailPage />} />
         <Route path="/ticketing/external" element={<ExternalPage />} />
 
-        <Route path="/commission/dashboard" element={<CommissionDashboardPage />} />
+        <Route path="/commission/dashboard" element={<CommissionAdminOnly><CommissionDashboardPage /></CommissionAdminOnly>} />
         <Route path="/commission/commission" element={<CommissionPage />} />
 
         <Route path="/admin/users" element={<UsersPage />} />
