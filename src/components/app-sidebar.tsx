@@ -530,7 +530,7 @@ export function AppSidebar() {
       }
       return master;
     })
-    .filter((g): g is Group => Boolean(g && g.items.length > 0));
+    .filter((g: Group | undefined): g is Group => Boolean(g && g.items.length > 0));
 
   return (
     <Sidebar collapsible="icon">
