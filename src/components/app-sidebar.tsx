@@ -505,9 +505,32 @@ export function AppSidebar() {
 
   // 3. 🌟 Dynamic Portals Matching Logic
   const allowedPortalsList = Array.isArray(user.assignedPortals) ? user.assignedPortals : [];
-const dynamicPortalGroups = allowedPortalsList
-  .map((pKey: string) => MASTER_PORTAL_GROUPS[pKey.toLowerCase().trim()])
-  .filter(Boolean);
+  const portalAccessList: Array<{ portalName: string; roleName: string }> =
+    Array.isArray(user.portalAccess) ? user.portalAccess : [];
+
+  const getPortalRole = (portalKey: string): string => {
+    const access = portalAccessList.find(
+      (p) => p.portalName?.toLowerCase() === portalKey.toLowerCase()
+    );
+    return access?.roleName?.toLowerCase() ?? "";
+  };
+
+  const dynamicPortalGroups = allowedPortalsList
+    .map((pKey: string): Group | undefined => {
+      const key = pKey.toLowerCase().trim();
+      const master = MASTER_PORTAL_GROUPS[key];
+      if (!master) return undefined;
+
+      // Commission Dashboard sirf admin role waly user ko nazar aaye
+      if (key === "commission" && getPortalRole("commission") !== "admin") {
+        return {
+          ...master,
+          items: master.items.filter((i) => i.url !== "/commission/dashboard"),
+        };
+      }
+      return master;
+    })
+    .filter((g): g is Group => Boolean(g && g.items.length > 0));
 
   return (
     <Sidebar collapsible="icon">
