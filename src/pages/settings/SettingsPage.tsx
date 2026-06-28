@@ -1,29 +1,51 @@
 import { useEffect, useRef, useState } from "react";
-import { useAuth } from "@/lib/auth";
-import { useData } from "@/lib/data-store";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Camera, Eye, EyeOff, Check, Palette as PaletteIcon, Lock, ShieldCheck } from "lucide-react";
+import { Camera, Eye, EyeOff, Check, Palette as PaletteIcon, Lock, ShieldCheck, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { roleSubLabel } from "@/lib/role-label";
 import { PALETTES, useTheme } from "@/lib/theme";
+import { usersApi } from "@/lib/api/client";
 
-const BYPASS_2FA_KEY = "techno-bypass-2fa";
+interface StoredUser {
+  id: number;
+  fullName?: string | null;
+  email: string;
+  phone?: string | null;
+  profileImage?: string | null;
+  department?: { id: number; name: string } | null;
+  departmentName?: string | null;
+  bypassTwoFactor?: boolean;
+  [k: string]: any;
+}
+
+function readStoredUser(): StoredUser | null {
+  try {
+    const raw = window.localStorage.getItem("user");
+    return raw ? (JSON.parse(raw) as StoredUser) : null;
+  } catch { return null; }
+}
+function writeStoredUser(u: StoredUser) {
+  try { window.localStorage.setItem("user", JSON.stringify(u)); } catch { /* ignore */ }
+}
 
 export default function SettingsPage() {
-  const { user } = useAuth();
-  const { data, set } = useData();
   const fileRef = useRef<HTMLInputElement>(null);
   const { palette, setPalette } = useTheme();
 
-  const [firstName, setFirstName] = useState(user?.firstName ?? "");
-  const [lastName, setLastName] = useState(user?.lastName ?? "");
-  const [email, setEmail] = useState(user?.email ?? "");
-  const [phone, setPhone] = useState(user?.phone ?? "");
-  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl ?? "");
+  const [storedUser, setStoredUser] = useState<StoredUser | null>(() => readStoredUser());
+
+  const [fullName, setFullName] = useState(storedUser?.fullName ?? "");
+  const [email, setEmail] = useState(storedUser?.email ?? "");
+  const [phone, setPhone] = useState(storedUser?.phone ?? "");
+  const [departmentName, setDepartmentName] = useState(
+    storedUser?.department?.name ?? storedUser?.departmentName ?? "",
+  );
+  const [avatarUrl, setAvatarUrl] = useState<string>(storedUser?.profileImage ?? "");
+
+  const [savingProfile, setSavingProfile] = useState(false);
 
   // Password change state
   const [currentPwd, setCurrentPwd] = useState("");
@@ -32,16 +54,24 @@ export default function SettingsPage() {
   const [showCur, setShowCur] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConf, setShowConf] = useState(false);
+  const [savingPwd, setSavingPwd] = useState(false);
 
-  // Bypass 2FA preference (stored locally; backend honors it on next login)
-  const [bypass2fa, setBypass2fa] = useState<boolean>(() => {
-    try { return window.localStorage.getItem(BYPASS_2FA_KEY) === "true"; } catch { return false; }
-  });
+  // Bypass 2FA — backend sourced
+  const [bypass2fa, setBypass2fa] = useState<boolean>(Boolean(storedUser?.bypassTwoFactor));
+  const [togglingBypass, setTogglingBypass] = useState(false);
+
   useEffect(() => {
-    try { window.localStorage.setItem(BYPASS_2FA_KEY, String(bypass2fa)); } catch { /* ignore */ }
-  }, [bypass2fa]);
+    setBypass2fa(Boolean(storedUser?.bypassTwoFactor));
+  }, [storedUser?.bypassTwoFactor]);
 
-  if (!user) return null;
+  if (!storedUser) return null;
+
+  const initials = (fullName || "U U")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("") || "U";
 
   const onPickImage = (file: File) => {
     if (file.size > 2_000_000) { toast.error("Image must be under 2MB"); return; }
@@ -50,30 +80,78 @@ export default function SettingsPage() {
     reader.readAsDataURL(file);
   };
 
-  const save = () => {
-    if (!firstName.trim() || !lastName.trim() || !email.trim()) {
-      toast.error("Name and email are required"); return;
+  const saveProfile = async () => {
+    if (!fullName.trim() || !email.trim()) {
+      toast.error("Full name aur email zaroori hain");
+      return;
     }
-    const next = {
-      ...user,
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      email: email.trim(),
-      phone: phone.trim() || undefined,
-      avatarUrl: avatarUrl || undefined,
-    };
-    set("users", data.users.map((u) => (u.id === user.id ? next : u)));
-    try { window.localStorage.setItem("techno-ticket-auth-v1", JSON.stringify(next)); } catch { /* ignore */ }
-    toast.success("Profile updated");
+    try {
+      setSavingProfile(true);
+      const res = await usersApi.update({
+        id: storedUser.id,
+        fullName: fullName.trim(),
+        email: email.trim(),
+        phone: phone?.trim() || null,
+        departmentName: departmentName?.trim() || null,
+        // profileImage isn't part of AddUserPayload typings yet — send via cast
+        ...(avatarUrl ? { profileImage: avatarUrl } as any : {}),
+      } as any);
+
+      const merged: StoredUser = { ...storedUser, ...(res.data as any) };
+      // Ensure these fields are persisted even if backend response is sparse
+      merged.fullName = fullName.trim();
+      merged.email = email.trim();
+      merged.phone = phone?.trim() || null;
+      if (avatarUrl) merged.profileImage = avatarUrl;
+      writeStoredUser(merged);
+      setStoredUser(merged);
+      toast.success(res.message || "Profile updated");
+    } catch (err: any) {
+      toast.error(err?.message || "Profile update failed");
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
-  const changePassword = () => {
+  const changePassword = async () => {
     if (!currentPwd || !newPwd || !confirmPwd) { toast.error("All password fields are required"); return; }
     if (newPwd.length < 8) { toast.error("New password must be at least 8 characters"); return; }
     if (newPwd !== confirmPwd) { toast.error("Passwords do not match"); return; }
     if (newPwd === currentPwd) { toast.error("New password must differ from current"); return; }
-    toast.success("Password updated successfully");
-    setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
+    try {
+      setSavingPwd(true);
+      const res = await usersApi.updatePassword({
+        email: storedUser.email,
+        oldPassword: currentPwd,
+        newPassword: newPwd,
+      });
+      toast.success(res.message || "Password updated successfully");
+      setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
+    } catch (err: any) {
+      toast.error(err?.message || "Password update failed");
+    } finally {
+      setSavingPwd(false);
+    }
+  };
+
+  const onToggleBypass = async (next: boolean) => {
+    setBypass2fa(next); // optimistic
+    try {
+      setTogglingBypass(true);
+      const res = await usersApi.toggle2FaBypass({
+        email: storedUser.email,
+        bypassStatus: next,
+      });
+      const merged: StoredUser = { ...storedUser, bypassTwoFactor: next };
+      writeStoredUser(merged);
+      setStoredUser(merged);
+      toast.success(res.message || (next ? "2FA bypass enabled" : "2FA bypass disabled"));
+    } catch (err: any) {
+      setBypass2fa(!next); // revert
+      toast.error(err?.message || "Could not update 2FA preference");
+    } finally {
+      setTogglingBypass(false);
+    }
   };
 
   return (
@@ -90,13 +168,12 @@ export default function SettingsPage() {
             <div
               className="flex h-24 w-24 items-center justify-center rounded-full text-2xl font-bold text-white shadow-[var(--shadow-elegant)]"
               style={{
-                backgroundColor: user.avatarColor ?? "#0d7a5f",
                 backgroundImage: avatarUrl ? `url(${avatarUrl})` : "var(--gradient-primary)",
                 backgroundSize: "cover",
                 backgroundPosition: "center",
               }}
             >
-              {!avatarUrl && <>{firstName[0]}{lastName[0]}</>}
+              {!avatarUrl && initials}
             </div>
             <button
               type="button"
@@ -115,20 +192,16 @@ export default function SettingsPage() {
             />
           </div>
           <div className="flex-1 space-y-1">
-            <div className="font-display text-lg font-semibold">{firstName} {lastName}</div>
-            <div className="text-sm text-muted-foreground">{roleSubLabel(user)}</div>
+            <div className="font-display text-lg font-semibold">{fullName || "Unnamed user"}</div>
+            <div className="text-sm text-muted-foreground">{email}</div>
             <p className="text-xs text-muted-foreground">JPG or PNG. Max 2MB.</p>
           </div>
         </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label>First name</Label>
-            <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Last name</Label>
-            <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Full name</Label>
+            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. John Doe" />
           </div>
           <div className="space-y-1.5">
             <Label>Email</Label>
@@ -136,12 +209,19 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-1.5">
             <Label>Phone</Label>
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 555 555 5555" />
+            <Input value={phone ?? ""} onChange={(e) => setPhone(e.target.value)} placeholder="+1 555 555 5555" />
+          </div>
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Department</Label>
+            <Input value={departmentName ?? ""} onChange={(e) => setDepartmentName(e.target.value)} placeholder="e.g. Operations" />
           </div>
         </div>
 
         <div className="mt-6 flex justify-end">
-          <Button onClick={save} className="hover-lift">Save changes</Button>
+          <Button onClick={saveProfile} disabled={savingProfile} className="hover-lift">
+            {savingProfile && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save changes
+          </Button>
         </div>
       </Card>
 
@@ -163,7 +243,10 @@ export default function SettingsPage() {
           <PasswordField label="Confirm new password" value={confirmPwd} onChange={setConfirmPwd} show={showConf} toggle={() => setShowConf((s) => !s)} />
         </div>
         <div className="mt-6 flex justify-end">
-          <Button onClick={changePassword} className="hover-lift">Update password</Button>
+          <Button onClick={changePassword} disabled={savingPwd} className="hover-lift">
+            {savingPwd && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Update password
+          </Button>
         </div>
       </Card>
 
@@ -178,21 +261,18 @@ export default function SettingsPage() {
               <h2 className="font-display text-lg font-semibold">Bypass 2FA on login</h2>
               <p className="mt-1 max-w-md text-xs text-muted-foreground">
                 When enabled, sign-in skips the Google Authenticator step. Recommended only for
-                trusted devices — turn this off again on shared machines.
+                trusted devices.
               </p>
             </div>
           </div>
           <Switch
             checked={bypass2fa}
-            onCheckedChange={(v) => {
-              setBypass2fa(v);
-              toast.success(v ? "2FA will be bypassed on next login" : "2FA required on next login");
-            }}
+            disabled={togglingBypass}
+            onCheckedChange={onToggleBypass}
             aria-label="Bypass 2FA on login"
           />
         </div>
       </Card>
-
 
       {/* Theme palette */}
       <Card className="p-6 hover-lift">
