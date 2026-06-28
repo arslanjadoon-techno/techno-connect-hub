@@ -36,7 +36,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-/** Commission Dashboard sirf un users ko milta hai jin ka commission portal role 'admin' ho. */
+/** Commission Dashboard is only visible to role 'admin'. */
 function CommissionAdminOnly({ children }: { children: ReactNode }) {
   let isAdmin = false;
   try {

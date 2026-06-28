@@ -2,10 +2,10 @@ import { Card } from "@/components/ui/card";
 import { DollarSign, TrendingUp, Users, Wallet } from "lucide-react";
 
 const KPIS = [
+  { label: "Active Users", value: "—", icon: Users, accent: "from-sky-500/20 to-sky-500/5", iconFg: "text-sky-600 dark:text-sky-400" },
   { label: "Total Commission (MTD)", value: "$ —", icon: DollarSign, accent: "from-emerald-500/20 to-emerald-500/5", iconFg: "text-emerald-600 dark:text-emerald-400" },
-  { label: "Active Agents", value: "—", icon: Users, accent: "from-sky-500/20 to-sky-500/5", iconFg: "text-sky-600 dark:text-sky-400" },
-  { label: "Pending Payouts", value: "$ —", icon: Wallet, accent: "from-amber-500/20 to-amber-500/5", iconFg: "text-amber-600 dark:text-amber-400" },
-  { label: "Growth vs Last Month", value: "—", icon: TrendingUp, accent: "from-violet-500/20 to-violet-500/5", iconFg: "text-violet-600 dark:text-violet-400" },
+  { label: "Total Boxes", value: "$ —", icon: Wallet, accent: "from-amber-500/20 to-amber-500/5", iconFg: "text-amber-600 dark:text-amber-400" },
+  { label: "Boxes Commission", value: "—", icon: TrendingUp, accent: "from-violet-500/20 to-violet-500/5", iconFg: "text-violet-600 dark:text-violet-400" },
 ];
 
 function CommissionDashboard() {
