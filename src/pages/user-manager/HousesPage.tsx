@@ -13,12 +13,17 @@ interface House {
   address: string;
   number: string;
   phone: string;
+  // Legacy flat fields (kept for backward compatibility with create/update payloads)
   stateId: number;
-  stateName: string;
+  stateName?: string;
   districtId: number;
-  districtName: string;
+  districtName?: string;
   marketId: number;
-  marketName: string;
+  marketName?: string;
+  // New nested objects returned by the backend (same as stores)
+  state?: { id: number; name: string };
+  district?: { id: number; name: string };
+  market?: { id: number; name: string };
   createdAt?: string;
   updatedAt?: string;
 }
@@ -510,20 +515,20 @@ export default function HousesPage() {
               {
                 key: "state",
                 header: "State",
-                accessor: (s) => <div className="py-2 text-left text-muted-foreground">{s.stateName ?? "—"}</div>,
-                searchValue: (s) => s.stateName ?? "",
+                accessor: (s) => <div className="py-2 text-left text-muted-foreground">{s.state?.name ?? s.stateName ?? "—"}</div>,
+                searchValue: (s) => s.state?.name ?? s.stateName ?? "",
               },
               {
                 key: "district",
                 header: "District",
-                accessor: (s) => <div className="py-2 text-left text-zinc-700 dark:text-zinc-300 font-medium">{s.districtName ?? "—"}</div>,
-                searchValue: (s) => s.districtName ?? "",
+                accessor: (s) => <div className="py-2 text-left text-zinc-700 dark:text-zinc-300 font-medium">{s.district?.name ?? s.districtName ?? "—"}</div>,
+                searchValue: (s) => s.district?.name ?? s.districtName ?? "",
               },
               {
                 key: "market",
                 header: "Market",
-                accessor: (s) => <div className="py-2 text-left text-zinc-700 dark:text-zinc-300 font-medium">{s.marketName ?? "—"}</div>,
-                searchValue: (s) => s.marketName ?? "",
+                accessor: (s) => <div className="py-2 text-left text-zinc-700 dark:text-zinc-300 font-medium">{s.market?.name ?? s.marketName ?? "—"}</div>,
+                searchValue: (s) => s.market?.name ?? s.marketName ?? "",
               },
             ]}
             onDelete={handleDelete}
@@ -564,9 +569,12 @@ function HouseForm({ initial, states, isSaving, onSave }: HouseFormProps) {
   const [address, setAddress] = useState(initial?.address ?? "");
   const [phone, setPhone] = useState(initial?.phone ?? "");
 
-  const [stateId, setStateId] = useState<string>(initial?.stateId ? initial.stateId.toString() : "");
-  const [districtId, setDistrictId] = useState<string>(initial?.districtId ? initial.districtId.toString() : "");
-  const [marketId, setMarketId] = useState<string>(initial?.marketId ? initial.marketId.toString() : "");
+  const initStateId = initial?.state?.id ?? initial?.stateId;
+  const initDistrictId = initial?.district?.id ?? initial?.districtId;
+  const initMarketId = initial?.market?.id ?? initial?.marketId;
+  const [stateId, setStateId] = useState<string>(initStateId ? initStateId.toString() : "");
+  const [districtId, setDistrictId] = useState<string>(initDistrictId ? initDistrictId.toString() : "");
+  const [marketId, setMarketId] = useState<string>(initMarketId ? initMarketId.toString() : "");
 
   // Form dependent state spaces
   const [districts, setDistricts] = useState<District[]>([]);
@@ -598,8 +606,8 @@ function HouseForm({ initial, states, isSaving, onSave }: HouseFormProps) {
         const res = await apiClient({ state: stateId });
         if (res.success) {
           setDistricts(res.data);
-          if (initial && initial.stateId.toString() === stateId) {
-            setDistrictId(initial.districtId.toString());
+          if (initial && String(initial.state?.id ?? initial.stateId) === stateId) {
+            setDistrictId(String(initial.district?.id ?? initial.districtId ?? ""));
           } else {
             setDistrictId("");
             setMarketId("");
@@ -630,8 +638,8 @@ function HouseForm({ initial, states, isSaving, onSave }: HouseFormProps) {
         const res = await apiClient({ district: districtId });
         if (res.success) {
           setMarkets(res.data);
-          if (initial && initial.districtId.toString() === districtId) {
-            setMarketId(initial.marketId.toString());
+          if (initial && String(initial.district?.id ?? initial.districtId) === districtId) {
+            setMarketId(String(initial.market?.id ?? initial.marketId ?? ""));
           } else {
             setMarketId("");
           }
