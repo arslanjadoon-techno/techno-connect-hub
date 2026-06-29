@@ -40,6 +40,8 @@ interface CrudPageProps<T> {
   isSaving?: boolean;
   isLoading?: boolean;
   onRowClick?: (row: T) => void;
+  /** When set, the Edit pencil button calls this handler instead of opening the inline dialog form. */
+  onEditClick?: (row: T) => void;
   extraRowActions?: (row: T) => ReactNode;
   hideEdit?: boolean;
   hideDelete?: boolean;
@@ -55,7 +57,7 @@ export function CrudPage<T>({
   title, subtitle, rows, columns, rowKey, renderForm, onDelete,
   createLabel = "Add new", extraToolbar, pageSize = 10, isSaving = false,
   isLoading = false,
-  onRowClick, extraRowActions, hideEdit = false, hideDelete = false,
+  onRowClick, onEditClick, extraRowActions, hideEdit = false, hideDelete = false,
   rowCount, page, onPageChange, onPageSizeChange,
 }: CrudPageProps<T>) {
   const [editing, setEditing] = useState<T | null>(null);
@@ -86,7 +88,10 @@ export function CrudPage<T>({
               <Button
                 size="icon" variant="ghost"
                 disabled={isSaving}
-                onClick={() => { setEditing(row); setOpen(true); }}
+                onClick={() => {
+                  if (onEditClick) { onEditClick(row); return; }
+                  setEditing(row); setOpen(true);
+                }}
                 title="Edit"
               >
                 <Pencil className="h-4 w-4" />
