@@ -1,5 +1,6 @@
 import { ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
+import { useAuthThemeReset } from "./useAuthThemeReset";
 
 /**
  * Shared auth-side hero panel with the gradient + curved right edge,
@@ -17,6 +18,8 @@ export default function AuthHero({
   eyebrow?: string;
   brand?: string;
 }) {
+}) {
+  useAuthThemeReset();
   return (
     <div
       className="relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex clip-wave-right -mr-16 z-10"
