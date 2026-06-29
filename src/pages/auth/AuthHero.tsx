@@ -18,7 +18,6 @@ export default function AuthHero({
   eyebrow?: string;
   brand?: string;
 }) {
-}) {
   useAuthThemeReset();
   return (
     <div
