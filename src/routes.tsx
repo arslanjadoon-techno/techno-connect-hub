@@ -19,6 +19,7 @@ import TicketDetailPage from "@/pages/portals/ticketing/TicketDetailPage";
 
 import CommissionDashboardPage from "@/pages/portals/commission/DashboardPage";
 import CommissionPage from "@/pages/portals/commission/CommissionPage";
+import RankerDashboardPage from "@/pages/portals/ranker/DashboardPage";
 
 import UsersPage from "@/pages/user-manager/UsersPage";
 import UserDetailPage from "@/pages/user-manager/UserDetailPage";
@@ -29,6 +30,7 @@ import MarketsPage from "@/pages/user-manager/MarketsPage";
 import HousesPage from "@/pages/user-manager/HousesPage";
 import StoresPage from "@/pages/user-manager/StoresPage";
 import ExternalPage from "@/pages/user-manager/ExternalPage";
+import NotFoundInApp from "@/pages/shell/NotFoundInApp";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -90,6 +92,8 @@ export function AppRoutes() {
         <Route path="/commission/dashboard" element={<CommissionAdminOnly><CommissionDashboardPage /></CommissionAdminOnly>} />
         <Route path="/commission/commission" element={<CommissionPage />} />
 
+        <Route path="/ranker/dashboard" element={<RankerDashboardPage />} />
+
         <Route path="/admin/users" element={<UsersPage />} />
         <Route path="/admin/users/:id" element={<UserDetailPage />} />
         <Route path="/admin/departments" element={<DepartmentsPage />} />
@@ -99,6 +103,9 @@ export function AppRoutes() {
         <Route path="/admin/houses" element={<HousesPage />} />
         <Route path="/admin/stores" element={<StoresPage />} />
         <Route path="/admin/external" element={<ExternalPage />} />
+
+        {/* In-app 404 — keeps sidebar + header visible */}
+        <Route path="*" element={<NotFoundInApp />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />
