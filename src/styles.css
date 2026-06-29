@@ -1,6 +1,15 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Auth screens always use the default indigo palette regardless of in-app theme. */
+.auth-standard {
+  --primary: oklch(0.52 0.21 275);
+  --primary-glow: oklch(0.66 0.22 295);
+  --ring: oklch(0.66 0.22 295);
+  --gradient-primary: linear-gradient(135deg, oklch(0.52 0.21 275), oklch(0.66 0.22 295));
+  --gradient-hero: linear-gradient(135deg, oklch(0.45 0.22 270) 0%, oklch(0.55 0.23 295) 50%, oklch(0.6 0.2 320) 100%);
+}
+
 
 
 @custom-variant dark (&:is(.dark *));
