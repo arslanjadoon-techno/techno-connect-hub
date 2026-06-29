@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   ArrowLeft, Loader2, Trash2, Mail, Phone, Building2, Shield,
-  MapPin, Map as MapIcon, Store, Home, CheckCircle2, XCircle, Layers, Pencil, X,
+  MapPin, Map as MapIcon, Store, Home, CheckCircle2, XCircle, Layers, Pencil, X, Power,
 } from "lucide-react";
 import { getUserAvatarColor } from "./user-colors";
 import { UserForm } from "./UsersPage";
@@ -41,12 +41,31 @@ function chip(label: string, key: string | number) {
   );
 }
 
+const PORTAL_TONES: Record<string, string> = {
+  ticketing:  "border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900/50",
+  commission: "border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-900/50",
+  ranker:     "border-purple-200 bg-purple-50 dark:bg-purple-950/30 dark:border-purple-900/50",
+  leasing:    "border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-900/50",
+  attendence: "border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-900/50",
+  attendance: "border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-900/50",
+};
+const PORTAL_TONES_FALLBACK = [
+  "border-cyan-200 bg-cyan-50 dark:bg-cyan-950/30 dark:border-cyan-900/50",
+  "border-fuchsia-200 bg-fuchsia-50 dark:bg-fuchsia-950/30 dark:border-fuchsia-900/50",
+  "border-lime-200 bg-lime-50 dark:bg-lime-950/30 dark:border-lime-900/50",
+  "border-orange-200 bg-orange-50 dark:bg-orange-950/30 dark:border-orange-900/50",
+];
+function portalTone(name: string, idx: number) {
+  return PORTAL_TONES[name?.toLowerCase()?.trim()] ?? PORTAL_TONES_FALLBACK[idx % PORTAL_TONES_FALLBACK.length];
+}
+
 export default function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [togglingActive, setTogglingActive] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [dynamicRoles, setDynamicRoles] = useState<string[]>([]);
   const [portalsMasterList, setPortalsMasterList] = useState<any[]>([]);
@@ -96,6 +115,37 @@ export default function UserDetailPage() {
     }
   };
 
+  const handleToggleActive = async (next: boolean) => {
+    if (!user) return;
+    try {
+      setTogglingActive(true);
+      const payload: any = {
+        id: Number(user.id),
+        fullName: user.fullName,
+        email: user.email,
+        phone: user.phone,
+        department: user.department ?? null,
+        allowedUserManagement: user.allowedUserManagement ?? false,
+        active: next,
+        assignedPortals: user.assignedPortals ?? [],
+        portalAccess: user.portalAccess ?? [],
+        states: user.states ?? [],
+        districts: user.districts ?? [],
+        markets: user.markets ?? [],
+        stores: user.stores ?? [],
+      };
+      const res = await usersApi.update(payload);
+      if (res.success) {
+        setUser({ ...user, active: next });
+        toast.success(next ? "User activated" : "User deactivated");
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to update status");
+    } finally {
+      setTogglingActive(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex h-[60vh] flex-col items-center justify-center gap-2 text-muted-foreground">
@@ -111,7 +161,6 @@ export default function UserDetailPage() {
   const initials = (user.fullName || "?").split(/\s+/).map((p: string) => p[0]).slice(0, 2).join("").toUpperCase();
   const avatarBg = getUserAvatarColor(user.id);
 
-  // Build a UserForm-compatible "initial" object from raw backend record
   const formInitial = {
     id: String(user.id),
     fullName: user.fullName,
@@ -129,11 +178,11 @@ export default function UserDetailPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <Button variant="ghost" onClick={() => navigate("/admin/users")} className="gap-2">
           <ArrowLeft className="h-4 w-4" /> Back to users
         </Button>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {!editMode ? (
             <Button variant="outline" className="gap-2" onClick={() => setEditMode(true)}>
               <Pencil className="h-4 w-4" /> Edit details
@@ -143,6 +192,39 @@ export default function UserDetailPage() {
               <X className="h-4 w-4" /> Cancel edit
             </Button>
           )}
+
+          {/* Activate / Deactivate with confirmation */}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant={user.active ? "outline" : "default"}
+                className="gap-2"
+                disabled={togglingActive}
+              >
+                {togglingActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
+                {user.active ? "Deactivate" : "Activate"}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {user.active ? `Deactivate ${user.fullName}?` : `Activate ${user.fullName}?`}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {user.active
+                    ? `Are you sure you want to deactivate ${user.fullName}? After this, ${user.fullName} will no longer be able to access any portal until reactivated.`
+                    : `${user.fullName} will regain access to all assigned portals.`}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => handleToggleActive(!user.active)}>
+                  {user.active ? "Yes, deactivate" : "Yes, activate"}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" className="gap-2" disabled={deleting}>
@@ -244,8 +326,11 @@ export default function UserDetailPage() {
             <CardContent className="pt-0">
               {Array.isArray(user.portalAccess) && user.portalAccess.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {user.portalAccess.map((pa: any) => (
-                    <div key={pa.portalId} className="rounded-lg border p-3 bg-card hover:bg-accent/30 transition">
+                  {user.portalAccess.map((pa: any, idx: number) => (
+                    <div
+                      key={pa.portalId}
+                      className={`rounded-lg border p-3 transition hover:shadow-sm ${portalTone(pa.portalName, idx)}`}
+                    >
                       <div className="text-xs uppercase tracking-wide text-muted-foreground">{pa.portalName}</div>
                       <div className="font-semibold capitalize">{pa.roleName}</div>
                     </div>

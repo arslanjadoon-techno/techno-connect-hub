@@ -296,7 +296,7 @@ function UsersPage() {
               <Button type="button" variant="ghost" size="sm" disabled={deptFilter === "all" && portalFilter === "all"} onClick={() => { lastFetchedKey.current = ""; setPage(0); setDeptFilter("all"); setPortalFilter("all"); }} className="h-9 px-3 text-xs border border-dashed border-muted-foreground/30"><XCircle className="h-3.5 w-3.5 mr-1.5" />Reset Filters</Button>
             </div>
           }
-          onRowClick={(u: any) => navigate(`/admin/users/${u.id}`)}
+          onEditClick={(u: any) => navigate(`/admin/users/${u.id}`)}
           columns={[
             {
               key: "name", header: "Name", accessor: (u) => (
@@ -338,7 +338,7 @@ function UsersPage() {
               )
             },
           ]}
-          hideEdit
+          
           onDelete={handleDelete}
           renderForm={(initial, close) => (
             <UserForm
@@ -709,7 +709,7 @@ export function UserForm({
 
       <Button className="w-full flex items-center justify-center gap-2 mt-2 h-10 font-medium" disabled={!canSave || submitting} onClick={submit}>
         {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-        {initial ? "Save updated user configuration framework" : "Create new user instance matrix"}
+        {initial ? "Save changes" : "Create user"}
       </Button>
     </div>
   );

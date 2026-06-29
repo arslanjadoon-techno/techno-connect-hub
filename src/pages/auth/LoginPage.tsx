@@ -6,8 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { ShieldCheck, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { useAuthThemeReset } from "./useAuthThemeReset";
 
 export default function LoginPage() {
+  useAuthThemeReset();
   const { user, login } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
