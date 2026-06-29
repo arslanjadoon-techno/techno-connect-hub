@@ -33,6 +33,42 @@ export const PALETTES: Palette[] = [
     swatches: ["#1e1b4b", "#4f46e5", "#a78bfa"],
   },
   {
+    id: "autumn-earth", name: "Autumn Earth",
+    // #d96459 (Warm Terracotta/Coral) as primary accent
+    primary: "oklch(0.61 0.17 26)", primaryGlow: "oklch(0.72 0.15 35)", ring: "oklch(0.72 0.15 35)",
+    // Derived sidebar using the deep tone of #588c7e (Sage Green)
+    sidebar: "oklch(0.24 0.04 175)", sidebarForeground: "oklch(0.96 0.02 90)",
+    sidebarAccent: "oklch(0.34 0.05 175)", sidebarBorder: "oklch(0.34 0.05 175)",
+    // Hero gradient blending all your colors beautifully
+    heroGradient: "linear-gradient(135deg, oklch(0.56 0.07 175) 0%, oklch(0.72 0.17 40) 50%, oklch(0.9 0.12 90) 100%)",
+    // Aapke provide kiye huay custom HEX colors
+    swatches: ["#588c7e", "#f2ae72", "#d96459"],
+  },
+  {
+    id: "rustic-safari", name: "Rustic Safari",
+    // #7e4a35 (Deep Terracotta/Brown) as primary accent
+    primary: "oklch(0.46 0.12 35)", primaryGlow: "oklch(0.6 0.11 45)", ring: "oklch(0.6 0.11 45)",
+    // Derived sidebar using the deep tone of #838060 (Olive Khaki)
+    sidebar: "oklch(0.25 0.03 105)", sidebarForeground: "oklch(0.95 0.02 95)",
+    sidebarAccent: "oklch(0.35 0.04 105)", sidebarBorder: "oklch(0.35 0.04 105)",
+    // Hero gradient blending your brown, gold, and sand tones
+    heroGradient: "linear-gradient(135deg, oklch(0.46 0.12 35) 0%, oklch(0.75 0.11 92) 50%, oklch(0.85 0.06 95) 100%)",
+    // Aapke provide kiye huay custom HEX colors
+    swatches: ["#7e4a35", "#cab577", "#838060"],
+  },
+  {
+    id: "mint-rose", name: "Mint Rose",
+    // #77a8a8 (Muted Sage Teal) as primary accent
+    primary: "oklch(0.66 0.06 195)", primaryGlow: "oklch(0.76 0.06 190)", ring: "oklch(0.76 0.06 190)",
+    // Derived sidebar using a deep slate-gray base that complements the soft tones
+    sidebar: "oklch(0.24 0.02 240)", sidebarForeground: "oklch(0.94 0.02 10)",
+    sidebarAccent: "oklch(0.34 0.03 210)", sidebarBorder: "oklch(0.34 0.03 210)",
+    // Hero gradient blending the soft pink, mint, and teal tones
+    heroGradient: "linear-gradient(135deg, oklch(0.88 0.03 15) 0%, oklch(0.92 0.04 140) 50%, oklch(0.66 0.06 195) 100%)",
+    // Aapke provide kiye huay custom HEX colors
+    swatches: ["#e4d1d1", "#d9ecd0", "#77a8a8"],
+  },
+  {
     id: "ocean", name: "Deep Ocean",
     primary: "oklch(0.55 0.16 220)", primaryGlow: "oklch(0.7 0.15 200)", ring: "oklch(0.7 0.15 200)",
     sidebar: "oklch(0.22 0.07 230)", sidebarForeground: "oklch(0.97 0.01 220)",
