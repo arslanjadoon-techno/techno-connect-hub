@@ -56,7 +56,7 @@ export default function MarketsPage() {
 
   // Pagination tracking states
   const [page, setPage] = useState<number>(0);
-  const [size, setSize] = useState<number>(10);
+  const [size, setSize] = useState<number>(15);
   const [totalRecords, setTotalRecords] = useState<number>(0);
 
   // Synchronous atomic lockers

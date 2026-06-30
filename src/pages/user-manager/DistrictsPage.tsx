@@ -41,7 +41,7 @@ export default function DistrictsPage() {
 
   // States for tracking server side pagination parameters
   const [page, setPage] = useState<number>(0);
-  const [size, setSize] = useState<number>(10);
+  const [size, setSize] = useState<number>(15);
   const [totalRecords, setTotalRecords] = useState<number>(0);
 
   // Synchronous atomic locker to prevent simultaneous duplicate fetches
@@ -51,7 +51,7 @@ export default function DistrictsPage() {
 
   // Dynamic fetch method synced directly with pagination and dropdown states filter
   const fetchDistricts = async (targetPage: number, targetSize: number, targetState: string) => {
-    // UPDATED: Included state value inside the atomic key block to prevent race conditions on fast switching
+    // Included state value inside the atomic key block to prevent race conditions on fast switching
     const currentRequestKey = `${targetPage}-${targetSize}-${targetState}`;
 
     if (lastFetchedKey.current === currentRequestKey || isFetchingRef.current) {

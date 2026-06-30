@@ -76,8 +76,10 @@ function UsersPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
+  const [loadingUserId, setLoadingUserId] = useState<string | null>(null);
+
   const [page, setPage] = useState<number>(0);
-  const [size, setSize] = useState<number>(10);
+  const [size, setSize] = useState<number>(15);
   const [totalRecords, setTotalRecords] = useState<number>(0);
 
   const lastFetchedKey = useRef<string>("");
@@ -178,37 +180,40 @@ function UsersPage() {
 
   const handleToggleActive = async (u: any, nextValue: boolean) => {
     try {
-      setActionLoading(true);
+      setLoadingUserId(u.id);
       // Optimistic UI
       setUsers(prev => prev.map(x => x.id === u.id ? { ...x, active: nextValue } : x));
       const raw = u._raw ?? {};
       const payload: any = {
-        id: Number(u.id),
-        fullName: raw.fullName ?? u.fullName,
         email: raw.email ?? u.email,
-        phone: raw.phone ?? (u.phone === "—" ? null : u.phone),
-        department: raw.department ?? u.departmentObj ?? null,
-        allowedUserManagement: raw.allowedUserManagement ?? u.allowedUserManagement,
         active: nextValue,
-        assignedPortals: raw.assignedPortals ?? u.assignedPortals,
-        portalAccess: raw.portalAccess ?? u.portalAccess,
-        states: raw.states ?? u.states,
-        districts: raw.districts ?? u.districts,
-        markets: raw.markets ?? u.markets,
-        stores: raw.stores ?? u.stores,
       };
-      const res = await usersApi.update(payload);
+      const res = await usersApi.toggleActivationStatus(payload);
       if (res.success) {
-        toast.success(`User ${nextValue ? "activated" : "deactivated"}`);
+        toast.success(`User ${nextValue ? "activated successfully!" : "deactivated successfully!"}`);
       }
     } catch (err: any) {
       // revert
       setUsers(prev => prev.map(x => x.id === u.id ? { ...x, active: !nextValue } : x));
       toast.error(err?.message || "Failed to update status");
     } finally {
-      setActionLoading(false);
+      // setActionLoading(false);
+      setLoadingUserId(null);
     }
   };
+
+  const currentLoggedInUserEmail = useMemo(() => {
+    try {
+      const userStr = localStorage.getItem("user");
+      if (userStr) {
+        const userObj = JSON.parse(userStr);
+        return userObj?.email ? String(userObj.email).toLowerCase().trim() : null;
+      }
+    } catch (e) {
+      console.error("Error parsing logged-in user email:", e);
+    }
+    return null;
+  }, []);
 
   const filteredMainDeptsOptions = useMemo(() => {
     return dynamicDepts.filter((d) => (d.name || "").toLowerCase().includes(mainDeptSearch.toLowerCase()));
@@ -327,18 +332,41 @@ function UsersPage() {
               key: "active",
               header: "Active",
               className: "w-24",
-              accessor: (u) => (
-                <div onClick={(e) => e.stopPropagation()}>
-                  <Switch
-                    checked={!!u.active}
-                    disabled={actionLoading}
-                    onCheckedChange={(v) => handleToggleActive(u, v)}
-                  />
-                </div>
-              )
+              accessor: (u) => {
+                const isCurrentRowLoading = loadingUserId === u.id;
+
+                const rowEmail = u.email ? String(u.email).toLowerCase().trim() : "";
+
+                const isSelfDeactivation = rowEmail === currentLoggedInUserEmail;
+
+                //  Default admin email
+                const isDefaultAdmin = rowEmail === "admin@techno.com";
+
+                const isDisabled = isCurrentRowLoading || isSelfDeactivation || isDefaultAdmin;
+
+                const tooltipMessage = isSelfDeactivation
+                  ? "You cannot deactivate your own account"
+                  : isDefaultAdmin
+                    ? "Default Admin account cannot be deactivated"
+                    : "";
+
+                return (
+                  <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 justify-end pr-2">
+                    <Switch
+                      checked={!!u.active}
+                      disabled={isDisabled}
+                      onCheckedChange={(v) => handleToggleActive(u, v)}
+                      title={tooltipMessage}
+                    />
+                    {isCurrentRowLoading && (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                    )}
+                  </div>
+                );
+              }
             },
           ]}
-          
+
           onDelete={handleDelete}
           renderForm={(initial, close) => (
             <UserForm

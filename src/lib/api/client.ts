@@ -193,6 +193,9 @@ export const usersApi = {
 
   toggle2FaBypass: (payload: { email: string; bypassStatus: boolean }) =>
     apiRequest<null>(USER_API_PATHS.toggle2FaBypass, { method: "PUT", body: payload }),
+
+  toggleActivationStatus: (payload: { email: string; activationStatus: boolean }) =>
+    apiRequest<null>(USER_API_PATHS.toggleActivationStatus, { method: "PUT", body: payload }),
 };
 
 

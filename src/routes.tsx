@@ -29,7 +29,7 @@ import StatesPage from "@/pages/user-manager/StatesPage";
 import MarketsPage from "@/pages/user-manager/MarketsPage";
 import HousesPage from "@/pages/user-manager/HousesPage";
 import StoresPage from "@/pages/user-manager/StoresPage";
-import ExternalPage from "@/pages/user-manager/ExternalPage";
+import ExternalPage from "@/pages/portals/ticketing/ExternalPage";
 import NotFoundInApp from "@/pages/shell/NotFoundInApp";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {

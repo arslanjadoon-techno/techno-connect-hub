@@ -217,8 +217,6 @@ export type Role =
   | "store_manager"
   | "admin";
 
-// 🌟 ISSUES FIXED: Department ko strict literal ke bajay string support bhi di hai, 
-// kyunki database/API se dynamic departments bhi aa sakte hain.
 export type Department =
   | "Finance"
   | "Maintenance"
@@ -247,12 +245,11 @@ export const ALL_ROLES: { value: Role; label: string }[] = [
   { value: "admin", label: "Admin" },
 ];
 
-// 🌟 NEW: usersApi.getAll ke parameters ko strict type dene ke liye query interface
 export interface GetUsersParams {
   page?: number;
   size?: number;
   department?: string;
-  portal?: string; // 👈 Aapka required filters parameter yahan add ho gaya
+  portal?: string;
 }
 
 export interface User {
@@ -265,8 +262,6 @@ export interface User {
   department: string | null;
   departmentName?: string;
   
-  // 🌟 ISSUE FIXED: Ab user level par single roleName nahi hai, multiple roles hain portalAccess me.
-  // Humne isay optional (?) kar diya taake purana code break na ho.
   roleName?: Role; 
   
   assignedPortals?: string[]; 
@@ -278,8 +273,7 @@ export interface User {
     roleId: number;
     roleName: string;
   }>;
-  
-  // 🌟 CRITICAL ISSUE FIXED: API ab flat IDs (stateId) ke bajay geographic data LISTS (arrays) me bhej rahi hai.
+
   states?: Array<{ id: number | string; name: string }>;
   districts?: Array<{ id: number | string; name: string }>;
   markets?: Array<{ id: number | string; name: string }>;

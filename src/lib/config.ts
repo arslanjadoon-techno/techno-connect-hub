@@ -29,6 +29,7 @@ export const USER_API_PATHS = {
   deleteUser: "/api/users/delete",
   updatePassword: "/api/users/update-password",
   toggle2FaBypass: "/api/users/toggle-2fa-bypass",
+  toggleActivationStatus: "/api/users/toggle-activation-status",
 } as const;
 
 export const STATE_API_PATHS = {
