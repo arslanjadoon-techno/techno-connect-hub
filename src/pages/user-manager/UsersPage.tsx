@@ -60,10 +60,10 @@ function UsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [deptFilter, setDeptFilter] = useState<string>("all");
 
-  // 🌟 ROLES FILTER REPLACED WITH PORTALS FILTER
+  
   const [portalFilter, setPortalFilter] = useState<string>("all");
 
-  const [dynamicRoles, setDynamicRoles] = useState<string[]>([]);
+  const [dynamicRoles, setDynamicRoles] = useState<any[]>([]);
   const [dynamicDepts, setDynamicDepts] = useState<{ id: number; name: string }[]>([]);
   const [portalsMasterList, setPortalsMasterList] = useState<any[]>([]);
 
@@ -396,7 +396,7 @@ export function UserForm({
   onSaved
 }: {
   initial: any | null;
-  dynamicRoles: string[];
+  dynamicRoles: any[];
   portalsMasterList: any[];
   onSaved: () => void
 }) {
@@ -508,11 +508,18 @@ export function UserForm({
       Object.keys(portalConfig).forEach(k => {
         if (portalConfig[k].enabled) {
           const masterObjectRef = portalsMasterList.find(p => p.name === k);
+
+          const selectedRoleName = portalConfig[k].roleName;
+          const roleObjectRef = dynamicRoles.find(
+            (r: any) => String(r.name).toLowerCase().trim() === String(selectedRoleName).toLowerCase().trim()
+          );
+
           assignedPortals.push(k);
           portalAccess.push({
             portalId: masterObjectRef?.id ?? 0,
             portalName: k,
-            roleId: 1,
+            // roleId: 1,
+            roleId: roleObjectRef?.id ?? 0,
             roleName: portalConfig[k].roleName
           });
         }
@@ -662,13 +669,15 @@ export function UserForm({
                     <SelectTrigger className={`h-8 text-xs font-medium ${isEnabled ? "border-primary/50 ring-1 ring-primary/10" : "bg-zinc-50 border-zinc-200"}`}>
                       <SelectValue placeholder="Choose role" />
                     </SelectTrigger>
+
                     <SelectContent>
                       {dynamicRoles.map((r) => (
-                        <SelectItem key={r} value={r} className="text-xs">
-                          {formatRoleName(r)}
+                        <SelectItem key={r.id || r.name} value={r.name} className="text-xs">
+                          {formatRoleName(r.name)}
                         </SelectItem>
                       ))}
                     </SelectContent>
+                    
                   </Select>
                 </div>
               </div>

@@ -69,7 +69,7 @@ export default function Verify2FAPage() {
             <div className="space-y-2">
               <Label className="text-center block">Authenticator code</Label>
               <div className="flex justify-center">
-                <InputOTP maxLength={6} value={code} onChange={setCode}>
+                <InputOTP maxLength={6} value={code} onChange={setCode} autoFocus>
                   <InputOTPGroup className="gap-2">
                     {[0, 1, 2, 3, 4, 5].map((i) => (
                       <InputOTPSlot

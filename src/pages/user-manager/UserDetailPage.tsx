@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { usersApi, hierarchyApi } from "@/lib/api/client";
 import { toast } from "sonner";
@@ -42,10 +42,10 @@ function chip(label: string, key: string | number) {
 }
 
 const PORTAL_TONES: Record<string, string> = {
-  ticketing:  "border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900/50",
+  ticketing: "border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-900/50",
   commission: "border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-900/50",
-  ranker:     "border-purple-200 bg-purple-50 dark:bg-purple-950/30 dark:border-purple-900/50",
-  leasing:    "border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-900/50",
+  ranker: "border-purple-200 bg-purple-50 dark:bg-purple-950/30 dark:border-purple-900/50",
+  leasing: "border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-900/50",
   attendence: "border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-900/50",
   attendance: "border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-900/50",
 };
@@ -60,6 +60,7 @@ function portalTone(name: string, idx: number) {
 }
 
 export default function UserDetailPage() {
+
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
@@ -67,7 +68,7 @@ export default function UserDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [togglingActive, setTogglingActive] = useState(false);
   const [editMode, setEditMode] = useState(false);
-  const [dynamicRoles, setDynamicRoles] = useState<string[]>([]);
+  const [dynamicRoles, setDynamicRoles] = useState<any[]>([]);
   const [portalsMasterList, setPortalsMasterList] = useState<any[]>([]);
 
   const fetchUser = async () => {
@@ -83,6 +84,23 @@ export default function UserDetailPage() {
     }
   };
 
+  const currentLoggedInUserEmail = useMemo(() => {
+    try {
+      const userStr = localStorage.getItem("user");
+      if (userStr) {
+        const userObj = JSON.parse(userStr);
+        return userObj?.email ? String(userObj.email).toLowerCase().trim() : null;
+      }
+    } catch { }
+    return null;
+  }, []);
+
+  const currentUserEmail = user?.email ? String(user.email).toLowerCase().trim() : "";
+  const isSelfAccount = currentUserEmail === currentLoggedInUserEmail;
+  const isDefaultAdmin = currentUserEmail === "admin@techno.com";
+
+  const isActionBlocked = isSelfAccount || isDefaultAdmin;
+
   const fetchLookups = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -92,9 +110,11 @@ export default function UserDetailPage() {
           headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
         }).then(r => r.json()),
       ]);
+
       if (rolesRes.success && Array.isArray(rolesRes.data)) setDynamicRoles(rolesRes.data);
+
       if (portalsRes?.success && Array.isArray(portalsRes.data)) setPortalsMasterList(portalsRes.data);
-    } catch {}
+    } catch { }
   };
 
   useEffect(() => { fetchUser(); fetchLookups(); }, [id]);
@@ -199,7 +219,8 @@ export default function UserDetailPage() {
               <Button
                 variant={user.active ? "outline" : "default"}
                 className="gap-2"
-                disabled={togglingActive}
+                disabled={togglingActive || isActionBlocked}
+                title={isSelfAccount ? "You cannot deactivate your own account" : isDefaultAdmin ? "Default Admin cannot be deactivated" : ""}
               >
                 {togglingActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
                 {user.active ? "Deactivate" : "Activate"}
@@ -227,7 +248,12 @@ export default function UserDetailPage() {
 
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="gap-2" disabled={deleting}>
+              <Button
+                variant="destructive"
+                className="gap-2"
+                disabled={deleting || isActionBlocked}
+                title={isSelfAccount ? "You cannot delete your own account" : isDefaultAdmin ? "Default Admin cannot be deleted" : ""}
+              >
                 {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                 Delete user
               </Button>
@@ -243,6 +269,8 @@ export default function UserDetailPage() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+
+
         </div>
       </div>
 
