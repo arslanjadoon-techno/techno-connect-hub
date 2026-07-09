@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { type ReactNode } from "react";
 
+// ---------- Authentication ---------- //
 import AppLayout from "@/pages/shell/AppLayout";
 import LoginPage from "@/pages/auth/LoginPage";
 import ForgotPasswordPage from "@/pages/auth/ForgotPasswordPage";
@@ -9,18 +10,27 @@ import ResetPasswordPage from "@/pages/auth/ResetPasswordPage";
 import Setup2FAPage from "@/pages/auth/Setup2FAPage";
 import Verify2FAPage from "@/pages/auth/Verify2FAPage";
 
+// ---------- Dashboard ---------- //
 import AiChatPage from "@/pages/ai-chat/AiChatPage";
 import TeamChatPage from "@/pages/team-chat/TeamChatPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
 
+// ---------- Ticketing Portal ---------- //
 import TicketingDashboardPage from "@/pages/portals/ticketing/DashboardPage";
 import TicketsPage from "@/pages/portals/ticketing/TicketsPage";
 import TicketDetailPage from "@/pages/portals/ticketing/TicketDetailPage";
+import ExternalPage from "@/pages/portals/ticketing/ExternalPage";
 
+// ---------- Commission Portal ---------- //
 import CommissionDashboardPage from "@/pages/portals/commission/DashboardPage";
 import CommissionPage from "@/pages/portals/commission/CommissionPage";
-import RankerDashboardPage from "@/pages/portals/ranker/DashboardPage";
 
+// ---------- Ranker Portal ---------- //
+import RankerDashboardPage from "@/pages/portals/ranker/DashboardPage";
+import StandingsPage from "@/pages/portals/ranker/Standings";
+import StandingsDetailPage from "@/pages/portals/ranker/StandingsDetail";
+
+// ---------- User manager ---------- //
 import UsersPage from "@/pages/user-manager/UsersPage";
 import UserDetailPage from "@/pages/user-manager/UserDetailPage";
 import DepartmentsPage from "@/pages/user-manager/DepartmentsPage";
@@ -29,7 +39,6 @@ import StatesPage from "@/pages/user-manager/StatesPage";
 import MarketsPage from "@/pages/user-manager/MarketsPage";
 import HousesPage from "@/pages/user-manager/HousesPage";
 import StoresPage from "@/pages/user-manager/StoresPage";
-import ExternalPage from "@/pages/portals/ticketing/ExternalPage";
 import NotFoundInApp from "@/pages/shell/NotFoundInApp";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -72,6 +81,8 @@ function NotFound() {
 export function AppRoutes() {
   return (
     <Routes>
+
+      // ---------- Authentication ---------- //
       <Route path="/" element={<Navigate to="/ai-chat" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -80,20 +91,28 @@ export function AppRoutes() {
       <Route path="/verify-2fa" element={<Verify2FAPage />} />
 
       <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+
+        // ---------- Dashboard ---------- //
         <Route path="/ai-chat" element={<AiChatPage />} />
         <Route path="/chat" element={<TeamChatPage />} />
         <Route path="/settings" element={<SettingsPage />} />
 
+        // ---------- Ticketing Portal ---------- //
         <Route path="/ticketing/dashboard" element={<TicketingDashboardPage />} />
         <Route path="/ticketing/tickets" element={<TicketsPage />} />
         <Route path="/ticketing/tickets/:id" element={<TicketDetailPage />} />
         <Route path="/ticketing/external" element={<ExternalPage />} />
 
+        // ---------- Commission Portal ---------- //
         <Route path="/commission/dashboard" element={<CommissionAdminOnly><CommissionDashboardPage /></CommissionAdminOnly>} />
         <Route path="/commission/commission" element={<CommissionPage />} />
 
+        // ---------- Ranker Portal ---------- //
         <Route path="/ranker/dashboard" element={<RankerDashboardPage />} />
+        <Route path="/ranker/standings" element={<StandingsPage />} />
+        <Route path="/ranker/standings/detail" element={<StandingsDetailPage />} />
 
+        // ---------- User Manager ---------- //
         <Route path="/admin/users" element={<UsersPage />} />
         <Route path="/admin/users/:id" element={<UserDetailPage />} />
         <Route path="/admin/departments" element={<DepartmentsPage />} />
@@ -104,7 +123,7 @@ export function AppRoutes() {
         <Route path="/admin/stores" element={<StoresPage />} />
         <Route path="/admin/external" element={<ExternalPage />} />
 
-        {/* In-app 404 — keeps sidebar + header visible */}
+        {/* Custom 404 page — keeps sidebar + header visible */}
         <Route path="*" element={<NotFoundInApp />} />
       </Route>
 

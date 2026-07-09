@@ -71,6 +71,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     icon: Award,
     items: [
       { title: "Dashboard", url: "/ranker/dashboard", icon: LayoutDashboard },
+      { title: "Standings", url: "/ranker/standings", icon: LayoutDashboard },
     ],
   },
 };

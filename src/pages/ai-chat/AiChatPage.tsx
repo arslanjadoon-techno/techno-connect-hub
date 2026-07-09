@@ -69,7 +69,7 @@ function AIChatPage() {
           <Sparkles className="h-8 w-8" />
         </div>
         <h1 className="font-display text-3xl font-semibold tracking-tight">How can I help you today?</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Your workspace AI assistant — preview</p>
+        <p className="mt-2 text-sm text-muted-foreground">Your workspace AI assistant</p>
 
         <div className="mt-8 w-full max-w-2xl">{Composer}</div>
 
@@ -99,7 +99,7 @@ function AIChatPage() {
         </div>
         <div>
           <h1 className="font-display text-2xl font-semibold">AI Chat</h1>
-          <p className="text-sm text-muted-foreground">Your workspace AI assistant — preview</p>
+          <p className="text-sm text-muted-foreground">Your workspace AI assistant</p>
         </div>
       </header>
 
