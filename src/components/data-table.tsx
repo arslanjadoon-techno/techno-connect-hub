@@ -79,7 +79,7 @@ export function DataTable<T>({
 
   const changePageSize = (next: number) => {
     setPageSize(next);
-    try { window.localStorage.setItem(PAGE_SIZE_KEY, String(next)); } catch {}
+    try { window.localStorage.setItem(PAGE_SIZE_KEY, String(next)); } catch { }
     window.dispatchEvent(new CustomEvent(PAGE_SIZE_EVENT, { detail: next }));
     if (onPageSizeChange) onPageSizeChange(next);
     if (isServerPagination && onPageChange) onPageChange(0);
@@ -128,7 +128,7 @@ export function DataTable<T>({
             disabled={isLoading}
             onChange={(e) => {
               setQuery(e.target.value);
-              if (isServerPagination) onPageChange!(0);
+              if (isServerPagination) onPageChange?.(0);
               else setLocalPage(1);
             }}
             placeholder={searchPlaceholder}

@@ -49,7 +49,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     icon: DollarSign,
     items: [
       { title: "Dashboard", url: "/commission/dashboard", icon: BarChart3 },
-      { title: "Commission", url: "/commission/commission", icon: DollarSign },
+      { title: "Commission", url: "/commission/my-commission", icon: DollarSign },
     ],
   },
   leasing: {
@@ -253,7 +253,7 @@ export function AppSidebar() {
           {!collapsed && (
             <div className="min-w-0">
               <div className="truncate font-display text-sm font-semibold text-sidebar-foreground">
-                Techno MIS
+                MIS
               </div>
               <div className="truncate text-[11px] text-sidebar-foreground/70">
                 Management Information System

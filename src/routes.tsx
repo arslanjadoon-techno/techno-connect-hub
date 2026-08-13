@@ -62,7 +62,7 @@ function CommissionAdminOnly({ children }: { children: ReactNode }) {
       );
     }
   } catch { /* ignore */ }
-  if (!isAdmin) return <Navigate to="/commission/commission" replace />;
+  if (!isAdmin) return <Navigate to="/commission/my-commission" replace />;
   return <>{children}</>;
 }
 
@@ -105,7 +105,7 @@ export function AppRoutes() {
 
         // ---------- Commission Portal ---------- //
         <Route path="/commission/dashboard" element={<CommissionAdminOnly><CommissionDashboardPage /></CommissionAdminOnly>} />
-        <Route path="/commission/commission" element={<CommissionPage />} />
+        <Route path="/commission/my-commission" element={<CommissionPage />} />
 
         // ---------- Ranker Portal ---------- //
         <Route path="/ranker/dashboard" element={<RankerDashboardPage />} />

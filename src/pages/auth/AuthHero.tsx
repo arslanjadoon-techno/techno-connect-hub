@@ -11,7 +11,7 @@ export default function AuthHero({
   title,
   subtitle,
   eyebrow = "Management Information System",
-  brand = "Techno MIS",
+  brand = "MIS",
 }: {
   title: ReactNode;
   subtitle: ReactNode;
