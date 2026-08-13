@@ -274,7 +274,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { DataTable, type Column } from "@/components/data-table";
-import { ArrowDown, ArrowUp, ArrowUpDown, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Search, DollarSign, TrendingUp, Boxes, Wallet } from "lucide-react";
+import { FilterReset } from "@/components/filter-reset";
+
 
 type SortDir = "asc" | "desc" | null;
 
