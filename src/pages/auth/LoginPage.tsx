@@ -62,7 +62,7 @@ export default function LoginPage() {
       >
         {/* Floating big blobs */}
         <div className="pointer-events-none absolute -top-32 -left-32 h-[28rem] w-[28rem] rounded-full bg-white/10 blur-3xl animate-float-blob" />
-        <div className="pointer-events-none absolute bottom--10 right-0 h-[32rem] w-[32rem] rounded-full bg-white/10 blur-3xl animate-float-blob" style={{ animationDelay: "2s" }} />
+        <div className="pointer-events-none absolute -bottom-10 right-0 h-[32rem] w-[32rem] rounded-full bg-white/10 blur-3xl animate-float-blob" style={{ animationDelay: "2s" }} />
         <div className="pointer-events-none absolute top-1/3 right-1/4 h-72 w-72 rounded-full bg-white/15 blur-2xl animate-float-blob" style={{ animationDelay: "4s" }} />
 
         {/* Decorative bubbles (crisp circles) */}
