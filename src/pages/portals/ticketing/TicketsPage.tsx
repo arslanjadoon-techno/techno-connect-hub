@@ -183,7 +183,22 @@ export default function TicketsPage() {
             ...data.users.map((u) => ({ value: u.id, label: `${u.firstName} ${u.lastName}` })),
             ...data.vendors.map((v) => ({ value: `ext:${v.id}`, label: `${v.name} (External)` })),
           ]} />
+        <FilterReset
+          active={
+            statusFilter !== "all" || deptFilter !== "all" || priorityFilter !== "all" ||
+            creatorFilter !== "all" || assigneeFilter !== "all" || !!dateRange
+          }
+          onReset={() => {
+            setStatus("all");
+            setDeptFilter("all");
+            setPriorityFilter("all");
+            setCreatorFilter("all");
+            setAssigneeFilter("all");
+            setDateRange(undefined);
+          }}
+        />
       </div>
+
 
       <DataTable
         rows={filtered}
