@@ -97,8 +97,15 @@ export default function LoginPage() {
       </div>
 
       {/* Form side — soft grey backdrop with crisp white card on top */}
-      <div className="flex items-center justify-center bg-muted/40 p-6 lg:pl-16">
-        <Card className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-2xl animate-scale-in">
+      <div className="relative flex items-center justify-center overflow-hidden bg-muted/40 p-6 lg:pl-16">
+        {/* Fixed decorative bubble on the top-right of the form side */}
+        <div
+          className="pointer-events-none absolute -right-24 -top-24 h-[26rem] w-[26rem] rounded-full opacity-20 blur-2xl"
+          style={{ backgroundImage: "var(--gradient-primary)" }}
+        />
+        <div className="pointer-events-none absolute right-16 top-16 h-40 w-40 rounded-full border border-primary/20" />
+        <Card className="relative z-10 w-full max-w-md rounded-2xl border bg-card p-8 shadow-2xl animate-scale-in">
+
           <h2 className="font-display text-2xl font-semibold">Welcome back</h2>
           <p className="mt-1 text-sm text-muted-foreground">Sign in to your portal account.</p>
 
