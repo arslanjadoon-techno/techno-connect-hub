@@ -132,7 +132,35 @@ export const PALETTES: Palette[] = [
     heroGradient: "linear-gradient(135deg, oklch(0.42 0.14 8) 0%, oklch(0.62 0.18 20) 50%, oklch(0.8 0.15 35) 100%)",
     swatches: ["#7f1d1d", "#fb7185", "#fecaca"],
   },
+  ...([
+    // [id, name, L, C, H, swatches]
+    ["rose-pop", "Rose Pop", 0.63, 0.24, 9, ["#F5276C", "#FF7FA5", "#FFD6E3"]],
+    ["ember", "Ember Orange", 0.65, 0.21, 33, ["#F54927", "#FF8A63", "#FFD8C9"]],
+    ["gold", "Golden Hour", 0.72, 0.16, 78, ["#F5B027", "#FFD37A", "#FFF0CC"]],
+    ["mint", "Fresh Mint", 0.72, 0.16, 163, ["#27F5B0", "#7DF0CE", "#D6FBEE"]],
+    ["azure", "Azure Blue", 0.57, 0.22, 262, ["#276CF5", "#7BA4FF", "#D6E3FF"]],
+    ["magenta", "Magenta Ink", 0.5, 0.23, 328, ["#A300A3", "#D45BD4", "#F3D2F3"]],
+    ["cyan", "Electric Cyan", 0.64, 0.13, 215, ["#06B6D4", "#67E8F9", "#CFFAFE"]],
+    ["violet", "Deep Violet", 0.54, 0.25, 293, ["#7C3AED", "#A78BFA", "#EDE9FE"]],
+    ["crimson", "Crimson Red", 0.59, 0.22, 18, ["#E11D48", "#FB7185", "#FFE4E6"]],
+    ["graphite", "Graphite Grey", 0.5, 0.02, 257, ["#334155", "#64748B", "#CBD5E1"]],
+    ["obsidian", "Obsidian Black", 0.32, 0.01, 266, ["#0F172A", "#1F2937", "#94A3B8"]],
+  ] as Array<[string, string, number, number, number, string[]]>).map(
+    ([id, name, L, C, H, swatches]) => ({
+      id, name,
+      primary: `oklch(${L} ${C} ${H})`,
+      primaryGlow: `oklch(${Math.min(L + 0.14, 0.9)} ${Math.max(C - 0.03, 0.02)} ${H})`,
+      ring: `oklch(${Math.min(L + 0.14, 0.9)} ${Math.max(C - 0.03, 0.02)} ${H})`,
+      sidebar: `oklch(0.22 ${Math.min(C * 0.35, 0.08)} ${H})`,
+      sidebarForeground: `oklch(0.97 0.01 ${H})`,
+      sidebarAccent: `oklch(0.32 ${Math.min(C * 0.4, 0.09)} ${H})`,
+      sidebarBorder: `oklch(0.32 ${Math.min(C * 0.4, 0.09)} ${H})`,
+      heroGradient: `linear-gradient(135deg, oklch(${Math.max(L - 0.2, 0.2)} ${C} ${H}) 0%, oklch(${L} ${C} ${H}) 50%, oklch(${Math.min(L + 0.2, 0.92)} ${Math.max(C - 0.05, 0.03)} ${(H + 25) % 360}) 100%)`,
+      swatches,
+    }),
+  ),
 ];
+
 
 interface Ctx {
   theme: Theme;

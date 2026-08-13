@@ -245,3 +245,19 @@ table tbody tr:hover { background-color: color-mix(in oklab, var(--accent) 60%, 
   pointer-events: none;
 }
 .btn-shine:hover::after { transform: translateX(100%); }
+
+/* Themed table header — follows the active palette accent */
+.themed-thead {
+  background: color-mix(in oklab, var(--primary) 12%, var(--card));
+}
+.themed-thead th {
+  color: color-mix(in oklab, var(--primary) 70%, var(--foreground));
+  font-weight: 600;
+  letter-spacing: .01em;
+}
+.dark .themed-thead {
+  background: color-mix(in oklab, var(--primary) 22%, var(--card));
+}
+.dark .themed-thead th {
+  color: color-mix(in oklab, var(--primary) 25%, var(--foreground));
+}
