@@ -1,3 +1,4 @@
+import { FilterReset } from "@/components/filter-reset";
 import { useNavigate, useSearchParams } from "react-router-dom";import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data-store";
