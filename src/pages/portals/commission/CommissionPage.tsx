@@ -506,6 +506,52 @@ export default function CommissionPage() {
     return <div className="p-5 text-center text-sm text-muted-foreground animate-pulse">Loading commission dataset...</div>;
   }
 
+  const filtersActive = selectedDate !== todayStr || market !== "all" || searchTerm.trim() !== "";
+  const resetFilters = () => { setSelectedDate(todayStr); setMarket("all"); setSearchTerm(""); };
+
+  const FilterBar = (
+    <div className="flex flex-wrap items-end gap-3">
+      <div className="flex flex-col">
+        <span className="text-xs font-medium text-muted-foreground mb-1">Date</span>
+        <Input
+          type="date"
+          value={selectedDate}
+          onChange={(e) => setSelectedDate(e.target.value)}
+          className="w-[180px] h-9"
+        />
+      </div>
+
+      {userRole !== "user" && (
+        <div className="flex flex-col">
+          <span className="text-xs font-medium text-muted-foreground mb-1">Market</span>
+          <Select value={market} onValueChange={setMarket}>
+            <SelectTrigger className="w-[200px] h-9"><SelectValue placeholder="Filter by market" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Markets</SelectItem>
+              {markets.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      <FilterReset active={filtersActive} onReset={resetFilters} />
+    </div>
+  );
+
+  // Users only ever see their own single row — render it as a dashboard instead of a table.
+  if (userRole === "user") {
+    return (
+      <div className="space-y-5 animate-fade-in">
+        <div>
+          <h1 className="font-display text-2xl font-semibold">My Commission</h1>
+          <p className="text-sm text-muted-foreground">Your personal commission breakdown.</p>
+        </div>
+        {FilterBar}
+        <UserCommissionDashboard row={filtered[0]} formatCurrency={formatCurrency} />
+      </div>
+    );
+  }
+
   return (
     <Tabs defaultValue="summary" className="w-full space-y-5 animate-fade-in">
       {/* Top Line: Title & Subtitle + Tabs placed right after with horizontal gap */}
@@ -522,49 +568,9 @@ export default function CommissionPage() {
         </TabsList>
       </div>
 
-      {/* Second Line: Date filter, Market filter (if not user), and Search bar on the rightmost side */}
+      {/* Second Line: filters + reset */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Date Filter */}
-          <div className="flex flex-col">
-            <span className="text-xs font-medium text-muted-foreground mb-1">Date</span>
-            <Input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-[180px] h-9"
-            />
-          </div>
-
-          {/* Market Filter (Visible only when userRole is not 'user') */}
-          {userRole !== "user" && (
-            <div className="flex flex-col">
-              <span className="text-xs font-medium text-muted-foreground mb-1">Market</span>
-              <Select value={market} onValueChange={setMarket}>
-                <SelectTrigger className="w-[200px] h-9"><SelectValue placeholder="Filter by market" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Markets</SelectItem>
-                  {markets.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-        </div>
-
-        {/* Search Bar on the Rightmost side */}
-        {/* <div className="flex flex-col">
-          <span className="text-xs font-medium text-muted-foreground mb-1 sm:hidden">Search</span>
-          <div className="relative w-full sm:w-[260px]">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Search records..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 h-9"
-            />
-          </div>
-        </div> */}
+        {FilterBar}
       </div>
 
       <TabsContent value="summary" className="mt-2">
@@ -586,5 +592,125 @@ export default function CommissionPage() {
         </Card>
       </TabsContent>
     </Tabs>
+  );
+}
+
+function UserCommissionDashboard({
+  row, formatCurrency,
+}: { row?: Row; formatCurrency: (v: number | null | undefined) => string }) {
+  if (!row) {
+    return (
+      <Card className="p-10 text-center">
+        <p className="text-sm text-muted-foreground">No commission record found for the selected date.</p>
+      </Card>
+    );
+  }
+
+  const kpis = [
+    { label: "Total Commission", value: formatCurrency(row.commission), icon: DollarSign },
+    { label: "Final After Deduction", value: formatCurrency(row.final_Commission_After_Deduction ?? row.commission), icon: TrendingUp },
+    { label: "Total Boxes", value: String(row.total_Box ?? 0), icon: Boxes },
+    { label: "Box Commission", value: formatCurrency(row.box_Commission), icon: Wallet },
+  ];
+
+  const breakdown = [
+    { label: "Acc Sales", value: String(row.acc_Sales ?? 0) },
+    { label: "Activation / Retention", value: formatCurrency(row.activation_Retention_Commission) },
+    { label: "VAS Commission", value: formatCurrency(row.vaS_Commission) },
+    { label: "HSI", value: String(row.hsi ?? 0) },
+    { label: "HSI Commission", value: formatCurrency(row.hsI_Commission) },
+    { label: "Contest", value: formatCurrency(row.contest) },
+    { label: "Write-ups / Chargebacks", value: formatCurrency(row.write_Ups_Chargebacks) },
+  ];
+
+  const mrc = MRC_KEYS
+    .map((k) => ({ label: `${k} MRC`, value: Number((row as any)[`_${k}_MRC`] ?? 0) }))
+    .filter((x) => x.value > 0);
+
+  const web = WEB_KEYS
+    .map((w) => ({ label: w.label, value: Number((row as any)[w.k] ?? 0) }))
+    .filter((x) => x.value > 0);
+
+  return (
+    <div className="space-y-5">
+      {/* Identity header */}
+      <Card className="relative overflow-hidden p-6">
+        <div className="pointer-events-none absolute inset-0 opacity-10" style={{ backgroundImage: "var(--gradient-primary)" }} />
+        <div className="relative flex flex-wrap items-center gap-4">
+          <div
+            className="flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-bold text-white"
+            style={{ backgroundImage: "var(--gradient-primary)" }}
+          >
+            {(row.employee_Name ?? "U").trim().charAt(0).toUpperCase()}
+          </div>
+          <div>
+            <div className="font-display text-xl font-semibold">{row.employee_Name ?? "—"}</div>
+            <div className="text-sm text-muted-foreground">
+              {row.ntid} • {row.market} • {row.year}-{String(row.month).padStart(2, "0")}-{String(row.day).padStart(2, "0")}
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {kpis.map((k) => (
+          <Card key={k.label} className="relative overflow-hidden p-5 transition hover:shadow-lg">
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+            <div className="relative flex items-start justify-between">
+              <div>
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{k.label}</div>
+                <div className="mt-2 font-display text-2xl font-semibold">{k.value}</div>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-background/70 text-primary backdrop-blur">
+                <k.icon className="h-5 w-5" />
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="p-5">
+          <h2 className="font-display text-lg font-semibold">Commission breakdown</h2>
+          <div className="mt-4 divide-y">
+            {breakdown.map((b) => (
+              <div key={b.label} className="flex items-center justify-between py-2.5 text-sm">
+                <span className="text-muted-foreground">{b.label}</span>
+                <span className="font-medium">{b.value}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        <Card className="p-5">
+          <h2 className="font-display text-lg font-semibold">MRC & Web mix</h2>
+          <p className="text-xs text-muted-foreground">Only non-zero buckets are shown.</p>
+          <div className="mt-4 space-y-4">
+            <div>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">MRC</div>
+              <div className="flex flex-wrap gap-2">
+                {mrc.length === 0 ? <span className="text-sm text-muted-foreground">No MRC activity</span> :
+                  mrc.map((m) => (
+                    <span key={m.label} className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                      {m.label}: {m.value}
+                    </span>
+                  ))}
+              </div>
+            </div>
+            <div>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Web</div>
+              <div className="flex flex-wrap gap-2">
+                {web.length === 0 ? <span className="text-sm text-muted-foreground">No web activity</span> :
+                  web.map((w) => (
+                    <span key={w.label} className="rounded-full border bg-muted px-3 py-1 text-xs font-medium">
+                      {w.label}: {w.value}
+                    </span>
+                  ))}
+              </div>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
   );
 }
