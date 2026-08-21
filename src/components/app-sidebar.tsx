@@ -59,8 +59,22 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
       { title: "Dashboard", url: "/leasing/dashboard", icon: Milestone },
     ],
   },
+  lease: {
+    title: "Lease Portal",
+    icon: KeyRound,
+    items: [
+      { title: "Dashboard", url: "/lease/dashboard", icon: LayoutDashboard },
+    ],
+  },
+  scheduling: {
+    title: "Scheduling Portal",
+    icon: CalendarDays,
+    items: [
+      { title: "Dashboard", url: "/scheduling/dashboard", icon: LayoutDashboard },
+    ],
+  },
   attendence: {
-    title: "Attendance Portal",
+    title: "Leave Portal",
     icon: CalendarDays,
     items: [
       { title: "Dashboard", url: "/attendance/dashboard", icon: BarChart3 },
@@ -75,6 +89,9 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     ],
   },
 };
+
+const ALWAYS_PORTAL_KEYS = ["lease", "scheduling"];
+
 
 const adminGroup: Group = {
   title: "User Manager",
@@ -91,15 +108,15 @@ const adminGroup: Group = {
 };
 
 function CollapsibleGroup({
-  group, collapsed, isActive, defaultOpen,
+  group, collapsed, isActive, active, open, onToggle,
 }: {
   group: Group;
   collapsed: boolean;
   isActive: (p: string) => boolean;
-  defaultOpen: boolean;
+  active: boolean;
+  open: boolean;
+  onToggle: () => void;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-  useEffect(() => { if (defaultOpen) setOpen(true); }, [defaultOpen]);
   const Icon = group.icon;
 
   if (collapsed) {
@@ -123,14 +140,15 @@ function CollapsibleGroup({
       <SidebarMenuItem>
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
-          className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition hover:bg-sidebar-accent ${defaultOpen ? "text-primary" : "text-sidebar-foreground"}`}
+          onClick={onToggle}
+          className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition hover:bg-sidebar-accent ${active ? "text-primary" : "text-sidebar-foreground"}`}
         >
           <Icon className="h-4 w-4" />
           <span className="flex-1 text-left">{group.title}</span>
           {open ? <ChevronUp className="h-4 w-4 opacity-70" /> : <ChevronDown className="h-4 w-4 opacity-70" />}
         </button>
       </SidebarMenuItem>
+
       {open && (
         <div className="ml-3 mt-0.5 border-l border-sidebar-border/70 pl-2 animate-fade-in">
           {group.items.map((item) => (
@@ -192,9 +210,15 @@ export function AppSidebar() {
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const pathname = useLocation().pathname;
-  
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  useEffect(() => { setOpenGroup(null); }, [pathname]);
+
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
   const groupActive = (g: Group) => g.items.some((i) => isActive(i.url));
+  // Accordion: only one group open at a time. `null` = follow the active route.
+  const isGroupOpen = (g: Group) => (openGroup === null ? groupActive(g) : openGroup === g.title);
+  const toggleGroup = (g: Group) => setOpenGroup(isGroupOpen(g) ? "" : g.title);
+
 
   const localUserData = localStorage.getItem("user");
   if (!localUserData) return null;
@@ -237,6 +261,13 @@ export function AppSidebar() {
       return master;
     })
     .filter((g: Group | undefined): g is Group => Boolean(g && g.items.length > 0));
+
+  // Lease & Scheduling portals are always available
+  for (const key of ALWAYS_PORTAL_KEYS) {
+    const g = MASTER_PORTAL_GROUPS[key];
+    if (g && !dynamicPortalGroups.some((x: Group) => x.title === g.title)) dynamicPortalGroups.push(g);
+  }
+
 
   return (
     <Sidebar collapsible="icon">
@@ -294,7 +325,9 @@ export function AppSidebar() {
                   group={g}
                   collapsed={collapsed}
                   isActive={isActive}
-                  defaultOpen={groupActive(g)}
+                  active={groupActive(g)}
+                  open={isGroupOpen(g)}
+                  onToggle={() => toggleGroup(g)}
                 />
               ))}
             </SidebarGroupContent>
@@ -310,7 +343,9 @@ export function AppSidebar() {
                 group={adminGroup}
                 collapsed={collapsed}
                 isActive={isActive}
-                defaultOpen={groupActive(adminGroup)}
+                active={groupActive(adminGroup)}
+                open={isGroupOpen(adminGroup)}
+                onToggle={() => toggleGroup(adminGroup)}
               />
             </SidebarGroupContent>
           </SidebarGroup>

@@ -40,6 +40,7 @@ import MarketsPage from "@/pages/user-manager/MarketsPage";
 import HousesPage from "@/pages/user-manager/HousesPage";
 import StoresPage from "@/pages/user-manager/StoresPage";
 import NotFoundInApp from "@/pages/shell/NotFoundInApp";
+import ComingSoon from "@/pages/shell/ComingSoon";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -111,6 +112,12 @@ export function AppRoutes() {
         <Route path="/ranker/dashboard" element={<RankerDashboardPage />} />
         <Route path="/ranker/standings" element={<StandingsPage />} />
         <Route path="/ranker/standings/detail" element={<StandingsDetailPage />} />
+
+        // ---------- Lease / Scheduling / Leave Portals ---------- //
+        <Route path="/lease/dashboard" element={<ComingSoon title="Lease Portal Dashboard" />} />
+        <Route path="/leasing/dashboard" element={<ComingSoon title="Leasing Portal Dashboard" />} />
+        <Route path="/scheduling/dashboard" element={<ComingSoon title="Scheduling Portal Dashboard" />} />
+        <Route path="/attendance/dashboard" element={<ComingSoon title="Leave Portal Dashboard" />} />
 
         // ---------- User Manager ---------- //
         <Route path="/admin/users" element={<UsersPage />} />
