@@ -108,15 +108,15 @@ const adminGroup: Group = {
 };
 
 function CollapsibleGroup({
-  group, collapsed, isActive, defaultOpen,
+  group, collapsed, isActive, active, open, onToggle,
 }: {
   group: Group;
   collapsed: boolean;
   isActive: (p: string) => boolean;
-  defaultOpen: boolean;
+  active: boolean;
+  open: boolean;
+  onToggle: () => void;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-  useEffect(() => { if (defaultOpen) setOpen(true); }, [defaultOpen]);
   const Icon = group.icon;
 
   if (collapsed) {
@@ -140,14 +140,15 @@ function CollapsibleGroup({
       <SidebarMenuItem>
         <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
-          className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition hover:bg-sidebar-accent ${defaultOpen ? "text-primary" : "text-sidebar-foreground"}`}
+          onClick={onToggle}
+          className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition hover:bg-sidebar-accent ${active ? "text-primary" : "text-sidebar-foreground"}`}
         >
           <Icon className="h-4 w-4" />
           <span className="flex-1 text-left">{group.title}</span>
           {open ? <ChevronUp className="h-4 w-4 opacity-70" /> : <ChevronDown className="h-4 w-4 opacity-70" />}
         </button>
       </SidebarMenuItem>
+
       {open && (
         <div className="ml-3 mt-0.5 border-l border-sidebar-border/70 pl-2 animate-fade-in">
           {group.items.map((item) => (
