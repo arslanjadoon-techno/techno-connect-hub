@@ -210,9 +210,15 @@ export function AppSidebar() {
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const pathname = useLocation().pathname;
-  
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  useEffect(() => { setOpenGroup(null); }, [pathname]);
+
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
   const groupActive = (g: Group) => g.items.some((i) => isActive(i.url));
+  // Accordion: only one group open at a time. `null` = follow the active route.
+  const isGroupOpen = (g: Group) => (openGroup === null ? groupActive(g) : openGroup === g.title);
+  const toggleGroup = (g: Group) => setOpenGroup(isGroupOpen(g) ? "" : g.title);
+
 
   const localUserData = localStorage.getItem("user");
   if (!localUserData) return null;
