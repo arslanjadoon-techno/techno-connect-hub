@@ -59,8 +59,22 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
       { title: "Dashboard", url: "/leasing/dashboard", icon: Milestone },
     ],
   },
+  lease: {
+    title: "Lease Portal",
+    icon: KeyRound,
+    items: [
+      { title: "Dashboard", url: "/lease/dashboard", icon: LayoutDashboard },
+    ],
+  },
+  scheduling: {
+    title: "Scheduling Portal",
+    icon: CalendarDays,
+    items: [
+      { title: "Dashboard", url: "/scheduling/dashboard", icon: LayoutDashboard },
+    ],
+  },
   attendence: {
-    title: "Attendance Portal",
+    title: "Leave Portal",
     icon: CalendarDays,
     items: [
       { title: "Dashboard", url: "/attendance/dashboard", icon: BarChart3 },
@@ -75,6 +89,9 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     ],
   },
 };
+
+const ALWAYS_PORTAL_KEYS = ["lease", "scheduling"];
+
 
 const adminGroup: Group = {
   title: "User Manager",
