@@ -325,7 +325,9 @@ export function AppSidebar() {
                   group={g}
                   collapsed={collapsed}
                   isActive={isActive}
-                  defaultOpen={groupActive(g)}
+                  active={groupActive(g)}
+                  open={isGroupOpen(g)}
+                  onToggle={() => toggleGroup(g)}
                 />
               ))}
             </SidebarGroupContent>
@@ -341,7 +343,9 @@ export function AppSidebar() {
                 group={adminGroup}
                 collapsed={collapsed}
                 isActive={isActive}
-                defaultOpen={groupActive(adminGroup)}
+                active={groupActive(adminGroup)}
+                open={isGroupOpen(adminGroup)}
+                onToggle={() => toggleGroup(adminGroup)}
               />
             </SidebarGroupContent>
           </SidebarGroup>
