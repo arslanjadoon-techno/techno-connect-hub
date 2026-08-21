@@ -2,7 +2,7 @@
  * Service layer — all API access in the app should go through these classes.
  *
  * Every service uses the shared `http` client which reads its base URL from
- * `VITE_API_BASE_URL` in `.env`. Switch backends by editing `.env` only.
+ * `VITE_API_DEV_URL` in `.env`. Switch backends by editing `.env` only.
  *
  * Migration note: thin wrappers over `src/lib/api/client.ts` so existing
  * components keep working while new code consumes the service classes.

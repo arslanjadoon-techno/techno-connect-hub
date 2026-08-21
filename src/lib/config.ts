@@ -1,13 +1,11 @@
 /**
  * Centralised runtime configuration.
  *
- * The backend base URL lives in `.env` as `VITE_API_BASE_URL`.
+ * The backend base URL lives in `.env` as `VITE_API_DEV_URL`.
  * Change it there (e.g. switching from local to production) and every
  * API call in the app picks it up automatically.
  */
-export const API_BASE_URL =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
-  "http://localhost:4570";
+export const API_BASE_URL = (import.meta.env.VITE_API_DEV_URL as string | "N/A");
 
 /** Auth endpoints (no `/api` prefix per backend contract). */
 export const AUTH_PATHS = {

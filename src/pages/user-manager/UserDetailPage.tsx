@@ -106,7 +106,8 @@ export default function UserDetailPage() {
       const token = localStorage.getItem("token");
       const [rolesRes, portalsRes] = await Promise.all([
         hierarchyApi.getRoles(),
-        fetch("http://localhost:4570/api/portals/get-all", {
+        // fetch("http://localhost:4570/api/portals/get-all", {
+        fetch("http://technocomm-dev.us-west-2.elasticbeanstalk.com/api/portals/get-all", {
           headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
         }).then(r => r.json()),
       ]);

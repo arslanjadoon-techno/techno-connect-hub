@@ -92,7 +92,8 @@ function UsersPage() {
   const fetchPortalsMaster = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("http://localhost:4570/api/portals/get-all", {
+      // const response = await fetch("http://localhost:4570/api/portals/get-all", {
+      const response = await fetch("http://technocomm-dev.us-west-2.elasticbeanstalk.com/api/portals/get-all", {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -277,7 +278,7 @@ function UsersPage() {
               </div>
 
               {/* 🌟 ROLES DROP-DOWN REPLACED WITH PORTALS SELECTION FILTER */}
-              <div className="relative flex flex-col pt-2.5">
+              {/* <div className="relative flex flex-col pt-2.5">
                 <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">Portal Focus</span>
                 <Select value={portalFilter} onValueChange={(val) => { lastFetchedKey.current = ""; setPage(0); setPortalFilter(val); }} onOpenChange={(open) => { if (!open) setMainPortalSearch(""); else setTimeout(() => mainPortalSearchRef.current?.focus(), 100); }}>
                   <SelectTrigger className="w-[180px] h-9 focus:ring-0 border-muted-foreground/40">
@@ -296,7 +297,7 @@ function UsersPage() {
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
+              </div> */}
 
               <Button type="button" variant="ghost" size="sm" disabled={deptFilter === "all" && portalFilter === "all"} onClick={() => { lastFetchedKey.current = ""; setPage(0); setDeptFilter("all"); setPortalFilter("all"); }} className="h-9 px-3 text-xs border border-dashed border-muted-foreground/30"><XCircle className="h-3.5 w-3.5 mr-1.5" />Reset Filters</Button>
             </div>

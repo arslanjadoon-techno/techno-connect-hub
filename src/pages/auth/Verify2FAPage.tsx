@@ -33,7 +33,24 @@ export default function Verify2FAPage() {
     if (code.length < 6) return;
     setLoading(true);
     try {
-      const res = await authApi.twoFaLoginVerify(email, code.trim());
+  
+      // --- ORIGINAL API CALL COMMENTED FOR TESTING --- //
+      //  const res = await authApi.twoFaLoginVerify(email, code.trim());
+
+         console.log("Email in verify 2fa page: ", email);
+
+      // --- LOCAL TESTING URL direct call --- //
+      const response = await fetch("http://localhost:4570/auth/login/verify-2fa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code: code.trim() }),
+      });
+      const res = await response.json();
+      // ------------------------------------ //
+
+
+
+
       setSession(res.data.token, res.data.user);
       toast.success("Signed in successfully");
       navigate("/ai-chat");

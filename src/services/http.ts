@@ -1,7 +1,7 @@
 /**
  * Base HTTP client used by all service classes.
  *
- * - Base URL comes from `VITE_API_BASE_URL` in `.env` (single source of truth).
+ * - Base URL comes from `VITE_API_DEV_URL` in `.env` (single source of truth).
  * - Adds the JWT from localStorage when `auth !== false`.
  * - Normalises responses into the backend's `ApiEnvelope<T>` shape.
  */
