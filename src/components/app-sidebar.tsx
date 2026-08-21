@@ -262,6 +262,13 @@ export function AppSidebar() {
     })
     .filter((g: Group | undefined): g is Group => Boolean(g && g.items.length > 0));
 
+  // Lease & Scheduling portals are always available
+  for (const key of ALWAYS_PORTAL_KEYS) {
+    const g = MASTER_PORTAL_GROUPS[key];
+    if (g && !dynamicPortalGroups.some((x: Group) => x.title === g.title)) dynamicPortalGroups.push(g);
+  }
+
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="relative overflow-hidden border-b border-sidebar-border">
