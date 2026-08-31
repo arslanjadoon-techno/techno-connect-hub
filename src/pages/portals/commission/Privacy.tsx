@@ -36,22 +36,15 @@ const sections = [
 
 export default function Privacy() {
   return (
-    <div className="space-y-6 max-w-5xl mx-auto">
-      <div className="rounded-2xl bg-gradient-hero p-6 md:p-8 text-primary-foreground shadow-elegant">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-white/15 flex items-center justify-center">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">Privacy Policy</h1>
-            <p className="text-sm md:text-base opacity-90">
-              Last updated: July 2026 &middot; T-Communications LLC
-            </p>
-          </div>
-        </div>
+    <div className="space-y-6 max-w-5xl animate-fade-in">
+      <div>
+        <h1 className="font-display text-2xl font-semibold">Privacy Policy</h1>
+        <p className="text-sm text-muted-foreground">
+          Last updated: July 2026 &middot; T-Communications LLC
+        </p>
       </div>
 
-      <Card>
+      <Card className="border border-border/80 bg-card">
         <CardContent className="pt-6 text-muted-foreground leading-relaxed">
           This page is maintained by T-Communications LLC to explain how the Commission Portal
           handles employee information. It applies to all users of the internal portal and should be
@@ -62,25 +55,27 @@ export default function Privacy() {
 
       <div className="grid gap-4 md:grid-cols-2">
         {sections.map((s) => (
-          <Card key={s.title} className="transition-smooth hover:shadow-elegant">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <span className="h-9 w-9 rounded-lg bg-gradient-primary text-primary-foreground flex items-center justify-center shadow-glow">
-                  <s.icon className="h-4 w-4" />
+          <Card key={s.title} className="transition-all hover:shadow-md">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-3 text-base font-semibold">
+                <span className="h-9 w-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                  <s.icon className="h-5 w-5" />
                 </span>
                 {s.title}
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-muted-foreground leading-relaxed">{s.body}</CardContent>
+            <CardContent className="text-sm text-muted-foreground leading-relaxed">
+              {s.body}
+            </CardContent>
           </Card>
         ))}
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Policy Updates</CardTitle>
+          <CardTitle className="text-base font-semibold">Policy Updates</CardTitle>
         </CardHeader>
-        <CardContent className="text-muted-foreground leading-relaxed">
+        <CardContent className="text-sm text-muted-foreground leading-relaxed">
           We may update this privacy policy from time to time to reflect changes in our practices or
           legal requirements. Material changes will be communicated through the portal or via your
           registered work email.

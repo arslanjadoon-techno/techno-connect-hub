@@ -7,10 +7,13 @@
   --primary-glow: oklch(0.66 0.22 295);
   --ring: oklch(0.66 0.22 295);
   --gradient-primary: linear-gradient(135deg, oklch(0.52 0.21 275), oklch(0.66 0.22 295));
-  --gradient-hero: linear-gradient(135deg, oklch(0.45 0.22 270) 0%, oklch(0.55 0.23 295) 50%, oklch(0.6 0.2 320) 100%);
+  --gradient-hero: linear-gradient(
+    135deg,
+    oklch(0.45 0.22 270) 0%,
+    oklch(0.55 0.23 295) 50%,
+    oklch(0.6 0.2 320) 100%
+  );
 }
-
-
 
 @custom-variant dark (&:is(.dark *));
 
@@ -75,9 +78,9 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.22 0.04 270);
 
-  --primary: oklch(0.52 0.21 275);            /* vivid indigo */
+  --primary: oklch(0.52 0.21 275); /* vivid indigo */
   --primary-foreground: oklch(0.99 0.01 270);
-  --primary-glow: oklch(0.66 0.22 295);        /* violet glow */
+  --primary-glow: oklch(0.66 0.22 295); /* violet glow */
 
   --secondary: oklch(0.96 0.015 270);
   --secondary-foreground: oklch(0.28 0.07 275);
@@ -124,10 +127,16 @@
 
   --gradient-primary: linear-gradient(135deg, oklch(0.52 0.21 275), oklch(0.66 0.22 295));
   --gradient-gold: linear-gradient(135deg, oklch(0.78 0.15 75), oklch(0.86 0.12 85));
-  --gradient-hero: linear-gradient(135deg, oklch(0.45 0.22 270) 0%, oklch(0.55 0.23 295) 50%, oklch(0.6 0.2 320) 100%);
+  --gradient-hero: linear-gradient(
+    135deg,
+    oklch(0.45 0.22 270) 0%,
+    oklch(0.55 0.23 295) 50%,
+    oklch(0.6 0.2 320) 100%
+  );
   --shadow-elegant: 0 12px 36px -10px color-mix(in oklab, var(--primary) 30%, transparent);
   --shadow-glow: 0 0 0 0 color-mix(in oklab, var(--primary-glow) 40%, transparent);
-  --shadow-card: 0 1px 3px 0 oklch(0.22 0.04 270 / 0.06), 0 1px 2px -1px oklch(0.22 0.04 270 / 0.06);
+  --shadow-card:
+    0 1px 3px 0 oklch(0.22 0.04 270 / 0.06), 0 1px 2px -1px oklch(0.22 0.04 270 / 0.06);
 }
 
 .dark {
@@ -155,51 +164,103 @@
   * {
     border-color: var(--color-border);
   }
-  html, body {
+  html,
+  body {
     font-family: var(--font-sans);
   }
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-display);
     letter-spacing: -0.01em;
   }
-  button, a {
-    transition: color .2s ease, background-color .2s ease, border-color .2s ease,
-                box-shadow .25s ease, transform .2s ease, opacity .2s ease;
+  button,
+  a {
+    transition:
+      color 0.2s ease,
+      background-color 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.25s ease,
+      transform 0.2s ease,
+      opacity 0.2s ease;
   }
 }
 
 /* ----- Animations ----- */
 @keyframes fade-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 @keyframes scale-in {
-  from { opacity: 0; transform: scale(.96); }
-  to   { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 @keyframes float-blob {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50%      { transform: translate(20px, -20px) scale(1.08); }
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(20px, -20px) scale(1.08);
+  }
 }
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 @keyframes pulse-ring {
-  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 40%, transparent); }
-  70% { box-shadow: 0 0 0 12px color-mix(in oklab, var(--primary) 0%, transparent); }
-  100% { box-shadow: 0 0 0 0 transparent; }
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 40%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 12px color-mix(in oklab, var(--primary) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
 }
 
-.animate-fade-in { animation: fade-in .4s ease-out both; }
-.animate-scale-in { animation: scale-in .3s ease-out both; }
-.animate-float-blob { animation: float-blob 9s ease-in-out infinite; }
-.hover-lift { transition: transform .2s ease, box-shadow .25s ease; }
-.hover-lift:hover { transform: translateY(-2px); box-shadow: var(--shadow-elegant); }
+.animate-fade-in {
+  animation: fade-in 0.4s ease-out both;
+}
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out both;
+}
+.animate-float-blob {
+  animation: float-blob 9s ease-in-out infinite;
+}
+.hover-lift {
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.25s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-elegant);
+}
 
 /* Modern table polish + global zebra striping (clearly visible) */
 table thead tr {
@@ -212,39 +273,72 @@ table thead th {
   font-weight: 600;
   color: var(--color-foreground);
 }
-table tbody tr { transition: background-color .15s ease; }
+table tbody tr {
+  transition: background-color 0.15s ease;
+}
 table tbody tr:nth-child(even) {
   background-color: oklch(0.22 0.04 270 / 0.07);
 }
 .dark table tbody tr:nth-child(even) {
   background-color: oklch(1 0 0 / 0.06);
 }
-table tbody tr:hover { background-color: color-mix(in oklab, var(--accent) 60%, transparent); }
+table tbody tr:hover {
+  background-color: color-mix(in oklab, var(--accent) 60%, transparent);
+}
 
 /* Perf: limit offscreen paint for long lists/tables */
-.cv-auto { content-visibility: auto; contain-intrinsic-size: 600px; }
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 600px;
+}
 
 /* Auth hero: single-cycle vertical sine wave clipped along the right edge. */
 .clip-wave-right {
   clip-path: polygon(
-    0 0, 95% 0,
-    96.91% 6.25%, 98.54% 12.5%, 99.62% 18.75%, 100% 25%,
-    99.62% 31.25%, 98.54% 37.5%, 96.91% 43.75%, 95% 50%,
-    93.09% 56.25%, 91.46% 62.5%, 90.38% 68.75%, 90% 75%,
-    90.38% 81.25%, 91.46% 87.5%, 93.09% 93.75%, 95% 100%,
+    0 0,
+    95% 0,
+    96.91% 6.25%,
+    98.54% 12.5%,
+    99.62% 18.75%,
+    100% 25%,
+    99.62% 31.25%,
+    98.54% 37.5%,
+    96.91% 43.75%,
+    95% 50%,
+    93.09% 56.25%,
+    91.46% 62.5%,
+    90.38% 68.75%,
+    90% 75%,
+    90.38% 81.25%,
+    91.46% 87.5%,
+    93.09% 93.75%,
+    95% 100%,
     0 100%
   );
 }
 
 /* Subtle button shine on hover */
-.btn-shine { position: relative; overflow: hidden; }
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
 .btn-shine::after {
-  content: ""; position: absolute; inset: 0;
-  background: linear-gradient(120deg, transparent 30%, color-mix(in oklab, white 35%, transparent) 50%, transparent 70%);
-  transform: translateX(-100%); transition: transform .6s ease;
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    transparent 30%,
+    color-mix(in oklab, white 35%, transparent) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
   pointer-events: none;
 }
-.btn-shine:hover::after { transform: translateX(100%); }
+.btn-shine:hover::after {
+  transform: translateX(100%);
+}
 
 /* Themed table header — follows the active palette accent */
 .themed-thead,
@@ -255,9 +349,11 @@ table tbody tr:hover { background-color: color-mix(in oklab, var(--accent) 60%, 
 .themed-thead th {
   color: color-mix(in oklab, var(--primary) 78%, var(--foreground));
   font-weight: 600;
-  letter-spacing: .01em;
+  letter-spacing: 0.01em;
 }
-.themed-thead tr { border-color: color-mix(in oklab, var(--primary) 28%, var(--border)); }
+.themed-thead tr {
+  border-color: color-mix(in oklab, var(--primary) 28%, var(--border));
+}
 .dark .themed-thead,
 .dark .themed-thead tr,
 .dark .themed-thead tr:hover {
@@ -277,3 +373,32 @@ table tbody tr:hover { background-color: color-mix(in oklab, var(--accent) 60%, 
   );
 }
 
+/* Hero and Primary Gradients */
+.bg-gradient-hero {
+  background: var(
+    --gradient-hero,
+    linear-gradient(
+      135deg,
+      oklch(0.45 0.22 270) 0%,
+      oklch(0.55 0.23 295) 50%,
+      oklch(0.6 0.2 320) 100%
+    )
+  );
+  color: #ffffff;
+}
+
+.bg-gradient-primary {
+  background: var(
+    --gradient-primary,
+    linear-gradient(135deg, oklch(0.52 0.21 275), oklch(0.66 0.22 295))
+  );
+  color: #ffffff;
+}
+
+.shadow-elegant {
+  box-shadow: 0 12px 36px -10px color-mix(in oklab, var(--primary) 30%, transparent);
+}
+
+.shadow-glow {
+  box-shadow: 0 0 20px -4px color-mix(in oklab, var(--primary-glow) 40%, transparent);
+}

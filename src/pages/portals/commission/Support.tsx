@@ -44,46 +44,51 @@ export default function Support() {
   };
 
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
-      <div className="rounded-2xl bg-gradient-hero p-6 md:p-8 text-primary-foreground shadow-elegant">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-white/15 flex items-center justify-center">
-            <LifeBuoy className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold">How can we help?</h1>
-            <p className="text-sm md:text-base opacity-90">
-              Find quick answers or reach out to the T-Communications support team.
-            </p>
-          </div>
-        </div>
+    <div className="space-y-6 max-w-6xl animate-fade-in">
+      <div>
+        <h1 className="font-display text-2xl font-semibold">Support & Help Desk</h1>
+        <p className="text-sm text-muted-foreground">
+          Find quick answers or reach out to the T-Communications support team.
+        </p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="bubble-card text-primary transition-smooth hover:shadow-elegant">
+        <Card className="transition-all hover:shadow-md">
           <CardContent className="pt-6 flex items-start gap-3">
-            <Mail className="h-5 w-5 mt-1" />
+            <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <Mail className="h-5 w-5" />
+            </div>
             <div>
-              <div className="text-sm text-muted-foreground">Email</div>
-              <div className="font-semibold">reporting@texasmobilepcs.com</div>
+              <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                Email
+              </div>
+              <div className="font-semibold text-sm mt-0.5">reporting@texasmobilepcs.com</div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bubble-card text-primary transition-smooth hover:shadow-elegant">
+        <Card className="transition-all hover:shadow-md">
           <CardContent className="pt-6 flex items-start gap-3">
-            <Phone className="h-5 w-5 mt-1" />
+            <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <Phone className="h-5 w-5" />
+            </div>
             <div>
-              <div className="text-sm text-muted-foreground">Phone</div>
-              <div className="font-semibold">+92 (335) 8914611</div>
+              <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                Phone
+              </div>
+              <div className="font-semibold text-sm mt-0.5">+92 (335) 8914611</div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bubble-card text-primary transition-smooth hover:shadow-elegant">
+        <Card className="transition-all hover:shadow-md">
           <CardContent className="pt-6 flex items-start gap-3">
-            <Clock className="h-5 w-5 mt-1" />
+            <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <Clock className="h-5 w-5" />
+            </div>
             <div>
-              <div className="text-sm text-muted-foreground">Hours</div>
-              <div className="font-semibold">Mon - Fri, 9:00 AM - 6:00 PM CST</div>
+              <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                Hours
+              </div>
+              <div className="font-semibold text-sm mt-0.5">Mon - Fri, 9:00 AM - 6:00 PM CST</div>
             </div>
           </CardContent>
         </Card>
@@ -92,14 +97,16 @@ export default function Support() {
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Frequently Asked Questions</CardTitle>
+            <CardTitle className="text-lg">Frequently Asked Questions</CardTitle>
           </CardHeader>
           <CardContent>
             <Accordion type="single" collapsible className="w-full">
               {faqs.map((f, i) => (
                 <AccordionItem key={i} value={`item-${i}`}>
-                  <AccordionTrigger className="text-left">{f.q}</AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground">{f.a}</AccordionContent>
+                  <AccordionTrigger className="text-left font-medium">{f.q}</AccordionTrigger>
+                  <AccordionContent className="text-muted-foreground leading-relaxed">
+                    {f.a}
+                  </AccordionContent>
                 </AccordionItem>
               ))}
             </Accordion>
@@ -108,8 +115,8 @@ export default function Support() {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <MessageSquare className="h-5 w-5 text-primary" />
               Submit a Ticket
             </CardTitle>
           </CardHeader>
@@ -138,10 +145,7 @@ export default function Support() {
                   placeholder="Describe your issue in detail..."
                 />
               </div>
-              <Button
-                type="submit"
-                className="w-full bg-gradient-primary shadow-glow transition-smooth"
-              >
+              <Button type="submit" className="w-full font-semibold">
                 Submit Ticket
               </Button>
             </form>
