@@ -5,7 +5,7 @@ import {
   Building2, Network, Users as UsersIcon, Wrench, ShieldCheck,
   Home, Sparkles, Ticket as TicketIcon, BarChart3, DollarSign,
   Briefcase, CalendarDays, FileText, KeyRound, Award, Milestone,
-  ChevronUp, ChevronDown
+  ChevronUp, ChevronDown, LockKeyhole, Contact
 } from "lucide-react";
 
 import {
@@ -19,8 +19,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
-
-const [openGroup, setOpenGroup] = useState<string | null>(null);
 
 type Item = { title: string; url: string; icon: any };
 type Group = { title: string; icon: any; items: Item[] };
@@ -46,6 +44,8 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     items: [
       { title: "Dashboard", url: "/commission/dashboard", icon: BarChart3 },
       { title: "Commission", url: "/commission/my-commission", icon: DollarSign },
+      { title: "Privacy", url: "/commission/privacy", icon: LockKeyhole },
+      { title: "Support", url: "/commission/support", icon: Contact },
     ],
   },
   leasing: {
@@ -195,10 +195,11 @@ export function AppSidebar() {
 
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const { logout } = useAuth(); // user ko yahan se hata dein
+  const { logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const pathname = useLocation().pathname;
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
 
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
   const groupActive = (g: Group) => g.items.some((i) => isActive(i.url));
@@ -238,7 +239,7 @@ export function AppSidebar() {
       const master = MASTER_PORTAL_GROUPS[key];
       if (!master) return undefined;
 
-      // Commission Dashboard sirf admin role waly user ko nazar aaye
+      // Commission Dashboard only visible to admin role
       if (key === "commission" && getPortalRole("commission") !== "admin") {
         return {
           ...master,
