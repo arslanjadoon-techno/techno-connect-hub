@@ -1,8 +1,3 @@
-
-
-
-
-
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
@@ -59,25 +54,18 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
       { title: "Dashboard", url: "/leasing/dashboard", icon: Milestone },
     ],
   },
-  lease: {
-    title: "Lease Portal",
-    icon: KeyRound,
+  leave: {
+    title: "Leave Portal",
+    icon: CalendarDays,
     items: [
-      { title: "Dashboard", url: "/lease/dashboard", icon: LayoutDashboard },
+      { title: "Dashboard", url: "/leave/dashboard", icon: BarChart3 },
     ],
   },
   scheduling: {
     title: "Scheduling Portal",
     icon: CalendarDays,
     items: [
-      { title: "Dashboard", url: "/scheduling/dashboard", icon: LayoutDashboard },
-    ],
-  },
-  attendence: {
-    title: "Leave Portal",
-    icon: CalendarDays,
-    items: [
-      { title: "Dashboard", url: "/attendance/dashboard", icon: BarChart3 },
+      { title: "Dashboard", url: "/scheduling/dashboard", icon: BarChart3 },
     ],
   },
   ranker: {
@@ -222,14 +210,14 @@ export function AppSidebar() {
 
   const localUserData = localStorage.getItem("user");
   if (!localUserData) return null;
-  
+
   const user = JSON.parse(localUserData);
 
   const rawRole = getCurrentPortalRole(user, pathname);
   const formattedRole = formatRoleName(rawRole);
 
   const nameParts = (user.fullName || "User").trim().split(/\s+/);
-  const initials = nameParts.length > 1 
+  const initials = nameParts.length > 1
     ? `${nameParts[0]?.[0] || ""}${nameParts[nameParts.length - 1]?.[0] || ""}`
     : `${nameParts[0]?.[0] || ""}${nameParts[0]?.[1] || ""}`;
 

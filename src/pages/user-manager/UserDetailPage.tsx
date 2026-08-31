@@ -46,8 +46,7 @@ const PORTAL_TONES: Record<string, string> = {
   commission: "border-blue-200 bg-blue-50 dark:bg-blue-950/30 dark:border-blue-900/50",
   ranker: "border-purple-200 bg-purple-50 dark:bg-purple-950/30 dark:border-purple-900/50",
   leasing: "border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-900/50",
-  attendence: "border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-900/50",
-  attendance: "border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-900/50",
+  leave: "border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-900/50",
 };
 const PORTAL_TONES_FALLBACK = [
   "border-cyan-200 bg-cyan-50 dark:bg-cyan-950/30 dark:border-cyan-900/50",
