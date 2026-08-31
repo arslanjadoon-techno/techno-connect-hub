@@ -2,10 +2,10 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
   LayoutDashboard, TicketCheck, MessagesSquare, MapPin, Store as StoreIcon,
-  Building2, Network, Users as UsersIcon, Wrench, LogOut, ShieldCheck,
-  Settings as SettingsIcon, ChevronUp, ChevronDown, Home, Sun, Moon,
-  Sparkles, Ticket as TicketIcon, BarChart3, DollarSign,
-  Briefcase, CalendarDays, KeyRound, Award, Milestone
+  Building2, Network, Users as UsersIcon, Wrench, ShieldCheck,
+  Home, Sparkles, Ticket as TicketIcon, BarChart3, DollarSign,
+  Briefcase, CalendarDays, FileText, KeyRound, Award, Milestone,
+  ChevronUp, ChevronDown
 } from "lucide-react";
 
 import {
@@ -20,6 +20,8 @@ import {
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 
+const [openGroup, setOpenGroup] = useState<string | null>(null);
+
 type Item = { title: string; url: string; icon: any };
 type Group = { title: string; icon: any; items: Item[] };
 
@@ -28,7 +30,6 @@ const topItems: Item[] = [
   { title: "Team Chat", url: "/chat", icon: MessagesSquare },
 ];
 
-// 🌟 Tamam Mumkina Portals Ka Master Definition Map
 const MASTER_PORTAL_GROUPS: Record<string, Group> = {
   ticketing: {
     title: "Ticketing Portal",
@@ -49,16 +50,16 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
   },
   leasing: {
     title: "Leasing Portal",
-    icon: KeyRound,
+    icon: FileText,
     items: [
       { title: "Dashboard", url: "/leasing/dashboard", icon: Milestone },
     ],
   },
   leave: {
     title: "Leave Portal",
-    icon: CalendarDays,
+    icon: KeyRound,
     items: [
-      { title: "Dashboard", url: "/leave/dashboard", icon: BarChart3 },
+      { title: "Dashboard", url: "/leave/dashboard", icon: CalendarDays },
     ],
   },
   scheduling: {
@@ -78,7 +79,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
   },
 };
 
-const ALWAYS_PORTAL_KEYS = ["lease", "scheduling"];
+const ALWAYS_PORTAL_KEYS = ["leasing", "scheduling"];
 
 
 const adminGroup: Group = {
@@ -198,8 +199,6 @@ export function AppSidebar() {
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const pathname = useLocation().pathname;
-  const [openGroup, setOpenGroup] = useState<string | null>(null);
-  useEffect(() => { setOpenGroup(null); }, [pathname]);
 
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
   const groupActive = (g: Group) => g.items.some((i) => isActive(i.url));
