@@ -62,12 +62,10 @@
 //       // navigate(`/verify-2fa?email=${encodeURIComponent(result.email)}`);
 
 //       toast.message("Enter the 6-digit code from Google Authenticator");
-      
+
 //       // result.email fallback to state 'email'
 //       const userEmail = result.email || email.trim();
 //       navigate(`/verify-2fa?email=${encodeURIComponent(userEmail)}`);
-      
-
 
 //     } catch (err) {
 //       // Blocked account or wrong credentials — backend message surfaces here.
@@ -95,7 +93,6 @@
 //         <span className="pointer-events-none absolute left-[45%] bottom-[30%] h-20 w-20 rounded-full border-2 border-white/30 animate-float-blob" style={{ animationDelay: "1s" }} />
 //         <span className="pointer-events-none absolute left-[55%] top-[14%] h-24 w-24 rounded-full border-2 border-white/20 animate-float-blob" style={{ animationDelay: "4.5s" }} />
 //         <span className="pointer-events-none absolute right-[10%] bottom-[40%] h-10 w-10 rounded-full bg-white/45 animate-float-blob" style={{ animationDelay: "0.8s" }} />
-
 
 //         <div className="relative z-10 flex items-center gap-3 animate-fade-in">
 //           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
@@ -183,22 +180,7 @@
 //   );
 // }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-import { Link, useNavigate } from "react-router-dom"; 
+import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -218,7 +200,9 @@ export default function LoginPage() {
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => { if (user) navigate("/ai-chat"); }, [user, navigate]);
+  useEffect(() => {
+    if (user) navigate("/ai-chat");
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -246,10 +230,11 @@ export default function LoginPage() {
       // Bypass 2FA logic -> Direct navigate to AI Chat
       toast.success("Signed in successfully");
       navigate("/ai-chat");
-
     } catch (err) {
       toast.error((err as Error).message);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -261,17 +246,41 @@ export default function LoginPage() {
       >
         {/* Floating big blobs */}
         <div className="pointer-events-none absolute -top-32 -left-32 h-[28rem] w-[28rem] rounded-full bg-white/10 blur-3xl animate-float-blob" />
-        <div className="pointer-events-none absolute -bottom-10 right-0 h-[32rem] w-[32rem] rounded-full bg-white/10 blur-3xl animate-float-blob" style={{ animationDelay: "2s" }} />
-        <div className="pointer-events-none absolute top-1/3 right-1/4 h-72 w-72 rounded-full bg-white/15 blur-2xl animate-float-blob" style={{ animationDelay: "4s" }} />
+        <div
+          className="pointer-events-none absolute -bottom-10 right-0 h-[32rem] w-[32rem] rounded-full bg-white/10 blur-3xl animate-float-blob"
+          style={{ animationDelay: "2s" }}
+        />
+        <div
+          className="pointer-events-none absolute top-1/3 right-1/4 h-72 w-72 rounded-full bg-white/15 blur-2xl animate-float-blob"
+          style={{ animationDelay: "4s" }}
+        />
 
         {/* Decorative bubbles (crisp circles) */}
         <span className="pointer-events-none absolute left-[12%] top-[18%] h-8 w-8 rounded-full bg-white/40 animate-float-blob" />
-        <span className="pointer-events-none absolute left-[28%] top-[60%] h-6 w-6 rounded-full bg-white/30 animate-float-blob" style={{ animationDelay: "1.5s" }} />
-        <span className="pointer-events-none absolute right-[18%] top-[22%] h-12 w-12 rounded-full bg-white/25 animate-float-blob" style={{ animationDelay: "2.5s" }} />
-        <span className="pointer-events-none absolute right-[30%] bottom-[18%] h-9 w-9 rounded-full bg-white/35 animate-float-blob" style={{ animationDelay: "3.2s" }} />
-        <span className="pointer-events-none absolute left-[45%] bottom-[30%] h-20 w-20 rounded-full border-2 border-white/30 animate-float-blob" style={{ animationDelay: "1s" }} />
-        <span className="pointer-events-none absolute left-[55%] top-[14%] h-24 w-24 rounded-full border-2 border-white/20 animate-float-blob" style={{ animationDelay: "4.5s" }} />
-        <span className="pointer-events-none absolute right-[10%] bottom-[40%] h-10 w-10 rounded-full bg-white/45 animate-float-blob" style={{ animationDelay: "0.8s" }} />
+        <span
+          className="pointer-events-none absolute left-[28%] top-[60%] h-6 w-6 rounded-full bg-white/30 animate-float-blob"
+          style={{ animationDelay: "1.5s" }}
+        />
+        <span
+          className="pointer-events-none absolute right-[18%] top-[22%] h-12 w-12 rounded-full bg-white/25 animate-float-blob"
+          style={{ animationDelay: "2.5s" }}
+        />
+        <span
+          className="pointer-events-none absolute right-[30%] bottom-[18%] h-9 w-9 rounded-full bg-white/35 animate-float-blob"
+          style={{ animationDelay: "3.2s" }}
+        />
+        <span
+          className="pointer-events-none absolute left-[45%] bottom-[30%] h-20 w-20 rounded-full border-2 border-white/30 animate-float-blob"
+          style={{ animationDelay: "1s" }}
+        />
+        <span
+          className="pointer-events-none absolute left-[55%] top-[14%] h-24 w-24 rounded-full border-2 border-white/20 animate-float-blob"
+          style={{ animationDelay: "4.5s" }}
+        />
+        <span
+          className="pointer-events-none absolute right-[10%] bottom-[40%] h-10 w-10 rounded-full bg-white/45 animate-float-blob"
+          style={{ animationDelay: "0.8s" }}
+        />
 
         <div className="relative z-10 flex items-center gap-3 animate-fade-in">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
@@ -283,13 +292,16 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div className="relative z-10 max-w-md space-y-4 animate-fade-in" style={{ animationDelay: ".1s" }}>
+        <div
+          className="relative z-10 max-w-md space-y-4 animate-fade-in"
+          style={{ animationDelay: ".1s" }}
+        >
           <h1 className="font-display text-4xl font-semibold leading-tight">
             One platform for every portal, every team, every decision.
           </h1>
           <p className="text-white/80">
-            Commission, Leasing, Ranker and more — unified inside a single MIS workspace with role-aware
-            visibility and real-time collaboration.
+            Commission, Leasing, Ranker and more — unified inside a single MIS workspace with
+            role-aware visibility and real-time collaboration.
           </p>
         </div>
         <div className="relative z-10 text-xs text-white/60">© Techno Communications LLC</div>
@@ -303,7 +315,6 @@ export default function LoginPage() {
         />
         <div className="pointer-events-none absolute right-16 top-16 h-40 w-40 rounded-full border border-primary/20" />
         <Card className="relative z-10 w-full max-w-md rounded-2xl border bg-card p-8 shadow-2xl animate-scale-in">
-
           <h2 className="font-display text-2xl font-semibold">Welcome back</h2>
           <p className="mt-1 text-sm text-muted-foreground">Sign in to your account.</p>
 
@@ -313,9 +324,13 @@ export default function LoginPage() {
               <div className="relative">
                 <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
-                  id="email" type="text" placeholder="you@techno.com or NTID"
+                  id="email"
+                  type="text"
+                  placeholder="you@techno.com or NTID"
                   className="h-11 pl-9"
-                  value={email} onChange={(e) => setEmail(e.target.value)} required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
                 />
               </div>
             </div>
@@ -329,7 +344,9 @@ export default function LoginPage() {
                   type={showPwd ? "text" : "password"}
                   placeholder="••••••••"
                   className="h-11 pl-9 pr-10"
-                  value={password} onChange={(e) => setPassword(e.target.value)} required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
                 />
                 <button
                   type="button"
@@ -341,7 +358,10 @@ export default function LoginPage() {
                 </button>
               </div>
               <div className="flex justify-end pt-1">
-                <Link to="/forgot-password" className="text-xs font-medium text-primary hover:underline">
+                <Link
+                  to="/forgot-password"
+                  className="text-xs font-medium text-primary hover:underline"
+                >
                   Forgot password?
                 </Link>
               </div>
@@ -350,7 +370,6 @@ export default function LoginPage() {
             <Button type="submit" className="h-11 w-full text-base" disabled={loading}>
               {loading ? "Signing in..." : "Sign in"}
             </Button>
-
           </form>
         </Card>
       </div>

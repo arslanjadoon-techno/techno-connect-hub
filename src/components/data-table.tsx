@@ -1,10 +1,21 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 export interface Column<T> {
@@ -40,13 +51,22 @@ const PAGE_SIZE_OPTIONS = [15, 25, 50];
 function getStoredPageSize(fallback: number) {
   if (typeof window === "undefined") return fallback;
   const v = Number(window.localStorage.getItem(PAGE_SIZE_KEY));
-  return PAGE_SIZE_OPTIONS.includes(v) ? v : (PAGE_SIZE_OPTIONS.includes(fallback) ? fallback : 15);
+  return PAGE_SIZE_OPTIONS.includes(v) ? v : PAGE_SIZE_OPTIONS.includes(fallback) ? fallback : 15;
 }
 
 export function DataTable<T>({
-  rows, columns, pageSize: pageSizeProp = 15, rowKey, empty, toolbar,
-  searchPlaceholder = "Search...", onRowClick,
-  rowCount, page: serverPage, onPageChange, onPageSizeChange,
+  rows,
+  columns,
+  pageSize: pageSizeProp = 15,
+  rowKey,
+  empty,
+  toolbar,
+  searchPlaceholder = "Search...",
+  onRowClick,
+  rowCount,
+  page: serverPage,
+  onPageChange,
+  onPageSizeChange,
   isLoading = false,
 }: Props<T>) {
   const [query, setQuery] = useState("");
@@ -79,14 +99,17 @@ export function DataTable<T>({
 
   const changePageSize = (next: number) => {
     setPageSize(next);
-    try { window.localStorage.setItem(PAGE_SIZE_KEY, String(next)); } catch { }
+    try {
+      window.localStorage.setItem(PAGE_SIZE_KEY, String(next));
+    } catch {}
     window.dispatchEvent(new CustomEvent(PAGE_SIZE_EVENT, { detail: next }));
     if (onPageSizeChange) onPageSizeChange(next);
     if (isServerPagination && onPageChange) onPageChange(0);
     else setLocalPage(1);
   };
 
-  const isServerPagination = rowCount !== undefined && serverPage !== undefined && onPageChange !== undefined;
+  const isServerPagination =
+    rowCount !== undefined && serverPage !== undefined && onPageChange !== undefined;
   const activePage = isServerPagination ? serverPage! : localPage;
 
   const filtered = useMemo(() => {
@@ -107,7 +130,9 @@ export function DataTable<T>({
   const totalRecords = isServerPagination ? rowCount! : filtered.length;
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
   const safePageDisplay = isServerPagination ? activePage + 1 : activePage;
-  const tableDataSlice = isServerPagination ? rows : filtered.slice((activePage - 1) * pageSize, activePage * pageSize);
+  const tableDataSlice = isServerPagination
+    ? rows
+    : filtered.slice((activePage - 1) * pageSize, activePage * pageSize);
 
   const handlePageSwitch = (target: number) => {
     if (isLoading) return;
@@ -143,14 +168,19 @@ export function DataTable<T>({
           <TableHeader>
             <TableRow>
               {columns.map((c) => (
-                <TableHead key={c.key} className={c.className}>{c.header}</TableHead>
+                <TableHead key={c.key} className={c.className}>
+                  {c.header}
+                </TableHead>
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
             {tableDataSlice.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-32 text-center text-muted-foreground">
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-32 text-center text-muted-foreground"
+                >
                   {empty ?? "No results"}
                 </TableCell>
               </TableRow>
@@ -159,10 +189,14 @@ export function DataTable<T>({
                 <TableRow
                   key={rowKey(row)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  className={onRowClick ? "cursor-pointer transition-colors hover:bg-accent/50" : undefined}
+                  className={
+                    onRowClick ? "cursor-pointer transition-colors hover:bg-accent/50" : undefined
+                  }
                 >
                   {columns.map((c) => (
-                    <TableCell key={c.key} className={c.className}>{c.accessor(row)}</TableCell>
+                    <TableCell key={c.key} className={c.className}>
+                      {c.accessor(row)}
+                    </TableCell>
                   ))}
                 </TableRow>
               ))
@@ -173,35 +207,60 @@ export function DataTable<T>({
 
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
         <span>
-          {totalRecords === 0 ? 0 : isServerPagination ? (activePage * pageSize + 1) : ((activePage - 1) * pageSize + 1)}
+          {totalRecords === 0
+            ? 0
+            : isServerPagination
+              ? activePage * pageSize + 1
+              : (activePage - 1) * pageSize + 1}
           {"–"}
           {isServerPagination
             ? Math.min((activePage + 1) * pageSize, totalRecords)
-            : Math.min(activePage * pageSize, totalRecords)
-          } of {totalRecords}
+            : Math.min(activePage * pageSize, totalRecords)}{" "}
+          of {totalRecords}
         </span>
         <div className="flex items-center gap-2">
           <span className="text-xs">Rows per page</span>
           <Select value={String(pageSize)} onValueChange={(v) => changePageSize(Number(v))}>
-            <SelectTrigger className="h-8 w-[78px]"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-8 w-[78px]">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
-              {PAGE_SIZE_OPTIONS.map(n => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}
+              {PAGE_SIZE_OPTIONS.map((n) => (
+                <SelectItem key={n} value={String(n)}>
+                  {n}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Button
-            variant="outline" size="icon"
+            variant="outline"
+            size="icon"
             disabled={isLoading || (isServerPagination ? activePage === 0 : activePage === 1)}
             onClick={() => handlePageSwitch(isServerPagination ? activePage - 1 : activePage - 2)}
           >
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronLeft className="h-4 w-4" />}
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
           </Button>
-          <span className="px-1">Page {safePageDisplay} / {totalPages}</span>
+          <span className="px-1">
+            Page {safePageDisplay} / {totalPages}
+          </span>
           <Button
-            variant="outline" size="icon"
-            disabled={isLoading || (isServerPagination ? (activePage + 1) >= totalPages : activePage === totalPages)}
+            variant="outline"
+            size="icon"
+            disabled={
+              isLoading ||
+              (isServerPagination ? activePage + 1 >= totalPages : activePage === totalPages)
+            }
             onClick={() => handlePageSwitch(isServerPagination ? activePage + 1 : activePage)}
           >
-            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </div>

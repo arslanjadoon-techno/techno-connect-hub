@@ -1,11 +1,30 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import {
-  seedChatGroups, seedChatMessages, seedDistricts, seedHouses, seedMarkets,
-  seedNotifications, seedStates, seedStores, seedTickets, seedUsers, seedVendors,
+  seedChatGroups,
+  seedChatMessages,
+  seedDistricts,
+  seedHouses,
+  seedMarkets,
+  seedNotifications,
+  seedStates,
+  seedStores,
+  seedTickets,
+  seedUsers,
+  seedVendors,
 } from "./mock/seed";
 import type {
-  AppNotification, ChatGroup, ChatMessage, District, ExternalVendor, House, Market, State,
-  Store, Ticket, TicketStatus, User,
+  AppNotification,
+  ChatGroup,
+  ChatMessage,
+  District,
+  ExternalVendor,
+  House,
+  Market,
+  State,
+  Store,
+  Ticket,
+  TicketStatus,
+  User,
 } from "./types";
 
 interface Store$ {
@@ -70,11 +89,7 @@ export function useData() {
 }
 
 /** Move a ticket to a new status and append history. */
-export function transitionTicket(
-  t: Ticket,
-  status: TicketStatus,
-  byUserId: string,
-): Ticket {
+export function transitionTicket(t: Ticket, status: TicketStatus, byUserId: string): Ticket {
   return {
     ...t,
     status,

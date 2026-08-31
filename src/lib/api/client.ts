@@ -1,6 +1,16 @@
 import {
-  API_BASE_URL, USER_API_PATHS, HIRARCHY_API_PATHS, AUTH_PATHS, STATE_API_PATHS, DISTRICT_API_PATHS, MARKET_API_PATHS,
-  STORE_API_PATHS, HOUSE_API_PATHS, EXTERNAL_TEAM_API_PATHS, DEPARTMENT_API_PATHS, PORTAL_API_PATHS
+  API_BASE_URL,
+  USER_API_PATHS,
+  HIRARCHY_API_PATHS,
+  AUTH_PATHS,
+  STATE_API_PATHS,
+  DISTRICT_API_PATHS,
+  MARKET_API_PATHS,
+  STORE_API_PATHS,
+  HOUSE_API_PATHS,
+  EXTERNAL_TEAM_API_PATHS,
+  DEPARTMENT_API_PATHS,
+  PORTAL_API_PATHS,
 } from "@/lib/config";
 
 /**
@@ -14,7 +24,11 @@ export const USER_KEY = "user";
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  try { return window.localStorage.getItem(TOKEN_KEY); } catch { return null; }
+  try {
+    return window.localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
 }
 
 export function setToken(token: string | null) {
@@ -22,7 +36,9 @@ export function setToken(token: string | null) {
   try {
     if (token) window.localStorage.setItem(TOKEN_KEY, token);
     else window.localStorage.removeItem(TOKEN_KEY);
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 export function getStoredUser<T = BackendUser>(): T | null {
@@ -30,7 +46,9 @@ export function getStoredUser<T = BackendUser>(): T | null {
   try {
     const raw = window.localStorage.getItem(USER_KEY);
     return raw ? (JSON.parse(raw) as T) : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 export function setStoredUser(user: unknown | null) {
@@ -38,7 +56,9 @@ export function setStoredUser(user: unknown | null) {
   try {
     if (user) window.localStorage.setItem(USER_KEY, JSON.stringify(user));
     else window.localStorage.removeItem(USER_KEY);
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 export interface ApiEnvelope<T> {
@@ -55,7 +75,6 @@ interface RequestOpts {
 }
 
 export async function apiRequest<T>(path: string, opts: RequestOpts = {}): Promise<ApiEnvelope<T>> {
-
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (opts.auth !== false) {
     const tok = getToken();
@@ -67,7 +86,9 @@ export async function apiRequest<T>(path: string, opts: RequestOpts = {}): Promi
     body: opts.body != null ? JSON.stringify(opts.body) : undefined,
   });
   let json: ApiEnvelope<T>;
-  try { json = await res.json(); } catch {
+  try {
+    json = await res.json();
+  } catch {
     throw new Error(`Network error (${res.status})`);
   }
   if (!res.ok || !json.success) {
@@ -83,8 +104,8 @@ export interface BackendUser {
   fullName: string;
   email: string;
   phone: string | null;
-  role: { id: number; name: string; };
-  department: { id: number; name: string; } | null;
+  role: { id: number; name: string };
+  department: { id: number; name: string } | null;
   state: { id: string; name: string } | null;
   district: { id: string; name: string } | null;
   market: { id: string; name: string } | null;
@@ -104,8 +125,15 @@ export interface TwoFaSetupData {
 
 export const authApi = {
   login: (email: string, password: string) =>
-    apiRequest<{ token?: string; user?: BackendUser; requires2FA?: boolean; twoFactorRequired?: boolean }>(AUTH_PATHS.login, {
-      method: "POST", body: { email, password }, auth: false,
+    apiRequest<{
+      token?: string;
+      user?: BackendUser;
+      requires2FA?: boolean;
+      twoFactorRequired?: boolean;
+    }>(AUTH_PATHS.login, {
+      method: "POST",
+      body: { email, password },
+      auth: false,
     }),
   forgotPassword: (email: string) =>
     apiRequest<null>(AUTH_PATHS.forgotPassword, { method: "POST", body: { email }, auth: false }),
@@ -118,12 +146,22 @@ export const authApi = {
       auth: false,
     }),
   twoFaSetup: (email: string) =>
-    apiRequest<TwoFaSetupData>(AUTH_PATHS.twoFaSetup, { method: "POST", body: { email }, auth: false }),
+    apiRequest<TwoFaSetupData>(AUTH_PATHS.twoFaSetup, {
+      method: "POST",
+      body: { email },
+      auth: false,
+    }),
   twoFaVerifyEnable: (email: string, code: string) =>
-    apiRequest<null>(AUTH_PATHS.twoFaVerifyEnable, { method: "POST", body: { email, code }, auth: false }),
+    apiRequest<null>(AUTH_PATHS.twoFaVerifyEnable, {
+      method: "POST",
+      body: { email, code },
+      auth: false,
+    }),
   twoFaLoginVerify: (email: string, code: string) =>
     apiRequest<{ token: string; user: BackendUser }>(AUTH_PATHS.twoFaLoginVerify, {
-      method: "POST", body: { email, code }, auth: false,
+      method: "POST",
+      body: { email, code },
+      auth: false,
     }),
 };
 
@@ -132,12 +170,15 @@ export const authApi = {
 export const hierarchyApi = {
   getRoles: () => apiRequest<string[]>("/api/users/roles"),
   getDepartments: () => apiRequest<{ id: number; name: string }[]>("/api/departments/get-all"),
-  getStates: () => apiRequest<{ id: number; name: string }[]>("/api/states/search", { method: "POST" }),
-  getMarkets: () => apiRequest<{ id: number; name: string; stateId: number }[]>("/api/markets/get-all"),
-  getDistricts: () => apiRequest<{ id: number; name: string; marketId: number }[]>("/api/districts/get-all"),
-  getDistrictsByState: (id: string | number) => apiRequest<BackendUser>(HIRARCHY_API_PATHS.getDistrictsByState(id)),
+  getStates: () =>
+    apiRequest<{ id: number; name: string }[]>("/api/states/search", { method: "POST" }),
+  getMarkets: () =>
+    apiRequest<{ id: number; name: string; stateId: number }[]>("/api/markets/get-all"),
+  getDistricts: () =>
+    apiRequest<{ id: number; name: string; marketId: number }[]>("/api/districts/get-all"),
+  getDistrictsByState: (id: string | number) =>
+    apiRequest<BackendUser>(HIRARCHY_API_PATHS.getDistrictsByState(id)),
 };
-
 
 // ---------- Users ---------- //
 
@@ -156,7 +197,6 @@ export interface AddUserPayload {
 }
 
 export const usersApi = {
-
   getAll: (params?: { page?: number; size?: number; department?: string; portal?: string }) => {
     const queryParts: string[] = [];
 
@@ -198,7 +238,6 @@ export const usersApi = {
     apiRequest<null>(USER_API_PATHS.toggleActivationStatus, { method: "PUT", body: payload }),
 };
 
-
 // ---------- States ---------- //
 
 export interface State {
@@ -237,7 +276,6 @@ export const StatesApi = {
     apiRequest<null>(STATE_API_PATHS.deleteState, { method: "DELETE", body: { id } }),
 };
 
-
 // ---------- Districts ---------- //
 
 export interface District {
@@ -249,7 +287,6 @@ export interface District {
 }
 
 export const DistrictsApi = {
-
   // 1. Get All Districts
   getAll: (params?: { page?: number; size?: number; state?: string | number }) => {
     const queryParts: string[] = [];
@@ -267,8 +304,7 @@ export const DistrictsApi = {
   },
 
   // 2. Get Single District
-  get: (id: string | number) =>
-    apiRequest<District>(DISTRICT_API_PATHS.district(id)),
+  get: (id: string | number) => apiRequest<District>(DISTRICT_API_PATHS.district(id)),
 
   // 3. Add District
   add: (payload: { name: string; stateId: number }) =>
@@ -282,7 +318,6 @@ export const DistrictsApi = {
   delete: (payload: { id: number }) =>
     apiRequest<null>(DISTRICT_API_PATHS.deleteDistrict, { method: "DELETE", body: payload }),
 };
-
 
 // ---------- Markets ---------- //
 
@@ -303,7 +338,12 @@ interface Market {
 
 export const MarketsApi = {
   // Get All Markets (With Full Pagination, State, & District Filtering Support)
-  getAll: (params?: { page?: number; size?: number; state?: string | number; district?: string | number }) => {
+  getAll: (params?: {
+    page?: number;
+    size?: number;
+    state?: string | number;
+    district?: string | number;
+  }) => {
     const queryParts: string[] = [];
 
     if (params) {
@@ -324,8 +364,7 @@ export const MarketsApi = {
     return apiRequest<Market[]>(`${MARKET_API_PATHS.getAll}${queryString}`);
   },
 
-  get: (id: string | number) =>
-    apiRequest<Market>(MARKET_API_PATHS.market(id)),
+  get: (id: string | number) => apiRequest<Market>(MARKET_API_PATHS.market(id)),
 
   add: (payload: { name: string; stateId: number; districtId: number }) =>
     apiRequest<Market>(MARKET_API_PATHS.addMarket, { method: "POST", body: payload }),
@@ -336,7 +375,6 @@ export const MarketsApi = {
   delete: (payload: { id: number }) =>
     apiRequest<null>(MARKET_API_PATHS.deleteMarket, { method: "DELETE", body: payload }),
 };
-
 
 // ---------- Stores ---------- //
 
@@ -366,7 +404,13 @@ export interface Store {
 
 export const StoresApi = {
   // Get All Stores (With Full Pagination, State, & District & Market Filtering Support)
-  getAll: (params?: { page?: number; size?: number; state?: string | number; district?: string | number; market?: string | number }) => {
+  getAll: (params?: {
+    page?: number;
+    size?: number;
+    state?: string | number;
+    district?: string | number;
+    market?: string | number;
+  }) => {
     const queryParts: string[] = [];
 
     if (params) {
@@ -390,19 +434,34 @@ export const StoresApi = {
     return apiRequest<Store[]>(`${STORE_API_PATHS.getAll}${queryString}`);
   },
 
-  get: (id: string | number) =>
-    apiRequest<Store>(STORE_API_PATHS.store(id)),
+  get: (id: string | number) => apiRequest<Store>(STORE_API_PATHS.store(id)),
 
-  add: (payload: { name: string; address: string; email: string; phone: string; doorCode: string; stateId: number; districtId: number; marketId: number }) =>
-    apiRequest<Store>(STORE_API_PATHS.addStore, { method: "POST", body: payload }),
+  add: (payload: {
+    name: string;
+    address: string;
+    email: string;
+    phone: string;
+    doorCode: string;
+    stateId: number;
+    districtId: number;
+    marketId: number;
+  }) => apiRequest<Store>(STORE_API_PATHS.addStore, { method: "POST", body: payload }),
 
-  update: (payload: { id: number; name: string; address: string; email: string; phone: string; doorCode: string; stateId: number; districtId: number; marketId: number }) =>
-    apiRequest<Store>(STORE_API_PATHS.updateStore, { method: "PUT", body: payload }),
+  update: (payload: {
+    id: number;
+    name: string;
+    address: string;
+    email: string;
+    phone: string;
+    doorCode: string;
+    stateId: number;
+    districtId: number;
+    marketId: number;
+  }) => apiRequest<Store>(STORE_API_PATHS.updateStore, { method: "PUT", body: payload }),
 
   delete: (payload: { id: number }) =>
     apiRequest<null>(STORE_API_PATHS.deleteStore, { method: "DELETE", body: payload }),
 };
-
 
 // ---------- Houses ---------- //
 
@@ -424,7 +483,13 @@ export interface House {
 
 export const HousesApi = {
   // Get All Houses (With Full Pagination, State, & District & Market Filtering Support)
-  getAll: (params?: { page?: number; size?: number; state?: string | number; district?: string | number; market?: string | number }) => {
+  getAll: (params?: {
+    page?: number;
+    size?: number;
+    state?: string | number;
+    district?: string | number;
+    market?: string | number;
+  }) => {
     const queryParts: string[] = [];
 
     if (params) {
@@ -448,19 +513,28 @@ export const HousesApi = {
     return apiRequest<House[]>(`${HOUSE_API_PATHS.getAll}${queryString}`);
   },
 
-  get: (id: string | number) =>
-    apiRequest<House>(HOUSE_API_PATHS.house(id)),
+  get: (id: string | number) => apiRequest<House>(HOUSE_API_PATHS.house(id)),
 
-  add: (payload: { address: string; phone: string; stateId: number; districtId: number; marketId: number }) =>
-    apiRequest<House>(HOUSE_API_PATHS.addHouse, { method: "POST", body: payload }),
+  add: (payload: {
+    address: string;
+    phone: string;
+    stateId: number;
+    districtId: number;
+    marketId: number;
+  }) => apiRequest<House>(HOUSE_API_PATHS.addHouse, { method: "POST", body: payload }),
 
-  update: (payload: { id: number; address: string; phone: string; stateId: number; districtId: number; marketId: number }) =>
-    apiRequest<House>(HOUSE_API_PATHS.updateHouse, { method: "PUT", body: payload }),
+  update: (payload: {
+    id: number;
+    address: string;
+    phone: string;
+    stateId: number;
+    districtId: number;
+    marketId: number;
+  }) => apiRequest<House>(HOUSE_API_PATHS.updateHouse, { method: "PUT", body: payload }),
 
   delete: (payload: { id: number }) =>
     apiRequest<null>(HOUSE_API_PATHS.deleteHouse, { method: "DELETE", body: payload }),
 };
-
 
 // ---------- External Teams ---------- //
 
@@ -493,8 +567,7 @@ export const ExternalTeamApi = {
   },
 
   // 2. Get Single Vendor
-  get: (id: string | number) =>
-    apiRequest<ExternalVendor>(EXTERNAL_TEAM_API_PATHS.state(id)),
+  get: (id: string | number) => apiRequest<ExternalVendor>(EXTERNAL_TEAM_API_PATHS.state(id)),
 
   // 3. Add Vendor
   add: (payload: {
@@ -514,13 +587,15 @@ export const ExternalTeamApi = {
     address: string;
     workNature: string;
   }) =>
-    apiRequest<ExternalVendor>(EXTERNAL_TEAM_API_PATHS.updateState, { method: "PUT", body: payload }),
+    apiRequest<ExternalVendor>(EXTERNAL_TEAM_API_PATHS.updateState, {
+      method: "PUT",
+      body: payload,
+    }),
 
   // 5. Delete Vendor
   delete: (payload: { id: number }) =>
     apiRequest<null>(EXTERNAL_TEAM_API_PATHS.deleteState, { method: "DELETE", body: payload }),
 };
-
 
 // ---------- Departments ---------- //
 
@@ -541,9 +616,15 @@ export const DepartmentsApi = {
   },
   get: (id: string | number) => apiRequest<DepartmentEntity>(DEPARTMENT_API_PATHS.department(id)),
   add: (payload: { name: string }) =>
-    apiRequest<DepartmentEntity>(DEPARTMENT_API_PATHS.addDepartment, { method: "POST", body: payload }),
+    apiRequest<DepartmentEntity>(DEPARTMENT_API_PATHS.addDepartment, {
+      method: "POST",
+      body: payload,
+    }),
   update: (payload: { id: number; name: string }) =>
-    apiRequest<DepartmentEntity>(DEPARTMENT_API_PATHS.updateDepartment, { method: "PUT", body: payload }),
+    apiRequest<DepartmentEntity>(DEPARTMENT_API_PATHS.updateDepartment, {
+      method: "PUT",
+      body: payload,
+    }),
   delete: (id: number) =>
     apiRequest<null>(DEPARTMENT_API_PATHS.deleteDepartment, { method: "DELETE", body: { id } }),
 };
@@ -565,5 +646,5 @@ export const PortalApi = {
       url = `${PORTAL_API_PATHS.getAll}?page=${params.page}&size=${params.size}`;
     }
     return apiRequest<Portal[]>(url);
-  }
+  },
 };

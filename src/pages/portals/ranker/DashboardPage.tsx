@@ -1,66 +1,121 @@
 import { Card } from "@/components/ui/card";
 import {
-  Users, MapPin, Layers, CalendarDays, Award, Trophy, Sparkles, Star,
-  ArrowRight, Gem,
+  Users,
+  MapPin,
+  Layers,
+  CalendarDays,
+  Award,
+  Trophy,
+  Sparkles,
+  Star,
+  ArrowRight,
+  Gem,
 } from "lucide-react";
 import {
-  PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip,
-  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Legend,
+  Tooltip,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
 } from "recharts";
 
 // ---------- KPI cards on top ----------
 const KPIS = [
-  { label: "Total Users",      value: "37",  icon: Users,       tone: "from-sky-500/20 to-sky-500/5",       fg: "text-sky-600 dark:text-sky-400" },
-  { label: "Active Markets",   value: "12",  icon: MapPin,      tone: "from-emerald-500/20 to-emerald-500/5", fg: "text-emerald-600 dark:text-emerald-400" },
-  { label: "KPI Categories",   value: "7",   icon: Layers,      tone: "from-amber-500/20 to-amber-500/5",   fg: "text-amber-600 dark:text-amber-400" },
-  { label: "Upcoming Events",  value: "0",   icon: CalendarDays, tone: "from-violet-500/20 to-violet-500/5", fg: "text-violet-600 dark:text-violet-400" },
+  {
+    label: "Total Users",
+    value: "37",
+    icon: Users,
+    tone: "from-sky-500/20 to-sky-500/5",
+    fg: "text-sky-600 dark:text-sky-400",
+  },
+  {
+    label: "Active Markets",
+    value: "12",
+    icon: MapPin,
+    tone: "from-emerald-500/20 to-emerald-500/5",
+    fg: "text-emerald-600 dark:text-emerald-400",
+  },
+  {
+    label: "KPI Categories",
+    value: "7",
+    icon: Layers,
+    tone: "from-amber-500/20 to-amber-500/5",
+    fg: "text-amber-600 dark:text-amber-400",
+  },
+  {
+    label: "Upcoming Events",
+    value: "0",
+    icon: CalendarDays,
+    tone: "from-violet-500/20 to-violet-500/5",
+    fg: "text-violet-600 dark:text-violet-400",
+  },
 ];
 
 // ---------- KPI Weights (donut) ----------
 const KPI_WEIGHTS = [
   { name: "Accessories", value: 25 },
-  { name: "Voice",       value: 20 },
-  { name: "HSI",         value: 15 },
-  { name: "MIM",         value: 10 },
-  { name: "Upgrades",    value: 10 },
-  { name: "BTS",         value: 10 },
-  { name: "Retention",   value: 10 },
+  { name: "Voice", value: 20 },
+  { name: "HSI", value: 15 },
+  { name: "MIM", value: 10 },
+  { name: "Upgrades", value: 10 },
+  { name: "BTS", value: 10 },
+  { name: "Retention", value: 10 },
 ];
 const WEIGHT_COLORS = ["#ef4444", "#3b82f6", "#10b981", "#a855f7", "#eab308", "#ec4899", "#06b6d4"];
 
 // ---------- Avg KPI Performance (radar) ----------
 const RADAR = [
   { kpi: "Accessories", value: 70 },
-  { kpi: "Voice",       value: 50 },
-  { kpi: "HSI",         value: 45 },
-  { kpi: "MIM",         value: 90 },
-  { kpi: "Upgrades",    value: 55 },
-  { kpi: "BTS",         value: 40 },
-  { kpi: "Retention",   value: 35 },
+  { kpi: "Voice", value: 50 },
+  { kpi: "HSI", value: 45 },
+  { kpi: "MIM", value: 90 },
+  { kpi: "Upgrades", value: 55 },
+  { kpi: "BTS", value: 40 },
+  { kpi: "Retention", value: 35 },
 ];
 
 // ---------- Monthly stars ----------
 const STARS = [
-  { name: "Salim Thanawala",   market: "Dallas - North", rank: 1, tone: "bg-sky-500"   },
-  { name: "Hamed Ali Sufi Syed", market: "Phily",         rank: 2, tone: "bg-amber-500" },
-  { name: "Prabhakar Sivan",   market: "Oregon",         rank: 3, tone: "bg-zinc-400"  },
+  { name: "Salim Thanawala", market: "Dallas - North", rank: 1, tone: "bg-sky-500" },
+  { name: "Hamed Ali Sufi Syed", market: "Phily", rank: 2, tone: "bg-amber-500" },
+  { name: "Prabhakar Sivan", market: "Oregon", rank: 3, tone: "bg-zinc-400" },
 ];
 
 // ---------- KPI overview (horizontal bars) ----------
 const OVERVIEW = [
   { name: "Accessories", value: 25, color: "#ef4444" },
-  { name: "Voice",       value: 20, color: "#3b82f6" },
-  { name: "HSI",         value: 15, color: "#10b981" },
-  { name: "MIM",         value: 10, color: "#a855f7" },
-  { name: "Upgrades",    value: 10, color: "#eab308" },
-  { name: "BTS",         value: 10, color: "#ec4899" },
-  { name: "Retention",   value: 10, color: "#06b6d4" },
+  { name: "Voice", value: 20, color: "#3b82f6" },
+  { name: "HSI", value: 15, color: "#10b981" },
+  { name: "MIM", value: 10, color: "#a855f7" },
+  { name: "Upgrades", value: 10, color: "#eab308" },
+  { name: "BTS", value: 10, color: "#ec4899" },
+  { name: "Retention", value: 10, color: "#06b6d4" },
 ];
 
 function SectionCard({
-  title, icon: Icon, action, children, className = "",
-}: { title: string; icon: any; action?: React.ReactNode; children: React.ReactNode; className?: string }) {
+  title,
+  icon: Icon,
+  action,
+  children,
+  className = "",
+}: {
+  title: string;
+  icon: any;
+  action?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
     <Card className={`relative overflow-hidden p-5 ${className}`}>
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-primary/20" />
@@ -93,10 +148,14 @@ export default function RankerDashboardPage() {
             <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${k.tone}`} />
             <div className="relative flex items-start justify-between">
               <div>
-                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{k.label}</div>
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {k.label}
+                </div>
                 <div className="mt-2 font-display text-3xl font-semibold">{k.value}</div>
               </div>
-              <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-background/70 backdrop-blur ${k.fg}`}>
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-xl bg-background/70 backdrop-blur ${k.fg}`}
+              >
                 <k.icon className="h-5 w-5" />
               </div>
             </div>
@@ -168,7 +227,11 @@ export default function RankerDashboardPage() {
           </p>
         </SectionCard>
 
-        <SectionCard title="Yearly Champion" icon={Trophy} action={<Gem className="h-4 w-4 text-sky-400" />}>
+        <SectionCard
+          title="Yearly Champion"
+          icon={Trophy}
+          action={<Gem className="h-4 w-4 text-sky-400" />}
+        >
           <div className="flex h-[260px] flex-col items-center justify-center gap-3 text-center">
             <div className="relative">
               <div
@@ -183,7 +246,9 @@ export default function RankerDashboardPage() {
             </div>
             <div>
               <div className="font-semibold">SALIM THANAWALA</div>
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">DALLAS - NORTH</div>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                DALLAS - NORTH
+              </div>
             </div>
             <span className="rounded-full bg-sky-100 px-3 py-0.5 text-xs font-semibold text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">
               111.1% Score
@@ -205,13 +270,20 @@ export default function RankerDashboardPage() {
         >
           <div className="space-y-2.5">
             {STARS.map((s) => (
-              <div key={s.name} className="flex items-center gap-3 rounded-lg border bg-card/60 p-3 transition hover:bg-accent/40">
-                <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white ${s.tone}`}>
+              <div
+                key={s.name}
+                className="flex items-center gap-3 rounded-lg border bg-card/60 p-3 transition hover:bg-accent/40"
+              >
+                <div
+                  className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white ${s.tone}`}
+                >
                   {s.name[0]}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="truncate text-sm font-semibold">{s.name}</div>
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{s.market}</div>
+                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                    {s.market}
+                  </div>
                 </div>
                 <span className="font-display text-sm font-bold text-amber-500">#{s.rank}</span>
               </div>
@@ -235,8 +307,14 @@ export default function RankerDashboardPage() {
                 <XAxis type="number" domain={[0, 30]} tick={{ fontSize: 11 }} />
                 <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={90} />
                 <Tooltip />
-                <Bar dataKey="value" radius={[0, 6, 6, 0]} label={{ position: "right", formatter: (v: number) => `${v}%`, fontSize: 11 }}>
-                  {OVERVIEW.map((d, i) => <Cell key={i} fill={d.color} />)}
+                <Bar
+                  dataKey="value"
+                  radius={[0, 6, 6, 0]}
+                  label={{ position: "right", formatter: (v: number) => `${v}%`, fontSize: 11 }}
+                >
+                  {OVERVIEW.map((d, i) => (
+                    <Cell key={i} fill={d.color} />
+                  ))}
                 </Bar>
               </BarChart>
             </ResponsiveContainer>

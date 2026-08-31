@@ -64,8 +64,10 @@ export default function ThemedQRCode({
 
   if (!payload) {
     return (
-      <div className={`flex items-center justify-center rounded-xl border border-dashed bg-muted/40 text-xs text-muted-foreground ${className}`}
-        style={{ width: size, height: size }}>
+      <div
+        className={`flex items-center justify-center rounded-xl border border-dashed bg-muted/40 text-xs text-muted-foreground ${className}`}
+        style={{ width: size, height: size }}
+      >
         QR unavailable
       </div>
     );
@@ -74,9 +76,7 @@ export default function ThemedQRCode({
   return (
     <div className={`relative inline-block rounded-2xl border bg-white p-3 shadow-sm ${className}`}>
       <canvas ref={canvasRef} width={size} height={size} className="block rounded-md" />
-      {error && (
-        <p className="mt-2 text-center text-[11px] text-destructive">{error}</p>
-      )}
+      {error && <p className="mt-2 text-center text-[11px] text-destructive">{error}</p>}
     </div>
   );
 }

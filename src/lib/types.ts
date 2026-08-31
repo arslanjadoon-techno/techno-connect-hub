@@ -8,13 +8,7 @@ export type Role =
   | "admin";
 
 export type Department =
-  | "Finance"
-  | "Maintenance"
-  | "IT"
-  | "HR"
-  | "Operations"
-  | "Marketing"
-  | (string & {});
+  "Finance" | "Maintenance" | "IT" | "HR" | "Operations" | "Marketing" | (string & {});
 
 export const ALL_DEPARTMENTS: string[] = [
   "Finance",
@@ -51,12 +45,12 @@ export interface User {
   phone?: string | null;
   department: string | null;
   departmentName?: string;
-  
-  roleName?: Role; 
-  
-  assignedPortals?: string[]; 
+
+  roleName?: Role;
+
+  assignedPortals?: string[];
   allowedUserManagement?: boolean;
-  
+
   portalAccess?: Array<{
     portalId: number;
     portalName: string;
@@ -79,7 +73,7 @@ export interface User {
   marketName?: string;
   storeId?: string;
   storeName?: string;
-  
+
   avatarColor?: string;
   avatarUrl?: string;
   active?: boolean;
@@ -87,7 +81,7 @@ export interface User {
 
 export interface AppNotification {
   id: string;
-  userId?: string; 
+  userId?: string;
   title: string;
   body: string;
   link?: string;
@@ -95,7 +89,11 @@ export interface AppNotification {
   read: boolean;
 }
 
-export interface State { id: string; name: string; code: string; }
+export interface State {
+  id: string;
+  name: string;
+  code: string;
+}
 
 export interface Market {
   id: number;
@@ -110,7 +108,12 @@ export interface Market {
   };
 }
 
-export interface District { id: string; name: string; stateId: string; marketId: string; }
+export interface District {
+  id: string;
+  name: string;
+  stateId: string;
+  marketId: string;
+}
 
 export interface Store {
   id: string;
@@ -133,13 +136,7 @@ export interface House {
   address: string;
 }
 
-export type TicketStatus =
-  | "pending"
-  | "assigned"
-  | "completed"
-  | "hold"
-  | "closed"
-  | "reopen";
+export type TicketStatus = "pending" | "assigned" | "completed" | "hold" | "closed" | "reopen";
 
 export type TicketPriority = "low" | "medium" | "high" | "urgent";
 export type TicketCategory = "store" | "house";
@@ -158,7 +155,7 @@ export interface Ticket {
   title: string;
   description: string;
   category: TicketCategory;
-  locationId: string; 
+  locationId: string;
   department: string;
   priority: TicketPriority;
   status: TicketStatus;
@@ -166,8 +163,8 @@ export interface Ticket {
   createdAt: string;
   updatedAt: string;
   assignType?: AssignType;
-  assigneeId?: string;      
-  externalVendorId?: string; 
+  assigneeId?: string;
+  externalVendorId?: string;
   stateId: string;
   marketId?: string;
   districtId?: string;
@@ -200,10 +197,7 @@ export interface ChatGroup {
   memberIds: string[];
 }
 
-export const STATUS_META: Record<
-  TicketStatus,
-  { label: string; tone: string }
-> = {
+export const STATUS_META: Record<TicketStatus, { label: string; tone: string }> = {
   pending: { label: "Pending", tone: "bg-warning/15 text-warning-foreground border-warning/30" },
   assigned: { label: "Assigned", tone: "bg-info/15 text-info border-info/30" },
   completed: { label: "Completed", tone: "bg-success/15 text-success border-success/30" },

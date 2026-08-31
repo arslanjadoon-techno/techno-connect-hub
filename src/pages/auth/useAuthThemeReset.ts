@@ -11,6 +11,8 @@ export function useAuthThemeReset() {
   useEffect(() => {
     const html = document.documentElement;
     html.classList.add("auth-standard");
-    return () => { html.classList.remove("auth-standard"); };
+    return () => {
+      html.classList.remove("auth-standard");
+    };
   }, []);
 }

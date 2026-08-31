@@ -1,16 +1,19 @@
-import { Link, useNavigate, useParams } from "react-router-dom";import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { transitionTicket, useData } from "@/lib/data-store";
 import { canAssignTicket } from "@/lib/permissions";
-import {
-  PRIORITY_META, STATUS_META, type TicketStatus,
-} from "@/lib/types";
+import { PRIORITY_META, STATUS_META, type TicketStatus } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { ArrowLeft, MessageSquare, Clock } from "lucide-react";
 import { toast } from "sonner";
@@ -45,7 +48,9 @@ function TicketDetail() {
     return (
       <div className="mx-auto max-w-md py-20 text-center">
         <p className="text-muted-foreground">Ticket not found.</p>
-        <Button asChild className="mt-4"><Link to="/ticketing/tickets">Back to tickets</Link></Button>
+        <Button asChild className="mt-4">
+          <Link to="/ticketing/tickets">Back to tickets</Link>
+        </Button>
       </div>
     );
   }
@@ -60,11 +65,16 @@ function TicketDetail() {
   const createdBy = data.users.find((u) => u.id === ticket.createdById);
 
   const lastAssignment = [...ticket.history].reverse().find((h) => h.status === "assigned");
-  const assignedBy = lastAssignment ? data.users.find((u) => u.id === lastAssignment.by) : undefined;
+  const assignedBy = lastAssignment
+    ? data.users.find((u) => u.id === lastAssignment.by)
+    : undefined;
 
   const updateStatus = (status: TicketStatus) => {
     const next = transitionTicket(ticket, status, user.id);
-    set("tickets", data.tickets.map((t) => t.id === ticket.id ? next : t));
+    set(
+      "tickets",
+      data.tickets.map((t) => (t.id === ticket.id ? next : t)),
+    );
     toast.success(`Status updated to ${STATUS_META[status].label}`);
   };
 
@@ -83,12 +93,22 @@ function TicketDetail() {
         },
       ],
     };
-    set("tickets", data.tickets.map((t) => t.id === ticket.id ? next : t));
+    set(
+      "tickets",
+      data.tickets.map((t) => (t.id === ticket.id ? next : t)),
+    );
     setComment("");
   };
 
   const canTransition = canAssignTicket(user) || ticket.assigneeId === user.id;
-  const availableStatuses: TicketStatus[] = ["pending", "assigned", "completed", "hold", "closed", "reopen"];
+  const availableStatuses: TicketStatus[] = [
+    "pending",
+    "assigned",
+    "completed",
+    "hold",
+    "closed",
+    "reopen",
+  ];
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -106,7 +126,10 @@ function TicketDetail() {
       {/* TICKET CREATOR */}
       <Section title="TICKET CREATOR">
         <FieldGrid cols={3}>
-          <Field label="Name" value={createdBy ? titleCase(`${createdBy.firstName} ${createdBy.lastName}`) : "—"} />
+          <Field
+            label="Name"
+            value={createdBy ? titleCase(`${createdBy.firstName} ${createdBy.lastName}`) : "—"}
+          />
           <Field label="Email" value={createdBy ? titleCase(createdBy.email) : "—"} />
           <Field label="Created At" value={fmtDateTime(ticket.createdAt)} />
         </FieldGrid>
@@ -134,7 +157,10 @@ function TicketDetail() {
         <div className="mt-5">
           <FieldGrid cols={3}>
             <Field label="Market" value={market?.name ?? state?.name ?? "—"} />
-            <Field label={ticket.category === "store" ? "Store" : "House"} value={loc?.name ?? "—"} />
+            <Field
+              label={ticket.category === "store" ? "Store" : "House"}
+              value={loc?.name ?? "—"}
+            />
             <Field
               label="Priority"
               value={
@@ -162,8 +188,12 @@ function TicketDetail() {
             label="Assigned To"
             value={
               ticket.assignType === "external"
-                ? (vendor ? `${vendor.name} (External)` : "—")
-                : (assignee ? titleCase(`${assignee.firstName} ${assignee.lastName}`) : "—")
+                ? vendor
+                  ? `${vendor.name} (External)`
+                  : "—"
+                : assignee
+                  ? titleCase(`${assignee.firstName} ${assignee.lastName}`)
+                  : "—"
             }
           />
           <Field
@@ -187,10 +217,14 @@ function TicketDetail() {
           <div className="flex flex-wrap items-center gap-3">
             <span className="text-sm text-muted-foreground">Change current status:</span>
             <Select value={ticket.status} onValueChange={(v) => updateStatus(v as TicketStatus)}>
-              <SelectTrigger className="w-56"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-56">
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 {availableStatuses.map((s) => (
-                  <SelectItem key={s} value={s}>{STATUS_META[s].label}</SelectItem>
+                  <SelectItem key={s} value={s}>
+                    {STATUS_META[s].label}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -210,10 +244,13 @@ function TicketDetail() {
                     <div>
                       <span className="font-medium">{STATUS_META[h.status].label}</span>
                       {" — "}
-                      <span className="text-muted-foreground">{u ? `${u.firstName} ${u.lastName}` : h.by}</span>
+                      <span className="text-muted-foreground">
+                        {u ? `${u.firstName} ${u.lastName}` : h.by}
+                      </span>
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      <Clock className="mr-1 inline h-3 w-3" />{fmtDateTime(h.at)}
+                      <Clock className="mr-1 inline h-3 w-3" />
+                      {fmtDateTime(h.at)}
                     </div>
                   </div>
                 </li>
@@ -264,11 +301,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function FieldGrid({ cols, children }: { cols: 2 | 3 | 4; children: React.ReactNode }) {
-  const cls = cols === 4
-    ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
-    : cols === 3
-    ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-    : "grid grid-cols-1 gap-4 sm:grid-cols-2";
+  const cls =
+    cols === 4
+      ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+      : cols === 3
+        ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        : "grid grid-cols-1 gap-4 sm:grid-cols-2";
   return <div className={cls}>{children}</div>;
 }
 

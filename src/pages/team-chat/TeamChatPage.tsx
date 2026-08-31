@@ -8,20 +8,39 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Send, Users as UsersIcon, Plus, MessageSquarePlus, Search, User as UserIcon } from "lucide-react";
+import {
+  Send,
+  Users as UsersIcon,
+  Plus,
+  MessageSquarePlus,
+  Search,
+  User as UserIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 
 function ChatPage() {
   const { user } = useAuth();
   const { data, set } = useData();
-  const groups = useMemo(() => user ? visibleChatGroups(user, data.chatGroups) : [], [user, data.chatGroups]);
+  const groups = useMemo(
+    () => (user ? visibleChatGroups(user, data.chatGroups) : []),
+    [user, data.chatGroups],
+  );
   const [activeId, setActiveId] = useState<string>(groups[0]?.id ?? "");
   const [text, setText] = useState("");
   const [newOpen, setNewOpen] = useState(false);
@@ -32,8 +51,10 @@ function ChatPage() {
   }, [groups, activeId]);
 
   const messages = useMemo(
-    () => data.chatMessages.filter((m) => m.groupId === activeId)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
+    () =>
+      data.chatMessages
+        .filter((m) => m.groupId === activeId)
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt)),
     [data.chatMessages, activeId],
   );
 
@@ -66,10 +87,16 @@ function ChatPage() {
     if (!other) return;
     const dmName = `DM: ${other.firstName} ${other.lastName}`;
     const existing = data.chatGroups.find(
-      (g) => g.name === dmName && g.memberIds.length === 2 &&
-        g.memberIds.includes(user.id) && g.memberIds.includes(other.id),
+      (g) =>
+        g.name === dmName &&
+        g.memberIds.length === 2 &&
+        g.memberIds.includes(user.id) &&
+        g.memberIds.includes(other.id),
     );
-    if (existing) { setActiveId(existing.id); return; }
+    if (existing) {
+      setActiveId(existing.id);
+      return;
+    }
     const g = {
       id: `cg-dm-${Date.now()}`,
       name: dmName,
@@ -93,7 +120,9 @@ function ChatPage() {
             {canCreate && (
               <Dialog open={newOpen} onOpenChange={setNewOpen}>
                 <DialogTrigger asChild>
-                  <Button size="sm" variant="outline" className="hover-lift"><Plus className="mr-1 h-4 w-4" /> New</Button>
+                  <Button size="sm" variant="outline" className="hover-lift">
+                    <Plus className="mr-1 h-4 w-4" /> New
+                  </Button>
                 </DialogTrigger>
                 <NewGroupDialog
                   onCreate={(g) => {
@@ -154,7 +183,9 @@ function ChatPage() {
               </div>
               <div>
                 <div className="font-display font-semibold">{activeGroup.name}</div>
-                <div className="text-xs text-muted-foreground">{activeGroup.memberIds.length} members</div>
+                <div className="text-xs text-muted-foreground">
+                  {activeGroup.memberIds.length} members
+                </div>
               </div>
             </div>
             <div
@@ -170,17 +201,26 @@ function ChatPage() {
                 const mine = m.authorId === user.id;
                 return (
                   <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
-                      mine
-                        ? "rounded-br-md bg-primary text-primary-foreground"
-                        : "rounded-bl-md bg-card text-foreground"
-                    }`}>
+                    <div
+                      className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm shadow-sm ${
+                        mine
+                          ? "rounded-br-md bg-primary text-primary-foreground"
+                          : "rounded-bl-md bg-card text-foreground"
+                      }`}
+                    >
                       {!mine && (
-                        <div className="mb-0.5 text-[11px] font-semibold opacity-80">{m.authorName}</div>
+                        <div className="mb-0.5 text-[11px] font-semibold opacity-80">
+                          {m.authorName}
+                        </div>
                       )}
                       <div className="whitespace-pre-wrap">{m.message}</div>
-                      <div className={`mt-0.5 text-[10px] ${mine ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
-                        {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      <div
+                        className={`mt-0.5 text-[10px] ${mine ? "text-primary-foreground/70" : "text-muted-foreground"}`}
+                      >
+                        {new Date(m.createdAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </div>
                     </div>
                   </div>
@@ -194,7 +234,10 @@ function ChatPage() {
             </div>
             <div className="border-t bg-card p-3">
               <form
-                onSubmit={(e) => { e.preventDefault(); send(); }}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  send();
+                }}
                 className="flex items-center gap-2"
               >
                 <Input
@@ -231,12 +274,13 @@ function NewGroupDialog({
   const [memberIds, setMemberIds] = useState<string[]>(user ? [user.id] : []);
 
   const candidates = useMemo(
-    () => department === "none" ? data.users : data.users.filter((u) => u.department === department),
+    () =>
+      department === "none" ? data.users : data.users.filter((u) => u.department === department),
     [data.users, department],
   );
 
   const toggle = (id: string) =>
-    setMemberIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+    setMemberIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   return (
     <DialogContent className="max-w-lg">
@@ -246,15 +290,25 @@ function NewGroupDialog({
       <div className="space-y-3">
         <div className="space-y-1.5">
           <Label>Group name</Label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. AZ Field Ops" />
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. AZ Field Ops"
+          />
         </div>
         <div className="space-y-1.5">
           <Label>Department (optional)</Label>
           <Select value={department} onValueChange={(v) => setDepartment(v as typeof department)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="none">No specific department</SelectItem>
-              {ALL_DEPARTMENTS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+              {ALL_DEPARTMENTS.map((d) => (
+                <SelectItem key={d} value={d}>
+                  {d}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -262,9 +316,14 @@ function NewGroupDialog({
           <Label>Members ({memberIds.length})</Label>
           <div className="max-h-60 overflow-y-auto rounded-md border p-2">
             {candidates.map((u) => (
-              <label key={u.id} className="flex cursor-pointer items-center gap-2 rounded p-1.5 text-sm hover:bg-muted">
+              <label
+                key={u.id}
+                className="flex cursor-pointer items-center gap-2 rounded p-1.5 text-sm hover:bg-muted"
+              >
                 <Checkbox checked={memberIds.includes(u.id)} onCheckedChange={() => toggle(u.id)} />
-                <span>{u.firstName} {u.lastName}</span>
+                <span>
+                  {u.firstName} {u.lastName}
+                </span>
                 <span className="ml-auto text-xs text-muted-foreground">{u.department}</span>
               </label>
             ))}
@@ -277,12 +336,14 @@ function NewGroupDialog({
       <DialogFooter>
         <Button
           disabled={!name.trim() || memberIds.length === 0}
-          onClick={() => onCreate({
-            id: `cg-${Date.now()}`,
-            name: name.trim(),
-            department: department === "none" ? undefined : department,
-            memberIds,
-          })}
+          onClick={() =>
+            onCreate({
+              id: `cg-${Date.now()}`,
+              name: name.trim(),
+              department: department === "none" ? undefined : department,
+              memberIds,
+            })
+          }
         >
           Create group
         </Button>
@@ -301,9 +362,11 @@ function DirectMessagePicker({ onPick }: { onPick: (userId: string) => void }) {
     const others = data.users.filter((u) => u.id !== user?.id);
     const query = q.trim().toLowerCase();
     if (!query) return others.slice(0, 30);
-    return others.filter((u) =>
-      `${u.firstName} ${u.lastName} ${u.email} ${u.department}`.toLowerCase().includes(query),
-    ).slice(0, 30);
+    return others
+      .filter((u) =>
+        `${u.firstName} ${u.lastName} ${u.email} ${u.department}`.toLowerCase().includes(query),
+      )
+      .slice(0, 30);
   }, [data.users, q, user?.id]);
 
   return (
@@ -332,15 +395,23 @@ function DirectMessagePicker({ onPick }: { onPick: (userId: string) => void }) {
             <button
               key={u.id}
               type="button"
-              onClick={() => { onPick(u.id); setOpen(false); setQ(""); }}
+              onClick={() => {
+                onPick(u.id);
+                setOpen(false);
+                setQ("");
+              }}
               className="flex w-full items-center gap-2 rounded-md p-2 text-left text-sm transition hover:bg-muted"
             >
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white text-xs"
-                style={{ backgroundImage: "var(--gradient-primary)" }}>
+              <div
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white text-xs"
+                style={{ backgroundImage: "var(--gradient-primary)" }}
+              >
                 <UserIcon className="h-3.5 w-3.5" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate font-medium">{u.firstName} {u.lastName}</div>
+                <div className="truncate font-medium">
+                  {u.firstName} {u.lastName}
+                </div>
                 <div className="truncate text-xs text-muted-foreground">{u.department}</div>
               </div>
             </button>

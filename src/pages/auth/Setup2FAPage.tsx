@@ -24,9 +24,11 @@ export default function Setup2FAPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
-  const stateData = (location.state ?? null) as
-    | { email?: string; secretKey?: string; qrCodeUrl?: string }
-    | null;
+  const stateData = (location.state ?? null) as {
+    email?: string;
+    secretKey?: string;
+    qrCodeUrl?: string;
+  } | null;
   const initialEmail = stateData?.email ?? params.get("email") ?? "";
   const { setSession } = useAuth();
   const [email, setEmail] = useState(initialEmail);
@@ -97,7 +99,10 @@ export default function Setup2FAPage() {
 
       <div className="flex items-center justify-center bg-muted/40 p-6 lg:pl-16">
         <Card className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-2xl animate-scale-in">
-          <Link to="/login" className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+          <Link
+            to="/login"
+            className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
             <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
           </Link>
 
@@ -119,7 +124,10 @@ export default function Setup2FAPage() {
                 Enter your account email to generate a Google Authenticator setup.
               </p>
               <form
-                onSubmit={(e) => { e.preventDefault(); handleSetup(email); }}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSetup(email);
+                }}
                 className="mt-6 space-y-4"
               >
                 <div className="space-y-1.5">
@@ -127,9 +135,13 @@ export default function Setup2FAPage() {
                   <div className="relative">
                     <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      id="email" type="email" required placeholder="you@techno.com"
+                      id="email"
+                      type="email"
+                      required
+                      placeholder="you@techno.com"
                       className="h-11 pl-9"
-                      value={email} onChange={(e) => setEmail(e.target.value)}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                     />
                   </div>
                 </div>
@@ -142,7 +154,8 @@ export default function Setup2FAPage() {
             <div className="animate-fade-in">
               <h2 className="font-display text-2xl font-semibold">Scan with Authenticator</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Open Google Authenticator and scan the code below. Then enter the 6-digit code it shows.
+                Open Google Authenticator and scan the code below. Then enter the 6-digit code it
+                shows.
               </p>
 
               <div className="mt-5 flex flex-col items-center">

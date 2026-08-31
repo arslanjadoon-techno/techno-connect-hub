@@ -55,8 +55,8 @@ export default function Privacy() {
         <CardContent className="pt-6 text-muted-foreground leading-relaxed">
           This page is maintained by T-Communications LLC to explain how the Commission Portal
           handles employee information. It applies to all users of the internal portal and should be
-          read alongside your employment agreement and company policies. The content below is provided
-          for informational purposes and does not constitute legal advice.
+          read alongside your employment agreement and company policies. The content below is
+          provided for informational purposes and does not constitute legal advice.
         </CardContent>
       </Card>
 

@@ -20,25 +20,36 @@ interface Props {
 }
 
 export function MultiSelect({
-  options, value, onChange, placeholder = "Select...", disabled, className,
+  options,
+  value,
+  onChange,
+  placeholder = "Select...",
+  disabled,
+  className,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
 
   const filtered = useMemo(
-    () => options.filter(o => o.label.toLowerCase().includes(q.toLowerCase())),
-    [options, q]
+    () => options.filter((o) => o.label.toLowerCase().includes(q.toLowerCase())),
+    [options, q],
   );
 
   const toggle = (val: string) => {
-    if (value.includes(val)) onChange(value.filter(v => v !== val));
+    if (value.includes(val)) onChange(value.filter((v) => v !== val));
     else onChange([...value, val]);
   };
 
-  const selectedLabels = options.filter(o => value.includes(o.value));
+  const selectedLabels = options.filter((o) => value.includes(o.value));
 
   return (
-    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setQ(""); }}>
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o);
+        if (!o) setQ("");
+      }}
+    >
       <PopoverTrigger asChild>
         <Button
           type="button"
@@ -55,7 +66,10 @@ export function MultiSelect({
                 {o.label}
                 <span
                   role="button"
-                  onClick={(e) => { e.stopPropagation(); toggle(o.value); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggle(o.value);
+                  }}
                   className="hover:text-destructive cursor-pointer"
                 >
                   <X className="h-3 w-3" />
@@ -63,7 +77,9 @@ export function MultiSelect({
               </Badge>
             ))}
             {selectedLabels.length > 4 && (
-              <Badge variant="secondary" className="text-[11px]">+{selectedLabels.length - 4}</Badge>
+              <Badge variant="secondary" className="text-[11px]">
+                +{selectedLabels.length - 4}
+              </Badge>
             )}
           </div>
           <ChevronDown className="h-4 w-4 opacity-50 shrink-0" />

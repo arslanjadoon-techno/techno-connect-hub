@@ -3,7 +3,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { LifeBuoy, Mail, Phone, MessageSquare, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { FormEvent } from "react";
@@ -126,9 +131,17 @@ export default function Support() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="message">Message</Label>
-                <Textarea id="message" required rows={5} placeholder="Describe your issue in detail..." />
+                <Textarea
+                  id="message"
+                  required
+                  rows={5}
+                  placeholder="Describe your issue in detail..."
+                />
               </div>
-              <Button type="submit" className="w-full bg-gradient-primary shadow-glow transition-smooth">
+              <Button
+                type="submit"
+                className="w-full bg-gradient-primary shadow-glow transition-smooth"
+              >
                 Submit Ticket
               </Button>
             </form>

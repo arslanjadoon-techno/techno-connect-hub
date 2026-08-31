@@ -17,12 +17,14 @@ export default function NotFoundInApp() {
       <div className="space-y-1">
         <h1 className="font-display text-3xl font-semibold">Page not found</h1>
         <p className="max-w-md text-sm text-muted-foreground">
-          The page you are trying to open doesn't exist yet, or its route hasn't been wired up.
-          Pick another option from the sidebar to continue.
+          The page you are trying to open doesn't exist yet, or its route hasn't been wired up. Pick
+          another option from the sidebar to continue.
         </p>
       </div>
       <Button asChild variant="outline" className="gap-2">
-        <Link to="/ai-chat"><ArrowLeft className="h-4 w-4" /> Back to AI Chat</Link>
+        <Link to="/ai-chat">
+          <ArrowLeft className="h-4 w-4" /> Back to AI Chat
+        </Link>
       </Button>
     </div>
   );

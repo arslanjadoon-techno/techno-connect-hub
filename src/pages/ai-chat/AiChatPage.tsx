@@ -42,7 +42,10 @@ function AIChatPage() {
     }, 700);
   };
 
-  const send = (e: React.FormEvent) => { e.preventDefault(); submit(text); };
+  const send = (e: React.FormEvent) => {
+    e.preventDefault();
+    submit(text);
+  };
 
   const Composer = (
     <form onSubmit={send} className="flex items-center gap-2">
@@ -54,7 +57,12 @@ function AIChatPage() {
         className="h-12 flex-1 rounded-xl"
         autoFocus
       />
-      <Button type="submit" size="icon" className="h-12 w-12 rounded-xl hover-lift" disabled={!text.trim() || disabled || thinking}>
+      <Button
+        type="submit"
+        size="icon"
+        className="h-12 w-12 rounded-xl hover-lift"
+        disabled={!text.trim() || disabled || thinking}
+      >
         <Send className="h-4 w-4" />
       </Button>
     </form>
@@ -64,11 +72,15 @@ function AIChatPage() {
   if (!started) {
     return (
       <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-3xl flex-col items-center justify-center animate-fade-in">
-        <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-[var(--shadow-elegant)]"
-          style={{ backgroundImage: "var(--gradient-primary)" }}>
+        <div
+          className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-[var(--shadow-elegant)]"
+          style={{ backgroundImage: "var(--gradient-primary)" }}
+        >
           <Sparkles className="h-8 w-8" />
         </div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">How can I help you today?</h1>
+        <h1 className="font-display text-3xl font-semibold tracking-tight">
+          How can I help you today?
+        </h1>
         <p className="mt-2 text-sm text-muted-foreground">Your workspace AI assistant</p>
 
         <div className="mt-8 w-full max-w-2xl">{Composer}</div>
@@ -93,8 +105,10 @@ function AIChatPage() {
   return (
     <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-3xl flex-col animate-fade-in">
       <header className="mb-4 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-[var(--shadow-elegant)]"
-          style={{ backgroundImage: "var(--gradient-primary)" }}>
+        <div
+          className="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-[var(--shadow-elegant)]"
+          style={{ backgroundImage: "var(--gradient-primary)" }}
+        >
           <Sparkles className="h-5 w-5" />
         </div>
         <div>
@@ -115,10 +129,15 @@ function AIChatPage() {
           }}
         >
           {messages.map((m) => (
-            <div key={m.id} className={`flex items-start gap-3 ${m.role === "user" ? "justify-end" : ""} animate-fade-in`}>
+            <div
+              key={m.id}
+              className={`flex items-start gap-3 ${m.role === "user" ? "justify-end" : ""} animate-fade-in`}
+            >
               {m.role === "assistant" && (
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white shadow"
-                  style={{ backgroundImage: "var(--gradient-primary)" }}>
+                <div
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white shadow"
+                  style={{ backgroundImage: "var(--gradient-primary)" }}
+                >
                   <Bot className="h-4 w-4" />
                 </div>
               )}
@@ -140,15 +159,26 @@ function AIChatPage() {
           ))}
           {thinking && (
             <div className="flex items-start gap-3 animate-fade-in">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white shadow"
-                style={{ backgroundImage: "var(--gradient-primary)" }}>
+              <div
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white shadow"
+                style={{ backgroundImage: "var(--gradient-primary)" }}
+              >
                 <Bot className="h-4 w-4" />
               </div>
               <div className="rounded-2xl rounded-bl-md border bg-card px-4 py-3 text-sm shadow-sm">
                 <span className="inline-flex gap-1">
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-primary/60" style={{ animationDelay: "0ms" }} />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-primary/60" style={{ animationDelay: "150ms" }} />
-                  <span className="h-2 w-2 animate-bounce rounded-full bg-primary/60" style={{ animationDelay: "300ms" }} />
+                  <span
+                    className="h-2 w-2 animate-bounce rounded-full bg-primary/60"
+                    style={{ animationDelay: "0ms" }}
+                  />
+                  <span
+                    className="h-2 w-2 animate-bounce rounded-full bg-primary/60"
+                    style={{ animationDelay: "150ms" }}
+                  />
+                  <span
+                    className="h-2 w-2 animate-bounce rounded-full bg-primary/60"
+                    style={{ animationDelay: "300ms" }}
+                  />
                 </span>
               </div>
             </div>

@@ -1,9 +1,15 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import type { Department, Role, User } from "./types";
 import { ALL_DEPARTMENTS } from "./types";
-import {
-  authApi, setToken, setStoredUser, getStoredUser, type BackendUser,
-} from "./api/client";
+import { authApi, setToken, setStoredUser, getStoredUser, type BackendUser } from "./api/client";
 
 export type LoginResult =
   | { kind: "authenticated"; user: User }
@@ -35,16 +41,20 @@ export function mapBackendUser(b: any): User {
   let roleName: Role = "user";
   if (normalizedRole === "admin") roleName = "admin";
   else if (normalizedRole === "manager") roleName = "manager";
-  else if (normalizedRole === "statemanager" || normalizedRole === "state_manager") roleName = "state_manager";
-  else if (normalizedRole === "districtmanager" || normalizedRole === "district_manager") roleName = "district_manager";
-  else if (normalizedRole === "marketmanager" || normalizedRole === "market_manager") roleName = "market_manager";
-  else if (normalizedRole === "storemanager" || normalizedRole === "store_manager") roleName = "store_manager";
+  else if (normalizedRole === "statemanager" || normalizedRole === "state_manager")
+    roleName = "state_manager";
+  else if (normalizedRole === "districtmanager" || normalizedRole === "district_manager")
+    roleName = "district_manager";
+  else if (normalizedRole === "marketmanager" || normalizedRole === "market_manager")
+    roleName = "market_manager";
+  else if (normalizedRole === "storemanager" || normalizedRole === "store_manager")
+    roleName = "store_manager";
 
   // 🛠️ Hybrid Extraction for Department
   const rawDept = b.department?.name || b.departmentName || "Operations";
-  const department: Department = (ALL_DEPARTMENTS.includes(rawDept as Department)
+  const department: Department = ALL_DEPARTMENTS.includes(rawDept as Department)
     ? (rawDept as Department)
-    : "Operations");
+    : "Operations";
 
   return {
     id: String(b.id),
@@ -88,30 +98,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return u;
   }, []);
 
-  const login = useCallback(async (email: string, password: string): Promise<LoginResult> => {
-    // apiRequest already throws when success=false (blocked account → message surfaces in toast).
-    const res = await authApi.login(email, password);
-    const d: any = res.data ?? {};
+  const login = useCallback(
+    async (email: string, password: string): Promise<LoginResult> => {
+      // apiRequest already throws when success=false (blocked account → message surfaces in toast).
+      const res = await authApi.login(email, password);
+      const d: any = res.data ?? {};
 
-    // Case 2: Bypass-2FA — backend returned a usable JWT immediately.
-    if (d.token) {
-      const user = setSession(d.token as string, d.user);
-      return { kind: "authenticated", user };
-    }
+      // Case 2: Bypass-2FA — backend returned a usable JWT immediately.
+      if (d.token) {
+        const user = setSession(d.token as string, d.user);
+        return { kind: "authenticated", user };
+      }
 
-    // Case 3: First-time setup — backend returned a QR + secret to register the device.
-    if (d.qrCodeUrl) {
-      return {
-        kind: "setup2fa",
-        email,
-        secretKey: d.secretKey ?? "",
-        qrCodeUrl: d.qrCodeUrl as string,
-      };
-    }
+      // Case 3: First-time setup — backend returned a QR + secret to register the device.
+      if (d.qrCodeUrl) {
+        return {
+          kind: "setup2fa",
+          email,
+          secretKey: d.secretKey ?? "",
+          qrCodeUrl: d.qrCodeUrl as string,
+        };
+      }
 
-    // Case 4: Subsequent login — only the 6-digit verification step remains.
-    return { kind: "verify2fa", email };
-  }, [setSession]);
+      // Case 4: Subsequent login — only the 6-digit verification step remains.
+      return { kind: "verify2fa", email };
+    },
+    [setSession],
+  );
 
   const logout = useCallback(() => {
     setToken(null);
@@ -119,7 +132,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const value = useMemo(() => ({ user, login, setSession, logout }), [user, login, setSession, logout]);
+  const value = useMemo(
+    () => ({ user, login, setSession, logout }),
+    [user, login, setSession, logout],
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

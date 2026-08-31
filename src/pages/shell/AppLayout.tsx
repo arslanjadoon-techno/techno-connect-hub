@@ -30,9 +30,7 @@ export default function AppLayout() {
   const markAllRead = () => {
     set(
       "notifications",
-      data.notifications.map((n) =>
-        !n.userId || n.userId === user.id ? { ...n, read: true } : n,
-      ),
+      data.notifications.map((n) => (!n.userId || n.userId === user.id ? { ...n, read: true } : n)),
     );
   };
 
@@ -68,7 +66,10 @@ export default function AppLayout() {
                 <div className="flex items-center justify-between border-b px-3 py-2">
                   <div className="font-display text-sm font-semibold">Notifications</div>
                   {unread > 0 && (
-                    <button onClick={markAllRead} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                    <button
+                      onClick={markAllRead}
+                      className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
                       <CheckCheck className="h-3 w-3" /> Mark all read
                     </button>
                   )}
@@ -87,7 +88,9 @@ export default function AppLayout() {
                           n.read ? "opacity-70" : ""
                         }`}
                       >
-                        {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />}
+                        {!n.read && (
+                          <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                        )}
                         <div className={n.read ? "ml-4 flex-1" : "flex-1"}>
                           <div className="font-medium">{n.title}</div>
                           <div className="text-xs text-muted-foreground">{n.body}</div>
@@ -105,7 +108,6 @@ export default function AppLayout() {
             <div className="ml-1">
               <UserMenu />
             </div>
-
           </header>
           <main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
             <Outlet />

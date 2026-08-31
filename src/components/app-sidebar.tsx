@@ -1,21 +1,53 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
-  LayoutDashboard, TicketCheck, MessagesSquare, MapPin, Store as StoreIcon,
-  Building2, Network, Users as UsersIcon, Wrench, ShieldCheck,
-  Home, Sparkles, Ticket as TicketIcon, BarChart3, DollarSign,
-  Briefcase, CalendarDays, FileText, KeyRound, Award, Milestone,
-  ChevronUp, ChevronDown, LockKeyhole, Contact
+  LayoutDashboard,
+  TicketCheck,
+  MessagesSquare,
+  MapPin,
+  Store as StoreIcon,
+  Building2,
+  Network,
+  Users as UsersIcon,
+  Wrench,
+  ShieldCheck,
+  Home,
+  Sparkles,
+  Ticket as TicketIcon,
+  BarChart3,
+  DollarSign,
+  Briefcase,
+  CalendarDays,
+  FileText,
+  KeyRound,
+  Award,
+  Milestone,
+  ChevronUp,
+  ChevronDown,
+  LockKeyhole,
+  Contact,
 } from "lucide-react";
 
 import {
-  Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent,
-  SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton,
-  SidebarMenuItem, useSidebar,
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
@@ -51,23 +83,17 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
   leasing: {
     title: "Leasing Portal",
     icon: FileText,
-    items: [
-      { title: "Dashboard", url: "/leasing/dashboard", icon: Milestone },
-    ],
+    items: [{ title: "Dashboard", url: "/leasing/dashboard", icon: Milestone }],
   },
   leave: {
     title: "Leave Portal",
     icon: KeyRound,
-    items: [
-      { title: "Dashboard", url: "/leave/dashboard", icon: CalendarDays },
-    ],
+    items: [{ title: "Dashboard", url: "/leave/dashboard", icon: CalendarDays }],
   },
   scheduling: {
     title: "Scheduling Portal",
     icon: CalendarDays,
-    items: [
-      { title: "Dashboard", url: "/scheduling/dashboard", icon: BarChart3 },
-    ],
+    items: [{ title: "Dashboard", url: "/scheduling/dashboard", icon: BarChart3 }],
   },
   ranker: {
     title: "Ranker Portal",
@@ -80,7 +106,6 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
 };
 
 const ALWAYS_PORTAL_KEYS = ["leasing", "scheduling"];
-
 
 const adminGroup: Group = {
   title: "User Manager",
@@ -97,7 +122,12 @@ const adminGroup: Group = {
 };
 
 function CollapsibleGroup({
-  group, collapsed, isActive, active, open, onToggle,
+  group,
+  collapsed,
+  isActive,
+  active,
+  open,
+  onToggle,
 }: {
   group: Group;
   collapsed: boolean;
@@ -134,7 +164,11 @@ function CollapsibleGroup({
         >
           <Icon className="h-4 w-4" />
           <span className="flex-1 text-left">{group.title}</span>
-          {open ? <ChevronUp className="h-4 w-4 opacity-70" /> : <ChevronDown className="h-4 w-4 opacity-70" />}
+          {open ? (
+            <ChevronUp className="h-4 w-4 opacity-70" />
+          ) : (
+            <ChevronDown className="h-4 w-4 opacity-70" />
+          )}
         </button>
       </SidebarMenuItem>
 
@@ -156,7 +190,6 @@ function CollapsibleGroup({
   );
 }
 
-
 function getCurrentPortalRole(user: any, pathname: string): string {
   if (!user || !Array.isArray(user.portalAccess)) return "—";
 
@@ -164,7 +197,7 @@ function getCurrentPortalRole(user: any, pathname: string): string {
 
   if (currentPortal) {
     const access = user.portalAccess.find(
-      (p: any) => p.portalName?.toLowerCase() === currentPortal
+      (p: any) => p.portalName?.toLowerCase() === currentPortal,
     );
     if (access?.roleName) {
       return access.roleName;
@@ -192,7 +225,6 @@ function formatRoleName(roleStr: string): string {
 }
 
 export function AppSidebar() {
-
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const { logout } = useAuth();
@@ -207,7 +239,6 @@ export function AppSidebar() {
   const isGroupOpen = (g: Group) => (openGroup === null ? groupActive(g) : openGroup === g.title);
   const toggleGroup = (g: Group) => setOpenGroup(isGroupOpen(g) ? "" : g.title);
 
-
   const localUserData = localStorage.getItem("user");
   if (!localUserData) return null;
 
@@ -217,18 +248,22 @@ export function AppSidebar() {
   const formattedRole = formatRoleName(rawRole);
 
   const nameParts = (user.fullName || "User").trim().split(/\s+/);
-  const initials = nameParts.length > 1
-    ? `${nameParts[0]?.[0] || ""}${nameParts[nameParts.length - 1]?.[0] || ""}`
-    : `${nameParts[0]?.[0] || ""}${nameParts[0]?.[1] || ""}`;
+  const initials =
+    nameParts.length > 1
+      ? `${nameParts[0]?.[0] || ""}${nameParts[nameParts.length - 1]?.[0] || ""}`
+      : `${nameParts[0]?.[0] || ""}${nameParts[0]?.[1] || ""}`;
 
   // 3. 🌟 Dynamic Portals Matching Logic
   const allowedPortalsList = Array.isArray(user.assignedPortals) ? user.assignedPortals : [];
-  const portalAccessList: Array<{ portalName: string; roleName: string }> =
-    Array.isArray(user.portalAccess) ? user.portalAccess : [];
+  const portalAccessList: Array<{ portalName: string; roleName: string }> = Array.isArray(
+    user.portalAccess,
+  )
+    ? user.portalAccess
+    : [];
 
   const getPortalRole = (portalKey: string): string => {
     const access = portalAccessList.find(
-      (p) => p.portalName?.toLowerCase() === portalKey.toLowerCase()
+      (p) => p.portalName?.toLowerCase() === portalKey.toLowerCase(),
     );
     return access?.roleName?.toLowerCase() ?? "";
   };
@@ -253,9 +288,9 @@ export function AppSidebar() {
   // Lease & Scheduling portals are always available
   for (const key of ALWAYS_PORTAL_KEYS) {
     const g = MASTER_PORTAL_GROUPS[key];
-    if (g && !dynamicPortalGroups.some((x: Group) => x.title === g.title)) dynamicPortalGroups.push(g);
+    if (g && !dynamicPortalGroups.some((x: Group) => x.title === g.title))
+      dynamicPortalGroups.push(g);
   }
-
 
   return (
     <Sidebar collapsible="icon">

@@ -33,11 +33,10 @@ export default function Verify2FAPage() {
     if (code.length < 6) return;
     setLoading(true);
     try {
-  
       // --- ORIGINAL API CALL COMMENTED FOR TESTING --- //
       //  const res = await authApi.twoFaLoginVerify(email, code.trim());
 
-         console.log("Email in verify 2fa page: ", email);
+      console.log("Email in verify 2fa page: ", email);
 
       // --- LOCAL TESTING URL direct call --- //
       const response = await fetch("http://localhost:4570/auth/login/verify-2fa", {
@@ -47,9 +46,6 @@ export default function Verify2FAPage() {
       });
       const res = await response.json();
       // ------------------------------------ //
-
-
-
 
       setSession(res.data.token, res.data.user);
       toast.success("Signed in successfully");
@@ -70,7 +66,10 @@ export default function Verify2FAPage() {
 
       <div className="flex items-center justify-center bg-muted/40 p-6 lg:pl-16">
         <Card className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-2xl animate-scale-in">
-          <Link to="/login" className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+          <Link
+            to="/login"
+            className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          >
             <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
           </Link>
 
@@ -79,7 +78,8 @@ export default function Verify2FAPage() {
           </div>
           <h2 className="font-display text-2xl font-semibold">Two-factor verification</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Enter the 6-digit code for <span className="font-medium text-foreground">{email || "your account"}</span>.
+            Enter the 6-digit code for{" "}
+            <span className="font-medium text-foreground">{email || "your account"}</span>.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-5">

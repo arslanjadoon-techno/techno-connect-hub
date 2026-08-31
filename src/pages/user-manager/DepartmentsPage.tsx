@@ -3,7 +3,13 @@ import { AdminGuard, CrudPage } from "@/components/crud-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Search } from "lucide-react";
 // 🌟 usersApi ko import kiya manager searchable dropdown ke liye
@@ -31,7 +37,12 @@ export default function DepartmentsPage() {
       lastFetchedKey.current = key;
       const res = await DepartmentsApi.getAll({ page: targetPage, size: targetSize });
       if (res.success) {
-        if (res.data.length === 0 && res.pagination && res.pagination.totalRecords > 0 && targetPage > 0) {
+        if (
+          res.data.length === 0 &&
+          res.pagination &&
+          res.pagination.totalRecords > 0 &&
+          targetPage > 0
+        ) {
           const fallback = Math.max(0, Math.ceil(res.pagination.totalRecords / targetSize) - 1);
           isFetchingRef.current = false;
           lastFetchedKey.current = "";
@@ -53,7 +64,9 @@ export default function DepartmentsPage() {
     }
   };
 
-  useEffect(() => { fetchRows(page, size); }, [page, size]);
+  useEffect(() => {
+    fetchRows(page, size);
+  }, [page, size]);
 
   const handleDelete = async (d: any) => {
     try {
@@ -73,21 +86,19 @@ export default function DepartmentsPage() {
     }
   };
 
-
-  
-const handleSave = async (
+  const handleSave = async (
     initial: any | null,
     formData: { name: string; email: string; phone: string; managerId: number | null },
     close: () => void,
   ) => {
     try {
       setActionLoading(true);
-      
+
       const payload = {
         name: formData.name,
         email: formData.email || null,
         phone: formData.phone || null,
-        managerId: formData.managerId ? Number(formData.managerId) : null
+        managerId: formData.managerId ? Number(formData.managerId) : null,
       };
 
       const res = initial
@@ -95,7 +106,10 @@ const handleSave = async (
         : await DepartmentsApi.add(payload);
 
       if (res.success) {
-        toast.success(res.message || (initial ? "Department updated successfully" : "Department added successfully"));
+        toast.success(
+          res.message ||
+            (initial ? "Department updated successfully" : "Department added successfully"),
+        );
         lastFetchedKey.current = "";
         fetchRows(page, size);
         close();
@@ -108,9 +122,6 @@ const handleSave = async (
       setActionLoading(false);
     }
   };
-
-
-
 
   if (loading && rows.length === 0) {
     return (
@@ -141,7 +152,9 @@ const handleSave = async (
             {
               key: "name",
               header: "Department Name",
-              accessor: (d) => <div className="py-2 font-semibold text-zinc-900 dark:text-zinc-100">{d.name}</div>,
+              accessor: (d) => (
+                <div className="py-2 font-semibold text-zinc-900 dark:text-zinc-100">{d.name}</div>
+              ),
               searchValue: (d) => d.name,
             },
             {
@@ -157,12 +170,18 @@ const handleSave = async (
             {
               key: "managerName",
               header: "Manager Name",
-              accessor: (d) => <div className="py-2 font-medium text-indigo-600 dark:text-indigo-400">{d.manager?.fullName || "—"}</div>,
+              accessor: (d) => (
+                <div className="py-2 font-medium text-indigo-600 dark:text-indigo-400">
+                  {d.manager?.fullName || "—"}
+                </div>
+              ),
             },
             {
               key: "managerEmail",
               header: "Manager Email",
-              accessor: (d) => <div className="py-2 text-xs text-muted-foreground">{d.manager?.email || "—"}</div>,
+              accessor: (d) => (
+                <div className="py-2 text-xs text-muted-foreground">{d.manager?.email || "—"}</div>
+              ),
             },
           ]}
           onDelete={handleDelete}
@@ -183,7 +202,9 @@ const handleSave = async (
 // SEARCHABLE DROPDOWN FORM COMPONENT
 // =======================================================
 function DepartmentForm({
-  initial, isSaving, onSave,
+  initial,
+  isSaving,
+  onSave,
 }: {
   initial: any | null;
   isSaving: boolean;
@@ -192,27 +213,33 @@ function DepartmentForm({
   const [name, setName] = useState(initial?.name ?? "");
   const [email, setEmail] = useState(initial?.email ?? "");
   const [phone, setPhone] = useState(initial?.phone ?? "");
-  
+
   // States for Manager Dropdown API implementation
-  const [managerId, setManagerId] = useState<string>(initial?.manager?.id ? initial.manager.id.toString() : "placeholder");
+  const [managerId, setManagerId] = useState<string>(
+    initial?.manager?.id ? initial.manager.id.toString() : "placeholder",
+  );
   const [usersList, setUsersList] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Users list fetch karne ke liye effect
   useEffect(() => {
-    usersApi.getAll({ page: 0, size: 200 }).then((res) => {
-      if (res.success && Array.isArray(res.data)) {
-        setUsersList(res.data);
-      }
-    }).catch(err => console.error("Error loading users for dropdown:", err));
+    usersApi
+      .getAll({ page: 0, size: 200 })
+      .then((res) => {
+        if (res.success && Array.isArray(res.data)) {
+          setUsersList(res.data);
+        }
+      })
+      .catch((err) => console.error("Error loading users for dropdown:", err));
   }, []);
 
   // Inline dynamic filter framework execution
   const filteredUsers = useMemo(() => {
-    return usersList.filter((u) => 
-      (u.fullName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (u.email || "").toLowerCase().includes(searchQuery.toLowerCase())
+    return usersList.filter(
+      (u) =>
+        (u.fullName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (u.email || "").toLowerCase().includes(searchQuery.toLowerCase()),
     );
   }, [usersList, searchQuery]);
 
@@ -222,7 +249,9 @@ function DepartmentForm({
     <div className="space-y-4">
       {/* Name Input */}
       <div className="space-y-1.5">
-        <Label>Department Name <span className="text-destructive">*</span></Label>
+        <Label>
+          Department Name <span className="text-destructive">*</span>
+        </Label>
         <Input
           value={name}
           disabled={isSaving}
@@ -256,12 +285,17 @@ function DepartmentForm({
 
       {/* 🌟 SEARCHABLE MANAGER DROPDOWN COMPONENT */}
       <div className="space-y-1.5">
-        <Label>Assigned Manager <span className="text-destructive">*</span></Label>
-        <Select 
-          value={managerId} 
+        <Label>
+          Assigned Manager <span className="text-destructive">*</span>
+        </Label>
+        <Select
+          value={managerId}
           disabled={isSaving}
-          onValueChange={setManagerId} 
-          onOpenChange={(open) => { if (!open) setSearchQuery(""); else setTimeout(() => searchInputRef.current?.focus(), 100); }}
+          onValueChange={setManagerId}
+          onOpenChange={(open) => {
+            if (!open) setSearchQuery("");
+            else setTimeout(() => searchInputRef.current?.focus(), 100);
+          }}
         >
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select Manager" />
@@ -270,17 +304,19 @@ function DepartmentForm({
             {/* Embedded Search Input field */}
             <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
               <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
-              <input 
-                ref={searchInputRef} 
-                placeholder="Search managers by name..." 
-                value={searchQuery} 
-                onChange={(e) => setSearchQuery(e.target.value)} 
-                className="w-full text-xs bg-transparent outline-none h-6" 
+              <input
+                ref={searchInputRef}
+                placeholder="Search managers by name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full text-xs bg-transparent outline-none h-6"
               />
             </div>
-            
-            <SelectItem value="placeholder" disabled>Choose a Manager</SelectItem>
-            
+
+            <SelectItem value="placeholder" disabled>
+              Choose a Manager
+            </SelectItem>
+
             {filteredUsers.length === 0 ? (
               <div className="text-xs text-muted-foreground p-2 text-center">No users found</div>
             ) : (
@@ -301,12 +337,14 @@ function DepartmentForm({
       <Button
         className="w-full flex items-center justify-center gap-2 mt-2"
         disabled={!canSave || isSaving}
-        onClick={() => onSave({ 
-          name: name.trim(), 
-          email: email.trim(), 
-          phone: phone.trim(), 
-          managerId: managerId !== "placeholder" ? Number(managerId) : null 
-        })}
+        onClick={() =>
+          onSave({
+            name: name.trim(),
+            email: email.trim(),
+            phone: phone.trim(),
+            managerId: managerId !== "placeholder" ? Number(managerId) : null,
+          })
+        }
       >
         {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
         {initial ? "Update Department" : "Save Department"}

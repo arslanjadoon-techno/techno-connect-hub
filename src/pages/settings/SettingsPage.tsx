@@ -4,7 +4,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Camera, Eye, EyeOff, Check, Palette as PaletteIcon, Lock, ShieldCheck, Loader2 } from "lucide-react";
+import {
+  Camera,
+  Eye,
+  EyeOff,
+  Check,
+  Palette as PaletteIcon,
+  Lock,
+  ShieldCheck,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { PALETTES, useTheme } from "@/lib/theme";
 import { usersApi } from "@/lib/api/client";
@@ -25,10 +34,16 @@ function readStoredUser(): StoredUser | null {
   try {
     const raw = window.localStorage.getItem("user");
     return raw ? (JSON.parse(raw) as StoredUser) : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 function writeStoredUser(u: StoredUser) {
-  try { window.localStorage.setItem("user", JSON.stringify(u)); } catch { /* ignore */ }
+  try {
+    window.localStorage.setItem("user", JSON.stringify(u));
+  } catch {
+    /* ignore */
+  }
 }
 
 export default function SettingsPage() {
@@ -66,15 +81,19 @@ export default function SettingsPage() {
 
   if (!storedUser) return null;
 
-  const initials = (fullName || "U U")
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? "")
-    .join("") || "U";
+  const initials =
+    (fullName || "U U")
+      .trim()
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() ?? "")
+      .join("") || "U";
 
   const onPickImage = (file: File) => {
-    if (file.size > 2_000_000) { toast.error("Image must be under 2MB"); return; }
+    if (file.size > 2_000_000) {
+      toast.error("Image must be under 2MB");
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => setAvatarUrl(reader.result as string);
     reader.readAsDataURL(file);
@@ -94,7 +113,7 @@ export default function SettingsPage() {
         phone: phone?.trim() || null,
         departmentName: departmentName?.trim() || null,
         // profileImage isn't part of AddUserPayload typings yet — send via cast
-        ...(avatarUrl ? { profileImage: avatarUrl } as any : {}),
+        ...(avatarUrl ? ({ profileImage: avatarUrl } as any) : {}),
       } as any);
 
       const merged: StoredUser = { ...storedUser, ...(res.data as any) };
@@ -114,10 +133,22 @@ export default function SettingsPage() {
   };
 
   const changePassword = async () => {
-    if (!currentPwd || !newPwd || !confirmPwd) { toast.error("All password fields are required"); return; }
-    if (newPwd.length < 8) { toast.error("New password must be at least 8 characters"); return; }
-    if (newPwd !== confirmPwd) { toast.error("Passwords do not match"); return; }
-    if (newPwd === currentPwd) { toast.error("New password must differ from current"); return; }
+    if (!currentPwd || !newPwd || !confirmPwd) {
+      toast.error("All password fields are required");
+      return;
+    }
+    if (newPwd.length < 8) {
+      toast.error("New password must be at least 8 characters");
+      return;
+    }
+    if (newPwd !== confirmPwd) {
+      toast.error("Passwords do not match");
+      return;
+    }
+    if (newPwd === currentPwd) {
+      toast.error("New password must differ from current");
+      return;
+    }
     try {
       setSavingPwd(true);
       const res = await usersApi.updatePassword({
@@ -126,7 +157,9 @@ export default function SettingsPage() {
         newPassword: newPwd,
       });
       toast.success(res.message || "Password updated successfully");
-      setCurrentPwd(""); setNewPwd(""); setConfirmPwd("");
+      setCurrentPwd("");
+      setNewPwd("");
+      setConfirmPwd("");
     } catch (err: any) {
       toast.error(err?.message || "Password update failed");
     } finally {
@@ -188,7 +221,10 @@ export default function SettingsPage() {
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) onPickImage(f); }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) onPickImage(f);
+              }}
             />
           </div>
           <div className="flex-1 space-y-1">
@@ -201,7 +237,11 @@ export default function SettingsPage() {
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Full name</Label>
-            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. John Doe" />
+            <Input
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="e.g. John Doe"
+            />
           </div>
           <div className="space-y-1.5">
             <Label>Email</Label>
@@ -209,11 +249,19 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-1.5">
             <Label>Phone</Label>
-            <Input value={phone ?? ""} onChange={(e) => setPhone(e.target.value)} placeholder="+1 555 555 5555" />
+            <Input
+              value={phone ?? ""}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+1 555 555 5555"
+            />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Department</Label>
-            <Input value={departmentName ?? ""} onChange={(e) => setDepartmentName(e.target.value)} placeholder="e.g. Operations" />
+            <Input
+              value={departmentName ?? ""}
+              onChange={(e) => setDepartmentName(e.target.value)}
+              placeholder="e.g. Operations"
+            />
           </div>
         </div>
 
@@ -228,7 +276,10 @@ export default function SettingsPage() {
       {/* Password */}
       <Card className="p-6 hover-lift">
         <div className="mb-4 flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg text-white" style={{ backgroundImage: "var(--gradient-primary)" }}>
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-white"
+            style={{ backgroundImage: "var(--gradient-primary)" }}
+          >
             <Lock className="h-4 w-4" />
           </div>
           <div>
@@ -237,10 +288,28 @@ export default function SettingsPage() {
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <PasswordField label="Current password" value={currentPwd} onChange={setCurrentPwd} show={showCur} toggle={() => setShowCur((s) => !s)} />
+          <PasswordField
+            label="Current password"
+            value={currentPwd}
+            onChange={setCurrentPwd}
+            show={showCur}
+            toggle={() => setShowCur((s) => !s)}
+          />
           <div className="sm:col-span-1" />
-          <PasswordField label="New password" value={newPwd} onChange={setNewPwd} show={showNew} toggle={() => setShowNew((s) => !s)} />
-          <PasswordField label="Confirm new password" value={confirmPwd} onChange={setConfirmPwd} show={showConf} toggle={() => setShowConf((s) => !s)} />
+          <PasswordField
+            label="New password"
+            value={newPwd}
+            onChange={setNewPwd}
+            show={showNew}
+            toggle={() => setShowNew((s) => !s)}
+          />
+          <PasswordField
+            label="Confirm new password"
+            value={confirmPwd}
+            onChange={setConfirmPwd}
+            show={showConf}
+            toggle={() => setShowConf((s) => !s)}
+          />
         </div>
         <div className="mt-6 flex justify-end">
           <Button onClick={changePassword} disabled={savingPwd} className="hover-lift">
@@ -254,7 +323,10 @@ export default function SettingsPage() {
       <Card className="p-6 hover-lift">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg text-white" style={{ backgroundImage: "var(--gradient-primary)" }}>
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-white"
+              style={{ backgroundImage: "var(--gradient-primary)" }}
+            >
               <ShieldCheck className="h-4 w-4" />
             </div>
             <div>
@@ -277,12 +349,17 @@ export default function SettingsPage() {
       {/* Theme palette */}
       <Card className="p-6 hover-lift">
         <div className="mb-4 flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg text-white" style={{ backgroundImage: "var(--gradient-primary)" }}>
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-white"
+            style={{ backgroundImage: "var(--gradient-primary)" }}
+          >
             <PaletteIcon className="h-4 w-4" />
           </div>
           <div>
             <h2 className="font-display text-lg font-semibold">Color palette</h2>
-            <p className="text-xs text-muted-foreground">Pick the accent — sidebar and buttons match automatically. Saved to your device only.</p>
+            <p className="text-xs text-muted-foreground">
+              Pick the accent — sidebar and buttons match automatically. Saved to your device only.
+            </p>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -292,20 +369,29 @@ export default function SettingsPage() {
               <button
                 key={p.id}
                 type="button"
-                onClick={() => { setPalette(p.id); toast.success(`Theme set to ${p.name}`); }}
+                onClick={() => {
+                  setPalette(p.id);
+                  toast.success(`Theme set to ${p.name}`);
+                }}
                 className={`group relative flex items-center gap-3 rounded-xl border p-3 text-left transition hover:-translate-y-0.5 hover:shadow-[var(--shadow-elegant)] ${
                   active ? "border-primary ring-2 ring-primary/40" : "border-border"
                 }`}
               >
                 <span
                   className="h-10 w-10 shrink-0 rounded-lg shadow-inner"
-                  style={{ backgroundImage: `linear-gradient(135deg, ${p.primary}, ${p.primaryGlow})` }}
+                  style={{
+                    backgroundImage: `linear-gradient(135deg, ${p.primary}, ${p.primaryGlow})`,
+                  }}
                 />
                 <span className="flex-1 min-w-0">
                   <span className="block truncate text-sm font-medium">{p.name}</span>
                   <span className="mt-1 flex gap-1">
                     {p.swatches.map((s, i) => (
-                      <span key={i} className="h-2.5 w-2.5 rounded-full ring-1 ring-black/10" style={{ backgroundColor: s }} />
+                      <span
+                        key={i}
+                        className="h-2.5 w-2.5 rounded-full ring-1 ring-black/10"
+                        style={{ backgroundColor: s }}
+                      />
                     ))}
                   </span>
                 </span>
@@ -320,9 +406,17 @@ export default function SettingsPage() {
 }
 
 function PasswordField({
-  label, value, onChange, show, toggle,
+  label,
+  value,
+  onChange,
+  show,
+  toggle,
 }: {
-  label: string; value: string; onChange: (v: string) => void; show: boolean; toggle: () => void;
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  show: boolean;
+  toggle: () => void;
 }) {
   return (
     <div className="space-y-1.5">

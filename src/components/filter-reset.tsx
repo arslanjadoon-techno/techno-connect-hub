@@ -30,7 +30,9 @@ export function FilterReset({
       )}
       title="Reset filters"
     >
-      <RotateCcw className={cn("h-3.5 w-3.5 transition-transform", active && "group-hover:-rotate-180")} />
+      <RotateCcw
+        className={cn("h-3.5 w-3.5 transition-transform", active && "group-hover:-rotate-180")}
+      />
       {label}
     </button>
   );

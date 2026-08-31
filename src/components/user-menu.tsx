@@ -1,10 +1,12 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import { LogOut, Settings as SettingsIcon, Sun, Moon, ChevronDown } from "lucide-react";
 import {
-  LogOut, Settings as SettingsIcon, Sun, Moon, ChevronDown,
-} from "lucide-react";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
@@ -26,7 +28,9 @@ function formatRoleName(roleStr: string): string {
   if (!roleStr) return "—";
   let spaced = roleStr.replace(/([A-Z])/g, " $1").replace(/_/g, " ");
   spaced = spaced.replace(/(?<!\s)(manager)/i, " Manager");
-  return spaced.trim().split(/\s+/)
+  return spaced
+    .trim()
+    .split(/\s+/)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
     .join(" ");
 }
@@ -45,9 +49,10 @@ export function UserMenu() {
   const formattedRole = formatRoleName(rawRole);
 
   const nameParts = (user.fullName || "User").trim().split(/\s+/);
-  const initials = (nameParts.length > 1
-    ? `${nameParts[0]?.[0] || ""}${nameParts[nameParts.length - 1]?.[0] || ""}`
-    : `${nameParts[0]?.[0] || ""}${nameParts[0]?.[1] || ""}`
+  const initials = (
+    nameParts.length > 1
+      ? `${nameParts[0]?.[0] || ""}${nameParts[nameParts.length - 1]?.[0] || ""}`
+      : `${nameParts[0]?.[0] || ""}${nameParts[0]?.[1] || ""}`
   ).toUpperCase();
 
   return (
@@ -78,7 +83,9 @@ export function UserMenu() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <div className="px-2 py-1.5">
-          <div className="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Appearance</div>
+          <div className="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Appearance
+          </div>
           <div role="radiogroup" className="grid grid-cols-2 gap-1.5">
             <button
               role="radio"
@@ -105,7 +112,10 @@ export function UserMenu() {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem
-          onClick={() => { logout(); navigate("/login"); }}
+          onClick={() => {
+            logout();
+            navigate("/login");
+          }}
           className="cursor-pointer text-destructive focus:text-destructive"
         >
           <LogOut className="h-4 w-4" /> Logout

@@ -3,7 +3,13 @@ import { AdminGuard, CrudPage } from "@/components/crud-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Search } from "lucide-react";
 import { DistrictsApi, StatesApi } from "@/lib/api/client";
@@ -79,12 +85,17 @@ export default function DistrictsPage() {
       const res = await apiClient({
         page: targetPage,
         size: targetSize,
-        state: targetState !== "all" ? targetState : undefined
+        state: targetState !== "all" ? targetState : undefined,
       });
 
       if (res.success) {
         // EDGE CASE FIX: If current page has no data but database has records, fallback to previous page
-        if (res.data.length === 0 && res.pagination && res.pagination.totalRecords > 0 && targetPage > 0) {
+        if (
+          res.data.length === 0 &&
+          res.pagination &&
+          res.pagination.totalRecords > 0 &&
+          targetPage > 0
+        ) {
           const maxAvailablePage = Math.ceil(res.pagination.totalRecords / targetSize) - 1;
           const fallbackPage = Math.max(0, maxAvailablePage);
 
@@ -149,7 +160,7 @@ export default function DistrictsPage() {
   const handleSave = async (
     initial: District | null,
     formData: { name: string; stateId: number },
-    close: () => void
+    close: () => void,
   ) => {
     try {
       setActionLoading(true);
@@ -187,9 +198,7 @@ export default function DistrictsPage() {
   const getStateName = (id: number) => states.find((s) => s.id === id)?.name ?? "—";
 
   const filteredMainStatesOptions = useMemo(() => {
-    return states.filter((s) =>
-      s.name.toLowerCase().includes(mainFilterSearch.toLowerCase())
-    );
+    return states.filter((s) => s.name.toLowerCase().includes(mainFilterSearch.toLowerCase()));
   }, [states, mainFilterSearch]);
 
   if (loading && districts.length === 0) {
@@ -204,7 +213,6 @@ export default function DistrictsPage() {
   return (
     <div className="w-full">
       <div className="w-full border-0 shadow-none bg-transparent [&_input]:bg-white dark:[&_input]:bg-zinc-950 [&_button.w-\[180px\]]:bg-white dark:[&_button.w-\[180px\]]:bg-zinc-950 [&_thead]:bg-zinc-200 dark:[&_thead]:bg-zinc-800 [&_thead]:border-b-2 [&_thead]:border-border [&_th]:font-bold [&_th]:text-zinc-900 dark:[&_th]:text-zinc-100 [&_th]:h-12 [&_tbody_tr]:bg-background [&_tbody_tr]:even:bg-zinc-50/50 dark:[&_tbody_tr]:even:bg-zinc-900/30 [&_tbody_tr]:hover:bg-muted/40 [&_th:last-child]:text-right [&_th:last-child]:pr-10 [&_td:last-child]:text-right [&_td[colspan]]:text-center [&_td[colspan]]:font-medium">
-
         <div className="[&_.flex-col]:flex-row [&_.flex-col]:items-center [&_.flex-col]:justify-between [&_.max-w-sm]:order-last [&_.max-w-sm]:ml-auto">
           <CrudPage<District>
             title="Districts"
@@ -261,7 +269,9 @@ export default function DistrictsPage() {
 
                     <SelectItem value="all">All States</SelectItem>
                     {filteredMainStatesOptions.length === 0 ? (
-                      <p className="text-[11px] text-center text-muted-foreground p-2">No matching states</p>
+                      <p className="text-[11px] text-center text-muted-foreground p-2">
+                        No matching states
+                      </p>
                     ) : (
                       filteredMainStatesOptions.map((s) => (
                         <SelectItem key={s.id} value={s.id.toString()}>
@@ -284,7 +294,9 @@ export default function DistrictsPage() {
               {
                 key: "state",
                 header: "State",
-                accessor: (d) => <div className="py-2 text-left text-muted-foreground">{d.state?.name ?? "—"}</div>,
+                accessor: (d) => (
+                  <div className="py-2 text-left text-muted-foreground">{d.state?.name ?? "—"}</div>
+                ),
                 searchValue: (d) => d.state?.name ?? "",
               },
             ]}
@@ -315,16 +327,14 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
   const [name, setName] = useState(initial?.name ?? "");
 
   const [stateId, setStateId] = useState<string>(
-    initial?.state?.id ? initial.state.id.toString() : ""
+    initial?.state?.id ? initial.state.id.toString() : "",
   );
 
   const [formFilterSearch, setFormFilterSearch] = useState("");
   const formSearchInputRef = useRef<HTMLInputElement>(null);
 
   const filteredFormStatesOptions = useMemo(() => {
-    return states.filter((s) =>
-      s.name.toLowerCase().includes(formFilterSearch.toLowerCase())
-    );
+    return states.filter((s) => s.name.toLowerCase().includes(formFilterSearch.toLowerCase()));
   }, [states, formFilterSearch]);
 
   return (
@@ -376,7 +386,9 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
             </div>
 
             {filteredFormStatesOptions.length === 0 ? (
-              <p className="text-[11px] text-center text-muted-foreground p-2">No matching states</p>
+              <p className="text-[11px] text-center text-muted-foreground p-2">
+                No matching states
+              </p>
             ) : (
               filteredFormStatesOptions.map((s) => (
                 <SelectItem key={s.id} value={s.id.toString()}>

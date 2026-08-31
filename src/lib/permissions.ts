@@ -42,7 +42,5 @@ export function canManageChatGroups(user: User): boolean {
 /** Chat groups visible to user. */
 export function visibleChatGroups(user: User, groups: ChatGroup[]): ChatGroup[] {
   if (user.roleName === "admin") return groups;
-  return groups.filter(
-    (g) => g.department === user.department || g.memberIds.includes(user.id),
-  );
+  return groups.filter((g) => g.department === user.department || g.memberIds.includes(user.id));
 }

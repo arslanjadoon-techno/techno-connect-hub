@@ -1,15 +1,16 @@
 import React from "react";
 
 interface ConfettiBackgroundProps {
-    children: React.ReactNode;
+  children: React.ReactNode;
 }
 
 export function ConfettiBackground({ children }: ConfettiBackgroundProps) {
-    return (
-        <div className="w-full relative overflow-hidden min-h-screen">
-            {/* Confetti Core Global Styles Injection */}
-            <style dangerouslySetInnerHTML={{
-                __html: `
+  return (
+    <div className="w-full relative overflow-hidden min-h-screen">
+      {/* Confetti Core Global Styles Injection */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
                 .global-confetti-bg {
                     position: absolute;
                     top: 0; left: 0; right: 0; bottom: 0;
@@ -59,19 +60,19 @@ export function ConfettiBackground({ children }: ConfettiBackgroundProps) {
                     90% { opacity: 0.7; }
                     100% { transform: translateY(105vh) rotate(1080deg); opacity: 0; }
                 }
-                `}} />
+                `,
+        }}
+      />
 
-            {/* Shower Particle Layer */}
-            <div className="global-confetti-bg">
-                {Array.from({ length: 25 }).map((_, idx) => (
-                    <div key={idx} className="global-confetti-piece" />
-                ))}
-            </div>
+      {/* Shower Particle Layer */}
+      <div className="global-confetti-bg">
+        {Array.from({ length: 25 }).map((_, idx) => (
+          <div key={idx} className="global-confetti-piece" />
+        ))}
+      </div>
 
-            {/* Children Elements Render Inside Layout Content */}
-            <div className="relative z-10 w-full">
-                {children}
-            </div>
-        </div>
-    );
+      {/* Children Elements Render Inside Layout Content */}
+      <div className="relative z-10 w-full">{children}</div>
+    </div>
+  );
 }

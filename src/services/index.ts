@@ -1,23 +1,61 @@
 /**
- * Service layer — all API access in the app should go through these classes.
+ * Central Service layer — all API access in the app goes through these portal service classes.
  *
- * Every service uses the shared `http` client which reads its base URL from
- * `VITE_API_DEV_URL` in `.env`. Switch backends by editing `.env` only.
- *
- * Migration note: thin wrappers over `src/lib/api/client.ts` so existing
- * components keep working while new code consumes the service classes.
+ * Folder organization:
+ * - /src/services/commission/    -> Commission Portal APIs (CommissionService)
+ * - /src/services/user-manager/  -> User Manager Portal APIs (UserManagerService, UsersService, StatesService, etc.)
+ * - /src/services/auth/          -> Authentication APIs (AuthService)
+ * - /src/services/portals/       -> Portals listing (PortalsService)
+ * - /src/services/ranker/        -> Ranker Portal APIs (RankerService)
+ * - /src/services/ticketing/     -> Ticketing Portal APIs (TicketingService)
  */
+
 export { http, HttpClient } from "./http";
 export type { ApiEnvelope } from "./http";
 
-export { authService, AuthService } from "./auth.service";
-export { usersService, UsersService } from "./users.service";
-export { statesService, StatesService } from "./states.service";
-export { districtsService, DistrictsService } from "./districts.service";
-export { marketsService, MarketsService } from "./markets.service";
-export { storesService, StoresService } from "./stores.service";
-export { housesService, HousesService } from "./houses.service";
-export { externalTeamService, ExternalTeamService } from "./external-team.service";
-export { departmentsService, DepartmentsService } from "./departments.service";
-export { portalsService, PortalsService } from "./portals.service";
-export { hierarchyService, HierarchyService } from "./hierarchy.service";
+// Commission Portal
+export { commissionService, CommissionService } from "./commission";
+export type {
+  CommissionRow,
+  GetEmployeeCommissionParams,
+  GetAllCommissionParams,
+  CommissionUserContext,
+} from "./commission";
+
+// User Manager Portal
+export {
+  userManagerService,
+  UserManagerService,
+  usersService,
+  UsersService,
+  statesService,
+  StatesService,
+  districtsService,
+  DistrictsService,
+  marketsService,
+  MarketsService,
+  storesService,
+  StoresService,
+  housesService,
+  HousesService,
+  externalTeamService,
+  ExternalTeamService,
+  departmentsService,
+  DepartmentsService,
+  hierarchyService,
+  HierarchyService,
+} from "./user-manager";
+
+// Auth
+export { authService, AuthService } from "./auth";
+
+// Portals
+export { portalsService, PortalsService } from "./portals";
+
+// Ranker Portal
+export { rankerService, RankerService } from "./ranker";
+export type { RankerKpi, RankerStar, RankerWeight, RankerStandingsQuery } from "./ranker";
+
+// Ticketing Portal
+export { ticketingService, TicketingService } from "./ticketing";
+export type { TicketQueryParams, CreateTicketPayload, UpdateTicketPayload } from "./ticketing";

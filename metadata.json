@@ -1,0 +1,6 @@
+{
+  "name": "T-Communications MIS",
+  "description": "Internal management information system for Techno Communications LLC.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

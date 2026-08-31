@@ -3,11 +3,22 @@ import { useAuth } from "@/lib/auth";
 import { isAdmin } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-  AlertDialog, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { DataTable, type Column } from "./data-table";
@@ -54,15 +65,31 @@ interface CrudPageProps<T> {
 }
 
 export function CrudPage<T>({
-  title, subtitle, rows, columns, rowKey, renderForm, onDelete,
-  createLabel = "Add new", extraToolbar, pageSize = 10, isSaving = false,
+  title,
+  subtitle,
+  rows,
+  columns,
+  rowKey,
+  renderForm,
+  onDelete,
+  createLabel = "Add new",
+  extraToolbar,
+  pageSize = 10,
+  isSaving = false,
   isLoading = false,
-  onRowClick, onEditClick, extraRowActions, hideEdit = false, hideDelete = false,
-  rowCount, page, onPageChange, onPageSizeChange,
+  onRowClick,
+  onEditClick,
+  extraRowActions,
+  hideEdit = false,
+  hideDelete = false,
+  rowCount,
+  page,
+  onPageChange,
+  onPageSizeChange,
 }: CrudPageProps<T>) {
   const [editing, setEditing] = useState<T | null>(null);
   const [open, setOpen] = useState(false);
-  
+
   const [activeDeleteKey, setActiveDeleteKey] = useState<string | null>(null);
 
   useEffect(() => {
@@ -86,11 +113,16 @@ export function CrudPage<T>({
             {extraRowActions?.(row)}
             {!hideEdit && (
               <Button
-                size="icon" variant="ghost"
+                size="icon"
+                variant="ghost"
                 disabled={isSaving}
                 onClick={() => {
-                  if (onEditClick) { onEditClick(row); return; }
-                  setEditing(row); setOpen(true);
+                  if (onEditClick) {
+                    onEditClick(row);
+                    return;
+                  }
+                  setEditing(row);
+                  setOpen(true);
                 }}
                 title="Edit"
               >
@@ -99,52 +131,49 @@ export function CrudPage<T>({
             )}
 
             {!hideDelete && (
-            <AlertDialog
-              open={activeDeleteKey === currentKey}
-              onOpenChange={(isOpen) => {
-                if (isSaving) return;
-                setActiveDeleteKey(isOpen ? currentKey : null);
-              }}
-            >
-              <AlertDialogTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  title="Delete"
-                  disabled={isSaving}
-                  onClick={() => setActiveDeleteKey(currentKey)}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </AlertDialogTrigger>
-
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete record?</AlertDialogTitle>
-                  <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel
-                    disabled={isSaving}
-                    onClick={() => setActiveDeleteKey(null)}
-                  >
-                    Cancel
-                  </AlertDialogCancel>
-
+              <AlertDialog
+                open={activeDeleteKey === currentKey}
+                onOpenChange={(isOpen) => {
+                  if (isSaving) return;
+                  setActiveDeleteKey(isOpen ? currentKey : null);
+                }}
+              >
+                <AlertDialogTrigger asChild>
                   <Button
-                    variant="destructive"
-                    className="flex items-center gap-2"
+                    size="icon"
+                    variant="ghost"
+                    title="Delete"
                     disabled={isSaving}
-                    onClick={() => {
-                      onDelete(row);
-                    }}
+                    onClick={() => setActiveDeleteKey(currentKey)}
                   >
-                    {isThisDeleting && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Delete
+                    <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+                </AlertDialogTrigger>
+
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete record?</AlertDialogTitle>
+                    <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isSaving} onClick={() => setActiveDeleteKey(null)}>
+                      Cancel
+                    </AlertDialogCancel>
+
+                    <Button
+                      variant="destructive"
+                      className="flex items-center gap-2"
+                      disabled={isSaving}
+                      onClick={() => {
+                        onDelete(row);
+                      }}
+                    >
+                      {isThisDeleting && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Delete
+                    </Button>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
           </div>
         );
@@ -159,7 +188,14 @@ export function CrudPage<T>({
           {title && <h1 className="font-display text-2xl font-semibold">{title}</h1>}
           {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
         </div>
-        <Dialog open={open} onOpenChange={(o) => { if (isSaving) return; setOpen(o); if (!o) setEditing(null); }}>
+        <Dialog
+          open={open}
+          onOpenChange={(o) => {
+            if (isSaving) return;
+            setOpen(o);
+            if (!o) setEditing(null);
+          }}
+        >
           <DialogTrigger asChild>
             <Button onClick={() => setEditing(null)}>
               <Plus className="mr-1 h-4 w-4" /> {createLabel}
@@ -169,7 +205,10 @@ export function CrudPage<T>({
             <DialogHeader>
               <DialogTitle>{editing ? "Edit" : createLabel}</DialogTitle>
             </DialogHeader>
-            {renderForm(editing, () => { setOpen(false); setEditing(null); })}
+            {renderForm(editing, () => {
+              setOpen(false);
+              setEditing(null);
+            })}
             <DialogFooter />
           </DialogContent>
         </Dialog>
@@ -191,7 +230,7 @@ export function CrudPage<T>({
           page,
           onPageChange,
           onPageSizeChange,
-          paginationMode: "server"
+          paginationMode: "server",
         })}
       />
     </div>

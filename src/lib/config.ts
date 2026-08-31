@@ -5,7 +5,7 @@
  * Change it there (e.g. switching from local to production) and every
  * API call in the app picks it up automatically.
  */
-export const API_BASE_URL = (import.meta.env.VITE_API_DEV_URL as string | "N/A");
+export const API_BASE_URL = import.meta.env.VITE_API_DEV_URL as string | "N/A";
 
 /** Auth endpoints (no `/api` prefix per backend contract). */
 export const AUTH_PATHS = {
@@ -96,4 +96,13 @@ export const HIRARCHY_API_PATHS = {
 
 export const PORTAL_API_PATHS = {
   getAll: "/api/portals/get-all",
+} as const;
+
+export const COMMISSION_API_BASE_URL =
+  (import.meta.env.VITE_COMMISSION_API_URL as string) ||
+  "https://idwhjd4bj2.execute-api.us-west-2.amazonaws.com/Prod";
+
+export const COMMISSION_API_PATHS = {
+  getEmployeeCommission: "/GetEmployeeCommission",
+  getAllEmployeeCommissionMarketWise: "/GetAllEmployeeCommissionMarketWise",
 } as const;

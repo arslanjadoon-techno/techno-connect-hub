@@ -1,21 +1,24 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { DollarSign, TrendingUp, Users, Wallet, Loader2 } from "lucide-react";
+import { commissionService, type CommissionRow } from "@/services/commission";
 import {
-  Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart,
-  ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from "recharts";
 
-interface Row {
-  ntid: string;
-  day: number;
-  month: number;
-  year: number;
-  market: string;
-  commission: number;
-  total_Box: number;
-  box_Commission: number;
-}
+type Row = CommissionRow;
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -35,13 +38,8 @@ function CommissionDashboard() {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(
-          "https://idwhjd4bj2.execute-api.us-west-2.amazonaws.com/Prod/GetAllEmployeeCommissionMarketWise?OTP=123456"
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setRows(Array.isArray(data) ? data : []);
-        }
+        const data = await commissionService.getDashboardMetrics();
+        setRows(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Dashboard metrics load karne me error:", error);
       } finally {
@@ -115,7 +113,9 @@ function CommissionDashboard() {
     },
     {
       label: "Total Commission (MTD)",
-      value: loading ? "$ —" : `$${stats.totalCommission.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: loading
+        ? "$ —"
+        : `$${stats.totalCommission.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       icon: DollarSign,
       accent: "from-emerald-500/20 to-emerald-500/5",
       iconFg: "text-emerald-600 dark:text-emerald-400",
@@ -129,7 +129,9 @@ function CommissionDashboard() {
     },
     {
       label: "Boxes Commission",
-      value: loading ? "$ —" : `$${stats.boxesCommission.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+      value: loading
+        ? "$ —"
+        : `$${stats.boxesCommission.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       icon: TrendingUp,
       accent: "from-violet-500/20 to-violet-500/5",
       iconFg: "text-violet-600 dark:text-violet-400",
@@ -167,10 +169,14 @@ function CommissionDashboard() {
             <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${k.accent}`} />
             <div className="relative flex items-start justify-between">
               <div>
-                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{k.label}</div>
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {k.label}
+                </div>
                 <div className="mt-2 font-display text-3xl font-semibold">{k.value}</div>
               </div>
-              <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-background/70 backdrop-blur ${k.iconFg}`}>
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-xl bg-background/70 backdrop-blur ${k.iconFg}`}
+              >
                 <k.icon className="h-5 w-5" />
               </div>
             </div>
@@ -196,10 +202,28 @@ function CommissionDashboard() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => [`$${Number(v).toLocaleString()}`, "Commission"]} />
-                  <Area type="monotone" dataKey="commission" stroke="var(--primary)" strokeWidth={2.5} fill="url(#commGrad)" />
+                  <XAxis
+                    dataKey="date"
+                    tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    formatter={(v: any) => [`$${Number(v).toLocaleString()}`, "Commission"]}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="commission"
+                    stroke="var(--primary)"
+                    strokeWidth={2.5}
+                    fill="url(#commGrad)"
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             )}
@@ -215,13 +239,27 @@ function CommissionDashboard() {
             ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={topMarkets} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={3}>
+                  <Pie
+                    data={topMarkets}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={55}
+                    outerRadius={90}
+                    paddingAngle={3}
+                  >
                     {topMarkets.map((_, i) => (
                       <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} stroke="var(--card)" />
                     ))}
                   </Pie>
-                  <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: 11 }} />
-                  <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => `$${Number(v).toLocaleString()}`} />
+                  <Legend
+                    verticalAlign="bottom"
+                    iconType="circle"
+                    wrapperStyle={{ fontSize: 11 }}
+                  />
+                  <Tooltip
+                    contentStyle={tooltipStyle}
+                    formatter={(v: any) => `$${Number(v).toLocaleString()}`}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             )}
@@ -240,9 +278,21 @@ function CommissionDashboard() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyBoxes} margin={{ left: -12, right: 8, top: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
-                <Tooltip cursor={{ fill: "color-mix(in oklab, var(--primary) 10%, transparent)" }} contentStyle={tooltipStyle} />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip
+                  cursor={{ fill: "color-mix(in oklab, var(--primary) 10%, transparent)" }}
+                  contentStyle={tooltipStyle}
+                />
                 <Bar dataKey="boxes" fill="var(--primary)" radius={[6, 6, 0, 0]} maxBarSize={48} />
               </BarChart>
             </ResponsiveContainer>

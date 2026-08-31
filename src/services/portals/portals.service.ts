@@ -1,4 +1,4 @@
-import { http } from "./http";
+import { http } from "../http";
 import { PORTAL_API_PATHS } from "@/lib/config";
 import type { Portal } from "@/lib/api/client";
 
