@@ -119,6 +119,79 @@ export default function RequestLeavePage() {
     loadManagers();
   }, [selectedMarketId]);
 
+  // Today's date string in YYYY-MM-DD
+  const todayStr = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }, []);
+
+  // Map of date statuses calculated from leave history
+  const dateStatusMap = useMemo(() => {
+    const approvedDates = new Set<string>();
+    const pendingDates = new Set<string>();
+
+    historyRequests.forEach((req) => {
+      if (req.days && req.days.length > 0) {
+        req.days.forEach((day) => {
+          const dStr = day.leaveDate.split("T")[0];
+          if (day.status === 1) {
+            approvedDates.add(dStr);
+          } else if (day.status === 0 || (req.status === 0 && day.status !== 2)) {
+            pendingDates.add(dStr);
+          }
+        });
+      } else if (req.fromDate && req.toDate) {
+        const start = new Date(req.fromDate);
+        const end = new Date(req.toDate);
+        const cur = new Date(start);
+        while (cur <= end) {
+          const dStr = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`;
+          if (req.status === 1) {
+            approvedDates.add(dStr);
+          } else if (req.status === 0) {
+            pendingDates.add(dStr);
+          }
+          cur.setDate(cur.getDate() + 1);
+        }
+      }
+    });
+
+    return { approvedDates, pendingDates };
+  }, [historyRequests]);
+
+  // Helper to determine status and tooltip for a specific date
+  const getDateInfo = (dateStr: string) => {
+    if (dateStr < todayStr) {
+      return {
+        disabled: true,
+        type: "passed" as const,
+        tooltip: "This date has passed and cannot be selected",
+      };
+    }
+    if (dateStatusMap.approvedDates.has(dateStr)) {
+      return {
+        disabled: true,
+        type: "approved" as const,
+        tooltip: "A leave is already approved for this day",
+      };
+    }
+    if (dateStatusMap.pendingDates.has(dateStr)) {
+      return {
+        disabled: true,
+        type: "pending" as const,
+        tooltip: "A leave for this day is currently pending approval",
+      };
+    }
+    return {
+      disabled: false,
+      type: "available" as const,
+      tooltip: "",
+    };
+  };
+
   // Generate Days for the Calendar Month Grid
   const calendarGrid = useMemo(() => {
     const year = calendarDate.getFullYear();
@@ -146,6 +219,9 @@ export default function RequestLeavePage() {
 
   // Toggle Date Selection
   const handleToggleDate = (dateStr: string) => {
+    const info = getDateInfo(dateStr);
+    if (info.disabled) return;
+
     if (selectedDates.includes(dateStr)) {
       setSelectedDates(selectedDates.filter((d) => d !== dateStr));
     } else {
@@ -185,8 +261,8 @@ export default function RequestLeavePage() {
     setSubmitting(true);
     try {
       const sorted = [...selectedDates].sort();
-      const fromDate = `${sorted[0]}T00:00:00`;
-      const toDate = `${sorted[sorted.length - 1]}T00:00:00`;
+      const fromDate = `${sorted[0]}T00:00:00.000Z`;
+      const toDate = `${sorted[sorted.length - 1]}T00:00:00.000Z`;
 
       await submitLeaveRequest({
         employeeId,
@@ -414,24 +490,60 @@ export default function RequestLeavePage() {
                     );
                   }
 
+                  const info = getDateInfo(dateStr);
                   const isSelected = selectedDates.includes(dateStr);
                   const dayNum = parseInt(dateStr.split("-")[2], 10);
+
+                  // Compute dynamic button styling based on date status
+                  let buttonStyle = "bg-white text-slate-800 border-slate-200 hover:border-violet-300 hover:bg-violet-50/30 cursor-pointer";
+
+                  if (info.type === "passed") {
+                    buttonStyle = "bg-slate-100/80 text-slate-300 border-slate-200 cursor-not-allowed";
+                  } else if (info.type === "approved") {
+                    buttonStyle = "bg-emerald-100 text-emerald-800 border-emerald-300 font-bold cursor-not-allowed shadow-xs";
+                  } else if (info.type === "pending") {
+                    buttonStyle = "bg-amber-100 text-amber-800 border-amber-300 font-bold cursor-not-allowed shadow-xs";
+                  } else if (isSelected) {
+                    buttonStyle = "bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-600/20 font-bold scale-[1.02]";
+                  }
 
                   return (
                     <button
                       type="button"
                       key={dateStr}
+                      disabled={info.disabled}
+                      title={info.tooltip || undefined}
                       onClick={() => handleToggleDate(dateStr)}
-                      className={`h-11 sm:h-12 rounded-2xl text-xs sm:text-sm font-semibold flex items-center justify-center transition border ${
-                        isSelected
-                          ? "bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-600/20 font-bold scale-[1.02]"
-                          : "bg-white text-slate-800 border-slate-200 hover:border-violet-300 hover:bg-violet-50/30"
-                      }`}
+                      className={`h-11 sm:h-12 rounded-2xl text-xs sm:text-sm font-semibold flex items-center justify-center transition border ${buttonStyle}`}
                     >
                       {dayNum}
                     </button>
                   );
                 })}
+              </div>
+
+              {/* Status Legend */}
+              <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-3 sm:gap-4 text-[11px] font-medium text-slate-500">
+                <div className="flex items-center space-x-1.5">
+                  <span className="w-3 h-3 rounded-md bg-emerald-100 border border-emerald-300"></span>
+                  <span>Approved (Leave Taken)</span>
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <span className="w-3 h-3 rounded-md bg-amber-100 border border-amber-300"></span>
+                  <span>Pending Approval</span>
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <span className="w-3 h-3 rounded-md bg-violet-600"></span>
+                  <span>Selected</span>
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <span className="w-3 h-3 rounded-md bg-white border border-slate-200"></span>
+                  <span>Available</span>
+                </div>
+                <div className="flex items-center space-x-1.5">
+                  <span className="w-3 h-3 rounded-md bg-slate-100 border border-slate-200"></span>
+                  <span>Passed</span>
+                </div>
               </div>
 
               {/* Selected Dates Summary Counter */}

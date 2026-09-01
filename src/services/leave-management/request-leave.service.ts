@@ -296,56 +296,35 @@ export async function getMyLeaveRequests(
   }
 }
 
-// 4. Submit Leave Request
+// 4. Submit Leave Request - Only calls /Submit
 export async function submitLeaveRequest(payload: SubmitLeavePayload): Promise<LeaveResponse> {
-  try {
-    const res = await fetch(`${baseURL}/Request`, {
-      method: "POST",
-      headers: {
-        accept: "*/*",
-        Authorization: getAuthToken(),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
+  const formattedPayload = {
+    employeeId: payload.employeeId,
+    marketId: payload.marketId,
+    managerId: payload.managerId,
+    fromDate: payload.fromDate.includes("Z")
+      ? payload.fromDate
+      : `${payload.fromDate.split(".")[0]}.000Z`,
+    toDate: payload.toDate.includes("Z")
+      ? payload.toDate
+      : `${payload.toDate.split(".")[0]}.000Z`,
+    reason: payload.reason,
+  };
 
-    if (!res.ok) {
-      // Also try /Submit
-      const resAlt = await fetch(`${baseURL}/Submit`, {
-        method: "POST",
-        headers: {
-          accept: "*/*",
-          Authorization: getAuthToken(),
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+  const res = await fetch(`${baseURL}/Submit`, {
+    method: "POST",
+    headers: {
+      accept: "*/*",
+      Authorization: getAuthToken(),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(formattedPayload),
+  });
 
-      if (!resAlt.ok) {
-        const errorText = await resAlt.text().catch(() => "");
-        throw new Error(errorText || `Error ${resAlt.status}: Failed to submit leave request`);
-      }
-      return resAlt.json();
-    }
-
-    return res.json();
-  } catch (err: unknown) {
-    console.warn("Submit leave API call error:", err);
-    // Return mock successful response if backend is unreachable so UI works seamlessly
-    return {
-      id: Date.now(),
-      employeeId: payload.employeeId,
-      employeeName: "Current Employee",
-      marketId: payload.marketId,
-      marketName: "ARIZONA",
-      managerId: payload.managerId,
-      managerName: "Ali Khan",
-      fromDate: payload.fromDate,
-      toDate: payload.toDate,
-      reason: payload.reason,
-      status: 0, // Pending
-      createdAt: new Date().toISOString(),
-      days: [],
-    };
+  if (!res.ok) {
+    const errorText = await res.text().catch(() => "");
+    throw new Error(errorText || `Error ${res.status}: Failed to submit leave request`);
   }
+
+  return res.json();
 }
