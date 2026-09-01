@@ -35,20 +35,20 @@ export interface DecideDayPayload {
 
 // Token Helper Function
 const getAuthToken = (): string => {
-  const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
-  return token ? `Bearer ${token}` : '';
+  const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
+  return token ? `Bearer ${token}` : "";
 };
 
 // Fetch Requests for Manager
 export async function getManagerLeaveRequests(
   managerId: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
 ): Promise<APILeaveRequest[]> {
   const res = await fetch(`${baseURL}/ManagerRequests?managerId=${managerId}`, {
-    method: 'GET',
+    method: "GET",
     headers: {
-      'accept': '*/*',
-      'Authorization': getAuthToken(),
+      accept: "*/*",
+      Authorization: getAuthToken(),
     },
     signal,
   });
@@ -62,15 +62,13 @@ export async function getManagerLeaveRequests(
 }
 
 // Decide Days (Approve / Reject)
-export async function decideLeaveDays(
-  payload: DecideDayPayload[]
-): Promise<APILeaveRequest[]> {
+export async function decideLeaveDays(payload: DecideDayPayload[]): Promise<APILeaveRequest[]> {
   const res = await fetch(`${baseURL}/DecideDays`, {
-    method: 'PUT',
+    method: "PUT",
     headers: {
-      'accept': '*/*',
-      'Content-Type': 'application/json',
-      'Authorization': getAuthToken(),
+      accept: "*/*",
+      "Content-Type": "application/json",
+      Authorization: getAuthToken(),
     },
     body: JSON.stringify(payload),
   });

@@ -65,10 +65,38 @@ const LEAVE_TYPES: { type: LeaveType; desc: string; defaultTotal: number }[] = [
 ];
 
 const DEFAULT_BALANCES: LeaveBalance[] = [
-  { leaveType: "Casual Leave", totalAllowed: 12, used: 3, pending: 1, remaining: 8, color: "text-blue-600 bg-blue-500/10 border-blue-500/20" },
-  { leaveType: "Sick Leave", totalAllowed: 10, used: 2, pending: 0, remaining: 8, color: "text-emerald-600 bg-emerald-500/10 border-emerald-500/20" },
-  { leaveType: "Annual Leave", totalAllowed: 15, used: 5, pending: 0, remaining: 10, color: "text-purple-600 bg-purple-500/10 border-purple-500/20" },
-  { leaveType: "Emergency Leave", totalAllowed: 5, used: 1, pending: 0, remaining: 4, color: "text-amber-600 bg-amber-500/10 border-amber-500/20" },
+  {
+    leaveType: "Casual Leave",
+    totalAllowed: 12,
+    used: 3,
+    pending: 1,
+    remaining: 8,
+    color: "text-blue-600 bg-blue-500/10 border-blue-500/20",
+  },
+  {
+    leaveType: "Sick Leave",
+    totalAllowed: 10,
+    used: 2,
+    pending: 0,
+    remaining: 8,
+    color: "text-emerald-600 bg-emerald-500/10 border-emerald-500/20",
+  },
+  {
+    leaveType: "Annual Leave",
+    totalAllowed: 15,
+    used: 5,
+    pending: 0,
+    remaining: 10,
+    color: "text-purple-600 bg-purple-500/10 border-purple-500/20",
+  },
+  {
+    leaveType: "Emergency Leave",
+    totalAllowed: 5,
+    used: 1,
+    pending: 0,
+    remaining: 4,
+    color: "text-amber-600 bg-amber-500/10 border-amber-500/20",
+  },
 ];
 
 export default function RequestLeavePage() {
@@ -135,7 +163,8 @@ export default function RequestLeavePage() {
             {
               id: "LR-1001",
               userId: user?.id || "u-1",
-              userName: user?.fullName || `${user?.firstName || "Current"} ${user?.lastName || "User"}`,
+              userName:
+                user?.fullName || `${user?.firstName || "Current"} ${user?.lastName || "User"}`,
               userEmail: user?.email || "user@texasmobilepcs.com",
               userNtid: "NT-9082",
               department: user?.departmentName || user?.department || "Operations",
@@ -151,7 +180,8 @@ export default function RequestLeavePage() {
             {
               id: "LR-1002",
               userId: user?.id || "u-1",
-              userName: user?.fullName || `${user?.firstName || "Current"} ${user?.lastName || "User"}`,
+              userName:
+                user?.fullName || `${user?.firstName || "Current"} ${user?.lastName || "User"}`,
               userEmail: user?.email || "user@texasmobilepcs.com",
               userNtid: "NT-9082",
               department: user?.departmentName || user?.department || "Operations",
@@ -258,7 +288,11 @@ export default function RequestLeavePage() {
     setBalances((prev) =>
       prev.map((b) =>
         b.leaveType === leaveType
-          ? { ...b, pending: b.pending + calculatedDays, remaining: Math.max(0, b.remaining - calculatedDays) }
+          ? {
+              ...b,
+              pending: b.pending + calculatedDays,
+              remaining: Math.max(0, b.remaining - calculatedDays),
+            }
           : b,
       ),
     );
@@ -344,7 +378,9 @@ export default function RequestLeavePage() {
           <div>
             <div className="font-medium text-sm text-foreground">{row.leaveType}</div>
             {row.isHalfDay && (
-              <span className="text-[11px] text-muted-foreground">Half Day ({row.halfDayPeriod})</span>
+              <span className="text-[11px] text-muted-foreground">
+                Half Day ({row.halfDayPeriod})
+              </span>
             )}
           </div>
         </div>
@@ -356,7 +392,8 @@ export default function RequestLeavePage() {
       cell: (row) => (
         <div className="text-sm">
           <div className="font-medium text-foreground">
-            {row.startDate} <span className="text-muted-foreground font-normal">to</span> {row.endDate}
+            {row.startDate} <span className="text-muted-foreground font-normal">to</span>{" "}
+            {row.endDate}
           </div>
           <div className="text-xs text-muted-foreground">
             {row.totalDays} {row.totalDays === 1 ? "day" : "days"}
@@ -443,7 +480,8 @@ export default function RequestLeavePage() {
             Request Leave
           </h1>
           <p className="text-sm text-muted-foreground">
-            Submit leave applications, track real-time approval status, and manage your leave balances.
+            Submit leave applications, track real-time approval status, and manage your leave
+            balances.
           </p>
         </div>
 
@@ -474,7 +512,8 @@ export default function RequestLeavePage() {
                     New Leave Application
                   </DialogTitle>
                   <DialogDescription>
-                    Fill in your leave dates and details. Your reporting manager will be notified for review.
+                    Fill in your leave dates and details. Your reporting manager will be notified
+                    for review.
                   </DialogDescription>
                 </DialogHeader>
 
@@ -545,7 +584,9 @@ export default function RequestLeavePage() {
                     {isHalfDay && (
                       <Select
                         value={halfDayPeriod}
-                        onValueChange={(val) => setHalfDayPeriod(val as "First Half" | "Second Half")}
+                        onValueChange={(val) =>
+                          setHalfDayPeriod(val as "First Half" | "Second Half")
+                        }
                       >
                         <SelectTrigger className="w-36 h-8 text-xs">
                           <SelectValue />
@@ -562,7 +603,12 @@ export default function RequestLeavePage() {
                   {calculatedDays > 0 && (
                     <div className="flex items-center gap-2 text-xs text-primary bg-primary/10 px-3 py-2 rounded-md font-medium">
                       <CalendarRange className="h-4 w-4 shrink-0" />
-                      <span>Total Requested Duration: <strong>{calculatedDays} {calculatedDays === 1 ? "Day" : "Days"}</strong></span>
+                      <span>
+                        Total Requested Duration:{" "}
+                        <strong>
+                          {calculatedDays} {calculatedDays === 1 ? "Day" : "Days"}
+                        </strong>
+                      </span>
                     </div>
                   )}
 
@@ -611,7 +657,10 @@ export default function RequestLeavePage() {
       {/* Leave Balances Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {balances.map((b) => (
-          <Card key={b.leaveType} className="border border-border/80 transition-all hover:shadow-md">
+          <Card
+            key={b.leaveType}
+            className="border border-border/80 transition-all hover:shadow-md"
+          >
             <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-sm font-semibold">{b.leaveType}</CardTitle>
               <span className="text-xs text-muted-foreground font-mono">
@@ -625,14 +674,21 @@ export default function RequestLeavePage() {
                   <span className="text-xs font-normal text-muted-foreground ml-1">days left</span>
                 </div>
                 {b.pending > 0 && (
-                  <Badge variant="outline" className="text-[11px] bg-amber-500/10 text-amber-600 border-amber-500/20">
+                  <Badge
+                    variant="outline"
+                    className="text-[11px] bg-amber-500/10 text-amber-600 border-amber-500/20"
+                  >
                     {b.pending} Pending
                   </Badge>
                 )}
               </div>
               <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground border-t border-border/50 pt-2">
-                <span>Used: <strong>{b.used} days</strong></span>
-                <span>Quota: <strong>{b.totalAllowed} days</strong></span>
+                <span>
+                  Used: <strong>{b.used} days</strong>
+                </span>
+                <span>
+                  Quota: <strong>{b.totalAllowed} days</strong>
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -718,7 +774,9 @@ export default function RequestLeavePage() {
                     LEAVE_STATUS_META[viewingLeave.status]?.tone || ""
                   }`}
                 >
-                  <span className={`h-1.5 w-1.5 rounded-full ${LEAVE_STATUS_META[viewingLeave.status]?.dot || ""}`} />
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${LEAVE_STATUS_META[viewingLeave.status]?.dot || ""}`}
+                  />
                   {viewingLeave.status}
                 </Badge>
               </div>
@@ -734,7 +792,9 @@ export default function RequestLeavePage() {
               <div className="grid grid-cols-2 gap-3 rounded-lg border border-border/80 p-3 bg-muted/20">
                 <div>
                   <div className="text-xs text-muted-foreground">Leave Type</div>
-                  <div className="font-semibold text-foreground mt-0.5">{viewingLeave.leaveType}</div>
+                  <div className="font-semibold text-foreground mt-0.5">
+                    {viewingLeave.leaveType}
+                  </div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Total Duration</div>
@@ -811,7 +871,10 @@ export default function RequestLeavePage() {
       </Dialog>
 
       {/* Cancel Confirmation Alert */}
-      <AlertDialog open={Boolean(cancellingLeave)} onOpenChange={(o) => !o && setCancellingLeave(null)}>
+      <AlertDialog
+        open={Boolean(cancellingLeave)}
+        onOpenChange={(o) => !o && setCancellingLeave(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -820,7 +883,8 @@ export default function RequestLeavePage() {
             </AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to cancel this pending {cancellingLeave?.leaveType} request for{" "}
-              {cancellingLeave?.startDate} to {cancellingLeave?.endDate}? This action cannot be undone.
+              {cancellingLeave?.startDate} to {cancellingLeave?.endDate}? This action cannot be
+              undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

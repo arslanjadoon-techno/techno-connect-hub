@@ -6,12 +6,34 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  ArrowLeft, Loader2, Trash2, Mail, Phone, Building2, Shield,
-  MapPin, Map as MapIcon, Store, Home, CheckCircle2, XCircle, Layers, Pencil, X, Power,
+  ArrowLeft,
+  Loader2,
+  Trash2,
+  Mail,
+  Phone,
+  Building2,
+  Shield,
+  MapPin,
+  Map as MapIcon,
+  Store,
+  Home,
+  CheckCircle2,
+  XCircle,
+  Layers,
+  Pencil,
+  X,
+  Power,
 } from "lucide-react";
 import { getUserAvatarColor } from "./user-colors";
 import { UserForm } from "./UsersPage";
@@ -25,9 +47,11 @@ function Section({ icon: Icon, title, children, empty }: any) {
         </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
-        {Array.isArray(children) && children.length === 0
-          ? <p className="text-xs italic text-muted-foreground">{empty ?? "Nothing assigned"}</p>
-          : <div className="flex flex-wrap gap-1.5">{children}</div>}
+        {Array.isArray(children) && children.length === 0 ? (
+          <p className="text-xs italic text-muted-foreground">{empty ?? "Nothing assigned"}</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">{children}</div>
+        )}
       </CardContent>
     </Card>
   );
@@ -55,11 +79,13 @@ const PORTAL_TONES_FALLBACK = [
   "border-orange-200 bg-orange-50 dark:bg-orange-950/30 dark:border-orange-900/50",
 ];
 function portalTone(name: string, idx: number) {
-  return PORTAL_TONES[name?.toLowerCase()?.trim()] ?? PORTAL_TONES_FALLBACK[idx % PORTAL_TONES_FALLBACK.length];
+  return (
+    PORTAL_TONES[name?.toLowerCase()?.trim()] ??
+    PORTAL_TONES_FALLBACK[idx % PORTAL_TONES_FALLBACK.length]
+  );
 }
 
 export default function UserDetailPage() {
-
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
@@ -90,7 +116,7 @@ export default function UserDetailPage() {
         const userObj = JSON.parse(userStr);
         return userObj?.email ? String(userObj.email).toLowerCase().trim() : null;
       }
-    } catch { }
+    } catch {}
     return null;
   }, []);
 
@@ -107,17 +133,24 @@ export default function UserDetailPage() {
         hierarchyApi.getRoles(),
         // fetch("http://localhost:4570/api/portals/get-all", {
         fetch("http://technocomm-dev.us-west-2.elasticbeanstalk.com/api/portals/get-all", {
-          headers: { "Content-Type": "application/json", Authorization: token ? `Bearer ${token}` : "" },
-        }).then(r => r.json()),
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: token ? `Bearer ${token}` : "",
+          },
+        }).then((r) => r.json()),
       ]);
 
       if (rolesRes.success && Array.isArray(rolesRes.data)) setDynamicRoles(rolesRes.data);
 
-      if (portalsRes?.success && Array.isArray(portalsRes.data)) setPortalsMasterList(portalsRes.data);
-    } catch { }
+      if (portalsRes?.success && Array.isArray(portalsRes.data))
+        setPortalsMasterList(portalsRes.data);
+    } catch {}
   };
 
-  useEffect(() => { fetchUser(); fetchLookups(); }, [id]);
+  useEffect(() => {
+    fetchUser();
+    fetchLookups();
+  }, [id]);
 
   const handleDelete = async () => {
     if (!user) return;
@@ -178,7 +211,12 @@ export default function UserDetailPage() {
     return <div className="py-20 text-center text-muted-foreground">User not found.</div>;
   }
 
-  const initials = (user.fullName || "?").split(/\s+/).map((p: string) => p[0]).slice(0, 2).join("").toUpperCase();
+  const initials = (user.fullName || "?")
+    .split(/\s+/)
+    .map((p: string) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
   const avatarBg = getUserAvatarColor(user.id);
 
   const formInitial = {
@@ -186,7 +224,10 @@ export default function UserDetailPage() {
     fullName: user.fullName,
     email: user.email,
     phone: user.phone ?? "",
-    department: user.department && typeof user.department === "object" ? user.department.name : (user.department ?? "—"),
+    department:
+      user.department && typeof user.department === "object"
+        ? user.department.name
+        : (user.department ?? "—"),
     allowedUserManagement: user.allowedUserManagement ?? false,
     active: user.active ?? true,
     portalAccess: user.portalAccess ?? [],
@@ -220,9 +261,19 @@ export default function UserDetailPage() {
                 variant={user.active ? "outline" : "default"}
                 className="gap-2"
                 disabled={togglingActive || isActionBlocked}
-                title={isSelfAccount ? "You cannot deactivate your own account" : isDefaultAdmin ? "Default Admin cannot be deactivated" : ""}
+                title={
+                  isSelfAccount
+                    ? "You cannot deactivate your own account"
+                    : isDefaultAdmin
+                      ? "Default Admin cannot be deactivated"
+                      : ""
+                }
               >
-                {togglingActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
+                {togglingActive ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Power className="h-4 w-4" />
+                )}
                 {user.active ? "Deactivate" : "Activate"}
               </Button>
             </AlertDialogTrigger>
@@ -252,16 +303,28 @@ export default function UserDetailPage() {
                 variant="destructive"
                 className="gap-2"
                 disabled={deleting || isActionBlocked}
-                title={isSelfAccount ? "You cannot delete your own account" : isDefaultAdmin ? "Default Admin cannot be deleted" : ""}
+                title={
+                  isSelfAccount
+                    ? "You cannot delete your own account"
+                    : isDefaultAdmin
+                      ? "Default Admin cannot be deleted"
+                      : ""
+                }
               >
-                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {deleting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
                 Delete user
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete this user?</AlertDialogTitle>
-                <AlertDialogDescription>This permanently removes {user.fullName}.</AlertDialogDescription>
+                <AlertDialogDescription>
+                  This permanently removes {user.fullName}.
+                </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
@@ -269,8 +332,6 @@ export default function UserDetailPage() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-
-
         </div>
       </div>
 
@@ -291,7 +352,9 @@ export default function UserDetailPage() {
                   <CheckCircle2 className="h-3 w-3" /> Active
                 </Badge>
               ) : (
-                <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" /> Inactive</Badge>
+                <Badge variant="destructive" className="gap-1">
+                  <XCircle className="h-3 w-3" /> Inactive
+                </Badge>
               )}
               {user.allowedUserManagement && (
                 <Badge variant="outline" className="gap-1 text-indigo-600 border-indigo-300">
@@ -299,7 +362,9 @@ export default function UserDetailPage() {
                 </Badge>
               )}
               {user.isTwoFactorEnabled && (
-                <Badge variant="outline" className="gap-1">2FA Enabled</Badge>
+                <Badge variant="outline" className="gap-1">
+                  2FA Enabled
+                </Badge>
               )}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 text-sm">
@@ -307,11 +372,14 @@ export default function UserDetailPage() {
                 <Mail className="h-4 w-4" /> <span className="text-foreground">{user.email}</span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
-                <Phone className="h-4 w-4" /> <span className="text-foreground">{user.phone || "—"}</span>
+                <Phone className="h-4 w-4" />{" "}
+                <span className="text-foreground">{user.phone || "—"}</span>
               </div>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Building2 className="h-4 w-4" />
-                <span className="text-foreground">{user.department?.name || user.department || "—"}</span>
+                <span className="text-foreground">
+                  {user.department?.name || user.department || "—"}
+                </span>
               </div>
             </div>
           </div>
@@ -359,7 +427,9 @@ export default function UserDetailPage() {
                       key={pa.portalId}
                       className={`rounded-lg border p-3 transition hover:shadow-sm ${portalTone(pa.portalName, idx)}`}
                     >
-                      <div className="text-xs uppercase tracking-wide text-muted-foreground">{pa.portalName}</div>
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                        {pa.portalName}
+                      </div>
                       <div className="font-semibold capitalize">{pa.roleName}</div>
                     </div>
                   ))}

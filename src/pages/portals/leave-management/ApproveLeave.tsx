@@ -1,4 +1,4 @@
-import React, { useState, useEffect, ChangeEvent } from 'react';
+import React, { useState, useEffect, ChangeEvent } from "react";
 import {
   Search,
   FileText,
@@ -13,16 +13,17 @@ import {
   RefreshCw,
   LayoutGrid,
   ChevronLeft,
-  ChevronRight
-} from 'lucide-react';
+  ChevronRight,
+} from "lucide-react";
 import {
   getManagerLeaveRequests,
   decideLeaveDays,
   APILeaveRequest,
-  DecideDayPayload
-} from '@/services/managerLeave.service';
+  APILeaveDay,
+  DecideDayPayload,
+} from "@/services/leave-management/approve-leave.service";
 
-export type LeaveStatus = 'Pending' | 'Approved' | 'Partially Approved' | 'Rejected';
+export type LeaveStatus = "Pending" | "Approved" | "Partially Approved" | "Rejected";
 
 // Internal UI Interface mapped from API
 export interface ManagerLeaveRequest {
@@ -48,19 +49,21 @@ export default function ManagerLeaveManagement() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // View & Filter States
-  const [activeTab, setActiveTab] = useState<'Pending' | 'Approved' | 'Rejected' | 'All'>('Pending');
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<"Pending" | "Approved" | "Rejected" | "All">(
+    "Pending",
+  );
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedRequest, setSelectedRequest] = useState<ManagerLeaveRequest | null>(null);
 
   // Detail View Action States (Stores day IDs)
   const [checkedDayIds, setCheckedDayIds] = useState<number[]>([]);
-  const [managerNote, setManagerNote] = useState<string>('');
+  const [managerNote, setManagerNote] = useState<string>("");
 
   // Reject Modal Open State
   const [isRejectModalOpen, setIsRejectModalOpen] = useState<boolean>(false);
 
   // State for View Switcher (List vs Calendar)
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
 
   // Calendar Navigation & Selection States
   const [currentCalendarDate, setCurrentCalendarDate] = useState<Date>(new Date());
@@ -69,11 +72,15 @@ export default function ManagerLeaveManagement() {
   // Status mapping helper
   const mapStatusToText = (statusNum: number): LeaveStatus => {
     switch (statusNum) {
-      case 1: return 'Approved';
-      case 2: return 'Rejected';
-      case 3: return 'Partially Approved';
+      case 1:
+        return "Approved";
+      case 2:
+        return "Rejected";
+      case 3:
+        return "Partially Approved";
       case 0:
-      default: return 'Pending';
+      default:
+        return "Pending";
     }
   };
 
@@ -83,9 +90,10 @@ export default function ManagerLeaveManagement() {
 
     requests.forEach((req) => {
       // Only check Approved or Partially Approved requests
-      if (req.status === 'Approved' || req.status === 'Partially Approved') {
+      if (req.status === "Approved" || req.status === "Partially Approved") {
         const hasApprovedDay = req.selectedDates.some(
-          (d) => d.dateStr === dateStr && d.status === 1
+          (d: { id: number; dateStr: string; status: number }) =>
+            d.dateStr === dateStr && d.status === 1,
         );
         if (hasApprovedDay) {
           absentees.push({
@@ -115,8 +123,8 @@ export default function ManagerLeaveManagement() {
     }
 
     for (let d = 1; d <= totalDays; d++) {
-      const dayStr = String(d).padStart(2, '0');
-      const monthStr = String(month + 1).padStart(2, '0');
+      const dayStr = String(d).padStart(2, "0");
+      const monthStr = String(month + 1).padStart(2, "0");
       days.push(`${year}-${monthStr}-${dayStr}`);
     }
 
@@ -125,42 +133,46 @@ export default function ManagerLeaveManagement() {
 
   // Helper for Initials Avatar
   const getInitials = (name: string) => {
-    if (!name) return 'U';
-    const parts = name.trim().split(' ');
+    if (!name) return "U";
+    const parts = name.trim().split(" ");
     if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
     return name.slice(0, 2).toUpperCase();
   };
 
   // Format Date ISO string to YYYY-MM-DD
   const formatDateStr = (isoDate: string) => {
-    if (!isoDate) return '';
-    return isoDate.split('T')[0];
+    if (!isoDate) return "";
+    return isoDate.split("T")[0];
   };
 
   // Map API Response to Local Interface
   const transformAPIResponse = (data: APILeaveRequest[]): ManagerLeaveRequest[] => {
-    const mapped = data.map((item) => {
+    const mapped = data.map((item: APILeaveRequest) => {
       // Check if employeeName exists, otherwise fallback to "N/A" or "Unknown"
-      const empName = item.employeeName && item.employeeName.trim() !== '' ? item.employeeName : 'Admin';
+      const empName =
+        item.employeeName && item.employeeName.trim() !== "" ? item.employeeName : "Admin";
 
-      const datesObj = (item.days || []).map((d) => ({
+      const datesObj = (item.days || []).map((d: APILeaveDay) => ({
         id: d.id,
         dateStr: formatDateStr(d.leaveDate),
         status: d.status,
       }));
 
-      const existingComment = item.days?.find((d) => d.managerComment)?.managerComment || '';
-      const approvedIds = (item.days || []).filter((d) => d.status === 1).map((d) => d.id);
+      const existingComment =
+        item.days?.find((d: APILeaveDay) => d.managerComment)?.managerComment || "";
+      const approvedIds = (item.days || [])
+        .filter((d: APILeaveDay) => d.status === 1)
+        .map((d: APILeaveDay) => d.id);
 
       return {
         id: item.id,
-        leaveType: 'N/A',
+        leaveType: "N/A",
         selectedDates: datesObj,
         approvedDates: approvedIds,
-        market: item.marketName || 'N/A',
-        ntid: item.managerNTID || '',
+        market: item.marketName || "N/A",
+        ntid: item.managerNTID || "",
         employeeName: empName,
-        reason: item.reason || '',
+        reason: item.reason || "",
         status: mapStatusToText(item.status),
         createdAt: formatDateStr(item.createdAt),
         managerNote: existingComment,
@@ -177,14 +189,13 @@ export default function ManagerLeaveManagement() {
     setLoading(true);
     setErrorMsg(null);
     try {
-
       const currentUserId = Number(localStorage.getItem("userId")) || 0;
 
       const response = await getManagerLeaveRequests(currentUserId);
       const transformed = transformAPIResponse(response);
       setRequests(transformed);
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Failed to fetch leave requests');
+      setErrorMsg(err?.message || "Failed to fetch leave requests");
     } finally {
       setLoading(false);
     }
@@ -197,10 +208,10 @@ export default function ManagerLeaveManagement() {
   // Open Detail View
   const handleOpenDetail = (req: ManagerLeaveRequest) => {
     setSelectedRequest(req);
-    setManagerNote(req.managerNote || '');
+    setManagerNote(req.managerNote || "");
 
     // Default select all days if pending or approved days if available
-    if (req.status === 'Pending') {
+    if (req.status === "Pending") {
       setCheckedDayIds(req.selectedDates.map((d) => d.id));
     } else {
       setCheckedDayIds(req.approvedDates);
@@ -278,10 +289,10 @@ export default function ManagerLeaveManagement() {
   // Filter Logic
   const filteredRequests = requests.filter((r) => {
     const matchesTab =
-      activeTab === 'All'
+      activeTab === "All"
         ? true
-        : activeTab === 'Approved'
-          ? r.status === 'Approved' || r.status === 'Partially Approved'
+        : activeTab === "Approved"
+          ? r.status === "Approved" || r.status === "Partially Approved"
           : r.status === activeTab;
 
     const matchesSearch =
@@ -291,7 +302,6 @@ export default function ManagerLeaveManagement() {
 
     return matchesTab && matchesSearch;
   });
-
 
   return (
     <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6 p-3 sm:p-6">
@@ -345,14 +355,15 @@ export default function ManagerLeaveManagement() {
 
             <div className="self-start sm:self-center">
               <span
-                className={`text-xs font-bold px-3 py-1.5 rounded-xl border inline-block ${selectedRequest.status === 'Approved'
-                  ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                  : selectedRequest.status === 'Partially Approved'
-                    ? 'bg-blue-50 text-blue-600 border-blue-100'
-                    : selectedRequest.status === 'Rejected'
-                      ? 'bg-rose-50 text-rose-600 border-rose-100'
-                      : 'bg-amber-50 text-amber-600 border-amber-100'
-                  }`}
+                className={`text-xs font-bold px-3 py-1.5 rounded-xl border inline-block ${
+                  selectedRequest.status === "Approved"
+                    ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                    : selectedRequest.status === "Partially Approved"
+                      ? "bg-blue-50 text-blue-600 border-blue-100"
+                      : selectedRequest.status === "Rejected"
+                        ? "bg-rose-50 text-rose-600 border-rose-100"
+                        : "bg-amber-50 text-amber-600 border-amber-100"
+                }`}
               >
                 {selectedRequest.status}
               </span>
@@ -395,7 +406,7 @@ export default function ManagerLeaveManagement() {
               </span>
 
               {/* Select All Checkbox */}
-              {selectedRequest.status === 'Pending' && (
+              {selectedRequest.status === "Pending" && (
                 <button
                   type="button"
                   disabled={submitting}
@@ -416,18 +427,19 @@ export default function ManagerLeaveManagement() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {selectedRequest.selectedDates.map((item) => {
                 const isChecked = checkedDayIds.includes(item.id);
-                const isReadOnly = selectedRequest.status !== 'Pending' || submitting;
+                const isReadOnly = selectedRequest.status !== "Pending" || submitting;
 
                 return (
                   <div
                     key={item.id}
                     onClick={() => !isReadOnly && handleToggleDate(item.id)}
-                    className={`flex items-center justify-between p-3 rounded-xl border transition touch-manipulation ${isReadOnly
-                      ? 'bg-slate-100 border-slate-200 cursor-default'
-                      : isChecked
-                        ? 'bg-violet-50 border-violet-300 cursor-pointer'
-                        : 'bg-white border-slate-200 cursor-pointer hover:bg-slate-50'
-                      }`}
+                    className={`flex items-center justify-between p-3 rounded-xl border transition touch-manipulation ${
+                      isReadOnly
+                        ? "bg-slate-100 border-slate-200 cursor-default"
+                        : isChecked
+                          ? "bg-violet-50 border-violet-300 cursor-pointer"
+                          : "bg-white border-slate-200 cursor-pointer hover:bg-slate-50"
+                    }`}
                   >
                     <span className="text-xs font-bold text-slate-700">{item.dateStr}</span>
                     <div>
@@ -453,13 +465,13 @@ export default function ManagerLeaveManagement() {
               placeholder="Add a comment or note for the employee..."
               value={managerNote}
               onChange={(e) => setManagerNote(e.target.value)}
-              disabled={selectedRequest.status !== 'Pending' || submitting}
+              disabled={selectedRequest.status !== "Pending" || submitting}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 resize-none font-medium disabled:opacity-75"
             ></textarea>
           </div>
 
           {/* Action Buttons for Pending Requests */}
-          {selectedRequest.status === 'Pending' && (
+          {selectedRequest.status === "Pending" && (
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-2">
               <button
                 type="button"
@@ -531,16 +543,16 @@ export default function ManagerLeaveManagement() {
 
           {/* Filter Line: Tabs only show in LIST View; Toggle stays FIXED on Extreme Right */}
           <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
-            {viewMode === 'list' ? (
+            {viewMode === "list" ? (
               /* Filter Tabs (Visible ONLY in List View) */
               <div className="flex items-center gap-2 overflow-x-auto no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
-                {(['Pending', 'Approved', 'Rejected', 'All'] as const).map((tab) => {
+                {(["Pending", "Approved", "Rejected", "All"] as const).map((tab) => {
                   const count = requests.filter((r) =>
-                    tab === 'All'
+                    tab === "All"
                       ? true
-                      : tab === 'Approved'
-                        ? r.status === 'Approved' || r.status === 'Partially Approved'
-                        : r.status === tab
+                      : tab === "Approved"
+                        ? r.status === "Approved" || r.status === "Partially Approved"
+                        : r.status === tab,
                   ).length;
                   const isActive = activeTab === tab;
 
@@ -548,15 +560,17 @@ export default function ManagerLeaveManagement() {
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
-                      className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 whitespace-nowrap shrink-0 transition ${isActive
-                        ? 'bg-slate-900 text-white shadow-sm'
-                        : 'bg-white text-slate-400 border border-slate-200'
-                        }`}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 whitespace-nowrap shrink-0 transition ${
+                        isActive
+                          ? "bg-slate-900 text-white shadow-sm"
+                          : "bg-white text-slate-400 border border-slate-200"
+                      }`}
                     >
                       <span>{tab}</span>
                       <span
-                        className={`text-[10px] px-1.5 py-0.5 rounded-full ${isActive ? 'bg-slate-700 text-slate-200' : 'bg-slate-100 text-slate-500'
-                          }`}
+                        className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                          isActive ? "bg-slate-700 text-slate-200" : "bg-slate-100 text-slate-500"
+                        }`}
                       >
                         {count}
                       </span>
@@ -573,11 +587,12 @@ export default function ManagerLeaveManagement() {
             <div className="bg-slate-100 p-1 rounded-xl flex items-center shrink-0 ml-auto">
               <button
                 type="button"
-                onClick={() => setViewMode('list')}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${viewMode === 'list'
-                  ? 'bg-white text-violet-600 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800'
-                  }`}
+                onClick={() => setViewMode("list")}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  viewMode === "list"
+                    ? "bg-white text-violet-600 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
                 <span>List</span>
@@ -585,11 +600,12 @@ export default function ManagerLeaveManagement() {
 
               <button
                 type="button"
-                onClick={() => setViewMode('calendar')}
-                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${viewMode === 'calendar'
-                  ? 'bg-white text-violet-600 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800'
-                  }`}
+                onClick={() => setViewMode("calendar")}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                  viewMode === "calendar"
+                    ? "bg-white text-violet-600 shadow-sm"
+                    : "text-slate-500 hover:text-slate-800"
+                }`}
               >
                 <CalendarIcon className="w-3.5 h-3.5" />
                 <span>Calendar</span>
@@ -598,7 +614,7 @@ export default function ManagerLeaveManagement() {
           </div>
 
           {/* View Mode Switching: List View OR Calendar View */}
-          {viewMode === 'list' ? (
+          {viewMode === "list" ? (
             /* REGULAR LIST VIEW */
             <div className="space-y-3 sm:space-y-4">
               {filteredRequests.length === 0 ? (
@@ -641,14 +657,15 @@ export default function ManagerLeaveManagement() {
                         Status:
                       </span>
                       <span
-                        className={`text-[11px] sm:text-xs font-bold px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl border ${req.status === 'Approved'
-                          ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                          : req.status === 'Partially Approved'
-                            ? 'bg-blue-50 text-blue-600 border-blue-100'
-                            : req.status === 'Rejected'
-                              ? 'bg-rose-50 text-rose-600 border-rose-100'
-                              : 'bg-amber-50 text-amber-600 border-amber-100'
-                          }`}
+                        className={`text-[11px] sm:text-xs font-bold px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl border ${
+                          req.status === "Approved"
+                            ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                            : req.status === "Partially Approved"
+                              ? "bg-blue-50 text-blue-600 border-blue-100"
+                              : req.status === "Rejected"
+                                ? "bg-rose-50 text-rose-600 border-rose-100"
+                                : "bg-amber-50 text-amber-600 border-amber-100"
+                        }`}
                       >
                         {req.status}
                       </span>
@@ -663,7 +680,10 @@ export default function ManagerLeaveManagement() {
               {/* Calendar Header / Month Switcher */}
               <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm flex items-center justify-between">
                 <h3 className="font-bold text-slate-800 text-sm sm:text-base">
-                  {currentCalendarDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+                  {currentCalendarDate.toLocaleString("default", {
+                    month: "long",
+                    year: "numeric",
+                  })}
                 </h3>
                 <div className="flex items-center space-x-1">
                   <button
@@ -672,8 +692,8 @@ export default function ManagerLeaveManagement() {
                         new Date(
                           currentCalendarDate.getFullYear(),
                           currentCalendarDate.getMonth() - 1,
-                          1
-                        )
+                          1,
+                        ),
                       )
                     }
                     className="p-2 hover:bg-slate-100 rounded-xl text-slate-600 transition"
@@ -692,8 +712,8 @@ export default function ManagerLeaveManagement() {
                         new Date(
                           currentCalendarDate.getFullYear(),
                           currentCalendarDate.getMonth() + 1,
-                          1
-                        )
+                          1,
+                        ),
                       )
                     }
                     className="p-2 hover:bg-slate-100 rounded-xl text-slate-600 transition"
@@ -721,33 +741,39 @@ export default function ManagerLeaveManagement() {
                   {getDaysInMonthGrid(currentCalendarDate).map((dateStr, idx) => {
                     if (!dateStr) {
                       return (
-                        <div key={`empty-${idx}`} className="h-16 sm:h-20 bg-slate-50/50 rounded-xl" />
+                        <div
+                          key={`empty-${idx}`}
+                          className="h-16 sm:h-20 bg-slate-50/50 rounded-xl"
+                        />
                       );
                     }
 
                     const dayRequests = requests.filter(
                       (r) =>
-                        r.status !== 'Rejected' && r.status !== 'Pending' &&
-                        r.selectedDates.some((d) => d.dateStr === dateStr)
+                        r.status !== "Rejected" &&
+                        r.status !== "Pending" &&
+                        r.selectedDates.some((d) => d.dateStr === dateStr),
                     );
-                    const dayNumber = parseInt(dateStr.split('-')[2], 10);
+                    const dayNumber = parseInt(dateStr.split("-")[2], 10);
                     const isSelected = selectedCalendarDateStr === dateStr;
 
                     return (
                       <div
                         key={dateStr}
                         onClick={() => setSelectedCalendarDateStr(dateStr)}
-                        className={`h-16 sm:h-20 p-1.5 sm:p-2 rounded-xl border flex flex-col justify-between transition cursor-pointer ${isSelected
-                          ? 'border-violet-600 bg-violet-50/50 ring-2 ring-violet-500/20'
-                          : dayRequests.length > 0
-                            ? 'bg-violet-50/30 border-violet-100 hover:border-violet-300'
-                            : 'bg-white border-slate-100 hover:border-slate-200'
-                          }`}
+                        className={`h-16 sm:h-20 p-1.5 sm:p-2 rounded-xl border flex flex-col justify-between transition cursor-pointer ${
+                          isSelected
+                            ? "border-violet-600 bg-violet-50/50 ring-2 ring-violet-500/20"
+                            : dayRequests.length > 0
+                              ? "bg-violet-50/30 border-violet-100 hover:border-violet-300"
+                              : "bg-white border-slate-100 hover:border-slate-200"
+                        }`}
                       >
                         <div className="flex items-center justify-between">
                           <span
-                            className={`text-xs font-bold ${isSelected ? 'text-violet-700' : 'text-slate-700'
-                              }`}
+                            className={`text-xs font-bold ${
+                              isSelected ? "text-violet-700" : "text-slate-700"
+                            }`}
                           >
                             {dayNumber}
                           </span>
@@ -782,66 +808,70 @@ export default function ManagerLeaveManagement() {
               </div>
 
               {/* Selected Calendar Date Requests Details Drawer */}
-              {selectedCalendarDateStr && (() => {
-                const dateRequests = requests.filter(
-                  (r) =>
-                    r.status !== 'Rejected' && r.status !== 'Pending' &&
-                    r.selectedDates.some((d) => d.dateStr === selectedCalendarDateStr)
-                );
+              {selectedCalendarDateStr &&
+                (() => {
+                  const dateRequests = requests.filter(
+                    (r) =>
+                      r.status !== "Rejected" &&
+                      r.status !== "Pending" &&
+                      r.selectedDates.some((d) => d.dateStr === selectedCalendarDateStr),
+                  );
 
-                return (
-                  <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm space-y-3">
-                    <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                      <h4 className="text-xs sm:text-sm font-bold text-slate-800">
-                        Approved requests on <span className="text-violet-600">{selectedCalendarDateStr}</span>
-                      </h4>
-                      <span className="text-xs font-bold text-slate-400">
-                        Total: {dateRequests.length}
-                      </span>
-                    </div>
-
-                    {dateRequests.length === 0 ? (
-                      <p className="text-xs text-slate-400 font-medium py-2">
-                        No leave requests on this date.
-                      </p>
-                    ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                        {dateRequests.map((req) => (
-                          <div
-                            key={req.id}
-                            onClick={() => handleOpenDetail(req)}
-                            className="flex items-center space-x-3 p-3 bg-slate-50 border border-slate-100 hover:border-violet-300 hover:bg-violet-50/30 rounded-xl cursor-pointer transition active:scale-[0.99]"
-                          >
-                            <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-700 font-bold text-xs flex items-center justify-center shrink-0">
-                              {req.avatar}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-bold text-slate-800 truncate">
-                                {req.employeeName}
-                              </p>
-                              <p className="text-[11px] text-slate-400 font-medium truncate">
-                                {req.market}
-                              </p>
-                            </div>
-                            <span
-                              className={`text-[10px] font-bold px-2 py-1 rounded-lg border shrink-0 ${req.status === 'Approved'
-                                ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                                : req.status === 'Partially Approved'
-                                  ? 'bg-blue-50 text-blue-600 border-blue-100'
-                                  : req.status === 'Rejected'
-                                    ? 'bg-rose-50 text-rose-600 border-rose-100'
-                                    : 'bg-amber-50 text-amber-600 border-amber-100'
-                                }`}
-                            >
-                              {req.status}
-                            </span>
-                          </div>
-                        ))}
+                  return (
+                    <div className="bg-white rounded-2xl border border-slate-100 p-4 shadow-sm space-y-3">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                        <h4 className="text-xs sm:text-sm font-bold text-slate-800">
+                          Approved requests on{" "}
+                          <span className="text-violet-600">{selectedCalendarDateStr}</span>
+                        </h4>
+                        <span className="text-xs font-bold text-slate-400">
+                          Total: {dateRequests.length}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                );
-              })()}
+
+                      {dateRequests.length === 0 ? (
+                        <p className="text-xs text-slate-400 font-medium py-2">
+                          No leave requests on this date.
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {dateRequests.map((req) => (
+                            <div
+                              key={req.id}
+                              onClick={() => handleOpenDetail(req)}
+                              className="flex items-center space-x-3 p-3 bg-slate-50 border border-slate-100 hover:border-violet-300 hover:bg-violet-50/30 rounded-xl cursor-pointer transition active:scale-[0.99]"
+                            >
+                              <div className="w-9 h-9 rounded-xl bg-violet-100 text-violet-700 font-bold text-xs flex items-center justify-center shrink-0">
+                                {req.avatar}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-slate-800 truncate">
+                                  {req.employeeName}
+                                </p>
+                                <p className="text-[11px] text-slate-400 font-medium truncate">
+                                  {req.market}
+                                </p>
+                              </div>
+                              <span
+                                className={`text-[10px] font-bold px-2 py-1 rounded-lg border shrink-0 ${
+                                  req.status === "Approved"
+                                    ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                                    : req.status === "Partially Approved"
+                                      ? "bg-blue-50 text-blue-600 border-blue-100"
+                                      : req.status === "Rejected"
+                                        ? "bg-rose-50 text-rose-600 border-rose-100"
+                                        : "bg-amber-50 text-amber-600 border-amber-100"
+                                }`}
+                              >
+                                {req.status}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
             </div>
           )}
         </div>
@@ -858,11 +888,11 @@ export default function ManagerLeaveManagement() {
             <div className="text-center space-y-1">
               <h3 className="text-base font-bold text-slate-900">Reject Leave Request?</h3>
               <p className="text-xs text-slate-500 font-medium">
-                Are you sure you want to reject all{' '}
+                Are you sure you want to reject all{" "}
                 <span className="font-bold text-slate-800">
                   {selectedRequest.selectedDates.length} days
-                </span>{' '}
-                requested by{' '}
+                </span>{" "}
+                requested by{" "}
                 <span className="font-bold text-slate-800">{selectedRequest.employeeName}</span>?
               </p>
             </div>

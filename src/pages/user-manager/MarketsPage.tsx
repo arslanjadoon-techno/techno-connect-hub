@@ -3,7 +3,13 @@ import { AdminGuard, CrudPage } from "@/components/crud-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Search, XCircle } from "lucide-react"; // XCircle added for reset icon
 import { MarketsApi, StatesApi, DistrictsApi } from "@/lib/api/client";
@@ -65,7 +71,12 @@ export default function MarketsPage() {
   const initialLookupsFetchedRef = useRef<boolean>(false);
 
   // Dynamic fetch handler
-  const fetchMarkets = async (targetPage: number, targetSize: number, targetState: string, targetDistrict: string) => {
+  const fetchMarkets = async (
+    targetPage: number,
+    targetSize: number,
+    targetState: string,
+    targetDistrict: string,
+  ) => {
     const currentRequestKey = `${targetPage}-${targetSize}-${targetState}-${targetDistrict}`;
 
     if (lastFetchedKey.current === currentRequestKey || isFetchingRef.current) {
@@ -80,7 +91,7 @@ export default function MarketsPage() {
       if (!initialLookupsFetchedRef.current) {
         const [statesRes, districtsRes] = await Promise.all([
           StatesApi.getAll(),
-          DistrictsApi.getAll()
+          DistrictsApi.getAll(),
         ]);
 
         if (statesRes.success) setStates(statesRes.data);
@@ -95,11 +106,16 @@ export default function MarketsPage() {
         page: targetPage,
         size: targetSize,
         state: targetState !== "all" ? targetState : undefined,
-        district: targetDistrict !== "all" ? targetDistrict : undefined
+        district: targetDistrict !== "all" ? targetDistrict : undefined,
       });
 
       if (res.success) {
-        if (res.data.length === 0 && res.pagination && res.pagination.totalRecords > 0 && targetPage > 0) {
+        if (
+          res.data.length === 0 &&
+          res.pagination &&
+          res.pagination.totalRecords > 0 &&
+          targetPage > 0
+        ) {
           const maxAvailablePage = Math.ceil(res.pagination.totalRecords / targetSize) - 1;
           const fallbackPage = Math.max(0, maxAvailablePage);
 
@@ -198,7 +214,7 @@ export default function MarketsPage() {
   const handleSave = async (
     initial: Market | null,
     formData: { name: string; stateId: number; districtId: number },
-    close: () => void
+    close: () => void,
   ) => {
     try {
       setActionLoading(true);
@@ -236,14 +252,17 @@ export default function MarketsPage() {
   };
 
   const getStateName = (id: number) => states.find((s) => s.id === id)?.name ?? "—";
-  const getDistrictName = (id: number) => allDistrictsForLookup.find((d) => d.id === id)?.name ?? `—`;
+  const getDistrictName = (id: number) =>
+    allDistrictsForLookup.find((d) => d.id === id)?.name ?? `—`;
 
   const filteredMainStatesOptions = useMemo(() => {
     return states.filter((s) => s.name.toLowerCase().includes(mainStateSearch.toLowerCase()));
   }, [states, mainStateSearch]);
 
   const filteredMainDistrictsOptions = useMemo(() => {
-    return districtsForFilter.filter((d) => d.name.toLowerCase().includes(mainDistrictSearch.toLowerCase()));
+    return districtsForFilter.filter((d) =>
+      d.name.toLowerCase().includes(mainDistrictSearch.toLowerCase()),
+    );
   }, [districtsForFilter, mainDistrictSearch]);
 
   if (loading && markets.length === 0) {
@@ -258,7 +277,6 @@ export default function MarketsPage() {
   return (
     <div className="w-full">
       <div className="w-full border-0 shadow-none bg-transparent [&_input]:bg-white dark:[&_input]:bg-zinc-950 [&_button.w-\[180px\]]:bg-white dark:[&_button.w-\[180px\]]:bg-zinc-950 [&_thead]:bg-zinc-200 dark:[&_thead]:bg-zinc-800 [&_thead]:border-b-2 [&_thead]:border-border [&_th]:font-bold [&_th]:text-zinc-900 dark:[&_th]:text-zinc-100 [&_th]:h-12 [&_tbody_tr]:bg-background [&_tbody_tr]:even:bg-zinc-50/50 dark:[&_tbody_tr]:even:bg-zinc-900/30 [&_tbody_tr]:hover:bg-muted/40 [&_th:last-child]:text-right [&_th:last-child]:pr-10 [&_td:last-child]:text-right [&_td[colspan]]:text-center [&_td[colspan]]:font-medium">
-
         <div className="[&_.flex-col]:flex-row [&_.flex-col]:items-center [&_.flex-col]:justify-between [&_.max-w-sm]:order-last [&_.max-w-sm]:ml-auto">
           <CrudPage<Market>
             title="Markets"
@@ -292,7 +310,10 @@ export default function MarketsPage() {
                     <SelectTrigger className="w-[180px] h-9 focus:ring-0 border-muted-foreground/40">
                       <SelectValue placeholder="Filter by State" />
                     </SelectTrigger>
-                    <SelectContent onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}>
+                    <SelectContent
+                      onKeyDown={(e) => e.stopPropagation()}
+                      onKeyUp={(e) => e.stopPropagation()}
+                    >
                       <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
                         <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
                         <input
@@ -308,7 +329,9 @@ export default function MarketsPage() {
                       </div>
                       <SelectItem value="all">All States</SelectItem>
                       {filteredMainStatesOptions.map((s) => (
-                        <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+                        <SelectItem key={s.id} value={s.id.toString()}>
+                          {s.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -337,7 +360,10 @@ export default function MarketsPage() {
                         <SelectValue placeholder="All Districts" />
                       )}
                     </SelectTrigger>
-                    <SelectContent onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}>
+                    <SelectContent
+                      onKeyDown={(e) => e.stopPropagation()}
+                      onKeyUp={(e) => e.stopPropagation()}
+                    >
                       <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
                         <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
                         <input
@@ -353,7 +379,9 @@ export default function MarketsPage() {
                       </div>
                       <SelectItem value="all">All Districts</SelectItem>
                       {filteredMainDistrictsOptions.map((d) => (
-                        <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>
+                        <SelectItem key={d.id} value={d.id.toString()}>
+                          {d.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -384,13 +412,19 @@ export default function MarketsPage() {
               {
                 key: "state",
                 header: "State",
-                accessor: (m) => <div className="py-2 text-left text-muted-foreground">{m.state?.name ?? "—"}</div>, // ✅ Direct object read
+                accessor: (m) => (
+                  <div className="py-2 text-left text-muted-foreground">{m.state?.name ?? "—"}</div>
+                ), // ✅ Direct object read
                 searchValue: (m) => m.state?.name ?? "",
               },
               {
                 key: "district",
                 header: "District",
-                accessor: (m) => <div className="py-2 text-left text-zinc-700 dark:text-zinc-300 font-medium">{m.district?.name ?? "—"}</div>, // ✅ Direct object read
+                accessor: (m) => (
+                  <div className="py-2 text-left text-zinc-700 dark:text-zinc-300 font-medium">
+                    {m.district?.name ?? "—"}
+                  </div>
+                ), // ✅ Direct object read
                 searchValue: (m) => m.district?.name ?? "",
               },
             ]}
@@ -419,8 +453,12 @@ interface MarketFormProps {
 
 function MarketForm({ initial, states, isSaving, onSave }: MarketFormProps) {
   const [name, setName] = useState(initial?.name ?? "");
-  const [stateId, setStateId] = useState<string>(initial?.state?.id ? initial.state.id.toString() : "");
-  const [districtId, setDistrictId] = useState<string>(initial?.district?.id ? initial.district.id.toString() : "");
+  const [stateId, setStateId] = useState<string>(
+    initial?.state?.id ? initial.state.id.toString() : "",
+  );
+  const [districtId, setDistrictId] = useState<string>(
+    initial?.district?.id ? initial.district.id.toString() : "",
+  );
 
   const [districts, setDistricts] = useState<District[]>([]);
   const [districtsLoading, setDistrictsLoading] = useState(false);
@@ -494,7 +532,10 @@ function MarketForm({ initial, states, isSaving, onSave }: MarketFormProps) {
           <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
             <SelectValue placeholder="Select operating state" />
           </SelectTrigger>
-          <SelectContent onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}>
+          <SelectContent
+            onKeyDown={(e) => e.stopPropagation()}
+            onKeyUp={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
               <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
               <input
@@ -509,7 +550,9 @@ function MarketForm({ initial, states, isSaving, onSave }: MarketFormProps) {
               />
             </div>
             {filteredStates.map((s) => (
-              <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+              <SelectItem key={s.id} value={s.id.toString()}>
+                {s.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -530,9 +573,14 @@ function MarketForm({ initial, states, isSaving, onSave }: MarketFormProps) {
           }}
         >
           <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
-            <SelectValue placeholder={!stateId ? "Please choose state first" : "Select mapped district"} />
+            <SelectValue
+              placeholder={!stateId ? "Please choose state first" : "Select mapped district"}
+            />
           </SelectTrigger>
-          <SelectContent onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}>
+          <SelectContent
+            onKeyDown={(e) => e.stopPropagation()}
+            onKeyUp={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
               <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
               <input
@@ -552,7 +600,9 @@ function MarketForm({ initial, states, isSaving, onSave }: MarketFormProps) {
               </p>
             ) : (
               filteredDistricts.map((d) => (
-                <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>
+                <SelectItem key={d.id} value={d.id.toString()}>
+                  {d.name}
+                </SelectItem>
               ))
             )}
           </SelectContent>
@@ -562,11 +612,13 @@ function MarketForm({ initial, states, isSaving, onSave }: MarketFormProps) {
       <Button
         className="w-full flex items-center justify-center gap-2"
         disabled={!name.trim() || !stateId || !districtId || isSaving || districtsLoading}
-        onClick={() => onSave({
-          name: name.trim(),
-          stateId: Number(stateId),
-          districtId: Number(districtId)
-        })}
+        onClick={() =>
+          onSave({
+            name: name.trim(),
+            stateId: Number(stateId),
+            districtId: Number(districtId),
+          })
+        }
       >
         {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
         {initial ? "Update Market" : "Save Market"}

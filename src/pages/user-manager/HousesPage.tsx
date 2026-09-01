@@ -3,10 +3,16 @@ import { AdminGuard, CrudPage } from "@/components/crud-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Search, XCircle } from "lucide-react";
-import { HousesApi, StatesApi, DistrictsApi, MarketsApi } from "@/lib/api/client"; 
+import { HousesApi, StatesApi, DistrictsApi, MarketsApi } from "@/lib/api/client";
 
 interface House {
   id: number;
@@ -48,19 +54,18 @@ interface Market {
 }
 
 export default function HousesPage() {
-
   const [houses, setHouses] = useState<House[]>([]);
   const [states, setStates] = useState<State[]>([]);
-  
+
   // Cascading lists for toolbar selection
   const [districtsForFilter, setDistrictsForFilter] = useState<District[]>([]);
   const [marketsForFilter, setMarketsForFilter] = useState<Market[]>([]);
-  
+
   // Toolbar state selection tracking
   const [selectedStateFilter, setSelectedStateFilter] = useState<string>("all");
   const [selectedDistrictFilter, setSelectedDistrictFilter] = useState<string>("all");
   const [selectedMarketFilter, setSelectedMarketFilter] = useState<string>("all");
-  
+
   // Search state query buffers
   const [mainStateSearch, setMainStateSearch] = useState("");
   const [mainDistrictSearch, setMainDistrictSearch] = useState("");
@@ -88,18 +93,18 @@ export default function HousesPage() {
 
   // Dynamic paginated master fetch handler
   const fetchHouses = async (
-    targetPage: number, 
-    targetSize: number, 
-    targetState: string, 
+    targetPage: number,
+    targetSize: number,
+    targetState: string,
     targetDistrict: string,
-    targetMarket: string
+    targetMarket: string,
   ) => {
     const currentRequestKey = `${targetPage}-${targetSize}-${targetState}-${targetDistrict}-${targetMarket}`;
-    
+
     if (lastFetchedKey.current === currentRequestKey || isFetchingRef.current) {
       return;
     }
-    
+
     try {
       setLoading(true);
       isFetchingRef.current = true;
@@ -114,20 +119,25 @@ export default function HousesPage() {
         }
       }
 
-      const res = await HousesApi.getAll({ 
-        page: targetPage, 
-        size: targetSize, 
+      const res = await HousesApi.getAll({
+        page: targetPage,
+        size: targetSize,
         state: targetState !== "all" ? targetState : undefined,
         district: targetDistrict !== "all" ? targetDistrict : undefined,
-        market: targetMarket !== "all" ? targetMarket : undefined
+        market: targetMarket !== "all" ? targetMarket : undefined,
       });
-      
+
       if (res.success) {
         // Mathematical validation fallback guard if items in targeted current page turn empty
-        if (res.data.length === 0 && res.pagination && res.pagination.totalRecords > 0 && targetPage > 0) {
+        if (
+          res.data.length === 0 &&
+          res.pagination &&
+          res.pagination.totalRecords > 0 &&
+          targetPage > 0
+        ) {
           const maxAvailablePage = Math.ceil(res.pagination.totalRecords / targetSize) - 1;
           const fallbackPage = Math.max(0, maxAvailablePage);
-          
+
           isFetchingRef.current = false;
           lastFetchedKey.current = "";
           setPage(fallbackPage);
@@ -208,7 +218,7 @@ export default function HousesPage() {
   const handleStateFilterChange = (newState: string) => {
     lastFetchedKey.current = "";
     setPage(0);
-    setSelectedDistrictFilter("all"); 
+    setSelectedDistrictFilter("all");
     setSelectedMarketFilter("all");
     setDistrictsForFilter([]);
     setMarketsForFilter([]);
@@ -230,7 +240,12 @@ export default function HousesPage() {
   };
 
   const handleResetFilters = () => {
-    if (selectedStateFilter === "all" && selectedDistrictFilter === "all" && selectedMarketFilter === "all") return;
+    if (
+      selectedStateFilter === "all" &&
+      selectedDistrictFilter === "all" &&
+      selectedMarketFilter === "all"
+    )
+      return;
     lastFetchedKey.current = "";
     setPage(0);
     setSelectedStateFilter("all");
@@ -261,14 +276,14 @@ export default function HousesPage() {
 
   const handleSave = async (
     initial: House | null,
-    formData: { 
+    formData: {
       address: string;
       phone: string;
-      stateId: number; 
-      districtId: number; 
-      marketId: number; 
+      stateId: number;
+      districtId: number;
+      marketId: number;
     },
-    close: () => void
+    close: () => void,
   ) => {
     try {
       setActionLoading(true);
@@ -280,12 +295,18 @@ export default function HousesPage() {
           // Dependent values updates allowed if needed, though form preserves initialization structure
           stateId: formData.stateId,
           districtId: formData.districtId,
-          marketId: formData.marketId
+          marketId: formData.marketId,
         });
         if (res.success) {
           toast.success(res.message || "House updated successfully");
           lastFetchedKey.current = "";
-          fetchHouses(page, size, selectedStateFilter, selectedDistrictFilter, selectedMarketFilter);
+          fetchHouses(
+            page,
+            size,
+            selectedStateFilter,
+            selectedDistrictFilter,
+            selectedMarketFilter,
+          );
           close();
         } else {
           toast.error(res.message || "Update failed");
@@ -295,7 +316,13 @@ export default function HousesPage() {
         if (res.success) {
           toast.success(res.message || "House added successfully");
           lastFetchedKey.current = "";
-          fetchHouses(page, size, selectedStateFilter, selectedDistrictFilter, selectedMarketFilter);
+          fetchHouses(
+            page,
+            size,
+            selectedStateFilter,
+            selectedDistrictFilter,
+            selectedMarketFilter,
+          );
           close();
         } else {
           toast.error(res.message || "Failed to create house");
@@ -314,11 +341,15 @@ export default function HousesPage() {
   }, [states, mainStateSearch]);
 
   const filteredMainDistrictsOptions = useMemo(() => {
-    return districtsForFilter.filter((d) => d.name.toLowerCase().includes(mainDistrictSearch.toLowerCase()));
+    return districtsForFilter.filter((d) =>
+      d.name.toLowerCase().includes(mainDistrictSearch.toLowerCase()),
+    );
   }, [districtsForFilter, mainDistrictSearch]);
 
   const filteredMainMarketsOptions = useMemo(() => {
-    return marketsForFilter.filter((m) => m.name.toLowerCase().includes(mainMarketSearch.toLowerCase()));
+    return marketsForFilter.filter((m) =>
+      m.name.toLowerCase().includes(mainMarketSearch.toLowerCase()),
+    );
   }, [marketsForFilter, mainMarketSearch]);
 
   if (loading && houses.length === 0) {
@@ -333,7 +364,6 @@ export default function HousesPage() {
   return (
     <div className="w-full">
       <div className="w-full border-0 shadow-none bg-transparent [&_input]:bg-white dark:[&_input]:bg-zinc-950 [&_button.w-\[180px\]]:bg-white dark:[&_button.w-\[180px\]]:bg-zinc-950 [&_thead]:bg-zinc-200 dark:[&_thead]:bg-zinc-800 [&_thead]:border-b-2 [&_thead]:border-border [&_th]:font-bold [&_th]:text-zinc-900 dark:[&_th]:text-zinc-100 [&_th]:h-12 [&_tbody_tr]:bg-background [&_tbody_tr]:even:bg-zinc-50/50 dark:[&_tbody_tr]:even:bg-zinc-900/30 [&_tbody_tr]:hover:bg-muted/40 [&_th:last-child]:text-right [&_th:last-child]:pr-10 [&_td:last-child]:text-right [&_td[colspan]]:text-center [&_td[colspan]]:font-medium">
-        
         <div className="[&_.flex-col]:flex-row [&_.flex-col]:items-center [&_.flex-col]:justify-between [&_.max-w-sm]:order-last [&_.max-w-sm]:ml-auto">
           <CrudPage<House>
             title="Houses"
@@ -347,7 +377,7 @@ export default function HousesPage() {
             pageSize={size}
             onPageChange={(newPage) => setPage(newPage)}
             onPageSizeChange={(newSize) => setSize(newSize)}
-            
+
             extraToolbar={
               <div className="flex items-end gap-3 pb-0.5">
                 {/* 1. STATE TOOLBAR FILTER */}
@@ -355,8 +385,8 @@ export default function HousesPage() {
                   <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">
                     State
                   </span>
-                  <Select 
-                    value={selectedStateFilter} 
+                  <Select
+                    value={selectedStateFilter}
                     onValueChange={handleStateFilterChange}
                     onOpenChange={(open) => {
                       if (!open) setMainStateSearch("");
@@ -366,7 +396,10 @@ export default function HousesPage() {
                     <SelectTrigger className="w-[180px] h-9 focus:ring-0 border-muted-foreground/40">
                       <SelectValue placeholder="Filter by State" />
                     </SelectTrigger>
-                    <SelectContent onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}>
+                    <SelectContent
+                      onKeyDown={(e) => e.stopPropagation()}
+                      onKeyUp={(e) => e.stopPropagation()}
+                    >
                       <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
                         <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
                         <input
@@ -382,7 +415,9 @@ export default function HousesPage() {
                       </div>
                       <SelectItem value="all">All States</SelectItem>
                       {filteredMainStatesOptions.map((s) => (
-                        <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+                        <SelectItem key={s.id} value={s.id.toString()}>
+                          {s.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -393,8 +428,8 @@ export default function HousesPage() {
                   <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">
                     District
                   </span>
-                  <Select 
-                    value={selectedDistrictFilter} 
+                  <Select
+                    value={selectedDistrictFilter}
                     disabled={selectedStateFilter === "all" || filterDistrictsLoading}
                     onValueChange={handleDistrictFilterChange}
                     onOpenChange={(open) => {
@@ -411,7 +446,10 @@ export default function HousesPage() {
                         <SelectValue placeholder="All Districts" />
                       )}
                     </SelectTrigger>
-                    <SelectContent onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}>
+                    <SelectContent
+                      onKeyDown={(e) => e.stopPropagation()}
+                      onKeyUp={(e) => e.stopPropagation()}
+                    >
                       <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
                         <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
                         <input
@@ -427,7 +465,9 @@ export default function HousesPage() {
                       </div>
                       <SelectItem value="all">All Districts</SelectItem>
                       {filteredMainDistrictsOptions.map((d) => (
-                        <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>
+                        <SelectItem key={d.id} value={d.id.toString()}>
+                          {d.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -438,8 +478,8 @@ export default function HousesPage() {
                   <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">
                     Market
                   </span>
-                  <Select 
-                    value={selectedMarketFilter} 
+                  <Select
+                    value={selectedMarketFilter}
                     disabled={selectedDistrictFilter === "all" || filterMarketsLoading}
                     onValueChange={handleMarketFilterChange}
                     onOpenChange={(open) => {
@@ -456,7 +496,10 @@ export default function HousesPage() {
                         <SelectValue placeholder="All Markets" />
                       )}
                     </SelectTrigger>
-                    <SelectContent onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}>
+                    <SelectContent
+                      onKeyDown={(e) => e.stopPropagation()}
+                      onKeyUp={(e) => e.stopPropagation()}
+                    >
                       <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
                         <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
                         <input
@@ -472,7 +515,9 @@ export default function HousesPage() {
                       </div>
                       <SelectItem value="all">All Markets</SelectItem>
                       {filteredMainMarketsOptions.map((m) => (
-                        <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>
+                        <SelectItem key={m.id} value={m.id.toString()}>
+                          {m.name}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -483,7 +528,11 @@ export default function HousesPage() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  disabled={selectedStateFilter === "all" && selectedDistrictFilter === "all" && selectedMarketFilter === "all"}
+                  disabled={
+                    selectedStateFilter === "all" &&
+                    selectedDistrictFilter === "all" &&
+                    selectedMarketFilter === "all"
+                  }
                   onClick={handleResetFilters}
                   className="h-9 px-3 text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-dashed border-muted-foreground/30 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground transition-all duration-300 ease-out group active:scale-95"
                 >
@@ -492,42 +541,67 @@ export default function HousesPage() {
                 </Button>
               </div>
             }
-            
+
             columns={[
               {
                 key: "number",
                 header: "Number",
-                accessor: (s) => <div className="py-2 text-left font-mono font-medium text-xs">{s.number}</div>,
+                accessor: (s) => (
+                  <div className="py-2 text-left font-mono font-medium text-xs">{s.number}</div>
+                ),
                 searchValue: (s) => s.number,
               },
               {
                 key: "address",
                 header: "Address",
-                accessor: (s) => <div className="py-2 text-left text-xs text-muted-foreground max-w-[200px] truncate" title={s.address}>{s.address}</div>,
+                accessor: (s) => (
+                  <div
+                    className="py-2 text-left text-xs text-muted-foreground max-w-[200px] truncate"
+                    title={s.address}
+                  >
+                    {s.address}
+                  </div>
+                ),
                 searchValue: (s) => s.address,
               },
               {
                 key: "phone",
                 header: "Phone",
-                accessor: (s) => <div className="py-2 text-left text-xs text-zinc-600 dark:text-zinc-400">{s.phone}</div>,
+                accessor: (s) => (
+                  <div className="py-2 text-left text-xs text-zinc-600 dark:text-zinc-400">
+                    {s.phone}
+                  </div>
+                ),
                 searchValue: (s) => s.phone,
               },
               {
                 key: "state",
                 header: "State",
-                accessor: (s) => <div className="py-2 text-left text-muted-foreground">{s.state?.name ?? s.stateName ?? "—"}</div>,
+                accessor: (s) => (
+                  <div className="py-2 text-left text-muted-foreground">
+                    {s.state?.name ?? s.stateName ?? "—"}
+                  </div>
+                ),
                 searchValue: (s) => s.state?.name ?? s.stateName ?? "",
               },
               {
                 key: "district",
                 header: "District",
-                accessor: (s) => <div className="py-2 text-left text-zinc-700 dark:text-zinc-300 font-medium">{s.district?.name ?? s.districtName ?? "—"}</div>,
+                accessor: (s) => (
+                  <div className="py-2 text-left text-zinc-700 dark:text-zinc-300 font-medium">
+                    {s.district?.name ?? s.districtName ?? "—"}
+                  </div>
+                ),
                 searchValue: (s) => s.district?.name ?? s.districtName ?? "",
               },
               {
                 key: "market",
                 header: "Market",
-                accessor: (s) => <div className="py-2 text-left text-zinc-700 dark:text-zinc-300 font-medium">{s.market?.name ?? s.marketName ?? "—"}</div>,
+                accessor: (s) => (
+                  <div className="py-2 text-left text-zinc-700 dark:text-zinc-300 font-medium">
+                    {s.market?.name ?? s.marketName ?? "—"}
+                  </div>
+                ),
                 searchValue: (s) => s.market?.name ?? s.marketName ?? "",
               },
             ]}
@@ -555,17 +629,16 @@ interface HouseFormProps {
   initial: House | null;
   states: State[];
   isSaving: boolean;
-  onSave: (data: { 
-    address: string; 
-    phone: string; 
-    stateId: number; 
-    districtId: number; 
-    marketId: number; 
+  onSave: (data: {
+    address: string;
+    phone: string;
+    stateId: number;
+    districtId: number;
+    marketId: number;
   }) => void;
 }
 
 function HouseForm({ initial, states, isSaving, onSave }: HouseFormProps) {
-
   const [address, setAddress] = useState(initial?.address ?? "");
   const [phone, setPhone] = useState(initial?.phone ?? "");
 
@@ -573,13 +646,15 @@ function HouseForm({ initial, states, isSaving, onSave }: HouseFormProps) {
   const initDistrictId = initial?.district?.id ?? initial?.districtId;
   const initMarketId = initial?.market?.id ?? initial?.marketId;
   const [stateId, setStateId] = useState<string>(initStateId ? initStateId.toString() : "");
-  const [districtId, setDistrictId] = useState<string>(initDistrictId ? initDistrictId.toString() : "");
+  const [districtId, setDistrictId] = useState<string>(
+    initDistrictId ? initDistrictId.toString() : "",
+  );
   const [marketId, setMarketId] = useState<string>(initMarketId ? initMarketId.toString() : "");
 
   // Form dependent state spaces
   const [districts, setDistricts] = useState<District[]>([]);
   const [markets, setMarkets] = useState<Market[]>([]);
-  
+
   const [districtsLoading, setDistrictsLoading] = useState(false);
   const [marketsLoading, setMarketsLoading] = useState(false);
 
@@ -668,10 +743,8 @@ function HouseForm({ initial, states, isSaving, onSave }: HouseFormProps) {
 
   return (
     <div className="space-y-4">
-
       {/* Row 1: Address & Door Code */}
       <div className="grid grid-cols-1 gap-3">
-
         <div className="col-span-1 space-y-1.5">
           <Label>Address</Label>
           <Input
@@ -681,12 +754,10 @@ function HouseForm({ initial, states, isSaving, onSave }: HouseFormProps) {
             placeholder="Complete street address details"
           />
         </div>
-  
       </div>
 
       {/* Row 2: Email & Phone */}
       <div className="grid grid-cols-1 gap-3">
-
         <div className="space-y-1.5">
           <Label>Phone Number</Label>
           <Input
@@ -697,16 +768,15 @@ function HouseForm({ initial, states, isSaving, onSave }: HouseFormProps) {
           />
         </div>
       </div>
-      
+
       {/* Cascading Drops Hierarchy Matrix */}
       <div className="grid grid-cols-3 gap-3">
-
         {/* Drop 1: State Selection */}
         <div className="space-y-1.5">
           <Label>State</Label>
-          <Select 
-            value={stateId} 
-            disabled={isSaving || !!initial} 
+          <Select
+            value={stateId}
+            disabled={isSaving || !!initial}
             onValueChange={setStateId}
             onOpenChange={(open) => {
               if (!open) setStateSearch("");
@@ -716,7 +786,10 @@ function HouseForm({ initial, states, isSaving, onSave }: HouseFormProps) {
             <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
               <SelectValue placeholder="Select state" />
             </SelectTrigger>
-            <SelectContent onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}>
+            <SelectContent
+              onKeyDown={(e) => e.stopPropagation()}
+              onKeyUp={(e) => e.stopPropagation()}
+            >
               <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
                 <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
                 <input
@@ -731,7 +804,9 @@ function HouseForm({ initial, states, isSaving, onSave }: HouseFormProps) {
                 />
               </div>
               {filteredStates.map((s) => (
-                <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>
+                <SelectItem key={s.id} value={s.id.toString()}>
+                  {s.name}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -743,9 +818,9 @@ function HouseForm({ initial, states, isSaving, onSave }: HouseFormProps) {
             <Label>District</Label>
             {districtsLoading && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
           </div>
-          <Select 
-            value={districtId} 
-            disabled={isSaving || !stateId || districtsLoading || !!initial} 
+          <Select
+            value={districtId}
+            disabled={isSaving || !stateId || districtsLoading || !!initial}
             onValueChange={setDistrictId}
             onOpenChange={(open) => {
               if (!open) setDistrictSearch("");
@@ -755,7 +830,10 @@ function HouseForm({ initial, states, isSaving, onSave }: HouseFormProps) {
             <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
               <SelectValue placeholder={!stateId ? "Choose state" : "Select district"} />
             </SelectTrigger>
-            <SelectContent onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}>
+            <SelectContent
+              onKeyDown={(e) => e.stopPropagation()}
+              onKeyUp={(e) => e.stopPropagation()}
+            >
               <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
                 <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
                 <input
@@ -775,7 +853,9 @@ function HouseForm({ initial, states, isSaving, onSave }: HouseFormProps) {
                 </p>
               ) : (
                 filteredDistricts.map((d) => (
-                  <SelectItem key={d.id} value={d.id.toString()}>{d.name}</SelectItem>
+                  <SelectItem key={d.id} value={d.id.toString()}>
+                    {d.name}
+                  </SelectItem>
                 ))
               )}
             </SelectContent>
@@ -788,9 +868,9 @@ function HouseForm({ initial, states, isSaving, onSave }: HouseFormProps) {
             <Label>Market</Label>
             {marketsLoading && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
           </div>
-          <Select 
-            value={marketId} 
-            disabled={isSaving || !districtId || marketsLoading || !!initial} 
+          <Select
+            value={marketId}
+            disabled={isSaving || !districtId || marketsLoading || !!initial}
             onValueChange={setMarketId}
             onOpenChange={(open) => {
               if (!open) setMarketSearch("");
@@ -800,7 +880,10 @@ function HouseForm({ initial, states, isSaving, onSave }: HouseFormProps) {
             <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
               <SelectValue placeholder={!districtId ? "Choose district" : "Select market"} />
             </SelectTrigger>
-            <SelectContent onKeyDown={(e) => e.stopPropagation()} onKeyUp={(e) => e.stopPropagation()}>
+            <SelectContent
+              onKeyDown={(e) => e.stopPropagation()}
+              onKeyUp={(e) => e.stopPropagation()}
+            >
               <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
                 <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
                 <input
@@ -820,7 +903,9 @@ function HouseForm({ initial, states, isSaving, onSave }: HouseFormProps) {
                 </p>
               ) : (
                 filteredMarkets.map((m) => (
-                  <SelectItem key={m.id} value={m.id.toString()}>{m.name}</SelectItem>
+                  <SelectItem key={m.id} value={m.id.toString()}>
+                    {m.name}
+                  </SelectItem>
                 ))
               )}
             </SelectContent>
@@ -833,20 +918,22 @@ function HouseForm({ initial, states, isSaving, onSave }: HouseFormProps) {
         disabled={
           !address.trim() ||
           !phone.trim() ||
-          !stateId || 
-          !districtId || 
+          !stateId ||
+          !districtId ||
           !marketId ||
-          isSaving || 
+          isSaving ||
           districtsLoading ||
           marketsLoading
         }
-        onClick={() => onSave({ 
-          address: address.trim(),
-          phone: phone.trim(),
-          stateId: Number(stateId), 
-          districtId: Number(districtId),
-          marketId: Number(marketId)
-        })}
+        onClick={() =>
+          onSave({
+            address: address.trim(),
+            phone: phone.trim(),
+            stateId: Number(stateId),
+            districtId: Number(districtId),
+            marketId: Number(marketId),
+          })
+        }
       >
         {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
         {initial ? "Update House" : "Save House"}

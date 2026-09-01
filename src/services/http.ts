@@ -41,7 +41,11 @@ export class HttpClient {
 
   getToken(): string | null {
     if (typeof window === "undefined") return null;
-    try { return window.localStorage.getItem(TOKEN_KEY); } catch { return null; }
+    try {
+      return window.localStorage.getItem(TOKEN_KEY);
+    } catch {
+      return null;
+    }
   }
 
   async request<T>(path: string, opts: RequestOpts = {}): Promise<ApiEnvelope<T>> {
@@ -59,8 +63,13 @@ export class HttpClient {
     });
 
     let json: ApiEnvelope<T>;
-    try { json = await res.json(); } catch { throw new Error(`Network error (${res.status})`); }
-    if (!res.ok || !json.success) throw new Error(json?.message || `Request failed (${res.status})`);
+    try {
+      json = await res.json();
+    } catch {
+      throw new Error(`Network error (${res.status})`);
+    }
+    if (!res.ok || !json.success)
+      throw new Error(json?.message || `Request failed (${res.status})`);
     return json;
   }
 

@@ -4,11 +4,24 @@ import { CrudPage } from "@/components/crud-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { MultiSelect } from "@/components/multi-select";
-import { usersApi, hierarchyApi, StatesApi, DistrictsApi, MarketsApi, StoresApi } from "@/lib/api/client";
+import {
+  usersApi,
+  hierarchyApi,
+  StatesApi,
+  DistrictsApi,
+  MarketsApi,
+  StoresApi,
+} from "@/lib/api/client";
 import { toast } from "sonner";
 import { Loader2, Search, XCircle, Shield, CheckCircle2, AlertCircle } from "lucide-react";
 import { getUserAvatarColor } from "./user-colors";
@@ -37,9 +50,10 @@ function mapBackendToFrontendUser(bu: any): any {
     fullName: bu.fullName || "",
     email: bu.email || "",
     phone: bu.phone || "—",
-    department: bu.department && typeof bu.department === "object"
-      ? bu.department.name
-      : (bu.department || "—"),
+    department:
+      bu.department && typeof bu.department === "object"
+        ? bu.department.name
+        : bu.department || "—",
     departmentObj: bu.department && typeof bu.department === "object" ? bu.department : null,
     assignedPortals: bu.assignedPortals || [],
     portalAccess: bu.portalAccess || [],
@@ -60,7 +74,6 @@ function UsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [deptFilter, setDeptFilter] = useState<string>("all");
 
-  
   const [portalFilter, setPortalFilter] = useState<string>("all");
 
   const [dynamicRoles, setDynamicRoles] = useState<any[]>([]);
@@ -93,13 +106,16 @@ function UsersPage() {
     try {
       const token = localStorage.getItem("token");
       // const response = await fetch("http://localhost:4570/api/portals/get-all", {
-      const response = await fetch("http://technocomm-dev.us-west-2.elasticbeanstalk.com/api/portals/get-all", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": token ? `Bearer ${token}` : "", // Token integrated identically to api client
+      const response = await fetch(
+        "http://technocomm-dev.us-west-2.elasticbeanstalk.com/api/portals/get-all",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: token ? `Bearer ${token}` : "", // Token integrated identically to api client
+          },
         },
-      });
+      );
       const res = await response.json();
       if (res.success && Array.isArray(res.data)) {
         setPortalsMasterList(res.data);
@@ -115,7 +131,7 @@ function UsersPage() {
       await fetchPortalsMaster();
       const [rolesRes, deptsRes] = await Promise.all([
         hierarchyApi.getRoles(),
-        hierarchyApi.getDepartments()
+        hierarchyApi.getDepartments(),
       ]);
       if (rolesRes.success && Array.isArray(rolesRes.data)) setDynamicRoles(rolesRes.data);
       if (deptsRes.success && Array.isArray(deptsRes.data)) setDynamicDepts(deptsRes.data);
@@ -127,7 +143,12 @@ function UsersPage() {
     }
   };
 
-  const fetchUsers = async (targetPage: number, targetSize: number, targetDept: string, targetPortal: string) => {
+  const fetchUsers = async (
+    targetPage: number,
+    targetSize: number,
+    targetDept: string,
+    targetPortal: string,
+  ) => {
     const currentRequestKey = `${targetPage}-${targetSize}-${targetDept}-${targetPortal}`;
     if (lastFetchedKey.current === currentRequestKey || isFetchingRef.current) return;
 
@@ -140,7 +161,7 @@ function UsersPage() {
         page: targetPage,
         size: targetSize,
         department: targetDept !== "all" ? targetDept : undefined,
-        portal: targetPortal !== "all" ? targetPortal : undefined
+        portal: targetPortal !== "all" ? targetPortal : undefined,
       });
 
       if (res.success) {
@@ -183,7 +204,7 @@ function UsersPage() {
     try {
       setLoadingUserId(u.id);
       // Optimistic UI
-      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, active: nextValue } : x));
+      setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, active: nextValue } : x)));
       const raw = u._raw ?? {};
       const payload: any = {
         email: raw.email ?? u.email,
@@ -191,11 +212,13 @@ function UsersPage() {
       };
       const res = await usersApi.toggleActivationStatus(payload);
       if (res.success) {
-        toast.success(`User ${nextValue ? "activated successfully!" : "deactivated successfully!"}`);
+        toast.success(
+          `User ${nextValue ? "activated successfully!" : "deactivated successfully!"}`,
+        );
       }
     } catch (err: any) {
       // revert
-      setUsers(prev => prev.map(x => x.id === u.id ? { ...x, active: !nextValue } : x));
+      setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, active: !nextValue } : x)));
       toast.error(err?.message || "Failed to update status");
     } finally {
       // setActionLoading(false);
@@ -217,19 +240,26 @@ function UsersPage() {
   }, []);
 
   const filteredMainDeptsOptions = useMemo(() => {
-    return dynamicDepts.filter((d) => (d.name || "").toLowerCase().includes(mainDeptSearch.toLowerCase()));
+    return dynamicDepts.filter((d) =>
+      (d.name || "").toLowerCase().includes(mainDeptSearch.toLowerCase()),
+    );
   }, [dynamicDepts, mainDeptSearch]);
 
   const filteredMainPortalsOptions = useMemo(() => {
-    return portalsMasterList.filter((p) => (p.name || "").toLowerCase().includes(mainPortalSearch.toLowerCase()));
+    return portalsMasterList.filter((p) =>
+      (p.name || "").toLowerCase().includes(mainPortalSearch.toLowerCase()),
+    );
   }, [portalsMasterList, mainPortalSearch]);
 
   const getPortalColor = (name: string) => {
     const colors: Record<string, string> = {
-      ticketing: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
-      ranker: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400",
+      ticketing:
+        "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
+      ranker:
+        "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400",
       commission: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400",
-      leasing: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400",
+      leasing:
+        "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400",
       leave: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400",
     };
     return colors[name.toLowerCase().trim()] || "bg-zinc-50 text-zinc-700 border-zinc-200";
@@ -263,16 +293,41 @@ function UsersPage() {
           extraToolbar={
             <div className="flex items-end gap-3 pb-0.5">
               <div className="relative flex flex-col pt-2.5">
-                <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">Department</span>
-                <Select value={deptFilter} onValueChange={(val) => { lastFetchedKey.current = ""; setPage(0); setDeptFilter(val); }} onOpenChange={(open) => { if (!open) setMainDeptSearch(""); else setTimeout(() => mainDeptSearchRef.current?.focus(), 100); }}>
-                  <SelectTrigger className="w-[180px] h-9 focus:ring-0 border-muted-foreground/40"><SelectValue placeholder="Department" /></SelectTrigger>
+                <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">
+                  Department
+                </span>
+                <Select
+                  value={deptFilter}
+                  onValueChange={(val) => {
+                    lastFetchedKey.current = "";
+                    setPage(0);
+                    setDeptFilter(val);
+                  }}
+                  onOpenChange={(open) => {
+                    if (!open) setMainDeptSearch("");
+                    else setTimeout(() => mainDeptSearchRef.current?.focus(), 100);
+                  }}
+                >
+                  <SelectTrigger className="w-[180px] h-9 focus:ring-0 border-muted-foreground/40">
+                    <SelectValue placeholder="Department" />
+                  </SelectTrigger>
                   <SelectContent onKeyDown={(e) => e.stopPropagation()}>
                     <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
                       <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
-                      <input ref={mainDeptSearchRef} placeholder="Search depts..." value={mainDeptSearch} onChange={(e) => setMainDeptSearch(e.target.value)} className="w-full text-xs bg-transparent outline-none" />
+                      <input
+                        ref={mainDeptSearchRef}
+                        placeholder="Search depts..."
+                        value={mainDeptSearch}
+                        onChange={(e) => setMainDeptSearch(e.target.value)}
+                        className="w-full text-xs bg-transparent outline-none"
+                      />
                     </div>
                     <SelectItem value="all">All departments</SelectItem>
-                    {filteredMainDeptsOptions.map((d) => <SelectItem key={d.id} value={d.name}>{d.name || "—"}</SelectItem>)}
+                    {filteredMainDeptsOptions.map((d) => (
+                      <SelectItem key={d.id} value={d.name}>
+                        {d.name || "—"}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -299,19 +354,37 @@ function UsersPage() {
                 </Select>
               </div> */}
 
-              <Button type="button" variant="ghost" size="sm" disabled={deptFilter === "all" && portalFilter === "all"} onClick={() => { lastFetchedKey.current = ""; setPage(0); setDeptFilter("all"); setPortalFilter("all"); }} className="h-9 px-3 text-xs border border-dashed border-muted-foreground/30"><XCircle className="h-3.5 w-3.5 mr-1.5" />Reset Filters</Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={deptFilter === "all" && portalFilter === "all"}
+                onClick={() => {
+                  lastFetchedKey.current = "";
+                  setPage(0);
+                  setDeptFilter("all");
+                  setPortalFilter("all");
+                }}
+                className="h-9 px-3 text-xs border border-dashed border-muted-foreground/30"
+              >
+                <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                Reset Filters
+              </Button>
             </div>
           }
           onEditClick={(u: any) => navigate(`/admin/users/${u.id}`)}
           columns={[
             {
-              key: "name", header: "Name", accessor: (u) => (
+              key: "name",
+              header: "Name",
+              accessor: (u) => (
                 <div className="flex items-center gap-2 py-1">
                   <div
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white uppercase"
                     style={{ backgroundColor: u.avatarColor }}
                   >
-                    {(u.firstName?.[0] || "")}{(u.lastName?.[0] || "")}
+                    {u.firstName?.[0] || ""}
+                    {u.lastName?.[0] || ""}
                   </div>
                   <div>
                     <div className="font-medium text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
@@ -324,9 +397,15 @@ function UsersPage() {
                     </div>
                   </div>
                 </div>
-              ), searchValue: (u) => u.fullName
+              ),
+              searchValue: (u) => u.fullName,
             },
-            { key: "email", header: "Email", accessor: (u) => u.email || "—", searchValue: (u) => u.email },
+            {
+              key: "email",
+              header: "Email",
+              accessor: (u) => u.email || "—",
+              searchValue: (u) => u.email,
+            },
             { key: "phone", header: "Phone", accessor: (u) => u.phone || "—" },
             { key: "dept", header: "Department", accessor: (u) => u.department || "—" },
             {
@@ -352,7 +431,10 @@ function UsersPage() {
                     : "";
 
                 return (
-                  <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 justify-end pr-2">
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-2 justify-end pr-2"
+                  >
                     <Switch
                       checked={!!u.active}
                       disabled={isDisabled}
@@ -364,7 +446,7 @@ function UsersPage() {
                     )}
                   </div>
                 );
-              }
+              },
             },
           ]}
 
@@ -394,25 +476,31 @@ export function UserForm({
   initial,
   dynamicRoles,
   portalsMasterList,
-  onSaved
+  onSaved,
 }: {
   initial: any | null;
   dynamicRoles: any[];
   portalsMasterList: any[];
-  onSaved: () => void
+  onSaved: () => void;
 }) {
   const [fullName, setFullName] = useState(initial?.fullName ?? "");
   const [email, setEmail] = useState(initial?.email ?? "");
   const [phone, setPhone] = useState(initial?.phone === "—" ? "" : (initial?.phone ?? ""));
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [department, setDepartment] = useState<string>(initial?.department === "—" ? "placeholder" : (initial?.department ?? "placeholder"));
-  const [allowedUserManagement, setAllowedUserManagement] = useState<boolean>(initial?.allowedUserManagement ?? false);
+  const [department, setDepartment] = useState<string>(
+    initial?.department === "—" ? "placeholder" : (initial?.department ?? "placeholder"),
+  );
+  const [allowedUserManagement, setAllowedUserManagement] = useState<boolean>(
+    initial?.allowedUserManagement ?? false,
+  );
   const [active, setActive] = useState<boolean>(initial?.active ?? true);
 
-  const [portalConfig, setPortalConfig] = useState<Record<string, { enabled: boolean; roleName: string }>>(() => {
+  const [portalConfig, setPortalConfig] = useState<
+    Record<string, { enabled: boolean; roleName: string }>
+  >(() => {
     const initMap: Record<string, { enabled: boolean; roleName: string }> = {};
-    portalsMasterList.forEach(p => {
+    portalsMasterList.forEach((p) => {
       initMap[p.name] = { enabled: false, roleName: "user" };
     });
     if (initial && Array.isArray(initial.portalAccess)) {
@@ -439,33 +527,65 @@ export function UserForm({
   const [submitting, setSubmitting] = useState(false);
 
   const activeRolesList = Object.keys(portalConfig)
-    .filter(k => portalConfig[k].enabled)
-    .map(k => portalConfig[k].roleName.toLowerCase());
+    .filter((k) => portalConfig[k].enabled)
+    .map((k) => portalConfig[k].roleName.toLowerCase());
 
-  const needsState = activeRolesList.some(r => ["state_manager", "statemanager", "district_manager", "districtmanager", "market_manager", "marketmanager", "store_manager", "storemanager"].includes(r));
-  const needsDistrict = activeRolesList.some(r => ["district_manager", "districtmanager", "market_manager", "marketmanager", "store_manager", "storemanager"].includes(r));
-  const needsMarket = activeRolesList.some(r => ["market_manager", "marketmanager", "store_manager", "storemanager"].includes(r));
-  const needsStore = activeRolesList.some(r => ["store_manager", "storemanager"].includes(r));
+  const needsState = activeRolesList.some((r) =>
+    [
+      "state_manager",
+      "statemanager",
+      "district_manager",
+      "districtmanager",
+      "market_manager",
+      "marketmanager",
+      "store_manager",
+      "storemanager",
+    ].includes(r),
+  );
+  const needsDistrict = activeRolesList.some((r) =>
+    [
+      "district_manager",
+      "districtmanager",
+      "market_manager",
+      "marketmanager",
+      "store_manager",
+      "storemanager",
+    ].includes(r),
+  );
+  const needsMarket = activeRolesList.some((r) =>
+    ["market_manager", "marketmanager", "store_manager", "storemanager"].includes(r),
+  );
+  const needsStore = activeRolesList.some((r) => ["store_manager", "storemanager"].includes(r));
 
   useEffect(() => {
-    hierarchyApi.getDepartments().then(res => { if (res.success) setDbDepts(res.data); });
-    StatesApi.getAll({ size: 1000 } as any).then(res => { if (res.success && res.data) setDbStates(res.data); });
-    DistrictsApi.getAll({ size: 5000 } as any).then(res => { if (res.success && res.data) setDbDistricts(res.data); });
-    MarketsApi.getAll({ size: 5000 } as any).then(res => { if (res.success && res.data) setDbMarkets(res.data); });
-    StoresApi.getAll({ size: 5000 } as any).then(res => { if (res.success && res.data) setDbStores(res.data); });
+    hierarchyApi.getDepartments().then((res) => {
+      if (res.success) setDbDepts(res.data);
+    });
+    StatesApi.getAll({ size: 1000 } as any).then((res) => {
+      if (res.success && res.data) setDbStates(res.data);
+    });
+    DistrictsApi.getAll({ size: 5000 } as any).then((res) => {
+      if (res.success && res.data) setDbDistricts(res.data);
+    });
+    MarketsApi.getAll({ size: 5000 } as any).then((res) => {
+      if (res.success && res.data) setDbMarkets(res.data);
+    });
+    StoresApi.getAll({ size: 5000 } as any).then((res) => {
+      if (res.success && res.data) setDbStores(res.data);
+    });
   }, []);
 
   const handlePortalToggle = (pName: string, checked: boolean) => {
-    setPortalConfig(prev => ({
+    setPortalConfig((prev) => ({
       ...prev,
-      [pName]: { ...prev[pName], enabled: checked }
+      [pName]: { ...prev[pName], enabled: checked },
     }));
   };
 
   const handlePortalRoleChange = (pName: string, selectedRole: string) => {
-    setPortalConfig(prev => ({
+    setPortalConfig((prev) => ({
       ...prev,
-      [pName]: { ...prev[pName], roleName: selectedRole }
+      [pName]: { ...prev[pName], roleName: selectedRole },
     }));
   };
 
@@ -479,8 +599,14 @@ export function UserForm({
     (!needsMarket || marketIds.length > 0) &&
     (!needsStore || storeIds.length > 0);
 
-  const hasSelectedPortals = Object.values(portalConfig).some(p => p.enabled);
-  const canSave = fullName.trim().length >= 2 && identityOk && passwordOk && isDeptFilled && isHierarchyFilled && hasSelectedPortals;
+  const hasSelectedPortals = Object.values(portalConfig).some((p) => p.enabled);
+  const canSave =
+    fullName.trim().length >= 2 &&
+    identityOk &&
+    passwordOk &&
+    isDeptFilled &&
+    isHierarchyFilled &&
+    hasSelectedPortals;
 
   const validationHint = (() => {
     if (!fullName.trim()) return "Full name is required";
@@ -506,13 +632,14 @@ export function UserForm({
       const assignedPortals: string[] = [];
       const portalAccess: any[] = [];
 
-      Object.keys(portalConfig).forEach(k => {
+      Object.keys(portalConfig).forEach((k) => {
         if (portalConfig[k].enabled) {
-          const masterObjectRef = portalsMasterList.find(p => p.name === k);
+          const masterObjectRef = portalsMasterList.find((p) => p.name === k);
 
           const selectedRoleName = portalConfig[k].roleName;
           const roleObjectRef = dynamicRoles.find(
-            (r: any) => String(r.name).toLowerCase().trim() === String(selectedRoleName).toLowerCase().trim()
+            (r: any) =>
+              String(r.name).toLowerCase().trim() === String(selectedRoleName).toLowerCase().trim(),
           );
 
           assignedPortals.push(k);
@@ -521,19 +648,21 @@ export function UserForm({
             portalName: k,
             // roleId: 1,
             roleId: roleObjectRef?.id ?? 0,
-            roleName: portalConfig[k].roleName
+            roleName: portalConfig[k].roleName,
           });
         }
       });
 
       const pickObjs = (list: any[], ids: string[]) =>
-        list.filter(x => ids.includes(String(x.id))).map(x => ({ id: Number(x.id), name: x.name }));
+        list
+          .filter((x) => ids.includes(String(x.id)))
+          .map((x) => ({ id: Number(x.id), name: x.name }));
       const selectedStates = pickObjs(dbStates, stateIds);
       const selectedDistricts = pickObjs(dbDistricts, districtIds);
       const selectedMarkets = pickObjs(dbMarkets, marketIds);
       const selectedStores = pickObjs(dbStores, storeIds);
 
-      const selectedDeptObj = dbDepts.find(d => d.name === department);
+      const selectedDeptObj = dbDepts.find((d) => d.name === department);
 
       const payload = {
         fullName: fullName.trim(),
@@ -574,27 +703,58 @@ export function UserForm({
     <div className="space-y-4 max-h-[82vh] overflow-y-auto px-1 scrollbar-thin">
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label>Full name <span className="text-destructive">*</span></Label>
-          <Input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="e.g. Arslan Khan" autoComplete="off" />
+          <Label>
+            Full name <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="e.g. Arslan Khan"
+            autoComplete="off"
+          />
         </div>
         <div className="space-y-1.5">
-          <Label>Email or NTID <span className="text-destructive">*</span></Label>
-          <Input type="text" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@techno.com or NTID" autoComplete="new-password" />
+          <Label>
+            Email or NTID <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            type="text"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@techno.com or NTID"
+            autoComplete="new-password"
+          />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label>Phone <span className="text-muted-foreground text-xs">(Optional)</span></Label>
-          <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. +923001234567" />
+          <Label>
+            Phone <span className="text-muted-foreground text-xs">(Optional)</span>
+          </Label>
+          <Input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="e.g. +923001234567"
+          />
         </div>
         <div className="space-y-1.5">
-          <Label>Department <span className="text-destructive">*</span></Label>
+          <Label>
+            Department <span className="text-destructive">*</span>
+          </Label>
           <Select value={department} onValueChange={setDepartment}>
-            <SelectTrigger><SelectValue placeholder="Select department" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="Select department" />
+            </SelectTrigger>
             <SelectContent>
-              <SelectItem value="placeholder" disabled>Select department</SelectItem>
-              {dbDepts.map((d) => <SelectItem key={d.id} value={d.name}>{d.name || "—"}</SelectItem>)}
+              <SelectItem value="placeholder" disabled>
+                Select department
+              </SelectItem>
+              {dbDepts.map((d) => (
+                <SelectItem key={d.id} value={d.name}>
+                  {d.name || "—"}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -603,12 +763,26 @@ export function UserForm({
       {!initial && (
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label>Password <span className="text-destructive">*</span></Label>
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Min 6 chars" />
+            <Label>
+              Password <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Min 6 chars"
+            />
           </div>
           <div className="space-y-1.5">
-            <Label>Confirm password <span className="text-destructive">*</span></Label>
-            <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Re-enter password" />
+            <Label>
+              Confirm password <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Re-enter password"
+            />
           </div>
         </div>
       )}
@@ -617,7 +791,9 @@ export function UserForm({
         <div className="flex items-center justify-between space-x-2">
           <div className="flex flex-col space-y-0.5">
             <Label className="text-sm font-semibold">User Manager Access</Label>
-            <span className="text-[11px] text-muted-foreground">Allows managing user directories administration</span>
+            <span className="text-[11px] text-muted-foreground">
+              Allows managing user directories administration
+            </span>
           </div>
           <Switch checked={allowedUserManagement} onCheckedChange={setAllowedUserManagement} />
         </div>
@@ -625,7 +801,9 @@ export function UserForm({
         <div className="flex items-center justify-between space-x-2">
           <div className="flex flex-col space-y-0.5">
             <Label className="text-sm font-semibold">Account Status</Label>
-            <span className="text-[11px] text-muted-foreground">Toggle active status state for portal operations logging</span>
+            <span className="text-[11px] text-muted-foreground">
+              Toggle active status state for portal operations logging
+            </span>
           </div>
           <Switch checked={active} onCheckedChange={setActive} />
         </div>
@@ -636,7 +814,9 @@ export function UserForm({
           <span className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-primary" /> Multi-Portal Authority Setup Matrix
           </span>
-          <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">Required: At least 1</span>
+          <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">
+            Required: At least 1
+          </span>
         </div>
 
         <div className="p-3 bg-white dark:bg-zinc-950 divide-y divide-zinc-100 dark:divide-zinc-900">
@@ -645,7 +825,10 @@ export function UserForm({
             const currentRoleValue = portalConfig[p.name]?.roleName ?? "user";
 
             return (
-              <div key={p.id} className="flex flex-col sm:flex-row sm:items-center justify-between py-3 gap-3 first:pt-1 last:pb-1">
+              <div
+                key={p.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between py-3 gap-3 first:pt-1 last:pb-1"
+              >
                 <div className="flex items-center gap-3">
                   <Switch
                     id={`portal-toggle-${p.name}`}
@@ -653,7 +836,10 @@ export function UserForm({
                     onCheckedChange={(checked) => handlePortalToggle(p.name, checked)}
                   />
                   <div>
-                    <label htmlFor={`portal-toggle-${p.name}`} className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 cursor-pointer block capitalize">
+                    <label
+                      htmlFor={`portal-toggle-${p.name}`}
+                      className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 cursor-pointer block capitalize"
+                    >
                       {p.name} Portal
                     </label>
                     <span className="text-xs text-muted-foreground block">{p.description}</span>
@@ -667,7 +853,9 @@ export function UserForm({
                     value={currentRoleValue}
                     onValueChange={(val) => handlePortalRoleChange(p.name, val)}
                   >
-                    <SelectTrigger className={`h-8 text-xs font-medium ${isEnabled ? "border-primary/50 ring-1 ring-primary/10" : "bg-zinc-50 border-zinc-200"}`}>
+                    <SelectTrigger
+                      className={`h-8 text-xs font-medium ${isEnabled ? "border-primary/50 ring-1 ring-primary/10" : "bg-zinc-50 border-zinc-200"}`}
+                    >
                       <SelectValue placeholder="Choose role" />
                     </SelectTrigger>
 
@@ -678,7 +866,6 @@ export function UserForm({
                         </SelectItem>
                       ))}
                     </SelectContent>
-                    
                   </Select>
                 </div>
               </div>
@@ -696,9 +883,11 @@ export function UserForm({
           <div className="grid grid-cols-2 gap-3">
             {needsState && (
               <div className="space-y-1.5">
-                <Label>States <span className="text-destructive">*</span></Label>
+                <Label>
+                  States <span className="text-destructive">*</span>
+                </Label>
                 <MultiSelect
-                  options={dbStates.map(s => ({ value: String(s.id), label: s.name }))}
+                  options={dbStates.map((s) => ({ value: String(s.id), label: s.name }))}
                   value={stateIds}
                   onChange={setStateIds}
                   placeholder="Select states"
@@ -708,9 +897,11 @@ export function UserForm({
 
             {needsDistrict && (
               <div className="space-y-1.5">
-                <Label>Districts <span className="text-destructive">*</span></Label>
+                <Label>
+                  Districts <span className="text-destructive">*</span>
+                </Label>
                 <MultiSelect
-                  options={dbDistricts.map(d => ({ value: String(d.id), label: d.name }))}
+                  options={dbDistricts.map((d) => ({ value: String(d.id), label: d.name }))}
                   value={districtIds}
                   onChange={setDistrictIds}
                   placeholder="Select districts"
@@ -720,9 +911,11 @@ export function UserForm({
 
             {needsMarket && (
               <div className="space-y-1.5">
-                <Label>Markets <span className="text-destructive">*</span></Label>
+                <Label>
+                  Markets <span className="text-destructive">*</span>
+                </Label>
                 <MultiSelect
-                  options={dbMarkets.map(m => ({ value: String(m.id), label: m.name }))}
+                  options={dbMarkets.map((m) => ({ value: String(m.id), label: m.name }))}
                   value={marketIds}
                   onChange={setMarketIds}
                   placeholder="Select markets"
@@ -732,9 +925,11 @@ export function UserForm({
 
             {needsStore && (
               <div className="space-y-1.5">
-                <Label>Stores <span className="text-destructive">*</span></Label>
+                <Label>
+                  Stores <span className="text-destructive">*</span>
+                </Label>
                 <MultiSelect
-                  options={dbStores.map(s => ({ value: String(s.id), label: s.name }))}
+                  options={dbStores.map((s) => ({ value: String(s.id), label: s.name }))}
                   value={storeIds}
                   onChange={setStoreIds}
                   placeholder="Select stores"
@@ -745,7 +940,11 @@ export function UserForm({
         </div>
       )}
 
-      <Button className="w-full flex items-center justify-center gap-2 mt-2 h-10 font-medium" disabled={!canSave || submitting} onClick={submit}>
+      <Button
+        className="w-full flex items-center justify-center gap-2 mt-2 h-10 font-medium"
+        disabled={!canSave || submitting}
+        onClick={submit}
+      >
         {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
         {initial ? "Save changes" : "Create user"}
       </Button>

@@ -270,25 +270,26 @@ export interface LeaveStats {
   onLeaveToday: number;
 }
 
-export const LEAVE_STATUS_META: Record<LeaveStatus, { label: string; tone: string; dot: string }> = {
-  Pending: {
-    label: "Pending",
-    tone: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
-    dot: "bg-amber-500",
-  },
-  Approved: {
-    label: "Approved",
-    tone: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
-    dot: "bg-emerald-500",
-  },
-  Rejected: {
-    label: "Rejected",
-    tone: "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30",
-    dot: "bg-rose-500",
-  },
-  Cancelled: {
-    label: "Cancelled",
-    tone: "bg-muted text-muted-foreground border-border",
-    dot: "bg-muted-foreground",
-  },
-};
+export const LEAVE_STATUS_META: Record<LeaveStatus, { label: string; tone: string; dot: string }> =
+  {
+    Pending: {
+      label: "Pending",
+      tone: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+      dot: "bg-amber-500",
+    },
+    Approved: {
+      label: "Approved",
+      tone: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+      dot: "bg-emerald-500",
+    },
+    Rejected: {
+      label: "Rejected",
+      tone: "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30",
+      dot: "bg-rose-500",
+    },
+    Cancelled: {
+      label: "Cancelled",
+      tone: "bg-muted text-muted-foreground border-border",
+      dot: "bg-muted-foreground",
+    },
+  };

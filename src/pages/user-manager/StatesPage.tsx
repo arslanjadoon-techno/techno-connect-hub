@@ -32,11 +32,11 @@ export default function StatesPage() {
   // Single dynamic fetch method
   const fetchStates = async (targetPage: number, targetSize: number) => {
     const currentRequestKey = `${targetPage}-${targetSize}`;
-    
+
     if (lastFetchedKey.current === currentRequestKey || isFetchingRef.current) {
       return;
     }
-    
+
     try {
       setLoading(true);
       isFetchingRef.current = true;
@@ -44,13 +44,18 @@ export default function StatesPage() {
 
       const apiClient = StatesApi.getAll as any;
       const res = await apiClient({ page: targetPage, size: targetSize });
-      
+
       if (res.success) {
         // EDGE CASE FIX: If current page has no data but database has records, fallback to previous page
-        if (res.data.length === 0 && res.pagination && res.pagination.totalRecords > 0 && targetPage > 0) {
+        if (
+          res.data.length === 0 &&
+          res.pagination &&
+          res.pagination.totalRecords > 0 &&
+          targetPage > 0
+        ) {
           const maxAvailablePage = Math.ceil(res.pagination.totalRecords / targetSize) - 1;
           const fallbackPage = Math.max(0, maxAvailablePage);
-          
+
           isFetchingRef.current = false;
           lastFetchedKey.current = "";
           setPage(fallbackPage);
@@ -58,7 +63,7 @@ export default function StatesPage() {
         }
 
         setStates(res.data);
-        
+
         if (res.pagination && typeof res.pagination.totalRecords === "number") {
           setTotalRecords(res.pagination.totalRecords);
         } else {
@@ -105,7 +110,7 @@ export default function StatesPage() {
   const handleSave = async (
     initial: State | null,
     formData: { name: string; symbol: string },
-    close: () => void
+    close: () => void,
   ) => {
     try {
       setActionLoading(true);
@@ -153,7 +158,6 @@ export default function StatesPage() {
   return (
     <div className="w-full">
       <div className="w-full border-0 shadow-none bg-transparent [&_input]:bg-white dark:[&_input]:bg-zinc-950 [&_thead]:bg-zinc-200 dark:[&_thead]:bg-zinc-800 [&_thead]:border-b-2 [&_thead]:border-border [&_th]:font-bold [&_th]:text-zinc-900 dark:[&_th]:text-zinc-100 [&_th]:h-12 [&_tbody_tr]:bg-background [&_tbody_tr]:even:bg-zinc-50/50 dark:[&_tbody_tr]:even:bg-zinc-900/30 [&_tbody_tr]:hover:bg-muted/40 [&_th:last-child]:text-right [&_th:last-child]:pr-10 [&_td:last-child]:text-right">
-        
         {/* NO ERRORS NOW: Clean, strongly-typed component instance */}
         <CrudPage<State>
           title="States"
@@ -162,7 +166,7 @@ export default function StatesPage() {
           rowKey={(s) => s.id.toString()}
           isSaving={actionLoading}
           isLoading={loading} // Purely accepted now by your updated interface
-          
+
           rowCount={totalRecords}
           page={page}
           pageSize={size}
@@ -174,14 +178,16 @@ export default function StatesPage() {
               key: "name",
               header: "Name",
               accessor: (s) => <div className="py-2 text-left font-medium">{s.name}</div>,
-              searchValue: (s) => s.name
+              searchValue: (s) => s.name,
             },
             {
               key: "symbol",
               header: "Symbol (Code)",
-              accessor: (s) => <div className="font-mono py-2 text-left text-muted-foreground">{s.symbol}</div>,
-              searchValue: (s) => s.symbol
-            }
+              accessor: (s) => (
+                <div className="font-mono py-2 text-left text-muted-foreground">{s.symbol}</div>
+              ),
+              searchValue: (s) => s.symbol,
+            },
           ]}
           onDelete={handleDelete}
           renderForm={(initial, close) => (
@@ -192,7 +198,6 @@ export default function StatesPage() {
             />
           )}
         />
-
       </div>
     </div>
   );

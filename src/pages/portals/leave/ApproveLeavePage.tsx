@@ -133,7 +133,8 @@ const SAMPLE_MANAGER_LEAVES: LeaveRequest[] = [
     reason: "Emergency vehicle breakdown and home repairs.",
     status: "Rejected",
     appliedAt: "2026-08-14T16:45:00Z",
-    rejectionReason: "Store staffing is critically low during promotion weekend. Please coordinate with district shift lead.",
+    rejectionReason:
+      "Store staffing is critically low during promotion weekend. Please coordinate with district shift lead.",
   },
 ];
 
@@ -278,7 +279,9 @@ export default function ApproveLeavePage() {
       // ignore
     }
 
-    toast.success(`Leave request ${approvingLeave.id} for ${approvingLeave.userName} has been Approved.`);
+    toast.success(
+      `Leave request ${approvingLeave.id} for ${approvingLeave.userName} has been Approved.`,
+    );
     setApproveLoading(false);
     setApprovingLeave(null);
     setApproveNotes("");
@@ -319,7 +322,9 @@ export default function ApproveLeavePage() {
       // ignore
     }
 
-    toast.success(`Leave request ${rejectingLeave.id} for ${rejectingLeave.userName} has been Rejected.`);
+    toast.success(
+      `Leave request ${rejectingLeave.id} for ${rejectingLeave.userName} has been Rejected.`,
+    );
     setRejectLoading(false);
     setRejectingLeave(null);
     setRejectReason("");
@@ -371,9 +376,7 @@ export default function ApproveLeavePage() {
 
   // Toggle selection
   const toggleSelect = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   const selectAllPending = () => {
@@ -444,7 +447,9 @@ export default function ApproveLeavePage() {
         <div>
           <div className="font-medium text-sm text-foreground">{row.leaveType}</div>
           {row.isHalfDay ? (
-            <span className="text-[11px] text-muted-foreground">Half Day ({row.halfDayPeriod})</span>
+            <span className="text-[11px] text-muted-foreground">
+              Half Day ({row.halfDayPeriod})
+            </span>
           ) : (
             <span className="text-[11px] text-muted-foreground">Full Day</span>
           )}
@@ -457,7 +462,8 @@ export default function ApproveLeavePage() {
       cell: (row) => (
         <div className="text-sm">
           <div className="font-medium text-foreground">
-            {row.startDate} <span className="text-muted-foreground font-normal">to</span> {row.endDate}
+            {row.startDate} <span className="text-muted-foreground font-normal">to</span>{" "}
+            {row.endDate}
           </div>
           <div className="text-xs font-semibold text-primary">
             {row.totalDays} {row.totalDays === 1 ? "day" : "days"}
@@ -789,8 +795,8 @@ export default function ApproveLeavePage() {
                 Reject Leave Request
               </DialogTitle>
               <DialogDescription>
-                Decline leave request for <strong>{rejectingLeave.userName}</strong>. Please provide a
-                clear reason for the employee.
+                Decline leave request for <strong>{rejectingLeave.userName}</strong>. Please provide
+                a clear reason for the employee.
               </DialogDescription>
             </DialogHeader>
 
@@ -853,7 +859,9 @@ export default function ApproveLeavePage() {
                     LEAVE_STATUS_META[viewingLeave.status]?.tone || ""
                   }`}
                 >
-                  <span className={`h-1.5 w-1.5 rounded-full ${LEAVE_STATUS_META[viewingLeave.status]?.dot || ""}`} />
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${LEAVE_STATUS_META[viewingLeave.status]?.dot || ""}`}
+                  />
                   {viewingLeave.status}
                 </Badge>
               </div>
@@ -873,12 +881,15 @@ export default function ApproveLeavePage() {
                 <div>
                   <div className="text-xs text-muted-foreground">Market / Store</div>
                   <div className="font-semibold text-foreground mt-0.5">
-                    {viewingLeave.marketName || "—"} {viewingLeave.storeName ? `(${viewingLeave.storeName})` : ""}
+                    {viewingLeave.marketName || "—"}{" "}
+                    {viewingLeave.storeName ? `(${viewingLeave.storeName})` : ""}
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Leave Category</div>
-                  <div className="font-semibold text-foreground mt-0.5">{viewingLeave.leaveType}</div>
+                  <div className="font-semibold text-foreground mt-0.5">
+                    {viewingLeave.leaveType}
+                  </div>
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Total Duration</div>
@@ -921,7 +932,9 @@ export default function ApproveLeavePage() {
                   <div className="flex items-center gap-1.5 font-semibold text-emerald-700 dark:text-emerald-300 text-xs">
                     <CheckCircle2 className="h-4 w-4" />
                     Approved by {viewingLeave.approvedByName} on{" "}
-                    {viewingLeave.approvedAt ? new Date(viewingLeave.approvedAt).toLocaleDateString() : ""}
+                    {viewingLeave.approvedAt
+                      ? new Date(viewingLeave.approvedAt).toLocaleDateString()
+                      : ""}
                   </div>
                   {viewingLeave.managerNotes && (
                     <p className="mt-1 text-xs text-emerald-800 dark:text-emerald-200">

@@ -64,11 +64,12 @@ function CommissionAdminOnly({ children }: { children: ReactNode }) {
       const access = Array.isArray(u?.portalAccess) ? u.portalAccess : [];
       isAdmin = access.some(
         (p: any) =>
-          p?.portalName?.toLowerCase() === "commission" &&
-          p?.roleName?.toLowerCase() === "admin",
+          p?.portalName?.toLowerCase() === "commission" && p?.roleName?.toLowerCase() === "admin",
       );
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   if (!isAdmin) return <Navigate to="/commission/my-commission" replace />;
   return <>{children}</>;
 }
@@ -80,15 +81,8 @@ function isLeaveManager(): boolean {
     if (raw) {
       const u = JSON.parse(raw);
       const access = Array.isArray(u?.portalAccess) ? u.portalAccess : [];
-      const leaveAccess = access.find(
-        (p: any) => p?.portalName?.toLowerCase() === "leave",
-      );
-      const roleStr = (
-        leaveAccess?.roleName ||
-        u?.roleName ||
-        u?.role ||
-        "user"
-      )
+      const leaveAccess = access.find((p: any) => p?.portalName?.toLowerCase() === "leave");
+      const roleStr = (leaveAccess?.roleName || u?.roleName || u?.role || "user")
         .toLowerCase()
         .replace(/[\s_-]/g, "");
 
@@ -101,7 +95,9 @@ function isLeaveManager(): boolean {
         "marketmanager",
       ].includes(roleStr);
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return false;
 }
 
@@ -128,7 +124,9 @@ function NotFound() {
       <div className="max-w-md text-center">
         <h1 className="font-display text-7xl font-bold text-foreground">404</h1>
         <h2 className="mt-4 text-xl font-semibold">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">The page you're looking for doesn't exist.</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          The page you're looking for doesn't exist.
+        </p>
       </div>
     </div>
   );
@@ -137,7 +135,6 @@ function NotFound() {
 export function AppRoutes() {
   return (
     <Routes>
-
       // ---------- Authentication ---------- //
       <Route path="/" element={<Navigate to="/ai-chat" replace />} />
       <Route path="/login" element={<LoginPage />} />
@@ -145,45 +142,84 @@ export function AppRoutes() {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/setup-2fa" element={<Setup2FAPage />} />
       <Route path="/verify-2fa" element={<Verify2FAPage />} />
-
-      <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-
+      <Route
+        element={
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        }
+      >
         // ---------- Dashboard ---------- //
         <Route path="/ai-chat" element={<AiChatPage />} />
         <Route path="/chat" element={<TeamChatPage />} />
         <Route path="/settings" element={<SettingsPage />} />
-
         // ---------- Ticketing Portal ---------- //
         <Route path="/ticketing/dashboard" element={<TicketingDashboardPage />} />
         <Route path="/ticketing/tickets" element={<TicketsPage />} />
         <Route path="/ticketing/tickets/:id" element={<TicketDetailPage />} />
         <Route path="/ticketing/external" element={<ExternalPage />} />
-
         // ---------- Commission Portal ---------- //
-        <Route path="/commission/dashboard" element={<CommissionAdminOnly><CommissionDashboardPage /></CommissionAdminOnly>} />
+        <Route
+          path="/commission/dashboard"
+          element={
+            <CommissionAdminOnly>
+              <CommissionDashboardPage />
+            </CommissionAdminOnly>
+          }
+        />
         <Route path="/commission/my-commission" element={<CommissionPage />} />
         <Route path="/commission/privacy" element={<Privacy />} />
         <Route path="/commission/support" element={<Support />} />
-
         // ---------- Ranker Portal ---------- //
         <Route path="/ranker/dashboard" element={<RankerDashboardPage />} />
         <Route path="/ranker/standings" element={<StandingsPage />} />
         <Route path="/ranker/standings/detail" element={<StandingsDetailPage />} />
-
         // ---------- Lease / Scheduling Portals ---------- //
         <Route path="/lease/dashboard" element={<ComingSoon title="Lease Portal Dashboard" />} />
-        <Route path="/leasing/dashboard" element={<ComingSoon title="Leasing Portal Dashboard" />} />
-        <Route path="/scheduling/dashboard" element={<ComingSoon title="Scheduling Portal Dashboard" />} />
-
+        <Route
+          path="/leasing/dashboard"
+          element={<ComingSoon title="Leasing Portal Dashboard" />}
+        />
+        <Route
+          path="/scheduling/dashboard"
+          element={<ComingSoon title="Scheduling Portal Dashboard" />}
+        />
         // ---------- Leave Portal ---------- //
         <Route path="/leave" element={<LeaveDashboardRedirect />} />
         <Route path="/leave/dashboard" element={<LeaveDashboardRedirect />} />
-        <Route path="/leave/request" element={<LeaveRequestOnly><RequestLeavePage /></LeaveRequestOnly>} />
-        <Route path="/leave/my-leaves" element={<LeaveRequestOnly><RequestLeavePage /></LeaveRequestOnly>} />
-        <Route path="/leave/approve" element={<LeaveApproveOnly><ApproveLeavePage /></LeaveApproveOnly>} />
-        <Route path="/leave/approvals" element={<LeaveApproveOnly><ApproveLeavePage /></LeaveApproveOnly>} />
+        <Route
+          path="/leave/request"
+          element={
+            <LeaveRequestOnly>
+              <RequestLeavePage />
+            </LeaveRequestOnly>
+          }
+        />
+        <Route
+          path="/leave/my-leaves"
+          element={
+            <LeaveRequestOnly>
+              <RequestLeavePage />
+            </LeaveRequestOnly>
+          }
+        />
+        <Route
+          path="/leave/approve"
+          element={
+            <LeaveApproveOnly>
+              <ApproveLeavePage />
+            </LeaveApproveOnly>
+          }
+        />
+        <Route
+          path="/leave/approvals"
+          element={
+            <LeaveApproveOnly>
+              <ApproveLeavePage />
+            </LeaveApproveOnly>
+          }
+        />
         <Route path="/attendance/dashboard" element={<LeaveDashboardRedirect />} />
-
         // ---------- User Manager ---------- //
         <Route path="/admin/users" element={<UsersPage />} />
         <Route path="/admin/users/:id" element={<UserDetailPage />} />
@@ -194,11 +230,9 @@ export function AppRoutes() {
         <Route path="/admin/houses" element={<HousesPage />} />
         <Route path="/admin/stores" element={<StoresPage />} />
         <Route path="/admin/external" element={<ExternalPage />} />
-
         {/* Custom 404 page — keeps sidebar + header visible */}
         <Route path="*" element={<NotFoundInApp />} />
       </Route>
-
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
