@@ -38,7 +38,7 @@ export default function RequestLeavePage() {
   const [selectedMarketId, setSelectedMarketId] = useState<number>(0);
   const [selectedManagerId, setSelectedManagerId] = useState<number>(0);
   const [ntidEmail, setNtidEmail] = useState<string>(
-    user?.email || user?.name || "",
+    user?.email || "",
   );
   const [reason, setReason] = useState<string>("");
 
