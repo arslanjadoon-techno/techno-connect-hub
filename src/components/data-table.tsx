@@ -20,19 +20,22 @@ import { Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 export interface Column<T> {
   key: string;
-  header: string;
-  accessor: (row: T) => ReactNode;
+  header: ReactNode;
+  accessor?: (row: T) => ReactNode;
+  cell?: (row: T) => ReactNode;
   searchValue?: (row: T) => string;
   className?: string;
   sortValue?: (row: T) => string | number;
 }
 
 interface Props<T> {
-  rows: T[];
+  rows?: T[];
+  data?: T[];
   columns: Column<T>[];
   pageSize?: number;
-  rowKey: (row: T) => string;
+  rowKey?: (row: T) => string;
   empty?: ReactNode;
+  emptyMessage?: ReactNode;
   toolbar?: ReactNode;
   searchPlaceholder?: string;
   onRowClick?: (row: T) => void;
@@ -42,6 +45,7 @@ interface Props<T> {
   onPageChange?: (newPage: number) => void;
   onPageSizeChange?: (size: number) => void;
   isLoading?: boolean;
+  loading?: boolean;
 }
 
 const PAGE_SIZE_KEY = "app-table-page-size";
@@ -55,11 +59,13 @@ function getStoredPageSize(fallback: number) {
 }
 
 export function DataTable<T>({
-  rows,
-  columns,
+  rows: rowsProp,
+  data: dataProp,
+  columns = [],
   pageSize: pageSizeProp = 15,
   rowKey,
   empty,
+  emptyMessage,
   toolbar,
   searchPlaceholder = "Search...",
   onRowClick,
@@ -67,11 +73,38 @@ export function DataTable<T>({
   page: serverPage,
   onPageChange,
   onPageSizeChange,
-  isLoading = false,
+  isLoading: isLoadingProp = false,
+  loading: loadingProp = false,
 }: Props<T>) {
   const [query, setQuery] = useState("");
   const [localPage, setLocalPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(() => getStoredPageSize(pageSizeProp));
+
+  const rawRows = rowsProp ?? dataProp ?? [];
+  const rows = useMemo(() => (Array.isArray(rawRows) ? rawRows : []), [rawRows]);
+  const isLoading = Boolean(isLoadingProp || loadingProp);
+  const emptyContent = empty ?? emptyMessage ?? "No results";
+
+  const getRowKey = (row: T, idx: number): string => {
+    if (rowKey) return rowKey(row);
+    if (row && typeof row === "object") {
+      const obj = row as Record<string, unknown>;
+      if (obj.id !== undefined && obj.id !== null) return String(obj.id);
+      if (obj._id !== undefined && obj._id !== null) return String(obj._id);
+      if (obj.key !== undefined && obj.key !== null) return String(obj.key);
+    }
+    return String(idx);
+  };
+
+  const renderCellContent = (c: Column<T>, row: T) => {
+    if (typeof c.cell === "function") return c.cell(row);
+    if (typeof c.accessor === "function") return c.accessor(row);
+    if (row && typeof row === "object") {
+      const val = (row as Record<string, unknown>)[c.key];
+      if (typeof val === "string" || typeof val === "number") return val;
+    }
+    return null;
+  };
 
   // Listen for cross-table size changes
   useEffect(() => {
@@ -117,22 +150,32 @@ export function DataTable<T>({
     if (!q) return rows;
     return rows.filter((row) =>
       columns.some((c) => {
-        const v = c.searchValue
-          ? c.searchValue(row)
-          : typeof c.accessor(row) === "string"
-            ? (c.accessor(row) as string)
-            : "";
-        return v.toLowerCase().includes(q);
+        if (c.searchValue) {
+          return c.searchValue(row).toLowerCase().includes(q);
+        }
+        if (typeof c.accessor === "function") {
+          const val = c.accessor(row);
+          if (typeof val === "string" || typeof val === "number") {
+            return String(val).toLowerCase().includes(q);
+          }
+        }
+        if (row && typeof row === "object") {
+          const rawVal = (row as Record<string, unknown>)[c.key];
+          if (typeof rawVal === "string" || typeof rawVal === "number") {
+            return String(rawVal).toLowerCase().includes(q);
+          }
+        }
+        return false;
       }),
     );
   }, [rows, query, columns]);
 
-  const totalRecords = isServerPagination ? rowCount! : filtered.length;
+  const totalRecords = isServerPagination ? rowCount! : (filtered?.length || 0);
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
   const safePageDisplay = isServerPagination ? activePage + 1 : activePage;
   const tableDataSlice = isServerPagination
     ? rows
-    : filtered.slice((activePage - 1) * pageSize, activePage * pageSize);
+    : (filtered || []).slice((activePage - 1) * pageSize, activePage * pageSize);
 
   const handlePageSwitch = (target: number) => {
     if (isLoading) return;
@@ -175,19 +218,31 @@ export function DataTable<T>({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {tableDataSlice.length === 0 ? (
+            {isLoading ? (
               <TableRow>
                 <TableCell
-                  colSpan={columns.length}
+                  colSpan={Math.max(1, columns.length)}
                   className="h-32 text-center text-muted-foreground"
                 >
-                  {empty ?? "No results"}
+                  <div className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    <span>Loading data...</span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : tableDataSlice.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={Math.max(1, columns.length)}
+                  className="h-32 text-center text-muted-foreground"
+                >
+                  {emptyContent}
                 </TableCell>
               </TableRow>
             ) : (
-              tableDataSlice.map((row) => (
+              tableDataSlice.map((row, idx) => (
                 <TableRow
-                  key={rowKey(row)}
+                  key={getRowKey(row, idx)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   className={
                     onRowClick ? "cursor-pointer transition-colors hover:bg-accent/50" : undefined
@@ -195,7 +250,7 @@ export function DataTable<T>({
                 >
                   {columns.map((c) => (
                     <TableCell key={c.key} className={c.className}>
-                      {c.accessor(row)}
+                      {renderCellContent(c, row)}
                     </TableCell>
                   ))}
                 </TableRow>
