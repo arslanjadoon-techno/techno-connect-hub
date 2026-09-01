@@ -24,6 +24,8 @@ import ExternalPage from "@/pages/portals/ticketing/ExternalPage";
 // ---------- Commission Portal ---------- //
 import CommissionDashboardPage from "@/pages/portals/commission/DashboardPage";
 import CommissionPage from "@/pages/portals/commission/CommissionPage";
+import Support from "@/pages/portals/commission/Support";
+import Privacy from "@/pages/portals/commission/Privacy";
 
 // ---------- Ranker Portal ---------- //
 import RankerDashboardPage from "@/pages/portals/ranker/DashboardPage";
@@ -107,6 +109,8 @@ export function AppRoutes() {
         // ---------- Commission Portal ---------- //
         <Route path="/commission/dashboard" element={<CommissionAdminOnly><CommissionDashboardPage /></CommissionAdminOnly>} />
         <Route path="/commission/my-commission" element={<CommissionPage />} />
+        <Route path="/commission/privacy" element={<Privacy />} />
+        <Route path="/commission/support" element={<Support />} />
 
         // ---------- Ranker Portal ---------- //
         <Route path="/ranker/dashboard" element={<RankerDashboardPage />} />
