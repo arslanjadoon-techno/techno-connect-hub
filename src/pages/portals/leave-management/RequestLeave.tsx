@@ -2,17 +2,12 @@ import React, { useState, useEffect, useMemo, ChangeEvent } from "react";
 import {
   Building2,
   User,
-  Mail,
   Calendar as CalendarIcon,
-  Plus,
   ChevronLeft,
   ChevronRight,
   Loader2,
-  RefreshCw,
   CheckCircle2,
   XCircle,
-  Clock,
-  Info,
 } from "lucide-react";
 import {
   getMarkets,
@@ -22,38 +17,41 @@ import {
   Market,
   Manager,
   LeaveResponse,
-  FALLBACK_MARKETS,
-  FALLBACK_MANAGERS,
 } from "@/services/leave-management/request-leave.service";
 import { useAuth } from "@/lib/auth";
 
 export default function RequestLeavePage() {
   const { user } = useAuth();
 
-  // Lookups & Data States
-  const [markets, setMarkets] = useState<Market[]>(FALLBACK_MARKETS);
-  const [managers, setManagers] = useState<Manager[]>(FALLBACK_MANAGERS);
+  // Pure API States - No Default / Fallback Records
+  const [markets, setMarkets] = useState<Market[]>([]);
+  const [managers, setManagers] = useState<Manager[]>([]);
   const [historyRequests, setHistoryRequests] = useState<LeaveResponse[]>([]);
+  const [loadingMarkets, setLoadingMarkets] = useState<boolean>(true);
+  const [loadingManagers, setLoadingManagers] = useState<boolean>(false);
   const [loadingHistory, setLoadingHistory] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Form Fields (Initialized matching screenshot)
-  const [selectedMarketId, setSelectedMarketId] = useState<number>(1);
-  const [selectedManagerId, setSelectedManagerId] = useState<number>(22);
+  // Form Fields - No Hardcoded Values
+  const [selectedMarketId, setSelectedMarketId] = useState<number>(0);
+  const [selectedManagerId, setSelectedManagerId] = useState<number>(0);
   const [ntidEmail, setNtidEmail] = useState<string>(
-    user?.email || "QKY93802",
+    user?.email || user?.name || "",
   );
   const [reason, setReason] = useState<string>("");
 
   // Selected Dates (Array of "YYYY-MM-DD" strings)
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
 
-  // Calendar View Month State (Defaults to September 2026 as per screenshot)
-  const [calendarDate, setCalendarDate] = useState<Date>(new Date(2026, 8, 1));
+  // Calendar View Month State (Defaults to current month)
+  const [calendarDate, setCalendarDate] = useState<Date>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
 
-  // Current Employee ID
+  // Current Employee ID from Auth / Storage
   const employeeId = useMemo(() => {
     let id = Number(localStorage.getItem("userId")) || 0;
     if (!id && user?.id) id = Number(user.id) || 0;
@@ -68,29 +66,34 @@ export default function RequestLeavePage() {
         /* ignore */
       }
     }
-    return id > 0 ? id : 66; // Fallback to 66 per spec
+    return id;
   }, [user]);
 
   // Load Markets and Leave History on Mount
   useEffect(() => {
     async function init() {
+      setLoadingMarkets(true);
+      setLoadingHistory(true);
       try {
         const [marketsData, historyData] = await Promise.all([
           getMarkets(),
-          getMyLeaveRequests(employeeId),
+          employeeId > 0 ? getMyLeaveRequests(employeeId) : Promise.resolve([]),
         ]);
-        if (marketsData && marketsData.length > 0) {
+
+        if (Array.isArray(marketsData)) {
           setMarkets(marketsData);
-          if (!marketsData.some((m) => m.id === selectedMarketId)) {
+          if (marketsData.length > 0) {
             setSelectedMarketId(marketsData[0].id);
           }
         }
-        if (historyData) {
+
+        if (Array.isArray(historyData)) {
           setHistoryRequests(historyData);
         }
-      } catch (err: any) {
-        console.warn("Init error in leave request page:", err);
+      } catch (err: unknown) {
+        console.error("Init error in leave request page:", err);
       } finally {
+        setLoadingMarkets(false);
         setLoadingHistory(false);
       }
     }
@@ -99,21 +102,33 @@ export default function RequestLeavePage() {
 
   // Fetch Managers when selected market changes
   useEffect(() => {
+    if (!selectedMarketId) {
+      setManagers([]);
+      setSelectedManagerId(0);
+      return;
+    }
+
     async function loadManagers() {
+      setLoadingManagers(true);
       try {
         const mgrs = await getManagersByMarket(selectedMarketId);
-        if (mgrs && mgrs.length > 0) {
+        if (Array.isArray(mgrs)) {
           setManagers(mgrs);
-          if (!mgrs.some((m) => m.id === selectedManagerId)) {
+          if (mgrs.length > 0) {
             setSelectedManagerId(mgrs[0].id);
+          } else {
+            setSelectedManagerId(0);
           }
         } else {
-          setManagers(FALLBACK_MANAGERS);
-          setSelectedManagerId(FALLBACK_MANAGERS[0].id);
+          setManagers([]);
+          setSelectedManagerId(0);
         }
-      } catch (err: any) {
-        console.warn("Error fetching managers:", err);
-        setManagers(FALLBACK_MANAGERS);
+      } catch (err: unknown) {
+        console.error("Error fetching managers:", err);
+        setManagers([]);
+        setSelectedManagerId(0);
+      } finally {
+        setLoadingManagers(false);
       }
     }
     loadManagers();
@@ -128,7 +143,7 @@ export default function RequestLeavePage() {
     return `${y}-${m}-${d}`;
   }, []);
 
-  // Map of date statuses calculated from leave history
+  // Map of date statuses calculated from direct leave history
   const dateStatusMap = useMemo(() => {
     const approvedDates = new Set<string>();
     const pendingDates = new Set<string>();
@@ -136,6 +151,7 @@ export default function RequestLeavePage() {
     historyRequests.forEach((req) => {
       if (req.days && req.days.length > 0) {
         req.days.forEach((day) => {
+          if (!day.leaveDate) return;
           const dStr = day.leaveDate.split("T")[0];
           if (day.status === 1) {
             approvedDates.add(dStr);
@@ -248,6 +264,16 @@ export default function RequestLeavePage() {
     setErrorMsg(null);
     setSuccessMsg(null);
 
+    if (!selectedMarketId) {
+      setErrorMsg("Please select a market.");
+      return;
+    }
+
+    if (!selectedManagerId) {
+      setErrorMsg("Please select a manager.");
+      return;
+    }
+
     if (selectedDates.length === 0) {
       setErrorMsg("Please select at least one date for your leave request.");
       return;
@@ -265,7 +291,7 @@ export default function RequestLeavePage() {
       const toDate = `${sorted[sorted.length - 1]}T00:00:00.000Z`;
 
       await submitLeaveRequest({
-        employeeId,
+        employeeId: employeeId || 0,
         marketId: selectedMarketId,
         managerId: selectedManagerId,
         fromDate,
@@ -277,13 +303,19 @@ export default function RequestLeavePage() {
       setReason("");
       setSelectedDates([]);
 
-      // Refresh History
-      const updated = await getMyLeaveRequests(employeeId);
-      setHistoryRequests(updated);
+      // Refresh History with live API
+      if (employeeId > 0) {
+        const updated = await getMyLeaveRequests(employeeId);
+        setHistoryRequests(updated);
+      }
 
       setTimeout(() => setSuccessMsg(null), 5000);
-    } catch (err: any) {
-      setErrorMsg(err?.message || "Failed to submit leave request");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setErrorMsg(err.message);
+      } else {
+        setErrorMsg("Failed to submit leave request");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -375,13 +407,20 @@ export default function RequestLeavePage() {
                   onChange={(e: ChangeEvent<HTMLSelectElement>) =>
                     setSelectedMarketId(Number(e.target.value))
                   }
-                  className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs sm:text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 shadow-sm cursor-pointer"
+                  disabled={loadingMarkets || markets.length === 0}
+                  className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs sm:text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 shadow-sm cursor-pointer disabled:opacity-60"
                 >
-                  {markets.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.name}
-                    </option>
-                  ))}
+                  {loadingMarkets ? (
+                    <option value={0}>Loading markets...</option>
+                  ) : markets.length === 0 ? (
+                    <option value={0}>No markets available</option>
+                  ) : (
+                    markets.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.name}
+                      </option>
+                    ))
+                  )}
                 </select>
                 <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
                   <ChevronRight className="w-4 h-4 rotate-90" />
@@ -401,13 +440,20 @@ export default function RequestLeavePage() {
                   onChange={(e: ChangeEvent<HTMLSelectElement>) =>
                     setSelectedManagerId(Number(e.target.value))
                   }
-                  className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs sm:text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 shadow-sm cursor-pointer"
+                  disabled={loadingManagers || managers.length === 0}
+                  className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs sm:text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 shadow-sm cursor-pointer disabled:opacity-60"
                 >
-                  {managers.map((mgr) => (
-                    <option key={mgr.id} value={mgr.id}>
-                      {mgr.name}
-                    </option>
-                  ))}
+                  {loadingManagers ? (
+                    <option value={0}>Loading managers...</option>
+                  ) : managers.length === 0 ? (
+                    <option value={0}>No managers available</option>
+                  ) : (
+                    managers.map((mgr) => (
+                      <option key={mgr.id} value={mgr.id}>
+                        {mgr.name}
+                      </option>
+                    ))
+                  )}
                 </select>
                 <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
                   <ChevronRight className="w-4 h-4 rotate-90" />
@@ -416,7 +462,7 @@ export default function RequestLeavePage() {
             </div>
 
             {/* NTID / Email Input */}
-            {/* <div className="space-y-1.5">
+            <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-600 flex items-center space-x-1.5">
                 <User className="w-3.5 h-3.5 text-slate-400" />
                 <span>NTID / Email</span>
@@ -428,7 +474,7 @@ export default function RequestLeavePage() {
                 placeholder="Enter NTID or Email"
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs sm:text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 shadow-sm"
               />
-            </div> */}
+            </div>
           </div>
 
           {/* Select Dates Calendar Section */}
@@ -658,12 +704,12 @@ export default function RequestLeavePage() {
                     >
                       {/* MARKET */}
                       <td className="py-4 pr-4 font-bold text-slate-900 uppercase">
-                        {req.marketName || "ARIZONA"}
+                        {req.marketName || "—"}
                       </td>
 
                       {/* MANAGER */}
                       <td className="py-4 pr-4 font-medium text-slate-600">
-                        {req.managerName || "Ali Khan"}
+                        {req.managerName || "—"}
                       </td>
 
                       {/* SELECTED DATES */}

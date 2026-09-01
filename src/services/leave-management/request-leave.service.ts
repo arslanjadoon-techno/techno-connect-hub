@@ -71,129 +71,7 @@ export interface SubmitLeavePayload {
   reason: string;
 }
 
-// Fallback Markets from API Specification
-export const FALLBACK_MARKETS: Market[] = [
-  { id: 1, name: "ARIZONA" },
-  { id: 2, name: "ARKANSAS" },
-  { id: 3, name: "BAY AREA" },
-  { id: 4, name: "COLORADO" },
-  { id: 5, name: "DALLAS" },
-  { id: 6, name: "EAST BAY AREA" },
-  { id: 7, name: "EL PASO" },
-  { id: 8, name: "FLORIDA" },
-  { id: 9, name: "GEORGIA" },
-  { id: 10, name: "HOUSTON" },
-  { id: 11, name: "KENTUCKY" },
-  { id: 12, name: "LOS ANGELES" },
-  { id: 13, name: "MEMPHIS" },
-  { id: 14, name: "NASHVILLE" },
-  { id: 15, name: "NORTH BAY AREA" },
-  { id: 16, name: "NORTH CAROLINA" },
-  { id: 17, name: "OKHLAHOMA" },
-  { id: 18, name: "OREGON" },
-  { id: 19, name: "OXNARD" },
-  { id: 20, name: "PALMDALE" },
-  { id: 21, name: "PASO ROBLES" },
-  { id: 22, name: "SACRAMENTO" },
-  { id: 23, name: "SAN DIEGO" },
-  { id: 24, name: "SAN FRANCISCO" },
-  { id: 25, name: "SANTA BARBARA" },
-  { id: 26, name: "PHILY" },
-  { id: 27, name: "BOSTON" },
-  { id: 28, name: "UTAH" },
-  { id: 29, name: "CHARLOTTE" },
-];
-
-// Fallback Managers from API Specification
-export const FALLBACK_MANAGERS: Manager[] = [
-  { id: 22, name: "Ali Khan" },
-  { id: 92, name: "Akbar" },
-  { id: 93, name: "Ali Hamza" },
-];
-
-// Fallback My Requests
-export const FALLBACK_MY_REQUESTS: LeaveResponse[] = [
-  {
-    id: 55,
-    employeeId: 66,
-    employeeName: "GEORGE DEVAMDAKAM",
-    marketId: 1,
-    marketName: "ARIZONA",
-    managerId: 22,
-    managerName: "Ali Khan",
-    fromDate: "2026-08-28T00:00:00",
-    toDate: "2026-08-31T00:00:00",
-    reason: "rejected leave request",
-    status: 2,
-    createdAt: "2026-07-30T23:21:08",
-    days: [
-      { id: 22, leaveDate: "2026-08-28T00:00:00", status: 2, managerComment: "rejected" },
-      { id: 23, leaveDate: "2026-08-29T00:00:00", status: 2, managerComment: "rejected" },
-      { id: 24, leaveDate: "2026-08-30T00:00:00", status: 2, managerComment: "rejected" },
-      { id: 25, leaveDate: "2026-08-31T00:00:00", status: 2, managerComment: "rejected" },
-    ],
-  },
-  {
-    id: 53,
-    employeeId: 66,
-    employeeName: "GEORGE DEVAMDAKAM",
-    marketId: 1,
-    marketName: "ARIZONA",
-    managerId: 22,
-    managerName: "Ali Khan",
-    fromDate: "2026-08-01T00:00:00",
-    toDate: "2026-08-06T00:00:00",
-    reason: "test leaves",
-    status: 3,
-    createdAt: "2026-07-30T23:19:21",
-    days: [
-      { id: 10, leaveDate: "2026-08-01T00:00:00", status: 1, managerComment: "partial approved" },
-      { id: 11, leaveDate: "2026-08-02T00:00:00", status: 1, managerComment: "partial approved" },
-      { id: 12, leaveDate: "2026-08-03T00:00:00", status: 1, managerComment: "partial approved" },
-      { id: 13, leaveDate: "2026-08-04T00:00:00", status: 1, managerComment: "partial approved" },
-      { id: 14, leaveDate: "2026-08-05T00:00:00", status: 2, managerComment: "partial approved" },
-      { id: 15, leaveDate: "2026-08-06T00:00:00", status: 2, managerComment: "partial approved" },
-    ],
-  },
-  {
-    id: 52,
-    employeeId: 66,
-    employeeName: "GEORGE DEVAMDAKAM",
-    marketId: 1,
-    marketName: "ARIZONA",
-    managerId: 22,
-    managerName: "Ali Khan",
-    fromDate: "2026-08-08T00:00:00",
-    toDate: "2026-08-10T00:00:00",
-    reason: "8, 9, 1000",
-    status: 2,
-    createdAt: "2026-07-30T22:21:11",
-    days: [
-      { id: 7, leaveDate: "2026-08-08T00:00:00", status: 2, managerComment: "" },
-      { id: 8, leaveDate: "2026-08-09T00:00:00", status: 2, managerComment: "" },
-      { id: 9, leaveDate: "2026-08-10T00:00:00", status: 2, managerComment: "" },
-    ],
-  },
-  {
-    id: 51,
-    employeeId: 66,
-    employeeName: "GEORGE DEVAMDAKAM",
-    marketId: 1,
-    marketName: "ARIZONA",
-    managerId: 22,
-    managerName: "Ali Khan",
-    fromDate: "2026-07-31T00:00:00",
-    toDate: "2026-07-31T00:00:00",
-    reason: "31st leave",
-    status: 1,
-    createdAt: "2026-07-30T20:39:27",
-    days: [
-      { id: 6, leaveDate: "2026-07-31T00:00:00", status: 1, managerComment: "approved" },
-    ],
-  },
-];
-
-// 1. Fetch Markets
+// 1. Fetch Markets - Direct API without fallback
 export async function getMarkets(signal?: AbortSignal): Promise<Market[]> {
   try {
     const res = await fetch(`${baseURL}/Markets`, {
@@ -206,28 +84,28 @@ export async function getMarkets(signal?: AbortSignal): Promise<Market[]> {
     });
 
     if (!res.ok) {
-      console.warn("Markets API returned non-200 status, using fallback markets.");
-      return FALLBACK_MARKETS;
+      const errorText = await res.text().catch(() => "");
+      console.error(`Markets API error (${res.status}):`, errorText);
+      return [];
     }
     const data = await res.json();
-    return Array.isArray(data) && data.length > 0 ? data : FALLBACK_MARKETS;
+    return Array.isArray(data) ? data : [];
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "AbortError") throw err;
-    console.warn("Error fetching markets, using fallback:", err);
-    return FALLBACK_MARKETS;
+    console.error("Error fetching markets from API:", err);
+    return [];
   }
 }
 
-// 2. Fetch Managers for a selected market
+// 2. Fetch Managers for a selected market - Direct API without fallback
 export async function getManagersByMarket(
   marketId: number,
   signal?: AbortSignal,
 ): Promise<Manager[]> {
-  if (!marketId) return FALLBACK_MANAGERS;
+  if (!marketId) return [];
 
   try {
-    // Try /Managers?marketId= first
-    let res = await fetch(`${baseURL}/Managers?marketId=${marketId}`, {
+    const res = await fetch(`${baseURL}/Managers?marketId=${marketId}`, {
       method: "GET",
       headers: {
         accept: "application/json",
@@ -237,43 +115,35 @@ export async function getManagersByMarket(
     });
 
     if (!res.ok) {
-      // Fallback to /ManagerRequests?managerId=
-      res = await fetch(`${baseURL}/ManagerRequests?managerId=${marketId}`, {
-        method: "GET",
-        headers: {
-          accept: "application/json",
-          Authorization: getAuthToken(),
-        },
-        signal,
-      });
+      const errorText = await res.text().catch(() => "");
+      console.error(`Managers API error (${res.status}):`, errorText);
+      return [];
     }
 
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data) && data.length > 0) {
-        // If items have name/id
-        return data.map((m: any) => ({
-          id: m.id || m.managerId || 22,
-          name: m.name || m.managerName || "Ali Khan",
-        }));
-      }
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      return data.map((m: { id?: number; managerId?: number; name?: string; managerName?: string }) => ({
+        id: m.id ?? m.managerId ?? 0,
+        name: m.name ?? m.managerName ?? "Unknown Manager",
+      }));
     }
-    return FALLBACK_MANAGERS;
+    return [];
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "AbortError") throw err;
-    console.warn("Error fetching managers, using fallback:", err);
-    return FALLBACK_MANAGERS;
+    console.error("Error fetching managers from API:", err);
+    return [];
   }
 }
 
-// 3. Fetch My Requests (for logged in employee)
+// 3. Fetch My Requests - Direct API without fallback
 export async function getMyLeaveRequests(
   employeeId?: number | string,
   signal?: AbortSignal,
 ): Promise<LeaveResponse[]> {
-  const targetEmployeeId = employeeId || 66;
+  if (!employeeId) return [];
+
   try {
-    const res = await fetch(`${baseURL}/MyRequests?employeeId=${targetEmployeeId}`, {
+    const res = await fetch(`${baseURL}/MyRequests?employeeId=${employeeId}`, {
       method: "GET",
       headers: {
         accept: "*/*",
@@ -283,16 +153,17 @@ export async function getMyLeaveRequests(
     });
 
     if (!res.ok) {
-      console.warn("MyRequests API returned non-200, using fallback data");
-      return FALLBACK_MY_REQUESTS;
+      const errorText = await res.text().catch(() => "");
+      console.error(`MyRequests API error (${res.status}):`, errorText);
+      return [];
     }
 
     const data = await res.json();
-    return Array.isArray(data) && data.length > 0 ? data : FALLBACK_MY_REQUESTS;
+    return Array.isArray(data) ? data : [];
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "AbortError") throw err;
-    console.warn("Error fetching my leave requests, using fallback:", err);
-    return FALLBACK_MY_REQUESTS;
+    console.error("Error fetching my leave requests from API:", err);
+    return [];
   }
 }
 

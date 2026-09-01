@@ -34,120 +34,38 @@ export interface DecideDayPayload {
   managerComment: string;
 }
 
-export const FALLBACK_MANAGER_REQUESTS: APILeaveRequest[] = [
-  {
-    id: 56,
-    employeeId: 1071,
-    employeeName: "JAWAD MOHAMMED",
-    marketId: 1,
-    marketName: "ARIZONA",
-    managerId: 22,
-    managerName: "Ali Khan",
-    fromDate: "2026-08-02T00:00:00",
-    toDate: "2026-08-04T00:00:00",
-    reason: "leave request for 2, 3, and 4 August.",
-    status: 1,
-    createdAt: "2026-08-01T19:33:55",
-    days: [
-      { id: 26, leaveDate: "2026-08-02T00:00:00", status: 1, managerComment: "approved" },
-      { id: 27, leaveDate: "2026-08-03T00:00:00", status: 1, managerComment: "approved" },
-      { id: 28, leaveDate: "2026-08-04T00:00:00", status: 1, managerComment: "approved" },
-    ],
-  },
-  {
-    id: 55,
-    employeeId: 66,
-    employeeName: "GEORGE DEVAMDAKAM",
-    marketId: 1,
-    marketName: "ARIZONA",
-    managerId: 22,
-    managerName: "Ali Khan",
-    fromDate: "2026-08-28T00:00:00",
-    toDate: "2026-08-31T00:00:00",
-    reason: "rejected leave request",
-    status: 2,
-    createdAt: "2026-07-30T23:21:08",
-    days: [
-      { id: 22, leaveDate: "2026-08-28T00:00:00", status: 2, managerComment: "rejected" },
-      { id: 23, leaveDate: "2026-08-29T00:00:00", status: 2, managerComment: "rejected" },
-      { id: 24, leaveDate: "2026-08-30T00:00:00", status: 2, managerComment: "rejected" },
-      { id: 25, leaveDate: "2026-08-31T00:00:00", status: 2, managerComment: "rejected" },
-    ],
-  },
-  {
-    id: 53,
-    employeeId: 66,
-    employeeName: "GEORGE DEVAMDAKAM",
-    marketId: 1,
-    marketName: "ARIZONA",
-    managerId: 22,
-    managerName: "Ali Khan",
-    fromDate: "2026-08-01T00:00:00",
-    toDate: "2026-08-06T00:00:00",
-    reason: "test leaves",
-    status: 3,
-    createdAt: "2026-07-30T23:19:21",
-    days: [
-      { id: 10, leaveDate: "2026-08-01T00:00:00", status: 1, managerComment: "partial approved" },
-      { id: 11, leaveDate: "2026-08-02T00:00:00", status: 1, managerComment: "partial approved" },
-      { id: 12, leaveDate: "2026-08-03T00:00:00", status: 1, managerComment: "partial approved" },
-      { id: 13, leaveDate: "2026-08-04T00:00:00", status: 1, managerComment: "partial approved" },
-      { id: 14, leaveDate: "2026-08-05T00:00:00", status: 2, managerComment: "partial approved" },
-      { id: 15, leaveDate: "2026-08-06T00:00:00", status: 2, managerComment: "partial approved" },
-    ],
-  },
-  {
-    id: 52,
-    employeeId: 66,
-    employeeName: "GEORGE DEVAMDAKAM",
-    marketId: 1,
-    marketName: "ARIZONA",
-    managerId: 22,
-    managerName: "Ali Khan",
-    fromDate: "2026-08-08T00:00:00",
-    toDate: "2026-08-10T00:00:00",
-    reason: "8, 9, 1000",
-    status: 2,
-    createdAt: "2026-07-30T22:21:11",
-    days: [
-      { id: 7, leaveDate: "2026-08-08T00:00:00", status: 2, managerComment: "" },
-      { id: 8, leaveDate: "2026-08-09T00:00:00", status: 2, managerComment: "" },
-      { id: 9, leaveDate: "2026-08-10T00:00:00", status: 2, managerComment: "" },
-    ],
-  },
-  {
-    id: 51,
-    employeeId: 66,
-    employeeName: "GEORGE DEVAMDAKAM",
-    marketId: 1,
-    marketName: "ARIZONA",
-    managerId: 22,
-    managerName: "Ali Khan",
-    fromDate: "2026-07-31T00:00:00",
-    toDate: "2026-07-31T00:00:00",
-    reason: "31st leave",
-    status: 1,
-    createdAt: "2026-07-30T20:39:27",
-    days: [
-      { id: 6, leaveDate: "2026-07-31T00:00:00", status: 1, managerComment: "approved" },
-    ],
-  },
-];
-
 // Token Helper Function
 const getAuthToken = (): string => {
-  const token = localStorage.getItem("token") || localStorage.getItem("accessToken");
-  return token ? `Bearer ${token}` : "";
+  try {
+    const directToken = localStorage.getItem("token") || localStorage.getItem("accessToken");
+    if (directToken) {
+      const clean = directToken.replace(/^"(.*)"$/, "$1").trim();
+      return clean.toLowerCase().startsWith("bearer ") ? clean : `bearer ${clean}`;
+    }
+
+    const userStr = localStorage.getItem("user");
+    if (!userStr) return "";
+
+    const userData = JSON.parse(userStr);
+    let token = userData?.token || "";
+    if (!token) return "";
+
+    token = token.replace(/^"(.*)"$/, "$1").trim();
+    return token.toLowerCase().startsWith("bearer ") ? token : `bearer ${token}`;
+  } catch {
+    return "";
+  }
 };
 
-// Fetch Requests for Manager
+// Fetch Requests for Manager - Direct API without fallback
 export async function getManagerLeaveRequests(
   managerId: number,
   signal?: AbortSignal,
 ): Promise<APILeaveRequest[]> {
-  const targetId = managerId || 19;
+  if (!managerId) return [];
+
   try {
-    const res = await fetch(`${baseURL}/ManagerRequests?managerId=${targetId}`, {
+    const res = await fetch(`${baseURL}/ManagerRequests?managerId=${managerId}`, {
       method: "GET",
       headers: {
         accept: "*/*",
@@ -157,19 +75,17 @@ export async function getManagerLeaveRequests(
     });
 
     if (!res.ok) {
-      console.warn(`ManagerRequests API responded with status ${res.status}, using fallback data`);
-      return FALLBACK_MANAGER_REQUESTS;
+      const errorText = await res.text().catch(() => "");
+      console.error(`ManagerRequests API error (${res.status}):`, errorText);
+      return [];
     }
 
     const data = await res.json();
-    if (Array.isArray(data) && data.length > 0) {
-      return data;
-    }
-    return data && Array.isArray(data) ? data : FALLBACK_MANAGER_REQUESTS;
+    return Array.isArray(data) ? data : [];
   } catch (err: unknown) {
     if (err instanceof Error && err.name === "AbortError") throw err;
-    console.warn("Failed to fetch manager leave requests from API, using fallback data:", err);
-    return FALLBACK_MANAGER_REQUESTS;
+    console.error("Failed to fetch manager leave requests from API:", err);
+    return [];
   }
 }
 
@@ -186,7 +102,7 @@ export async function decideLeaveDays(payload: DecideDayPayload[]): Promise<APIL
   });
 
   if (!res.ok) {
-    const errorText = await res.text();
+    const errorText = await res.text().catch(() => "");
     throw new Error(errorText || `Error ${res.status}: Failed to process decision`);
   }
 

@@ -67,8 +67,11 @@ export default function ManagerLeaveManagement() {
   // State for View Switcher (List vs Calendar)
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
 
-  // Calendar Navigation & Selection States - Defaulting to August 2026
-  const [currentCalendarDate, setCurrentCalendarDate] = useState<Date>(new Date(2026, 7, 1));
+  // Calendar Navigation & Selection States - Defaulting to current month
+  const [currentCalendarDate, setCurrentCalendarDate] = useState<Date>(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
   const [selectedCalendarDateStr, setSelectedCalendarDateStr] = useState<string | null>(null);
 
   // Status mapping helper
@@ -146,10 +149,10 @@ export default function ManagerLeaveManagement() {
 
       return {
         id: item.id,
-        leaveType: item.leaveTypeName || "Casual Leave",
+        leaveType: item.leaveTypeName || "Leave",
         selectedDates: datesObj,
         approvedDates: approvedIds,
-        market: item.marketName || "ARIZONA",
+        market: item.marketName || "—",
         ntid: item.managerNTID || "",
         employeeName: empName,
         reason: item.reason || "",
@@ -185,13 +188,20 @@ export default function ManagerLeaveManagement() {
         }
       }
 
-      // Default to manager ID 19 per user instruction / API spec
-      const targetManagerId = currentUserId > 0 ? currentUserId : 19;
-      const response = await getManagerLeaveRequests(targetManagerId);
+      if (!currentUserId) {
+        setRequests([]);
+        return;
+      }
+
+      const response = await getManagerLeaveRequests(currentUserId);
       const transformed = transformAPIResponse(response);
       setRequests(transformed);
-    } catch (err: any) {
-      setErrorMsg(err?.message || "Failed to fetch leave requests");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setErrorMsg(err.message);
+      } else {
+        setErrorMsg("Failed to fetch leave requests");
+      }
     } finally {
       setLoading(false);
     }
