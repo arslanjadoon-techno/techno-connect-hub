@@ -461,20 +461,6 @@ export default function RequestLeavePage() {
               </div>
             </div>
 
-            {/* NTID / Email Input */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-600 flex items-center space-x-1.5">
-                <User className="w-3.5 h-3.5 text-slate-400" />
-                <span>NTID / Email</span>
-              </label>
-              <input
-                type="text"
-                value={ntidEmail}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setNtidEmail(e.target.value)}
-                placeholder="Enter NTID or Email"
-                className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs sm:text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 shadow-sm"
-              />
-            </div>
           </div>
 
           {/* Select Dates Calendar Section */}
