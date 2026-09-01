@@ -37,9 +37,6 @@ export default function RequestLeavePage() {
   // Form Fields - No Hardcoded Values
   const [selectedMarketId, setSelectedMarketId] = useState<number>(0);
   const [selectedManagerId, setSelectedManagerId] = useState<number>(0);
-  const [ntidEmail, setNtidEmail] = useState<string>(
-    user?.email || "",
-  );
   const [reason, setReason] = useState<string>("");
 
   // Selected Dates (Array of "YYYY-MM-DD" strings)
@@ -393,8 +390,8 @@ export default function RequestLeavePage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Top Form Row: Market, Manager, NTID/Email */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+          {/* Top Form Row: Market, Manager */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             {/* Market Selection */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-600 flex items-center space-x-1.5">
