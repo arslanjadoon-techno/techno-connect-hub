@@ -212,3 +212,83 @@ export const PRIORITY_META: Record<TicketPriority, { label: string; tone: string
   high: { label: "High", tone: "bg-warning/20 text-warning-foreground" },
   urgent: { label: "Urgent", tone: "bg-destructive/15 text-destructive" },
 };
+
+// ================= Leave Management Portal Types ================= //
+export type LeaveType =
+  | "Casual Leave"
+  | "Sick Leave"
+  | "Annual Leave"
+  | "Unpaid Leave"
+  | "Maternity Leave"
+  | "Paternity Leave"
+  | "Bereavement Leave"
+  | "Emergency Leave";
+
+export type LeaveStatus = "Pending" | "Approved" | "Rejected" | "Cancelled";
+
+export interface LeaveRequest {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userNtid?: string;
+  department?: string;
+  marketName?: string;
+  storeName?: string;
+  leaveType: LeaveType | string;
+  startDate: string;
+  endDate: string;
+  totalDays: number;
+  isHalfDay?: boolean;
+  halfDayPeriod?: "First Half" | "Second Half";
+  reason: string;
+  emergencyContact?: string;
+  status: LeaveStatus;
+  appliedAt: string;
+  approvedBy?: string;
+  approvedByName?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
+  managerNotes?: string;
+  attachmentName?: string;
+}
+
+export interface LeaveBalance {
+  leaveType: LeaveType | string;
+  totalAllowed: number;
+  used: number;
+  pending: number;
+  remaining: number;
+  color?: string;
+}
+
+export interface LeaveStats {
+  totalRequests: number;
+  pendingRequests: number;
+  approvedRequests: number;
+  rejectedRequests: number;
+  onLeaveToday: number;
+}
+
+export const LEAVE_STATUS_META: Record<LeaveStatus, { label: string; tone: string; dot: string }> = {
+  Pending: {
+    label: "Pending",
+    tone: "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+    dot: "bg-amber-500",
+  },
+  Approved: {
+    label: "Approved",
+    tone: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+    dot: "bg-emerald-500",
+  },
+  Rejected: {
+    label: "Rejected",
+    tone: "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30",
+    dot: "bg-rose-500",
+  },
+  Cancelled: {
+    label: "Cancelled",
+    tone: "bg-muted text-muted-foreground border-border",
+    dot: "bg-muted-foreground",
+  },
+};

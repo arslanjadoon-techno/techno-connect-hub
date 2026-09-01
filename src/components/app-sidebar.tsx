@@ -26,6 +26,9 @@ import {
   ChevronDown,
   LockKeyhole,
   Contact,
+  CalendarPlus,
+  CheckSquare,
+  CalendarCheck,
 } from "lucide-react";
 
 import {
@@ -87,8 +90,11 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
   },
   leave: {
     title: "Leave Portal",
-    icon: KeyRound,
-    items: [{ title: "Dashboard", url: "/leave/dashboard", icon: CalendarDays }],
+    icon: CalendarCheck,
+    items: [
+      { title: "Request Leave", url: "/leave/request", icon: CalendarPlus },
+      { title: "Approve Leave", url: "/leave/approve", icon: CheckSquare },
+    ],
   },
   scheduling: {
     title: "Scheduling Portal",
@@ -105,7 +111,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
   },
 };
 
-const ALWAYS_PORTAL_KEYS = ["leasing", "scheduling"];
+const ALWAYS_PORTAL_KEYS = ["leasing", "scheduling", "leave"];
 
 const adminGroup: Group = {
   title: "User Manager",
@@ -268,28 +274,58 @@ export function AppSidebar() {
     return access?.roleName?.toLowerCase() ?? "";
   };
 
+  const filterMasterGroup = (key: string, master: Group): Group => {
+    // Commission Dashboard only visible to admin role
+    if (key === "commission" && getPortalRole("commission") !== "admin") {
+      return {
+        ...master,
+        items: master.items.filter((i) => i.url !== "/commission/dashboard"),
+      };
+    }
+
+    // Leave Portal: "Request Leave" for user role, "Approve Leave" for admin/managers
+    if (key === "leave") {
+      const roleStr = (getPortalRole("leave") || user.roleName || user.role || "user")
+        .toLowerCase()
+        .replace(/[\s_-]/g, "");
+      const isManager = [
+        "admin",
+        "manager",
+        "storemanager",
+        "districtmanager",
+        "statemanager",
+        "marketmanager",
+      ].includes(roleStr);
+
+      return {
+        ...master,
+        items: isManager
+          ? master.items.filter((i) => i.url === "/leave/approve")
+          : master.items.filter((i) => i.url === "/leave/request"),
+      };
+    }
+
+    return master;
+  };
+
   const dynamicPortalGroups = allowedPortalsList
     .map((pKey: string): Group | undefined => {
       const key = pKey.toLowerCase().trim();
       const master = MASTER_PORTAL_GROUPS[key];
       if (!master) return undefined;
-
-      // Commission Dashboard only visible to admin role
-      if (key === "commission" && getPortalRole("commission") !== "admin") {
-        return {
-          ...master,
-          items: master.items.filter((i) => i.url !== "/commission/dashboard"),
-        };
-      }
-      return master;
+      return filterMasterGroup(key, master);
     })
     .filter((g: Group | undefined): g is Group => Boolean(g && g.items.length > 0));
 
-  // Lease & Scheduling portals are always available
+  // Lease, Scheduling & Leave portals are always available
   for (const key of ALWAYS_PORTAL_KEYS) {
-    const g = MASTER_PORTAL_GROUPS[key];
-    if (g && !dynamicPortalGroups.some((x: Group) => x.title === g.title))
-      dynamicPortalGroups.push(g);
+    const rawMaster = MASTER_PORTAL_GROUPS[key];
+    if (rawMaster) {
+      const g = filterMasterGroup(key, rawMaster);
+      if (!dynamicPortalGroups.some((x: Group) => x.title === g.title)) {
+        dynamicPortalGroups.push(g);
+      }
+    }
   }
 
   return (

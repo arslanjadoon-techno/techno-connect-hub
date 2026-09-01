@@ -32,6 +32,10 @@ import RankerDashboardPage from "@/pages/portals/ranker/DashboardPage";
 import StandingsPage from "@/pages/portals/ranker/Standings";
 import StandingsDetailPage from "@/pages/portals/ranker/StandingsDetail";
 
+// ---------- Leave Portal ---------- //
+import RequestLeavePage from "@/pages/portals/leave/RequestLeavePage";
+import ApproveLeavePage from "@/pages/portals/leave/ApproveLeavePage";
+
 // ---------- User manager ---------- //
 import UsersPage from "@/pages/user-manager/UsersPage";
 import UserDetailPage from "@/pages/user-manager/UserDetailPage";
@@ -66,6 +70,55 @@ function CommissionAdminOnly({ children }: { children: ReactNode }) {
     }
   } catch { /* ignore */ }
   if (!isAdmin) return <Navigate to="/commission/my-commission" replace />;
+  return <>{children}</>;
+}
+
+/** Check whether user has manager / supervisor privileges for leave portal */
+function isLeaveManager(): boolean {
+  try {
+    const raw = window.localStorage.getItem("user");
+    if (raw) {
+      const u = JSON.parse(raw);
+      const access = Array.isArray(u?.portalAccess) ? u.portalAccess : [];
+      const leaveAccess = access.find(
+        (p: any) => p?.portalName?.toLowerCase() === "leave",
+      );
+      const roleStr = (
+        leaveAccess?.roleName ||
+        u?.roleName ||
+        u?.role ||
+        "user"
+      )
+        .toLowerCase()
+        .replace(/[\s_-]/g, "");
+
+      return [
+        "admin",
+        "manager",
+        "storemanager",
+        "districtmanager",
+        "statemanager",
+        "marketmanager",
+      ].includes(roleStr);
+    }
+  } catch { /* ignore */ }
+  return false;
+}
+
+function LeaveDashboardRedirect() {
+  const isMgr = isLeaveManager();
+  return <Navigate to={isMgr ? "/leave/approve" : "/leave/request"} replace />;
+}
+
+function LeaveRequestOnly({ children }: { children: ReactNode }) {
+  const isMgr = isLeaveManager();
+  if (isMgr) return <Navigate to="/leave/approve" replace />;
+  return <>{children}</>;
+}
+
+function LeaveApproveOnly({ children }: { children: ReactNode }) {
+  const isMgr = isLeaveManager();
+  if (!isMgr) return <Navigate to="/leave/request" replace />;
   return <>{children}</>;
 }
 
@@ -117,11 +170,19 @@ export function AppRoutes() {
         <Route path="/ranker/standings" element={<StandingsPage />} />
         <Route path="/ranker/standings/detail" element={<StandingsDetailPage />} />
 
-        // ---------- Lease / Scheduling / Leave Portals ---------- //
+        // ---------- Lease / Scheduling Portals ---------- //
         <Route path="/lease/dashboard" element={<ComingSoon title="Lease Portal Dashboard" />} />
         <Route path="/leasing/dashboard" element={<ComingSoon title="Leasing Portal Dashboard" />} />
         <Route path="/scheduling/dashboard" element={<ComingSoon title="Scheduling Portal Dashboard" />} />
-        <Route path="/attendance/dashboard" element={<ComingSoon title="Leave Portal Dashboard" />} />
+
+        // ---------- Leave Portal ---------- //
+        <Route path="/leave" element={<LeaveDashboardRedirect />} />
+        <Route path="/leave/dashboard" element={<LeaveDashboardRedirect />} />
+        <Route path="/leave/request" element={<LeaveRequestOnly><RequestLeavePage /></LeaveRequestOnly>} />
+        <Route path="/leave/my-leaves" element={<LeaveRequestOnly><RequestLeavePage /></LeaveRequestOnly>} />
+        <Route path="/leave/approve" element={<LeaveApproveOnly><ApproveLeavePage /></LeaveApproveOnly>} />
+        <Route path="/leave/approvals" element={<LeaveApproveOnly><ApproveLeavePage /></LeaveApproveOnly>} />
+        <Route path="/attendance/dashboard" element={<LeaveDashboardRedirect />} />
 
         // ---------- User Manager ---------- //
         <Route path="/admin/users" element={<UsersPage />} />

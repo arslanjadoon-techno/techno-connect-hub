@@ -59,3 +59,14 @@ export type { RankerKpi, RankerStar, RankerWeight, RankerStandingsQuery } from "
 // Ticketing Portal
 export { ticketingService, TicketingService } from "./ticketing";
 export type { TicketQueryParams, CreateTicketPayload, UpdateTicketPayload } from "./ticketing";
+
+// Leave Management Portal
+export { leaveService, LeaveService } from "./leave";
+export type {
+  LeaveQueryParams,
+  CreateLeaveRequestPayload,
+  ApproveLeavePayload,
+  RejectLeavePayload,
+  CancelLeavePayload,
+  LeaveTypeOption,
+} from "./leave";

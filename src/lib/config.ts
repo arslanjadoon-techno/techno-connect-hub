@@ -106,3 +106,16 @@ export const COMMISSION_API_PATHS = {
   getEmployeeCommission: "/GetEmployeeCommission",
   getAllEmployeeCommissionMarketWise: "/GetAllEmployeeCommissionMarketWise",
 } as const;
+
+export const LEAVE_API_PATHS = {
+  getAll: "/api/leave/get-all",
+  myLeaves: "/api/leave/my-leaves",
+  request: "/api/leave/request",
+  approve: "/api/leave/approve",
+  reject: "/api/leave/reject",
+  cancel: "/api/leave/cancel",
+  balances: "/api/leave/balances",
+  types: "/api/leave/types",
+  summary: "/api/leave/summary",
+  leaveById: (id: string | number) => `/api/leave/${id}`,
+} as const;
