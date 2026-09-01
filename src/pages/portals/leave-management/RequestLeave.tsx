@@ -43,7 +43,7 @@ export default function RequestLeavePage() {
   const [selectedMarketId, setSelectedMarketId] = useState<number>(1);
   const [selectedManagerId, setSelectedManagerId] = useState<number>(22);
   const [ntidEmail, setNtidEmail] = useState<string>(
-    user?.email || user?.name || "QKY93802",
+    user?.email || "QKY93802",
   );
   const [reason, setReason] = useState<string>("");
 
@@ -416,7 +416,7 @@ export default function RequestLeavePage() {
             </div>
 
             {/* NTID / Email Input */}
-            <div className="space-y-1.5">
+            {/* <div className="space-y-1.5">
               <label className="text-xs font-semibold text-slate-600 flex items-center space-x-1.5">
                 <User className="w-3.5 h-3.5 text-slate-400" />
                 <span>NTID / Email</span>
@@ -428,7 +428,7 @@ export default function RequestLeavePage() {
                 placeholder="Enter NTID or Email"
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs sm:text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 shadow-sm"
               />
-            </div>
+            </div> */}
           </div>
 
           {/* Select Dates Calendar Section */}
