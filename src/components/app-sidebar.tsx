@@ -63,16 +63,16 @@ const topItems: Item[] = [
   { title: "Team Chat", url: "/chat", icon: MessagesSquare },
 ];
 
+const PORTAL_ORDER = [
+  "commission",
+  "leasing",
+  "ranker",
+  "ticketing",
+  "leave",
+  "scheduling",
+];
+
 const MASTER_PORTAL_GROUPS: Record<string, Group> = {
-  ticketing: {
-    title: "Ticketing Portal",
-    icon: TicketIcon,
-    items: [
-      { title: "Dashboard", url: "/ticketing/dashboard", icon: LayoutDashboard },
-      { title: "Tickets", url: "/ticketing/tickets", icon: TicketCheck },
-      { title: "External Team", url: "/ticketing/external", icon: Wrench },
-    ],
-  },
   commission: {
     title: "Commission Portal",
     icon: DollarSign,
@@ -88,6 +88,23 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     icon: FileText,
     items: [{ title: "Dashboard", url: "/leasing/dashboard", icon: Milestone }],
   },
+  ranker: {
+    title: "Ranker Portal",
+    icon: Award,
+    items: [
+      { title: "Dashboard", url: "/ranker/dashboard", icon: LayoutDashboard },
+      { title: "Standings", url: "/ranker/standings", icon: LayoutDashboard },
+    ],
+  },
+  ticketing: {
+    title: "Ticketing Portal",
+    icon: TicketIcon,
+    items: [
+      { title: "Dashboard", url: "/ticketing/dashboard", icon: LayoutDashboard },
+      { title: "Tickets", url: "/ticketing/tickets", icon: TicketCheck },
+      { title: "External Team", url: "/ticketing/external", icon: Wrench },
+    ],
+  },
   leave: {
     title: "Leave Portal",
     icon: CalendarCheck,
@@ -100,14 +117,6 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     title: "Scheduling Portal",
     icon: CalendarDays,
     items: [{ title: "Dashboard", url: "/scheduling/dashboard", icon: BarChart3 }],
-  },
-  ranker: {
-    title: "Ranker Portal",
-    icon: Award,
-    items: [
-      { title: "Dashboard", url: "/ranker/dashboard", icon: LayoutDashboard },
-      { title: "Standings", url: "/ranker/standings", icon: LayoutDashboard },
-    ],
   },
 };
 
@@ -308,25 +317,19 @@ export function AppSidebar() {
     return master;
   };
 
-  const dynamicPortalGroups = allowedPortalsList
-    .map((pKey: string): Group | undefined => {
-      const key = pKey.toLowerCase().trim();
+  const allowedSet = new Set(
+    allowedPortalsList.map((p: string) => p.toLowerCase().trim()),
+  );
+  ALWAYS_PORTAL_KEYS.forEach((k) => allowedSet.add(k.toLowerCase().trim()));
+
+  const dynamicPortalGroups: Group[] = PORTAL_ORDER
+    .filter((key) => allowedSet.has(key))
+    .map((key) => {
       const master = MASTER_PORTAL_GROUPS[key];
       if (!master) return undefined;
       return filterMasterGroup(key, master);
     })
     .filter((g: Group | undefined): g is Group => Boolean(g && g.items.length > 0));
-
-  // Lease, Scheduling & Leave portals are always available
-  for (const key of ALWAYS_PORTAL_KEYS) {
-    const rawMaster = MASTER_PORTAL_GROUPS[key];
-    if (rawMaster) {
-      const g = filterMasterGroup(key, rawMaster);
-      if (!dynamicPortalGroups.some((x: Group) => x.title === g.title)) {
-        dynamicPortalGroups.push(g);
-      }
-    }
-  }
 
   return (
     <Sidebar collapsible="icon">
