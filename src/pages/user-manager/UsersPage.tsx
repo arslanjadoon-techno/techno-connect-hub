@@ -23,7 +23,7 @@ import {
   StoresApi,
 } from "@/lib/api/client";
 import { toast } from "sonner";
-import { Loader2, Search, XCircle, Shield, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, Search, XCircle, Shield, CheckCircle2, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { getUserAvatarColor } from "./user-colors";
 
 // ==========================================
@@ -488,6 +488,16 @@ export function UserForm({
   const [phone, setPhone] = useState(initial?.phone === "—" ? "" : (initial?.phone ?? ""));
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const formContainerRef = useRef<HTMLDivElement>(null);
+
+  const markTouched = (field: string) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+  };
+
   const [department, setDepartment] = useState<string>(
     initial?.department === "—" ? "placeholder" : (initial?.department ?? "placeholder"),
   );
@@ -589,42 +599,108 @@ export function UserForm({
     }));
   };
 
-  const identityOk = email.trim().length >= 2;
-  const passwordOk = initial ? true : password.length >= 6 && password === confirmPassword;
+  const fullNameError = useMemo(() => {
+    if (!fullName.trim()) return "Full name is required";
+    if (fullName.trim().length < 2) return "Full name must be at least 2 characters";
+    return null;
+  }, [fullName]);
 
-  const isDeptFilled = department !== "placeholder" && !!department;
-  const isHierarchyFilled =
-    (!needsState || stateIds.length > 0) &&
-    (!needsDistrict || districtIds.length > 0) &&
-    (!needsMarket || marketIds.length > 0) &&
-    (!needsStore || storeIds.length > 0);
+  const emailError = useMemo(() => {
+    if (!email.trim()) return "Email or NTID is required";
+    if (email.trim().length < 2) return "Email or NTID must be at least 2 characters";
+    return null;
+  }, [email]);
+
+  const departmentError = useMemo(() => {
+    if (department === "placeholder" || !department) return "Department assignment is required";
+    return null;
+  }, [department]);
+
+  const passwordError = useMemo(() => {
+    if (initial) return null;
+    if (!password) return "Password is required";
+    if (password.length < 6) return "Password must be at least 6 characters";
+    return null;
+  }, [initial, password]);
+
+  const confirmPasswordError = useMemo(() => {
+    if (initial) return null;
+    if (!confirmPassword) return "Confirm password is required";
+    if (password !== confirmPassword) return "Passwords do not match";
+    return null;
+  }, [initial, password, confirmPassword]);
 
   const hasSelectedPortals = Object.values(portalConfig).some((p) => p.enabled);
-  const canSave =
-    fullName.trim().length >= 2 &&
-    identityOk &&
-    passwordOk &&
-    isDeptFilled &&
-    isHierarchyFilled &&
-    hasSelectedPortals;
-
-  const validationHint = (() => {
-    if (!fullName.trim()) return "Full name is required";
-    if (!identityOk) return "Email or NTID is required";
-    if (!initial && password.length < 6) return "Password must be at least 6 characters";
-    if (!initial && password !== confirmPassword) return "Form entry passwords do not match";
-    if (department === "placeholder") return "Department assignment is required";
+  const portalsError = useMemo(() => {
     if (!hasSelectedPortals) return "Please enable access control mapping for at least one portal";
+    return null;
+  }, [hasSelectedPortals]);
+
+  const stateError = useMemo(() => {
     if (needsState && stateIds.length === 0) return "Select at least one state";
+    return null;
+  }, [needsState, stateIds.length]);
+
+  const districtError = useMemo(() => {
     if (needsDistrict && districtIds.length === 0) return "Select at least one district";
+    return null;
+  }, [needsDistrict, districtIds.length]);
+
+  const marketError = useMemo(() => {
     if (needsMarket && marketIds.length === 0) return "Select at least one market";
+    return null;
+  }, [needsMarket, marketIds.length]);
+
+  const storeError = useMemo(() => {
     if (needsStore && storeIds.length === 0) return "Select at least one store";
     return null;
-  })();
+  }, [needsStore, storeIds.length]);
+
+  const canSave =
+    !fullNameError &&
+    !emailError &&
+    !departmentError &&
+    !passwordError &&
+    !confirmPasswordError &&
+    !portalsError &&
+    !stateError &&
+    !districtError &&
+    !marketError &&
+    !storeError;
+
+  const firstError =
+    fullNameError ||
+    emailError ||
+    departmentError ||
+    passwordError ||
+    confirmPasswordError ||
+    portalsError ||
+    stateError ||
+    districtError ||
+    marketError ||
+    storeError;
+
+  const shouldShowFullNameError = (attemptedSubmit || touched.fullName) && !!fullNameError;
+  const shouldShowEmailError = (attemptedSubmit || touched.email) && !!emailError;
+  const shouldShowDeptError = (attemptedSubmit || touched.department) && !!departmentError;
+  const shouldShowPasswordError = (attemptedSubmit || touched.password) && !!passwordError;
+  const shouldShowConfirmError =
+    (attemptedSubmit || touched.confirmPassword) && !!confirmPasswordError;
+  const shouldShowPortalsError = attemptedSubmit && !!portalsError;
+  const shouldShowStateError = attemptedSubmit && !!stateError;
+  const shouldShowDistrictError = attemptedSubmit && !!districtError;
+  const shouldShowMarketError = attemptedSubmit && !!marketError;
+  const shouldShowStoreError = attemptedSubmit && !!storeError;
 
   const submit = async () => {
+    setAttemptedSubmit(true);
     if (!canSave) {
-      if (validationHint) toast.error(validationHint);
+      if (firstError) {
+        toast.error(firstError);
+      } else {
+        toast.error("Please fill in all required fields marked in red");
+      }
+      formContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
     try {
@@ -646,7 +722,6 @@ export function UserForm({
           portalAccess.push({
             portalId: masterObjectRef?.id ?? 0,
             portalName: k,
-            // roleId: 1,
             roleId: roleObjectRef?.id ?? 0,
             roleName: portalConfig[k].roleName,
           });
@@ -700,7 +775,17 @@ export function UserForm({
   };
 
   return (
-    <div className="space-y-4 max-h-[82vh] overflow-y-auto px-1 scrollbar-thin">
+    <div
+      ref={formContainerRef}
+      className="space-y-4 max-h-[82vh] overflow-y-auto px-1 scrollbar-thin"
+    >
+      {attemptedSubmit && !canSave && (
+        <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs font-medium text-destructive animate-fade-in">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>Please fill in or correct the highlighted fields marked in red below.</span>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label>
@@ -709,9 +794,21 @@ export function UserForm({
           <Input
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
+            onBlur={() => markTouched("fullName")}
             placeholder="e.g. Arslan Khan"
             autoComplete="off"
+            className={
+              shouldShowFullNameError
+                ? "border-destructive focus-visible:ring-destructive ring-1 ring-destructive/30"
+                : ""
+            }
           />
+          {shouldShowFullNameError && (
+            <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              {fullNameError}
+            </p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label>
@@ -721,9 +818,21 @@ export function UserForm({
             type="text"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            onBlur={() => markTouched("email")}
             placeholder="you@techno.com or NTID"
             autoComplete="new-password"
+            className={
+              shouldShowEmailError
+                ? "border-destructive focus-visible:ring-destructive ring-1 ring-destructive/30"
+                : ""
+            }
           />
+          {shouldShowEmailError && (
+            <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              {emailError}
+            </p>
+          )}
         </div>
       </div>
 
@@ -742,8 +851,21 @@ export function UserForm({
           <Label>
             Department <span className="text-destructive">*</span>
           </Label>
-          <Select value={department} onValueChange={setDepartment}>
-            <SelectTrigger>
+          <Select
+            value={department}
+            onValueChange={(val) => {
+              setDepartment(val);
+              markTouched("department");
+            }}
+          >
+            <SelectTrigger
+              className={
+                shouldShowDeptError
+                  ? "border-destructive focus:ring-destructive ring-1 ring-destructive/30"
+                  : ""
+              }
+              onBlur={() => markTouched("department")}
+            >
               <SelectValue placeholder="Select department" />
             </SelectTrigger>
             <SelectContent>
@@ -757,6 +879,12 @@ export function UserForm({
               ))}
             </SelectContent>
           </Select>
+          {shouldShowDeptError && (
+            <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              {departmentError}
+            </p>
+          )}
         </div>
       </div>
 
@@ -766,23 +894,125 @@ export function UserForm({
             <Label>
               Password <span className="text-destructive">*</span>
             </Label>
-            <Input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Min 6 chars"
-            />
+            <div className="relative">
+              <Input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onBlur={() => markTouched("password")}
+                placeholder="Min 6 characters"
+                className={`pr-10 ${
+                  shouldShowPasswordError
+                    ? "border-destructive focus-visible:ring-destructive ring-1 ring-destructive/30"
+                    : ""
+                }`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                tabIndex={-1}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            {shouldShowPasswordError && (
+              <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {passwordError}
+              </p>
+            )}
+
+            {/* Explicit password requirements display as requested */}
+            <div className="mt-1 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50 p-2 text-[11px] space-y-1">
+              <p className="font-semibold text-zinc-700 dark:text-zinc-300">
+                Password Requirements:
+              </p>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`inline-block h-1.5 w-1.5 rounded-full ${
+                    password.length >= 6
+                      ? "bg-emerald-500"
+                      : shouldShowPasswordError
+                        ? "bg-destructive"
+                        : "bg-zinc-400"
+                  }`}
+                />
+                <span
+                  className={
+                    password.length >= 6
+                      ? "text-emerald-600 dark:text-emerald-400 font-medium"
+                      : shouldShowPasswordError
+                        ? "text-destructive font-medium"
+                        : "text-muted-foreground"
+                  }
+                >
+                  Length: Minimum 6 characters {password.length > 0 ? `(${password.length}/6)` : ""}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`inline-block h-1.5 w-1.5 rounded-full ${
+                    /[A-Za-z]/.test(password) && /[0-9]/.test(password)
+                      ? "bg-emerald-500"
+                      : "bg-zinc-400"
+                  }`}
+                />
+                <span
+                  className={
+                    /[A-Za-z]/.test(password) && /[0-9]/.test(password)
+                      ? "text-emerald-600 dark:text-emerald-400 font-medium"
+                      : "text-muted-foreground"
+                  }
+                >
+                  Type: Recommended combination of letters & numbers
+                </span>
+              </div>
+            </div>
           </div>
+
           <div className="space-y-1.5">
             <Label>
               Confirm password <span className="text-destructive">*</span>
             </Label>
-            <Input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Re-enter password"
-            />
+            <div className="relative">
+              <Input
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onBlur={() => markTouched("confirmPassword")}
+                placeholder="Re-enter password"
+                className={`pr-10 ${
+                  shouldShowConfirmError
+                    ? "border-destructive focus-visible:ring-destructive ring-1 ring-destructive/30"
+                    : ""
+                }`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                tabIndex={-1}
+                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+              >
+                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+            {shouldShowConfirmError && (
+              <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {confirmPasswordError}
+              </p>
+            )}
+            {!shouldShowConfirmError &&
+              confirmPassword.length > 0 &&
+              password === confirmPassword && (
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-medium mt-1">
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                  Passwords match
+                </p>
+              )}
           </div>
         </div>
       )}
@@ -809,12 +1039,24 @@ export function UserForm({
         </div>
       </div>
 
-      <div className="border border-zinc-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
+      <div
+        className={`border rounded-xl overflow-hidden shadow-sm transition-colors ${
+          shouldShowPortalsError
+            ? "border-destructive ring-1 ring-destructive/30 bg-destructive/[0.02]"
+            : "border-zinc-200 dark:border-zinc-800"
+        }`}
+      >
         <div className="bg-zinc-100 dark:bg-zinc-900 px-4 py-2.5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
           <span className="text-xs font-bold uppercase tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-primary" /> Multi-Portal Authority Setup Matrix
           </span>
-          <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-semibold">
+          <span
+            className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+              shouldShowPortalsError
+                ? "bg-destructive/15 text-destructive"
+                : "bg-primary/10 text-primary"
+            }`}
+          >
             Required: At least 1
           </span>
         </div>
@@ -854,7 +1096,11 @@ export function UserForm({
                     onValueChange={(val) => handlePortalRoleChange(p.name, val)}
                   >
                     <SelectTrigger
-                      className={`h-8 text-xs font-medium ${isEnabled ? "border-primary/50 ring-1 ring-primary/10" : "bg-zinc-50 border-zinc-200"}`}
+                      className={`h-8 text-xs font-medium ${
+                        isEnabled
+                          ? "border-primary/50 ring-1 ring-primary/10"
+                          : "bg-zinc-50 border-zinc-200"
+                      }`}
                     >
                       <SelectValue placeholder="Choose role" />
                     </SelectTrigger>
@@ -872,6 +1118,13 @@ export function UserForm({
             );
           })}
         </div>
+
+        {shouldShowPortalsError && (
+          <div className="p-2.5 bg-destructive/10 border-t border-destructive/20 text-destructive text-xs flex items-center gap-1.5 font-medium">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            Please enable access control mapping for at least one portal.
+          </div>
+        )}
       </div>
 
       {needsState && (
@@ -891,7 +1144,16 @@ export function UserForm({
                   value={stateIds}
                   onChange={setStateIds}
                   placeholder="Select states"
+                  className={
+                    shouldShowStateError ? "border-destructive ring-1 ring-destructive/30" : ""
+                  }
                 />
+                {shouldShowStateError && (
+                  <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    {stateError}
+                  </p>
+                )}
               </div>
             )}
 
@@ -905,7 +1167,16 @@ export function UserForm({
                   value={districtIds}
                   onChange={setDistrictIds}
                   placeholder="Select districts"
+                  className={
+                    shouldShowDistrictError ? "border-destructive ring-1 ring-destructive/30" : ""
+                  }
                 />
+                {shouldShowDistrictError && (
+                  <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    {districtError}
+                  </p>
+                )}
               </div>
             )}
 
@@ -919,7 +1190,16 @@ export function UserForm({
                   value={marketIds}
                   onChange={setMarketIds}
                   placeholder="Select markets"
+                  className={
+                    shouldShowMarketError ? "border-destructive ring-1 ring-destructive/30" : ""
+                  }
                 />
+                {shouldShowMarketError && (
+                  <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    {marketError}
+                  </p>
+                )}
               </div>
             )}
 
@@ -933,7 +1213,16 @@ export function UserForm({
                   value={storeIds}
                   onChange={setStoreIds}
                   placeholder="Select stores"
+                  className={
+                    shouldShowStoreError ? "border-destructive ring-1 ring-destructive/30" : ""
+                  }
                 />
+                {shouldShowStoreError && (
+                  <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    {storeError}
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -941,8 +1230,8 @@ export function UserForm({
       )}
 
       <Button
-        className="w-full flex items-center justify-center gap-2 mt-2 h-10 font-medium"
-        disabled={!canSave || submitting}
+        className="w-full flex items-center justify-center gap-2 mt-2 h-10 font-medium cursor-pointer"
+        disabled={submitting}
         onClick={submit}
       >
         {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
