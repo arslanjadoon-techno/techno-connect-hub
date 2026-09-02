@@ -53,42 +53,48 @@ export default function Support() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Card className="transition-all hover:shadow-md">
+        <Card className="transition-all hover:shadow-md bg-sky-50/80 dark:bg-sky-950/20 border-sky-200/80 dark:border-sky-900/40">
           <CardContent className="pt-6 flex items-start gap-3">
-            <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <div className="h-10 w-10 rounded-xl bg-sky-100 dark:bg-sky-900/50 text-sky-600 dark:text-sky-300 flex items-center justify-center shrink-0 shadow-xs">
               <Mail className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+              <div className="text-xs text-sky-700/80 dark:text-sky-400 font-semibold uppercase tracking-wide">
                 Email
               </div>
-              <div className="font-semibold text-sm mt-0.5">reporting@texasmobilepcs.com</div>
+              <div className="font-semibold text-sm mt-0.5 text-sky-950 dark:text-sky-100">
+                reporting@texasmobilepcs.com
+              </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="transition-all hover:shadow-md">
+        <Card className="transition-all hover:shadow-md bg-emerald-50/80 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/40">
           <CardContent className="pt-6 flex items-start gap-3">
-            <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <div className="h-10 w-10 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-600 dark:text-emerald-300 flex items-center justify-center shrink-0 shadow-xs">
               <Phone className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+              <div className="text-xs text-emerald-700/80 dark:text-emerald-400 font-semibold uppercase tracking-wide">
                 Phone
               </div>
-              <div className="font-semibold text-sm mt-0.5">+92 (335) 8914611</div>
+              <div className="font-semibold text-sm mt-0.5 text-emerald-950 dark:text-emerald-100">
+                +92 (335) 8914611
+              </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="transition-all hover:shadow-md">
+        <Card className="transition-all hover:shadow-md bg-amber-50/80 dark:bg-amber-950/20 border-amber-200/80 dark:border-amber-900/40">
           <CardContent className="pt-6 flex items-start gap-3">
-            <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+            <div className="h-10 w-10 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-300 flex items-center justify-center shrink-0 shadow-xs">
               <Clock className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+              <div className="text-xs text-amber-700/80 dark:text-amber-400 font-semibold uppercase tracking-wide">
                 Hours
               </div>
-              <div className="font-semibold text-sm mt-0.5">Mon - Fri, 9:00 AM - 6:00 PM CST</div>
+              <div className="font-semibold text-sm mt-0.5 text-amber-950 dark:text-amber-100">
+                Mon - Fri, 9:00 AM - 6:00 PM CST
+              </div>
             </div>
           </CardContent>
         </Card>
