@@ -263,15 +263,34 @@
 }
 
 /* Modern table polish + global zebra striping (clearly visible) */
-table thead tr {
-  background-color: oklch(0.94 0.01 270);
+table thead,
+table thead tr,
+table thead tr:hover,
+.themed-thead,
+.themed-thead tr,
+.themed-thead tr:hover {
+  background-color: color-mix(in oklab, var(--primary) 14%, var(--card)) !important;
 }
-.dark table thead tr {
-  background-color: oklch(0.26 0.04 275);
-}
-table thead th {
+table thead th,
+.themed-thead th {
   font-weight: 600;
-  color: var(--color-foreground);
+  color: color-mix(in oklab, var(--primary) 80%, var(--foreground)) !important;
+}
+table thead tr,
+.themed-thead tr {
+  border-bottom: 1px solid color-mix(in oklab, var(--primary) 22%, var(--border)) !important;
+}
+.dark table thead,
+.dark table thead tr,
+.dark table thead tr:hover,
+.dark .themed-thead,
+.dark .themed-thead tr,
+.dark .themed-thead tr:hover {
+  background-color: color-mix(in oklab, var(--primary) 22%, var(--card)) !important;
+}
+.dark table thead th,
+.dark .themed-thead th {
+  color: color-mix(in oklab, var(--primary) 25%, var(--foreground)) !important;
 }
 table tbody tr {
   transition: background-color 0.15s ease;
@@ -283,7 +302,7 @@ table tbody tr:nth-child(even) {
   background-color: oklch(1 0 0 / 0.06);
 }
 table tbody tr:hover {
-  background-color: color-mix(in oklab, var(--accent) 60%, transparent);
+  background-color: color-mix(in oklab, var(--primary) 8%, var(--accent));
 }
 
 /* Perf: limit offscreen paint for long lists/tables */
@@ -340,37 +359,10 @@ table tbody tr:hover {
   transform: translateX(100%);
 }
 
-/* Themed table header — follows the active palette accent */
-.themed-thead,
-.themed-thead tr,
-.themed-thead tr:hover {
-  background: color-mix(in oklab, var(--primary) 16%, var(--card)) !important;
-}
-.themed-thead th {
-  color: color-mix(in oklab, var(--primary) 78%, var(--foreground));
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-.themed-thead tr {
-  border-color: color-mix(in oklab, var(--primary) 28%, var(--border));
-}
-.dark .themed-thead,
-.dark .themed-thead tr,
-.dark .themed-thead tr:hover {
-  background: color-mix(in oklab, var(--primary) 26%, var(--card)) !important;
-}
-.dark .themed-thead th {
-  color: color-mix(in oklab, var(--primary) 18%, var(--foreground));
-}
-
-/* Sidebar gradient — derived from the active palette */
+/* Sidebar background — exact color from the active palette */
 [data-sidebar="sidebar"] {
-  background-image: linear-gradient(
-    160deg,
-    color-mix(in oklab, var(--sidebar-accent) 65%, var(--sidebar)) 0%,
-    var(--sidebar) 45%,
-    color-mix(in oklab, var(--sidebar-primary) 14%, var(--sidebar)) 100%
-  );
+  background-color: var(--sidebar) !important;
+  background-image: var(--sidebar-gradient, none) !important;
 }
 
 /* Hero and Primary Gradients */

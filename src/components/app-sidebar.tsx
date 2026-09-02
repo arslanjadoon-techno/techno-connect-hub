@@ -175,7 +175,7 @@ function CollapsibleGroup({
         <button
           type="button"
           onClick={onToggle}
-          className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition hover:bg-sidebar-accent ${active ? "text-primary" : "text-sidebar-foreground"}`}
+          className={`flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition hover:bg-sidebar-accent ${active ? "text-sidebar-accent-foreground font-semibold" : "text-sidebar-foreground"}`}
         >
           <Icon className="h-4 w-4" />
           <span className="flex-1 text-left">{group.title}</span>

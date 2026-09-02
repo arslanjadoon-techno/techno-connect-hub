@@ -378,9 +378,11 @@ export default function SettingsPage() {
                 }`}
               >
                 <span
-                  className="h-10 w-10 shrink-0 rounded-lg shadow-inner"
+                  className="h-10 w-10 shrink-0 rounded-lg shadow-inner border border-black/10"
                   style={{
-                    backgroundImage: `linear-gradient(135deg, ${p.primary}, ${p.primaryGlow})`,
+                    backgroundImage:
+                      p.previewGradient ||
+                      `linear-gradient(135deg, ${p.primary}, ${p.primaryGlow})`,
                   }}
                 />
                 <span className="flex-1 min-w-0">

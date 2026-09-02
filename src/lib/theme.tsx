@@ -24,6 +24,9 @@ export interface Palette {
   sidebarForeground: string;
   sidebarAccent: string;
   sidebarBorder: string;
+  sidebarGradient?: string;
+  previewGradient?: string;
+  sidebarAccentForeground?: string;
   /** Hero gradient used on the login screen */
   heroGradient: string;
   /** Small swatch preview row */
@@ -32,6 +35,60 @@ export interface Palette {
 
 // Curated palette set — each entry uses harmonious accent + sidebar tones.
 export const PALETTES: Palette[] = [
+  {
+    id: "blue-2742f5",
+    name: "Blue (#2742F5)",
+    // Lighter matching blue version for buttons, table headers, and accents
+    primary: "#5C73F8",
+    primaryGlow: "#879AFB",
+    ring: "#5C73F8",
+    // Exact sidebar color requested
+    sidebar: "#2742F5",
+    sidebarForeground: "#FFFFFF",
+    sidebarAccent: "rgba(255, 255, 255, 0.18)",
+    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    sidebarGradient: "none",
+    previewGradient: "linear-gradient(135deg, #2742F5 0%, #5C73F8 100%)",
+    heroGradient:
+      "linear-gradient(135deg, #182BB8 0%, #2742F5 50%, #5C73F8 100%)",
+    swatches: ["#2742F5", "#5C73F8", "#BAC5FC"],
+  },
+  {
+    id: "purple-7327f5",
+    name: "Purple (#7327F5)",
+    // Lighter matching purple version for buttons, table headers, and accents
+    primary: "#975CF8",
+    primaryGlow: "#BD93FA",
+    ring: "#975CF8",
+    // Exact sidebar color requested
+    sidebar: "#7327F5",
+    sidebarForeground: "#FFFFFF",
+    sidebarAccent: "rgba(255, 255, 255, 0.18)",
+    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    sidebarGradient: "none",
+    previewGradient: "linear-gradient(135deg, #7327F5 0%, #975CF8 100%)",
+    heroGradient:
+      "linear-gradient(135deg, #4A12B0 0%, #7327F5 50%, #975CF8 100%)",
+    swatches: ["#7327F5", "#975CF8", "#DCC7FE"],
+  },
+  {
+    id: "grey-696969",
+    name: "Grey (#696969)",
+    // Lighter matching grey version for buttons, table headers, and accents
+    primary: "#828282",
+    primaryGlow: "#AAAAAA",
+    ring: "#828282",
+    // Exact sidebar color requested
+    sidebar: "#696969",
+    sidebarForeground: "#FFFFFF",
+    sidebarAccent: "rgba(255, 255, 255, 0.18)",
+    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    sidebarGradient: "none",
+    previewGradient: "linear-gradient(135deg, #696969 0%, #828282 100%)",
+    heroGradient:
+      "linear-gradient(135deg, #444444 0%, #696969 50%, #888888 100%)",
+    swatches: ["#696969", "#828282", "#E2E2E2"],
+  },
   {
     id: "indigo",
     name: "Indigo Violet",
@@ -253,36 +310,32 @@ const ThemeContext = createContext<Ctx | null>(null);
 
 function applyPalette(p: Palette, theme: Theme) {
   const r = document.documentElement.style;
-  // Accent / button colors
+  // Accent / button colors (lighter matching version)
   r.setProperty("--primary", p.primary);
   r.setProperty("--primary-glow", p.primaryGlow);
   r.setProperty("--ring", p.ring);
   r.setProperty("--gradient-primary", `linear-gradient(135deg, ${p.primary}, ${p.primaryGlow})`);
   r.setProperty("--gradient-hero", p.heroGradient);
 
-  // In dark mode, sidebar should sit ABOVE the dark background — use a slightly
-  // lighter card-like surface (still tinted with the palette hue) so the menu,
-  // header, and content are clearly separated. In light mode keep the rich
-  // dark sidebar from the palette.
-  if (theme === "dark") {
-    r.setProperty("--sidebar", "oklch(0.24 0.05 275)");
-    r.setProperty("--sidebar-foreground", "oklch(0.97 0.01 270)");
-    r.setProperty("--sidebar-primary", p.primaryGlow);
-    r.setProperty("--sidebar-primary-foreground", "oklch(0.14 0.03 275)");
-    r.setProperty("--sidebar-accent", "oklch(0.32 0.07 280)");
-    r.setProperty("--sidebar-accent-foreground", "oklch(0.97 0.01 270)");
-    r.setProperty("--sidebar-border", "oklch(1 0 0 / 12%)");
-    r.setProperty("--sidebar-ring", p.primaryGlow);
-  } else {
-    r.setProperty("--sidebar", p.sidebar);
-    r.setProperty("--sidebar-foreground", p.sidebarForeground);
-    r.setProperty("--sidebar-primary", p.primaryGlow);
-    r.setProperty("--sidebar-primary-foreground", p.sidebar);
-    r.setProperty("--sidebar-accent", p.sidebarAccent);
-    r.setProperty("--sidebar-accent-foreground", p.sidebarForeground);
-    r.setProperty("--sidebar-border", p.sidebarBorder);
-    r.setProperty("--sidebar-ring", p.primaryGlow);
-  }
+  // Accent used by hover states
+  r.setProperty(
+    "--accent",
+    `color-mix(in oklab, ${p.primary} 12%, ${theme === "dark" ? "oklch(0.24 0.04 275)" : "#ffffff"})`,
+  );
+
+  // Exact sidebar color requested by user
+  r.setProperty("--sidebar", p.sidebar);
+  r.setProperty("--sidebar-foreground", p.sidebarForeground || "#FFFFFF");
+  r.setProperty("--sidebar-primary", p.primaryGlow);
+  r.setProperty("--sidebar-primary-foreground", p.sidebar);
+  r.setProperty("--sidebar-accent", p.sidebarAccent || "rgba(255, 255, 255, 0.18)");
+  r.setProperty(
+    "--sidebar-accent-foreground",
+    p.sidebarAccentForeground || p.sidebarForeground || "#FFFFFF",
+  );
+  r.setProperty("--sidebar-border", p.sidebarBorder || "rgba(255, 255, 255, 0.15)");
+  r.setProperty("--sidebar-ring", p.ring);
+  r.setProperty("--sidebar-gradient", p.sidebarGradient ?? "none");
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
