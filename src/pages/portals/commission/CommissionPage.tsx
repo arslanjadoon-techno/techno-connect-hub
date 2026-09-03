@@ -26,7 +26,6 @@ import {
   Boxes,
   Wallet,
   Loader2,
-  Search,
 } from "lucide-react";
 import { FilterReset } from "@/components/filter-reset";
 import {
@@ -134,17 +133,24 @@ function SortableHeader({
   );
 }
 
+const getTodayDate = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export default function CommissionPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [marketsList, setMarketsList] = useState<CommissionMarket[]>([]);
   const [marketsLoading, setMarketsLoading] = useState<boolean>(false);
 
-  // Filter states: date & market
-  const DEFAULT_DATE = "2026-08-31";
+  // Filter states: date & market (defaults to today's date)
+  const DEFAULT_DATE = useMemo(() => getTodayDate(), []);
   const [selectedDate, setSelectedDate] = useState<string>(DEFAULT_DATE);
   const [selectedMarket, setSelectedMarket] = useState<string>("all");
-  const [searchTerm, setSearchTerm] = useState<string>("");
 
   // Server pagination states
   const [page, setPage] = useState<number>(1);
@@ -235,20 +241,8 @@ export default function CommissionPage() {
     setPage(1);
   };
 
-  // Quick client search across loaded page records
-  const filteredRows = useMemo(() => {
-    if (!searchTerm.trim()) return rows;
-    const q = searchTerm.toLowerCase();
-    return rows.filter((r) => {
-      const ntidMatch = r.ntid?.toLowerCase().includes(q);
-      const nameMatch = r.employee_Name?.toLowerCase().includes(q);
-      const marketMatch = r.market?.toLowerCase().includes(q);
-      return ntidMatch || nameMatch || marketMatch;
-    });
-  }, [rows, searchTerm]);
-
-  const summary = useSortable(filteredRows);
-  const detail = useSortable(filteredRows);
+  const summary = useSortable(rows);
+  const detail = useSortable(rows);
 
   const formatCurrency = (val: number | null | undefined): string => {
     return `$${(val ?? 0).toFixed(2)}`;
@@ -365,13 +359,11 @@ export default function CommissionPage() {
     },
   ];
 
-  const filtersActive =
-    selectedDate !== DEFAULT_DATE || selectedMarket !== "all" || searchTerm.trim() !== "";
+  const filtersActive = selectedDate !== DEFAULT_DATE || selectedMarket !== "all";
 
   const resetFilters = () => {
     setSelectedDate(DEFAULT_DATE);
     setSelectedMarket("all");
-    setSearchTerm("");
     setPage(1);
   };
 
@@ -404,21 +396,6 @@ export default function CommissionPage() {
             ))}
           </SelectContent>
         </Select>
-      </div>
-
-      {/* Quick search input */}
-      <div className="flex flex-col">
-        <span className="text-xs font-medium text-muted-foreground mb-1">Search</span>
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            type="text"
-            placeholder="Search name, NTID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-[190px] h-9 pl-8"
-          />
-        </div>
       </div>
 
       <FilterReset active={filtersActive} onReset={resetFilters} />
