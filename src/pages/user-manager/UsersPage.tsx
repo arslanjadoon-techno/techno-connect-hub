@@ -23,7 +23,16 @@ import {
   StoresApi,
 } from "@/lib/api/client";
 import { toast } from "sonner";
-import { Loader2, Search, XCircle, Shield, CheckCircle2, AlertCircle, Eye, EyeOff } from "lucide-react";
+import {
+  Loader2,
+  Search,
+  XCircle,
+  Shield,
+  CheckCircle2,
+  AlertCircle,
+  Eye,
+  EyeOff,
+} from "lucide-react";
 import { getUserAvatarColor } from "./user-colors";
 
 // ==========================================
@@ -788,7 +797,11 @@ export function UserForm({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label>
+          <Label
+            className={
+              shouldShowFullNameError ? "text-red-600 dark:text-red-400 font-semibold" : ""
+            }
+          >
             Full name <span className="text-destructive">*</span>
           </Label>
           <Input
@@ -799,19 +812,21 @@ export function UserForm({
             autoComplete="off"
             className={
               shouldShowFullNameError
-                ? "border-destructive focus-visible:ring-destructive ring-1 ring-destructive/30"
+                ? "border-red-500 focus-visible:ring-red-500 ring-2 ring-red-500/30 bg-red-50/40 dark:bg-red-950/20"
                 : ""
             }
           />
           {shouldShowFullNameError && (
-            <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+            <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1 font-medium mt-1">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
               {fullNameError}
             </p>
           )}
         </div>
         <div className="space-y-1.5">
-          <Label>
+          <Label
+            className={shouldShowEmailError ? "text-red-600 dark:text-red-400 font-semibold" : ""}
+          >
             Email or NTID <span className="text-destructive">*</span>
           </Label>
           <Input
@@ -823,12 +838,12 @@ export function UserForm({
             autoComplete="new-password"
             className={
               shouldShowEmailError
-                ? "border-destructive focus-visible:ring-destructive ring-1 ring-destructive/30"
+                ? "border-red-500 focus-visible:ring-red-500 ring-2 ring-red-500/30 bg-red-50/40 dark:bg-red-950/20"
                 : ""
             }
           />
           {shouldShowEmailError && (
-            <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+            <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1 font-medium mt-1">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
               {emailError}
             </p>
@@ -848,7 +863,9 @@ export function UserForm({
           />
         </div>
         <div className="space-y-1.5">
-          <Label>
+          <Label
+            className={shouldShowDeptError ? "text-red-600 dark:text-red-400 font-semibold" : ""}
+          >
             Department <span className="text-destructive">*</span>
           </Label>
           <Select
@@ -861,7 +878,7 @@ export function UserForm({
             <SelectTrigger
               className={
                 shouldShowDeptError
-                  ? "border-destructive focus:ring-destructive ring-1 ring-destructive/30"
+                  ? "border-red-500 focus:ring-red-500 ring-2 ring-red-500/30 bg-red-50/40 dark:bg-red-950/20 text-red-700 dark:text-red-300"
                   : ""
               }
               onBlur={() => markTouched("department")}
@@ -880,7 +897,7 @@ export function UserForm({
             </SelectContent>
           </Select>
           {shouldShowDeptError && (
-            <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+            <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1 font-medium mt-1">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
               {departmentError}
             </p>
@@ -891,7 +908,11 @@ export function UserForm({
       {!initial && (
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label>
+            <Label
+              className={
+                shouldShowPasswordError ? "text-red-600 dark:text-red-400 font-semibold" : ""
+              }
+            >
               Password <span className="text-destructive">*</span>
             </Label>
             <div className="relative">
@@ -903,7 +924,7 @@ export function UserForm({
                 placeholder="Min 6 characters"
                 className={`pr-10 ${
                   shouldShowPasswordError
-                    ? "border-destructive focus-visible:ring-destructive ring-1 ring-destructive/30"
+                    ? "border-red-500 focus-visible:ring-red-500 ring-2 ring-red-500/30 bg-red-50/40 dark:bg-red-950/20"
                     : ""
                 }`}
               />
@@ -918,24 +939,32 @@ export function UserForm({
               </button>
             </div>
             {shouldShowPasswordError && (
-              <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+              <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1 font-medium mt-1">
                 <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                 {passwordError}
               </p>
             )}
 
             {/* Explicit password requirements display as requested */}
-            <div className="mt-1 rounded-md border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-900/50 p-2 text-[11px] space-y-1">
-              <p className="font-semibold text-zinc-700 dark:text-zinc-300">
+            <div
+              className={`mt-1.5 rounded-lg border p-2.5 text-[11px] space-y-1.5 transition-colors ${
+                shouldShowPasswordError
+                  ? "border-red-300 dark:border-red-900/60 bg-red-50/60 dark:bg-red-950/30"
+                  : "border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/60"
+              }`}
+            >
+              <p
+                className={`font-semibold ${shouldShowPasswordError ? "text-red-700 dark:text-red-300" : "text-zinc-700 dark:text-zinc-300"}`}
+              >
                 Password Requirements:
               </p>
               <div className="flex items-center gap-1.5">
                 <span
-                  className={`inline-block h-1.5 w-1.5 rounded-full ${
+                  className={`inline-block h-2 w-2 rounded-full shrink-0 ${
                     password.length >= 6
-                      ? "bg-emerald-500"
+                      ? "bg-emerald-500 ring-2 ring-emerald-500/20"
                       : shouldShowPasswordError
-                        ? "bg-destructive"
+                        ? "bg-red-500 ring-2 ring-red-500/20"
                         : "bg-zinc-400"
                   }`}
                 />
@@ -944,7 +973,7 @@ export function UserForm({
                     password.length >= 6
                       ? "text-emerald-600 dark:text-emerald-400 font-medium"
                       : shouldShowPasswordError
-                        ? "text-destructive font-medium"
+                        ? "text-red-600 dark:text-red-400 font-medium"
                         : "text-muted-foreground"
                   }
                 >
@@ -953,9 +982,9 @@ export function UserForm({
               </div>
               <div className="flex items-center gap-1.5">
                 <span
-                  className={`inline-block h-1.5 w-1.5 rounded-full ${
+                  className={`inline-block h-2 w-2 rounded-full shrink-0 ${
                     /[A-Za-z]/.test(password) && /[0-9]/.test(password)
-                      ? "bg-emerald-500"
+                      ? "bg-emerald-500 ring-2 ring-emerald-500/20"
                       : "bg-zinc-400"
                   }`}
                 />
@@ -973,7 +1002,11 @@ export function UserForm({
           </div>
 
           <div className="space-y-1.5">
-            <Label>
+            <Label
+              className={
+                shouldShowConfirmError ? "text-red-600 dark:text-red-400 font-semibold" : ""
+              }
+            >
               Confirm password <span className="text-destructive">*</span>
             </Label>
             <div className="relative">
@@ -985,7 +1018,7 @@ export function UserForm({
                 placeholder="Re-enter password"
                 className={`pr-10 ${
                   shouldShowConfirmError
-                    ? "border-destructive focus-visible:ring-destructive ring-1 ring-destructive/30"
+                    ? "border-red-500 focus-visible:ring-red-500 ring-2 ring-red-500/30 bg-red-50/40 dark:bg-red-950/20"
                     : ""
                 }`}
               />
@@ -1000,7 +1033,7 @@ export function UserForm({
               </button>
             </div>
             {shouldShowConfirmError && (
-              <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+              <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1 font-medium mt-1">
                 <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                 {confirmPasswordError}
               </p>

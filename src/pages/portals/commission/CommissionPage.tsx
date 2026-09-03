@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -9,6 +9,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { DataTable, type Column } from "@/components/data-table";
 import {
   ArrowDown,
@@ -18,9 +25,15 @@ import {
   TrendingUp,
   Boxes,
   Wallet,
+  Loader2,
+  Search,
 } from "lucide-react";
 import { FilterReset } from "@/components/filter-reset";
-import { commissionService, type CommissionRow } from "@/services/commission";
+import {
+  commissionService,
+  type CommissionRow,
+  type CommissionMarket,
+} from "@/services/commission";
 
 type SortDir = "asc" | "desc" | null;
 type Row = CommissionRow;
@@ -124,69 +137,118 @@ function SortableHeader({
 export default function CommissionPage() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [market, setMarket] = useState<string>("all");
-  const [userRole, setUserRole] = useState<string>("user");
+  const [marketsList, setMarketsList] = useState<CommissionMarket[]>([]);
+  const [marketsLoading, setMarketsLoading] = useState<boolean>(false);
 
-  // Today date by default (YYYY-MM-DD format)
-  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
-  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
+  // Filter states: date & market
+  const DEFAULT_DATE = "2026-08-31";
+  const [selectedDate, setSelectedDate] = useState<string>(DEFAULT_DATE);
+  const [selectedMarket, setSelectedMarket] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState<string>("");
 
+  // Server pagination states
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(100);
+  const [paginationInfo, setPaginationInfo] = useState<{
+    totalRecords: number;
+    totalPages: number;
+    hasPreviousPage: boolean;
+    hasNextPage: boolean;
+  }>({
+    totalRecords: 0,
+    totalPages: 1,
+    hasPreviousPage: false,
+    hasNextPage: false,
+  });
+
+  // Selected employee for detail modal breakdown
+  const [selectedEmployee, setSelectedEmployee] = useState<Row | null>(null);
+
+  // Load markets from Leave/Markets API
   useEffect(() => {
-    const fetchCommissionData = async () => {
+    let active = true;
+    const fetchMarkets = async () => {
       try {
-        setLoading(true);
-
-        const userString = localStorage.getItem("user");
-        if (!userString) return;
-
-        const user = JSON.parse(userString);
-        const { role, rows: fetchedRows } =
-          await commissionService.getCommissionByUserContext(user);
-
-        setUserRole(role);
-        setRows(fetchedRows);
+        setMarketsLoading(true);
+        const data = await commissionService.getMarkets();
+        if (active) {
+          setMarketsList(data);
+        }
       } catch (error) {
-        console.error("Error fetching commission data via CommissionService:", error);
+        console.error("Error fetching markets:", error);
       } finally {
-        setLoading(false);
+        if (active) setMarketsLoading(false);
       }
     };
-
-    fetchCommissionData();
+    fetchMarkets();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const markets = useMemo(
-    () => Array.from(new Set(rows.map((r) => r.market).filter(Boolean))),
-    [rows],
-  );
+  // Fetch paginated commission data
+  const fetchCommissionData = useCallback(async () => {
+    if (!selectedDate) return;
+    try {
+      setLoading(true);
+      const res = await commissionService.getAllEmployeeCommissionMarketWiseWithPagination({
+        fromDate: selectedDate,
+        toDate: selectedDate,
+        page,
+        pageSize,
+        market: selectedMarket !== "all" ? selectedMarket : undefined,
+      });
 
-  // Combined filtering: Date, Market and Search Term
-  const filtered = useMemo(() => {
+      setRows(res.data);
+      setPaginationInfo({
+        totalRecords: res.totalRecords,
+        totalPages: res.totalPages,
+        hasPreviousPage: res.hasPreviousPage,
+        hasNextPage: res.hasNextPage,
+      });
+    } catch (error) {
+      console.error("Error fetching paginated commission data:", error);
+      setRows([]);
+      setPaginationInfo({
+        totalRecords: 0,
+        totalPages: 1,
+        hasPreviousPage: false,
+        hasNextPage: false,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedDate, selectedMarket, page, pageSize]);
+
+  useEffect(() => {
+    fetchCommissionData();
+  }, [fetchCommissionData]);
+
+  // Handle filter changes (resets page to 1)
+  const handleDateChange = (newDate: string) => {
+    setSelectedDate(newDate);
+    setPage(1);
+  };
+
+  const handleMarketChange = (newMarket: string) => {
+    setSelectedMarket(newMarket);
+    setPage(1);
+  };
+
+  // Quick client search across loaded page records
+  const filteredRows = useMemo(() => {
+    if (!searchTerm.trim()) return rows;
+    const q = searchTerm.toLowerCase();
     return rows.filter((r) => {
-      // 1. Date filter check (YYYY-MM-DD match)
-      if (selectedDate) {
-        const [y, m, d] = selectedDate.split("-").map(Number);
-        if (r.year !== y || r.month !== m || r.day !== d) return false;
-      }
-
-      // 2. Market filter check
-      if (market !== "all" && r.market !== market) return false;
-
-      // 3. Search term check (NTID or Employee Name)
-      if (searchTerm.trim() !== "") {
-        const query = searchTerm.toLowerCase();
-        const ntidMatch = r.ntid?.toLowerCase().includes(query);
-        const nameMatch = r.employee_Name?.toLowerCase().includes(query);
-        if (!ntidMatch && !nameMatch) return false;
-      }
-
-      return true;
+      const ntidMatch = r.ntid?.toLowerCase().includes(q);
+      const nameMatch = r.employee_Name?.toLowerCase().includes(q);
+      const marketMatch = r.market?.toLowerCase().includes(q);
+      return ntidMatch || nameMatch || marketMatch;
     });
-  }, [rows, selectedDate, market, searchTerm]);
+  }, [rows, searchTerm]);
 
-  const summary = useSortable(filtered);
-  const detail = useSortable(filtered);
+  const summary = useSortable(filteredRows);
+  const detail = useSortable(filteredRows);
 
   const formatCurrency = (val: number | null | undefined): string => {
     return `$${(val ?? 0).toFixed(2)}`;
@@ -203,7 +265,7 @@ export default function CommissionPage() {
           onClick={() => summary.cycle("employee_Name")}
           indicator={summary.indicator("employee_Name")}
         />
-      ) as any,
+      ),
       accessor: (r) => r.employee_Name ?? "-",
       searchValue: (r) => r.employee_Name,
     },
@@ -221,7 +283,7 @@ export default function CommissionPage() {
           onClick={() => summary.cycle("commission")}
           indicator={summary.indicator("commission")}
         />
-      ) as any,
+      ),
       accessor: (r) => formatCurrency(r.commission),
     },
     { key: "box", header: "BOX COMM.", accessor: (r) => formatCurrency(r.box_Commission) },
@@ -247,7 +309,7 @@ export default function CommissionPage() {
           onClick={() => detail.cycle("employee_Name")}
           indicator={detail.indicator("employee_Name")}
         />
-      ) as any,
+      ),
       accessor: (r) => r.employee_Name ?? "-",
       searchValue: (r) => r.employee_Name,
     },
@@ -265,7 +327,7 @@ export default function CommissionPage() {
           onClick={() => detail.cycle("commission")}
           indicator={detail.indicator("commission")}
         />
-      ) as any,
+      ),
       accessor: (r) => formatCurrency(r.commission),
     },
     { key: "totBox", header: "TOTAL BOX", accessor: (r) => r.total_Box ?? 0 },
@@ -281,12 +343,12 @@ export default function CommissionPage() {
     ...MRC_KEYS.map((k) => ({
       key: `mrc${k}`,
       header: `${k} MRC`,
-      accessor: (r: Row) => (r as any)[`_${k}_MRC`] ?? 0,
+      accessor: (r: Row) => ((r as Record<string, unknown>)[`_${k}_MRC`] as number) ?? 0,
     })),
     ...WEB_KEYS.map((w) => ({
       key: `web${w.k}`,
       header: `${w.label}${w.k === "l40" ? " L1WEB Comm." : ""}`,
-      accessor: (r: Row) => (r as any)[w.k] ?? 0,
+      accessor: (r: Row) => ((r as Record<string, unknown>)[w.k] as number) ?? 0,
     })),
     { key: "hsi", header: "HSI", accessor: (r) => r.hsi ?? 0 },
     { key: "hsiC", header: "HSI COMM.", accessor: (r) => formatCurrency(r.hsI_Commission) },
@@ -303,74 +365,70 @@ export default function CommissionPage() {
     },
   ];
 
-  if (loading) {
-    return (
-      <div className="p-5 text-center text-sm text-muted-foreground animate-pulse">
-        Loading commission dataset...
-      </div>
-    );
-  }
+  const filtersActive =
+    selectedDate !== DEFAULT_DATE || selectedMarket !== "all" || searchTerm.trim() !== "";
 
-  const filtersActive = selectedDate !== todayStr || market !== "all" || searchTerm.trim() !== "";
   const resetFilters = () => {
-    setSelectedDate(todayStr);
-    setMarket("all");
+    setSelectedDate(DEFAULT_DATE);
+    setSelectedMarket("all");
     setSearchTerm("");
+    setPage(1);
   };
 
   const FilterBar = (
-    <div className="flex flex-wrap items-end gap-3">
+    <div className="flex flex-wrap items-end gap-3 w-full sm:w-auto">
+      {/* Date Filter */}
       <div className="flex flex-col">
         <span className="text-xs font-medium text-muted-foreground mb-1">Date</span>
         <Input
           type="date"
           value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          className="w-[180px] h-9"
+          onChange={(e) => handleDateChange(e.target.value)}
+          className="w-[170px] h-9"
         />
       </div>
 
-      {userRole !== "user" && (
-        <div className="flex flex-col">
-          <span className="text-xs font-medium text-muted-foreground mb-1">Market</span>
-          <Select value={market} onValueChange={setMarket}>
-            <SelectTrigger className="w-[200px] h-9">
-              <SelectValue placeholder="Filter by market" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Markets</SelectItem>
-              {markets.map((m) => (
-                <SelectItem key={m} value={m}>
-                  {m}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {/* Markets Dropdown Filter */}
+      <div className="flex flex-col">
+        <span className="text-xs font-medium text-muted-foreground mb-1">Market</span>
+        <Select value={selectedMarket} onValueChange={handleMarketChange} disabled={marketsLoading}>
+          <SelectTrigger className="w-[190px] h-9">
+            <SelectValue placeholder={marketsLoading ? "Loading markets..." : "All Markets"} />
+          </SelectTrigger>
+          <SelectContent className="max-h-72">
+            <SelectItem value="all">All Markets</SelectItem>
+            {marketsList.map((m) => (
+              <SelectItem key={m.id} value={m.name}>
+                {m.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Quick search input */}
+      <div className="flex flex-col">
+        <span className="text-xs font-medium text-muted-foreground mb-1">Search</span>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search name, NTID..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-[190px] h-9 pl-8"
+          />
         </div>
-      )}
+      </div>
 
       <FilterReset active={filtersActive} onReset={resetFilters} />
     </div>
   );
 
-  // Users only ever see their own single row — render it as a dashboard instead of a table.
-  if (userRole === "user") {
-    return (
-      <div className="space-y-5 animate-fade-in">
-        <div>
-          <h1 className="font-display text-2xl font-semibold">My Commission</h1>
-          <p className="text-sm text-muted-foreground">Your personal commission breakdown.</p>
-        </div>
-        {FilterBar}
-        <UserCommissionDashboard row={filtered[0]} formatCurrency={formatCurrency} />
-      </div>
-    );
-  }
-
   return (
     <Tabs defaultValue="summary" className="w-full space-y-5 animate-fade-in">
-      {/* Top Line: Title & Subtitle + Tabs placed right after with horizontal gap */}
-      <div className="flex flex-col md:flex-row md:items-center gap-4 md:gap-6">
+      {/* Top Line: Title & Subtitle + Tabs */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-semibold">Commission</h1>
           <p className="text-sm text-muted-foreground">
@@ -378,16 +436,31 @@ export default function CommissionPage() {
           </p>
         </div>
 
-        {/* Tabs shifted directly after title block */}
-        <TabsList className="self-start md:self-center">
+        <TabsList className="self-start md:self-auto">
           <TabsTrigger value="summary">Summary</TabsTrigger>
           <TabsTrigger value="detailed">Detailed Overview</TabsTrigger>
         </TabsList>
       </div>
 
-      {/* Second Line: filters + reset */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* Second Line: filters + reset + stats */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-card p-3 rounded-lg border">
         {FilterBar}
+
+        <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium self-end lg:self-center">
+          {loading ? (
+            <span className="flex items-center gap-1.5 text-primary">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Loading records...
+            </span>
+          ) : (
+            <span>
+              Total records:{" "}
+              <strong className="text-foreground font-semibold">
+                {paginationInfo.totalRecords}
+              </strong>
+            </span>
+          )}
+        </div>
       </div>
 
       <TabsContent value="summary" className="mt-2">
@@ -395,19 +468,58 @@ export default function CommissionPage() {
           <DataTable<Row>
             rows={summary.sorted}
             columns={summaryCols}
-            rowKey={(r) => `${r.ntid}-${r.year}-${r.month}-${r.day}`}
+            rowKey={(r, idx) => `${r.ntid}-${r.year}-${r.month}-${r.day}-${idx}`}
+            rowCount={paginationInfo.totalRecords}
+            page={page - 1}
+            onPageChange={(zeroBased) => setPage(zeroBased + 1)}
+            pageSize={pageSize}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+            isLoading={loading}
+            onRowClick={(row) => setSelectedEmployee(row)}
           />
         </Card>
       </TabsContent>
+
       <TabsContent value="detailed" className="mt-2">
         <Card className="p-4">
           <DataTable<Row>
             rows={detail.sorted}
             columns={detailCols}
-            rowKey={(r) => `${r.ntid}-${r.year}-${r.month}-${r.day}`}
+            rowKey={(r, idx) => `${r.ntid}-${r.year}-${r.month}-${r.day}-${idx}`}
+            rowCount={paginationInfo.totalRecords}
+            page={page - 1}
+            onPageChange={(zeroBased) => setPage(zeroBased + 1)}
+            pageSize={pageSize}
+            onPageSizeChange={(newSize) => {
+              setPageSize(newSize);
+              setPage(1);
+            }}
+            isLoading={loading}
+            onRowClick={(row) => setSelectedEmployee(row)}
           />
         </Card>
       </TabsContent>
+
+      {/* Employee Detail Modal */}
+      <Dialog
+        open={Boolean(selectedEmployee)}
+        onOpenChange={(open) => !open && setSelectedEmployee(null)}
+      >
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Employee Commission Details</DialogTitle>
+            <DialogDescription>
+              Detailed breakdown of commissions, deductions, and mix.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedEmployee && (
+            <UserCommissionDashboard row={selectedEmployee} formatCurrency={formatCurrency} />
+          )}
+        </DialogContent>
+      </Dialog>
     </Tabs>
   );
 }
@@ -452,12 +564,12 @@ function UserCommissionDashboard({
 
   const mrc = MRC_KEYS.map((k) => ({
     label: `${k} MRC`,
-    value: Number((row as any)[`_${k}_MRC`] ?? 0),
+    value: Number((row as Record<string, unknown>)[`_${k}_MRC`] ?? 0),
   })).filter((x) => x.value > 0);
 
   const web = WEB_KEYS.map((w) => ({
     label: w.label,
-    value: Number((row as any)[w.k] ?? 0),
+    value: Number((row as Record<string, unknown>)[w.k] ?? 0),
   })).filter((x) => x.value > 0);
 
   return (

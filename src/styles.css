@@ -269,16 +269,16 @@ table thead tr:hover,
 .themed-thead,
 .themed-thead tr,
 .themed-thead tr:hover {
-  background-color: color-mix(in oklab, var(--primary) 14%, var(--card)) !important;
+  background-color: color-mix(in oklab, var(--primary) 18%, var(--card)) !important;
 }
 table thead th,
 .themed-thead th {
   font-weight: 600;
-  color: color-mix(in oklab, var(--primary) 80%, var(--foreground)) !important;
+  color: color-mix(in oklab, var(--primary) 85%, var(--foreground)) !important;
 }
 table thead tr,
 .themed-thead tr {
-  border-bottom: 1px solid color-mix(in oklab, var(--primary) 22%, var(--border)) !important;
+  border-bottom: 2px solid color-mix(in oklab, var(--primary) 28%, var(--border)) !important;
 }
 .dark table thead,
 .dark table thead tr,
@@ -286,7 +286,7 @@ table thead tr,
 .dark .themed-thead,
 .dark .themed-thead tr,
 .dark .themed-thead tr:hover {
-  background-color: color-mix(in oklab, var(--primary) 22%, var(--card)) !important;
+  background-color: color-mix(in oklab, var(--primary) 24%, var(--card)) !important;
 }
 .dark table thead th,
 .dark .themed-thead th {

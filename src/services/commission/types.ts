@@ -46,7 +46,30 @@ export interface CommissionRow {
   e60?: number;
   e65?: number;
   e75?: number;
-  [key: string]: any;
+  [key: string]: unknown;
+}
+
+export interface CommissionMarket {
+  id: number;
+  name: string;
+}
+
+export interface CommissionPaginationParams {
+  fromDate: string;
+  toDate: string;
+  page?: number;
+  pageSize?: number;
+  market?: string;
+}
+
+export interface CommissionPaginationResponse {
+  page: number;
+  pageSize: number;
+  totalRecords: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+  data: CommissionRow[];
 }
 
 export interface GetEmployeeCommissionParams {

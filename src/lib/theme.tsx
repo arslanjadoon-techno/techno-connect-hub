@@ -312,6 +312,7 @@ function applyPalette(p: Palette, theme: Theme) {
   const r = document.documentElement.style;
   // Accent / button colors (lighter matching version)
   r.setProperty("--primary", p.primary);
+  r.setProperty("--primary-foreground", "#FFFFFF");
   r.setProperty("--primary-glow", p.primaryGlow);
   r.setProperty("--ring", p.ring);
   r.setProperty("--gradient-primary", `linear-gradient(135deg, ${p.primary}, ${p.primaryGlow})`);

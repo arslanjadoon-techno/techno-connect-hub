@@ -17,6 +17,9 @@ export type { ApiEnvelope } from "./http";
 export { commissionService, CommissionService } from "./commission";
 export type {
   CommissionRow,
+  CommissionMarket,
+  CommissionPaginationParams,
+  CommissionPaginationResponse,
   GetEmployeeCommissionParams,
   GetAllCommissionParams,
   CommissionUserContext,

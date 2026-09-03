@@ -1,6 +1,14 @@
-import { COMMISSION_API_BASE_URL, COMMISSION_API_PATHS } from "@/lib/config";
+import {
+  COMMISSION_API_BASE_URL,
+  COMMISSION_API_PATHS,
+  COMMISSION_MARKETS_API_URL,
+  LEASING_COMMISSION_API_BASE_URL,
+} from "@/lib/config";
 import type {
   CommissionRow,
+  CommissionMarket,
+  CommissionPaginationParams,
+  CommissionPaginationResponse,
   GetEmployeeCommissionParams,
   GetAllCommissionParams,
   CommissionUserContext,
@@ -121,6 +129,68 @@ export class CommissionService {
    */
   async getDashboardMetrics(params: { otp?: string } = {}): Promise<CommissionRow[]> {
     return this.getAllEmployeeCommissionMarketWise({ otp: params.otp ?? DEFAULT_OTP });
+  }
+
+  /**
+   * Fetch list of markets from the Leave/Markets endpoint.
+   * Endpoint: https://9t47yj4np0.execute-api.us-west-2.amazonaws.com/Prod/api/Leave/Markets
+   */
+  async getMarkets(): Promise<CommissionMarket[]> {
+    try {
+      const response = await fetch(COMMISSION_MARKETS_API_URL, {
+        method: "GET",
+        headers: {
+          accept: "*/*",
+        },
+      });
+
+      if (!response.ok) {
+        console.error(`Failed to fetch markets (${response.status}: ${response.statusText})`);
+        return [];
+      }
+
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      console.error("Error in CommissionService.getMarkets:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch paginated employee commission records market-wise with date filtering.
+   * Endpoint: https://leasingapi2.techno-communications.com/GetAllEmployeeCommissionMarketWiseWithPagination
+   */
+  async getAllEmployeeCommissionMarketWiseWithPagination(
+    params: CommissionPaginationParams,
+  ): Promise<CommissionPaginationResponse> {
+    const query = this.buildQueryString({
+      fromDate: params.fromDate,
+      toDate: params.toDate,
+      page: params.page ?? 1,
+      pageSize: params.pageSize ?? 100,
+      market: params.market && params.market !== "all" ? params.market : undefined,
+    });
+
+    const url = `${LEASING_COMMISSION_API_BASE_URL}${COMMISSION_API_PATHS.getAllEmployeeCommissionMarketWiseWithPagination}${query}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch commission pagination data (${response.status}: ${response.statusText})`,
+      );
+    }
+
+    const json = await response.json();
+    return {
+      page: Number(json.page) || 1,
+      pageSize: Number(json.pageSize) || 100,
+      totalRecords: Number(json.totalRecords) || 0,
+      totalPages: Number(json.totalPages) || 0,
+      hasPreviousPage: Boolean(json.hasPreviousPage),
+      hasNextPage: Boolean(json.hasNextPage),
+      data: Array.isArray(json.data) ? json.data : [],
+    };
   }
 }
 

@@ -102,9 +102,18 @@ export const COMMISSION_API_BASE_URL =
   (import.meta.env.VITE_COMMISSION_API_URL as string) ||
   "https://idwhjd4bj2.execute-api.us-west-2.amazonaws.com/Prod";
 
+export const LEASING_COMMISSION_API_BASE_URL =
+  (import.meta.env.VITE_LEASING_COMMISSION_API_URL as string) ||
+  "https://leasingapi2.techno-communications.com";
+
+export const COMMISSION_MARKETS_API_URL =
+  "https://9t47yj4np0.execute-api.us-west-2.amazonaws.com/Prod/api/Leave/Markets";
+
 export const COMMISSION_API_PATHS = {
   getEmployeeCommission: "/GetEmployeeCommission",
   getAllEmployeeCommissionMarketWise: "/GetAllEmployeeCommissionMarketWise",
+  getAllEmployeeCommissionMarketWiseWithPagination:
+    "/GetAllEmployeeCommissionMarketWiseWithPagination",
 } as const;
 
 export const LEAVE_API_PATHS = {

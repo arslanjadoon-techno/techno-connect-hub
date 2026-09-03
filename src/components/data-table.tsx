@@ -50,7 +50,7 @@ interface Props<T> {
 
 const PAGE_SIZE_KEY = "app-table-page-size";
 const PAGE_SIZE_EVENT = "app-table-page-size-change";
-const PAGE_SIZE_OPTIONS = [15, 25, 50];
+const PAGE_SIZE_OPTIONS = [15, 25, 50, 100];
 
 function getStoredPageSize(fallback: number) {
   if (typeof window === "undefined") return fallback;
