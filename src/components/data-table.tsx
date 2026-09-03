@@ -33,7 +33,7 @@ interface Props<T> {
   data?: T[];
   columns: Column<T>[];
   pageSize?: number;
-  rowKey?: (row: T) => string;
+  rowKey?: (row: T, index: number) => string;
   empty?: ReactNode;
   emptyMessage?: ReactNode;
   toolbar?: ReactNode;
@@ -86,7 +86,7 @@ export function DataTable<T>({
   const emptyContent = empty ?? emptyMessage ?? "No results";
 
   const getRowKey = (row: T, idx: number): string => {
-    if (rowKey) return rowKey(row);
+    if (rowKey) return rowKey(row, idx);
     if (row && typeof row === "object") {
       const obj = row as Record<string, unknown>;
       if (obj.id !== undefined && obj.id !== null) return String(obj.id);
@@ -170,7 +170,7 @@ export function DataTable<T>({
     );
   }, [rows, query, columns]);
 
-  const totalRecords = isServerPagination ? rowCount! : (filtered?.length || 0);
+  const totalRecords = isServerPagination ? rowCount! : filtered?.length || 0;
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
   const safePageDisplay = isServerPagination ? activePage + 1 : activePage;
   const tableDataSlice = isServerPagination
