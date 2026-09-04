@@ -45,6 +45,8 @@ import StatesPage from "@/pages/user-manager/StatesPage";
 import MarketsPage from "@/pages/user-manager/MarketsPage";
 import HousesPage from "@/pages/user-manager/HousesPage";
 import StoresPage from "@/pages/user-manager/StoresPage";
+import CreatePermissionPage from "@/pages/user-manager/permissions/CreatePermissionPage";
+import AssignPermissionsPage from "@/pages/user-manager/permissions/AssignPermissionsPage";
 import NotFoundInApp from "@/pages/shell/NotFoundInApp";
 import ComingSoon from "@/pages/shell/ComingSoon";
 
@@ -223,6 +225,12 @@ export function AppRoutes() {
         // ---------- User Manager ---------- //
         <Route path="/admin/users" element={<UsersPage />} />
         <Route path="/admin/users/:id" element={<UserDetailPage />} />
+        <Route
+          path="/admin/permissions"
+          element={<Navigate to="/admin/permissions/create" replace />}
+        />
+        <Route path="/admin/permissions/create" element={<CreatePermissionPage />} />
+        <Route path="/admin/permissions/assign" element={<AssignPermissionsPage />} />
         <Route path="/admin/departments" element={<DepartmentsPage />} />
         <Route path="/admin/districts" element={<DistrictsPage />} />
         <Route path="/admin/states" element={<StatesPage />} />

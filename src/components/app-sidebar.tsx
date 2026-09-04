@@ -29,6 +29,8 @@ import {
   CalendarPlus,
   CheckSquare,
   CalendarCheck,
+  PlusCircle,
+  UserCheck,
 } from "lucide-react";
 
 import {
@@ -55,7 +57,8 @@ import {
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 
-type Item = { title: string; url: string; icon: any };
+type SubItem = { title: string; url: string; icon?: any };
+type Item = { title: string; url: string; icon: any; children?: SubItem[] };
 type Group = { title: string; icon: any; items: Item[] };
 
 const topItems: Item[] = [
@@ -63,14 +66,7 @@ const topItems: Item[] = [
   { title: "Team Chat", url: "/chat", icon: MessagesSquare },
 ];
 
-const PORTAL_ORDER = [
-  "commission",
-  "leasing",
-  "ranker",
-  "ticketing",
-  "leave",
-  "scheduling",
-];
+const PORTAL_ORDER = ["commission", "leasing", "ranker", "ticketing", "leave", "scheduling"];
 
 const MASTER_PORTAL_GROUPS: Record<string, Group> = {
   commission: {
@@ -127,6 +123,15 @@ const adminGroup: Group = {
   icon: UsersIcon,
   items: [
     { title: "Users", url: "/admin/users", icon: UsersIcon },
+    {
+      title: "Permissions",
+      url: "/admin/permissions",
+      icon: KeyRound,
+      children: [
+        { title: "Create", url: "/admin/permissions/create", icon: PlusCircle },
+        { title: "Assign", url: "/admin/permissions/assign", icon: UserCheck },
+      ],
+    },
     { title: "Departments", url: "/admin/departments", icon: Briefcase },
     { title: "States", url: "/admin/states", icon: MapPin },
     { title: "Districts", url: "/admin/districts", icon: Building2 },
@@ -135,6 +140,79 @@ const adminGroup: Group = {
     { title: "Houses", url: "/admin/houses", icon: Home },
   ],
 };
+
+function CollapsibleGroupItem({
+  item,
+  isActive,
+}: {
+  item: Item;
+  isActive: (p: string) => boolean;
+}) {
+  const isChildActive =
+    isActive(item.url) || (item.children?.some((c) => isActive(c.url)) ?? false);
+
+  const [subOpen, setSubOpen] = useState<boolean>(isChildActive);
+
+  useEffect(() => {
+    if (isChildActive) {
+      setSubOpen(true);
+    }
+  }, [isChildActive]);
+
+  if (item.children && item.children.length > 0) {
+    return (
+      <div className="space-y-0.5">
+        <SidebarMenuItem>
+          <button
+            type="button"
+            onClick={() => setSubOpen((prev) => !prev)}
+            className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs font-medium transition hover:bg-sidebar-accent ${
+              isChildActive
+                ? "text-sidebar-accent-foreground font-semibold bg-sidebar-accent/50"
+                : "text-sidebar-foreground"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <item.icon className="h-4 w-4" />
+              <span>{item.title}</span>
+            </div>
+            {subOpen ? (
+              <ChevronUp className="h-3.5 w-3.5 opacity-70" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+            )}
+          </button>
+        </SidebarMenuItem>
+
+        {subOpen && (
+          <div className="ml-3.5 border-l border-sidebar-border/80 pl-2 space-y-0.5 py-0.5 animate-fade-in">
+            {item.children.map((child) => (
+              <SidebarMenuItem key={child.url}>
+                <SidebarMenuButton asChild isActive={isActive(child.url)} size="sm">
+                  <Link to={child.url} className="flex items-center gap-2 text-xs py-1">
+                    {child.icon && <child.icon className="h-3.5 w-3.5" />}
+                    <span>{child.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <SidebarMenuItem key={item.url}>
+      <SidebarMenuButton asChild isActive={isActive(item.url)} size="sm">
+        <Link to={item.url} className="flex items-center gap-2">
+          <item.icon className="h-4 w-4" />
+          <span>{item.title}</span>
+        </Link>
+      </SidebarMenuButton>
+    </SidebarMenuItem>
+  );
+}
 
 function CollapsibleGroup({
   group,
@@ -156,15 +234,22 @@ function CollapsibleGroup({
   if (collapsed) {
     return (
       <SidebarMenu>
-        {group.items.map((item) => (
-          <SidebarMenuItem key={item.url}>
-            <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-              <Link to={item.url} className="flex items-center gap-2">
-                <item.icon className="h-4 w-4" />
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ))}
+        {group.items.map((item) => {
+          const isItemActive =
+            isActive(item.url) || (item.children?.some((c) => isActive(c.url)) ?? false);
+          return (
+            <SidebarMenuItem key={item.url}>
+              <SidebarMenuButton asChild isActive={isItemActive} tooltip={item.title}>
+                <Link
+                  to={item.children ? item.children[0].url : item.url}
+                  className="flex items-center gap-2"
+                >
+                  <item.icon className="h-4 w-4" />
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          );
+        })}
       </SidebarMenu>
     );
   }
@@ -188,16 +273,9 @@ function CollapsibleGroup({
       </SidebarMenuItem>
 
       {open && (
-        <div className="ml-3 mt-0.5 border-l border-sidebar-border/70 pl-2 animate-fade-in">
+        <div className="ml-3 mt-0.5 border-l border-sidebar-border/70 pl-2 animate-fade-in space-y-0.5">
           {group.items.map((item) => (
-            <SidebarMenuItem key={item.url}>
-              <SidebarMenuButton asChild isActive={isActive(item.url)} size="sm">
-                <Link to={item.url} className="flex items-center gap-2">
-                  <item.icon className="h-4 w-4" />
-                  <span>{item.title}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
+            <CollapsibleGroupItem key={item.url} item={item} isActive={isActive} />
           ))}
         </div>
       )}
@@ -249,7 +327,8 @@ export function AppSidebar() {
   const [openGroup, setOpenGroup] = useState<string | null>(null);
 
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
-  const groupActive = (g: Group) => g.items.some((i) => isActive(i.url));
+  const groupActive = (g: Group) =>
+    g.items.some((i) => isActive(i.url) || (i.children?.some((c) => isActive(c.url)) ?? false));
   // Accordion: only one group open at a time. `null` = follow the active route.
   const isGroupOpen = (g: Group) => (openGroup === null ? groupActive(g) : openGroup === g.title);
   const toggleGroup = (g: Group) => setOpenGroup(isGroupOpen(g) ? "" : g.title);
@@ -317,13 +396,10 @@ export function AppSidebar() {
     return master;
   };
 
-  const allowedSet = new Set(
-    allowedPortalsList.map((p: string) => p.toLowerCase().trim()),
-  );
+  const allowedSet = new Set(allowedPortalsList.map((p: string) => p.toLowerCase().trim()));
   ALWAYS_PORTAL_KEYS.forEach((k) => allowedSet.add(k.toLowerCase().trim()));
 
-  const dynamicPortalGroups: Group[] = PORTAL_ORDER
-    .filter((key) => allowedSet.has(key))
+  const dynamicPortalGroups: Group[] = PORTAL_ORDER.filter((key) => allowedSet.has(key))
     .map((key) => {
       const master = MASTER_PORTAL_GROUPS[key];
       if (!master) return undefined;

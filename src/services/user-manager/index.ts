@@ -8,3 +8,8 @@ export { housesService, HousesService } from "./houses.service";
 export { externalTeamService, ExternalTeamService } from "./external-team.service";
 export { hierarchyService, HierarchyService } from "./hierarchy.service";
 export { userManagerService, UserManagerService } from "./user-manager.service";
+export {
+  permissionsService,
+  generatePermissionKey,
+  type PermissionItem,
+} from "./permissions.service";
