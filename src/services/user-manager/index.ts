@@ -12,4 +12,6 @@ export {
   permissionsService,
   generatePermissionKey,
   type PermissionItem,
+  type PermissionAccessLevel,
+  type UserAccessMap,
 } from "./permissions.service";

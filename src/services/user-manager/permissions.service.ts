@@ -1,3 +1,6 @@
+export type PermissionAccessLevel = "hide" | "read" | "write";
+export type UserAccessMap = Record<string, PermissionAccessLevel>;
+
 export interface PermissionItem {
   id: string;
   portalId?: number | string;
@@ -282,6 +285,64 @@ export const permissionsService = {
       return true;
     } catch {
       return false;
+    }
+  },
+
+  /**
+   * Retrieves access level map for a specific user ID.
+   * Format: { [permKey: string]: "hide" | "read" | "write" }
+   */
+  getUserAccessLevels(userId: number | string): UserAccessMap {
+    try {
+      const raw = localStorage.getItem(`${STORAGE_USER_PERMS_PREFIX}${userId}_levels`);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          return parsed as UserAccessMap;
+        }
+      }
+
+      // Check legacy format fallback
+      const legacyRaw = localStorage.getItem(`${STORAGE_USER_PERMS_PREFIX}${userId}`);
+      if (legacyRaw) {
+        const legacyParsed = JSON.parse(legacyRaw);
+        if (Array.isArray(legacyParsed)) {
+          const mapped: UserAccessMap = {};
+          legacyParsed.forEach((key: string) => {
+            mapped[key] = "write";
+          });
+          return mapped;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+
+    // Default fallback access levels
+    return {
+      commission_view_my_commission: "read",
+      ticketing_create_ticket: "write",
+      leave_request_leave: "write",
+    };
+  },
+
+  /**
+   * Persists access level map for a specific user ID.
+   */
+  saveUserAccessLevels(userId: number | string, accessMap: UserAccessMap): void {
+    try {
+      localStorage.setItem(
+        `${STORAGE_USER_PERMS_PREFIX}${userId}_levels`,
+        JSON.stringify(accessMap),
+      );
+
+      // Keep legacy array updated with active (non-hide) permissions
+      const activeKeys = Object.entries(accessMap)
+        .filter(([, level]) => level === "read" || level === "write")
+        .map(([k]) => k);
+      localStorage.setItem(`${STORAGE_USER_PERMS_PREFIX}${userId}`, JSON.stringify(activeKeys));
+    } catch (e) {
+      console.error("Failed to store user access levels:", e);
     }
   },
 

@@ -3,28 +3,23 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Search,
-  UserCheck,
   Shield,
-  ShieldCheck,
-  CheckCircle2,
-  XCircle,
   Copy,
   Users,
   Filter,
-  ArrowRight,
   PlusCircle,
-  Sparkles,
   Loader2,
   Save,
   Check,
   User as UserIcon,
-  ChevronRight,
   RotateCcw,
+  Eye,
+  EyeOff,
+  Pencil,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
@@ -37,6 +32,8 @@ import { PermissionsNavTabs } from "./PermissionsNavTabs";
 import {
   permissionsService,
   type PermissionItem,
+  type PermissionAccessLevel,
+  type UserAccessMap,
 } from "@/services/user-manager/permissions.service";
 import { usersApi, type BackendUser } from "@/lib/api/client";
 
@@ -71,14 +68,15 @@ export default function AssignPermissionsPage() {
 
   // Permissions state
   const [permissions, setPermissions] = useState<PermissionItem[]>([]);
-  const [assignedKeys, setAssignedKeys] = useState<Set<string>>(new Set());
-  const [initialKeys, setInitialKeys] = useState<Set<string>>(new Set());
+  const [accessMap, setAccessMap] = useState<UserAccessMap>({});
+  const [initialMap, setInitialMap] = useState<UserAccessMap>({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
 
   // Filters for permissions list
   const [permSearchQuery, setPermSearchQuery] = useState<string>("");
   const [selectedPortalFilter, setSelectedPortalFilter] = useState<string>("all");
+  const [selectedLevelFilter, setSelectedLevelFilter] = useState<string>("all");
 
   // Load available permissions
   useEffect(() => {
@@ -161,28 +159,24 @@ export default function AssignPermissionsPage() {
     };
   }, []);
 
-  // When a user is selected, load their assigned permissions
+  // When a user is selected, load their assigned permission access levels
   const handleSelectUser = (user: BackendUser) => {
     setSelectedUser(user);
     setUserSearchQuery("");
     setIsSearchFocused(false);
 
-    const saved = permissionsService.getUserPermissions(user.id);
-    const keySet = new Set(saved);
-    setAssignedKeys(keySet);
-    setInitialKeys(new Set(saved));
+    const savedLevels = permissionsService.getUserAccessLevels(user.id);
+    setAccessMap(savedLevels);
+    setInitialMap({ ...savedLevels });
     setHasUnsavedChanges(false);
   };
 
-  // Toggle a single permission
-  const handleTogglePermission = (key: string, checked: boolean) => {
-    const updated = new Set(assignedKeys);
-    if (checked) {
-      updated.add(key);
-    } else {
-      updated.delete(key);
-    }
-    setAssignedKeys(updated);
+  // Set the mutually exclusive access level for a permission
+  const handleSetPermissionLevel = (key: string, level: PermissionAccessLevel) => {
+    setAccessMap((prev) => ({
+      ...prev,
+      [key]: level,
+    }));
     setHasUnsavedChanges(true);
   };
 
@@ -191,12 +185,14 @@ export default function AssignPermissionsPage() {
     if (!selectedUser) return;
     setSaving(true);
     try {
-      const keysArray = Array.from(assignedKeys);
-      permissionsService.saveUserPermissions(selectedUser.id, keysArray);
-      setInitialKeys(new Set(assignedKeys));
+      permissionsService.saveUserAccessLevels(selectedUser.id, accessMap);
+      setInitialMap({ ...accessMap });
       setHasUnsavedChanges(false);
+      const activeCount = Object.values(accessMap).filter(
+        (lvl) => lvl === "read" || lvl === "write",
+      ).length;
       toast.success(`Permissions updated for ${selectedUser.fullName}`, {
-        description: `${keysArray.length} active permissions saved.`,
+        description: `${activeCount} active rights (Read / Read & Write) saved.`,
       });
     } catch (err: unknown) {
       toast.error((err as Error)?.message || "Failed to save permissions");
@@ -207,26 +203,9 @@ export default function AssignPermissionsPage() {
 
   // Reset to initial
   const handleReset = () => {
-    setAssignedKeys(new Set(initialKeys));
+    setAccessMap({ ...initialMap });
     setHasUnsavedChanges(false);
     toast.info("Changes reverted to previously saved state");
-  };
-
-  // Bulk actions for visible permissions
-  const handleGrantAllVisible = () => {
-    const updated = new Set(assignedKeys);
-    filteredPermissions.forEach((p) => updated.add(p.key));
-    setAssignedKeys(updated);
-    setHasUnsavedChanges(true);
-    toast.success(`Granted ${filteredPermissions.length} visible permissions`);
-  };
-
-  const handleRevokeAllVisible = () => {
-    const updated = new Set(assignedKeys);
-    filteredPermissions.forEach((p) => updated.delete(p.key));
-    setAssignedKeys(updated);
-    setHasUnsavedChanges(true);
-    toast.info(`Revoked ${filteredPermissions.length} visible permissions`);
   };
 
   // Close search dropdown when clicking outside
@@ -265,21 +244,45 @@ export default function AssignPermissionsPage() {
     return Array.from(set).sort();
   }, [permissions]);
 
+  // Permission access level counts for the selected user
+  const stats = useMemo(() => {
+    let writeCount = 0;
+    let readCount = 0;
+    let hideCount = 0;
+    permissions.forEach((p) => {
+      const lvl = accessMap[p.key] || "hide";
+      if (lvl === "write") writeCount++;
+      else if (lvl === "read") readCount++;
+      else hideCount++;
+    });
+    return {
+      writeCount,
+      readCount,
+      hideCount,
+      activeCount: writeCount + readCount,
+    };
+  }, [permissions, accessMap]);
+
   // Filter permissions for the main list
   const filteredPermissions = useMemo(() => {
     return permissions.filter((p) => {
       const matchesPortal =
         selectedPortalFilter === "all" ||
         p.portalName.toLowerCase() === selectedPortalFilter.toLowerCase();
+
+      const currentLevel: PermissionAccessLevel = accessMap[p.key] || "hide";
+      const matchesLevel = selectedLevelFilter === "all" || currentLevel === selectedLevelFilter;
+
       const q = permSearchQuery.toLowerCase().trim();
       const matchesSearch =
         !q ||
         p.name.toLowerCase().includes(q) ||
         p.key.toLowerCase().includes(q) ||
         (p.description && p.description.toLowerCase().includes(q));
-      return matchesPortal && matchesSearch;
+
+      return matchesPortal && matchesLevel && matchesSearch;
     });
-  }, [permissions, selectedPortalFilter, permSearchQuery]);
+  }, [permissions, selectedPortalFilter, selectedLevelFilter, permSearchQuery, accessMap]);
 
   // Helper initials
   const getUserInitials = (name?: string) => {
@@ -432,9 +435,19 @@ export default function AssignPermissionsPage() {
             <div className="flex items-center gap-3 self-end md:self-center flex-wrap">
               <div className="text-right mr-1">
                 <span className="text-xs font-semibold text-foreground">
-                  {assignedKeys.size} of {permissions.length}
+                  {stats.activeCount} of {permissions.length} Active
                 </span>
-                <p className="text-[10px] text-muted-foreground">Permissions Active</p>
+                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground justify-end mt-0.5">
+                  <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                    {stats.writeCount} Read and Write
+                  </span>
+                  <span>•</span>
+                  <span className="text-sky-600 dark:text-sky-400 font-medium">
+                    {stats.readCount} Read Only
+                  </span>
+                  <span>•</span>
+                  <span>{stats.hideCount} Hide</span>
+                </div>
               </div>
 
               {hasUnsavedChanges && (
@@ -480,30 +493,9 @@ export default function AssignPermissionsPage() {
                     Granular Portal Permissions
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Toggle individual capabilities on or off. Newly created permissions appear here
-                    immediately.
+                    Configure granular access for each permission. Choose between Hide, Read Only,
+                    or Read and Write.
                   </CardDescription>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleGrantAllVisible}
-                    className="h-7 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
-                    Grant All Visible
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleRevokeAllVisible}
-                    className="h-7 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                  >
-                    <XCircle className="h-3.5 w-3.5 mr-1" />
-                    Revoke All Visible
-                  </Button>
                 </div>
               </div>
 
@@ -513,7 +505,7 @@ export default function AssignPermissionsPage() {
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     type="text"
-                    placeholder="Filter permissions by name, key, or action..."
+                    placeholder="Filter permissions by name, key, or description..."
                     value={permSearchQuery}
                     onChange={(e) => setPermSearchQuery(e.target.value)}
                     className="h-8 pl-8 text-xs"
@@ -521,7 +513,7 @@ export default function AssignPermissionsPage() {
                 </div>
 
                 {/* Portal selection dropdown */}
-                <div className="w-full sm:w-[200px]">
+                <div className="w-full sm:w-[190px]">
                   <Select value={selectedPortalFilter} onValueChange={setSelectedPortalFilter}>
                     <SelectTrigger className="h-8 text-xs">
                       <Filter className="h-3 w-3 mr-1.5 text-muted-foreground" />
@@ -540,6 +532,21 @@ export default function AssignPermissionsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Access level dropdown filter */}
+                <div className="w-full sm:w-[170px]">
+                  <Select value={selectedLevelFilter} onValueChange={setSelectedLevelFilter}>
+                    <SelectTrigger className="h-8 text-xs">
+                      <SelectValue placeholder="All Access Levels" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Levels ({permissions.length})</SelectItem>
+                      <SelectItem value="write">Read and Write ({stats.writeCount})</SelectItem>
+                      <SelectItem value="read">Read Only ({stats.readCount})</SelectItem>
+                      <SelectItem value="hide">Hide ({stats.hideCount})</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </CardHeader>
 
@@ -550,7 +557,7 @@ export default function AssignPermissionsPage() {
                     <Shield className="h-8 w-8 mx-auto text-muted-foreground/50" />
                     <p className="text-sm font-medium text-foreground">No permissions found</p>
                     <p className="text-xs text-muted-foreground">
-                      Try adjusting your search query or portal filter.
+                      Try adjusting your search query or filter criteria.
                     </p>
                     <Link to="/admin/permissions/create">
                       <Button variant="outline" size="sm" className="mt-2 text-xs gap-1.5">
@@ -561,12 +568,17 @@ export default function AssignPermissionsPage() {
                   </div>
                 ) : (
                   filteredPermissions.map((perm) => {
-                    const isAssigned = assignedKeys.has(perm.key);
+                    const currentLevel: PermissionAccessLevel = accessMap[perm.key] || "hide";
+
                     return (
                       <div
                         key={perm.id}
-                        className={`p-4 flex items-center justify-between gap-4 transition-colors ${
-                          isAssigned ? "bg-primary/5 hover:bg-primary/8" : "hover:bg-muted/40"
+                        className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
+                          currentLevel === "write"
+                            ? "bg-emerald-500/5 hover:bg-emerald-500/8"
+                            : currentLevel === "read"
+                              ? "bg-sky-500/5 hover:bg-sky-500/8"
+                              : "hover:bg-muted/30"
                         }`}
                       >
                         <div className="space-y-1.5 min-w-0 flex-1">
@@ -617,22 +629,56 @@ export default function AssignPermissionsPage() {
                           )}
                         </div>
 
-                        {/* Assign / Revoke Toggle Switch */}
-                        <div className="flex items-center gap-2.5 shrink-0">
-                          <span
-                            className={`text-xs font-medium ${
-                              isAssigned
-                                ? "text-emerald-600 dark:text-emerald-400"
-                                : "text-muted-foreground"
+                        {/* 🌟 3 Mutually Exclusive Buttons: "Hide", "Read Only", "Read and Write" */}
+                        <div
+                          role="group"
+                          aria-label={`Access level for ${perm.name}`}
+                          className="inline-flex items-center rounded-lg border border-border/80 bg-muted/40 p-1 shrink-0 self-start sm:self-center"
+                        >
+                          {/* 1. Hide */}
+                          <button
+                            type="button"
+                            onClick={() => handleSetPermissionLevel(perm.key, "hide")}
+                            title="Hide: No access to this feature"
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md transition-all font-medium ${
+                              currentLevel === "hide"
+                                ? "bg-background text-foreground font-semibold shadow-xs border border-border"
+                                : "text-muted-foreground hover:text-foreground hover:bg-background/50"
                             }`}
                           >
-                            {isAssigned ? "Assigned" : "Disabled"}
-                          </span>
-                          <Switch
-                            checked={isAssigned}
-                            onCheckedChange={(checked) => handleTogglePermission(perm.key, checked)}
-                            aria-label={`Toggle permission ${perm.name}`}
-                          />
+                            <EyeOff className="h-3.5 w-3.5" />
+                            <span>Hide</span>
+                          </button>
+
+                          {/* 2. Read Only */}
+                          <button
+                            type="button"
+                            onClick={() => handleSetPermissionLevel(perm.key, "read")}
+                            title="Read Only: View only access"
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md transition-all font-medium ${
+                              currentLevel === "read"
+                                ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 font-semibold shadow-xs border border-sky-500/30"
+                                : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                            }`}
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            <span>Read Only</span>
+                          </button>
+
+                          {/* 3. Read and Write */}
+                          <button
+                            type="button"
+                            onClick={() => handleSetPermissionLevel(perm.key, "write")}
+                            title="Read and Write: Full operational access"
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md transition-all font-medium ${
+                              currentLevel === "write"
+                                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-semibold shadow-xs border border-emerald-500/30"
+                                : "text-muted-foreground hover:text-foreground hover:bg-background/50"
+                            }`}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            <span>Read and Write</span>
+                          </button>
                         </div>
                       </div>
                     );
