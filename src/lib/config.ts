@@ -114,6 +114,7 @@ export const COMMISSION_API_PATHS = {
   getAllEmployeeCommissionMarketWise: "/GetAllEmployeeCommissionMarketWise",
   getAllEmployeeCommissionMarketWiseWithPagination:
     "/GetAllEmployeeCommissionMarketWiseWithPagination",
+  getDashboard: "/GetDashboard",
 } as const;
 
 export const LEAVE_API_PATHS = {

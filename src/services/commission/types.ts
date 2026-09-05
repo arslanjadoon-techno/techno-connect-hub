@@ -93,3 +93,70 @@ export interface CommissionUserContext {
   markets?: Array<{ name: string; id?: number }>;
   districts?: Array<{ name: string; id?: number }>;
 }
+
+export interface CommissionAmountSummary {
+  amount: number;
+  currency: string;
+  formatted: string;
+}
+
+export interface CommissionDashboardSummaryCards {
+  activeUsers: number;
+  totalCommissionMtd: CommissionAmountSummary;
+  totalBoxes: number;
+  boxesCommission: CommissionAmountSummary;
+}
+
+export interface CommissionTrendSeries {
+  name: string;
+  data: number[];
+}
+
+export interface CommissionTrendChart {
+  description: string;
+  labels: string[];
+  series: CommissionTrendSeries[];
+}
+
+export interface Top5MarketItem {
+  market: string;
+  percentage: number;
+  amount: number;
+}
+
+export interface Top5MarketsChart {
+  description: string;
+  data: Top5MarketItem[];
+}
+
+export interface MonthlySalesBoxesSeries {
+  name: string;
+  data: number[];
+}
+
+export interface MonthlySalesBoxesChart {
+  description: string;
+  labels: string[];
+  series: MonthlySalesBoxesSeries[];
+}
+
+export interface CommissionDashboardCharts {
+  commissionTrend: CommissionTrendChart;
+  top5Markets: Top5MarketsChart;
+  monthlySalesBoxes: MonthlySalesBoxesChart;
+}
+
+export interface CommissionDashboardData {
+  summaryCards: CommissionDashboardSummaryCards;
+  charts: CommissionDashboardCharts;
+}
+
+export interface CommissionDashboardResponse {
+  data: CommissionDashboardData;
+}
+
+export interface GetCommissionDashboardParams {
+  month?: number;
+  year?: number;
+  trendMonths?: number;
+}

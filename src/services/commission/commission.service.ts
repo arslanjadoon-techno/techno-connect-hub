@@ -12,6 +12,9 @@ import type {
   GetEmployeeCommissionParams,
   GetAllCommissionParams,
   CommissionUserContext,
+  CommissionDashboardData,
+  CommissionDashboardResponse,
+  GetCommissionDashboardParams,
 } from "./types";
 
 const DEFAULT_OTP = "123456";
@@ -122,6 +125,30 @@ export class CommissionService {
     }
 
     return { role, rows };
+  }
+
+  /**
+   * Fetch executive dashboard summary metrics and charts (summary cards, commission trend, top markets, monthly boxes).
+   * Endpoint: https://leasingapi2.techno-communications.com/GetDashboard?month=...&year=...&trendMonths=...
+   */
+  async getDashboard(params: GetCommissionDashboardParams = {}): Promise<CommissionDashboardData> {
+    const query = this.buildQueryString({
+      month: params.month ?? 8,
+      year: params.year ?? 2026,
+      trendMonths: params.trendMonths ?? params.month ?? 8,
+    });
+
+    const url = `${LEASING_COMMISSION_API_BASE_URL}${COMMISSION_API_PATHS.getDashboard}${query}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(
+        `Failed to fetch commission dashboard data (${response.status}: ${response.statusText})`,
+      );
+    }
+
+    const json: CommissionDashboardResponse = await response.json();
+    return json.data;
   }
 
   /**
