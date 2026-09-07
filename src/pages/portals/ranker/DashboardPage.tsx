@@ -1,3 +1,4 @@
+import { Link, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import {
   Users,
@@ -230,7 +231,14 @@ export default function RankerDashboardPage() {
         <SectionCard
           title="Yearly Champion"
           icon={Trophy}
-          action={<Gem className="h-4 w-4 text-sky-400" />}
+          action={
+            <Link
+              to="/ranker/wall-of-fame"
+              className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
+            >
+              WALL OF FAME <ArrowRight className="h-3 w-3" />
+            </Link>
+          }
         >
           <div className="flex h-[260px] flex-col items-center justify-center gap-3 text-center">
             <div className="relative">
@@ -263,9 +271,12 @@ export default function RankerDashboardPage() {
           title="Monthly Stars"
           icon={Star}
           action={
-            <button className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1">
+            <Link
+              to="/ranker/star-ranker"
+              className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
+            >
               VIEW ALL <ArrowRight className="h-3 w-3" />
-            </button>
+            </Link>
           }
         >
           <div className="space-y-2.5">

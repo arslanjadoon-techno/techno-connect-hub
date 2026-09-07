@@ -31,6 +31,8 @@ import Privacy from "@/pages/portals/commission/Privacy";
 import RankerDashboardPage from "@/pages/portals/ranker/DashboardPage";
 import StandingsPage from "@/pages/portals/ranker/Standings";
 import StandingsDetailPage from "@/pages/portals/ranker/StandingsDetail";
+import StarRankerPage from "@/pages/portals/ranker/StarRankerPage";
+import WallOfFamePage from "@/pages/portals/ranker/WallOfFamePage";
 
 // ---------- Leave Portal ---------- //
 import RequestLeavePage from "@/pages/portals/leave/RequestLeavePage";
@@ -176,6 +178,8 @@ export function AppRoutes() {
         <Route path="/ranker/dashboard" element={<RankerDashboardPage />} />
         <Route path="/ranker/standings" element={<StandingsPage />} />
         <Route path="/ranker/standings/detail" element={<StandingsDetailPage />} />
+        <Route path="/ranker/star-ranker" element={<StarRankerPage />} />
+        <Route path="/ranker/wall-of-fame" element={<WallOfFamePage />} />
         // ---------- Lease / Scheduling Portals ---------- //
         <Route path="/lease/dashboard" element={<ComingSoon title="Lease Portal Dashboard" />} />
         <Route
