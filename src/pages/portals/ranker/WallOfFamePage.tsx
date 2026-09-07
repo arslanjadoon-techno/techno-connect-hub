@@ -24,6 +24,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import wallOfFameBanner from "@/assets/images/wall_of_fame_banner_1788807945812.jpg";
+import { ConfettiBackground } from "@/components/confetti-background";
 
 export interface MonthlyChampion {
   id: string;
@@ -308,241 +309,182 @@ export default function WallOfFamePage() {
     return yearChampions.slice(0, 3);
   }, [yearChampions]);
 
-  // Any additional monthly champions of that year
-  const otherMonthlyChampions = useMemo(() => {
-    return yearChampions.slice(3);
-  }, [yearChampions]);
-
   return (
-    <div className="space-y-8 p-4 sm:p-6 max-w-7xl mx-auto animate-fade-in">
-      {/* 🌟 1. Top Suitable Hero Banner / Image */}
-      <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-amber-500/30 shadow-2xl bg-slate-950 text-white">
-        {/* Banner background image */}
-        <div className="absolute inset-0">
-          <img
-            src={wallOfFameBanner}
-            alt="Wall of Fame Prestige Banner"
-            referrerPolicy="no-referrer"
-            className="w-full h-full object-cover object-center opacity-45 scale-105 transition-transform duration-1000 ease-out"
-          />
-          {/* Luxury vignette overlay */}
-          <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/80 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-slate-950/60" />
-        </div>
-
-        {/* Hero content container */}
-        <div className="relative p-6 sm:p-10 md:p-12 z-10 flex flex-col justify-between min-h-[260px] sm:min-h-[300px]">
-          <div className="space-y-3 max-w-2xl">
-            <div className="flex items-center gap-2">
-              <Badge
-                variant="outline"
-                className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-xs px-3 py-1 gap-1.5 font-bold tracking-widest uppercase shadow-xs"
-              >
-                <Crown className="h-3.5 w-3.5 text-amber-400" />
-                Techno Communications Hall of Fame
-              </Badge>
-            </div>
-
-            <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white leading-none">
-              Wall of Fame
-            </h1>
-
-            <p className="text-sm sm:text-base text-slate-300 font-normal leading-relaxed max-w-xl">
-              Celebrating exceptional sales leadership, record-shattering achievements, and the
-              monthly champions who define our culture of uncompromising excellence.
-            </p>
+    <ConfettiBackground>
+      <div className="space-y-8 p-4 sm:p-6 max-w-7xl mx-auto animate-fade-in relative z-10">
+        {/* 🌟 1. Top Suitable Hero Banner / Image (Grey Background as requested) */}
+        <div className="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-zinc-600/40 shadow-2xl bg-zinc-800 text-white">
+          {/* Banner background image */}
+          <div className="absolute inset-0">
+            <img
+              src={wallOfFameBanner}
+              alt="Wall of Fame Prestige Banner"
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-cover object-center opacity-40 scale-105 transition-transform duration-1000 ease-out"
+            />
+            {/* Elegant grey vignette overlay */}
+            <div className="absolute inset-0 bg-gradient-to-r from-zinc-800 via-zinc-800/85 to-zinc-700/60" />
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-800 via-transparent to-zinc-800/60" />
           </div>
 
-          {/* Quick Laureate Stats banner row */}
-          <div className="pt-6 mt-4 border-t border-white/10 flex items-center gap-6 sm:gap-10 flex-wrap">
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400">
-                <Trophy className="h-5 w-5" />
+          {/* Hero content container */}
+          <div className="relative p-6 sm:p-10 md:p-12 z-10 flex flex-col justify-between min-h-[240px] sm:min-h-[270px]">
+            <div className="space-y-3 max-w-2xl">
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-xs px-3 py-1 gap-1.5 font-bold tracking-widest uppercase shadow-xs"
+                >
+                  <Crown className="h-3.5 w-3.5 text-amber-400" />
+                  Techno Communications Hall of Fame
+                </Badge>
               </div>
-              <div>
-                <span className="text-[11px] uppercase tracking-wider text-slate-400 block font-medium">
-                  Annual Inductees
-                </span>
-                <span className="text-base sm:text-lg font-bold text-white">
-                  {yearChampions.length} Champions
-                </span>
-              </div>
+
+              <h1 className="font-display text-3xl sm:text-4xl md:text-5xl font-black tracking-tight text-white leading-none">
+                Wall of Fame
+              </h1>
+
+              <p className="text-sm sm:text-base text-zinc-300 font-normal leading-relaxed max-w-xl">
+                Celebrating exceptional sales leadership, record-shattering achievements, and the
+                monthly champions who define our culture of uncompromising excellence.
+              </p>
             </div>
 
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-400">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <div>
-                <span className="text-[11px] uppercase tracking-wider text-slate-400 block font-medium">
-                  Peak Score
-                </span>
-                <span className="text-base sm:text-lg font-bold text-white">124.8% Benchmark</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2.5">
-              <div className="p-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400">
-                <CheckCircle2 className="h-5 w-5" />
-              </div>
-              <div>
-                <span className="text-[11px] uppercase tracking-wider text-slate-400 block font-medium">
-                  Honor Status
-                </span>
-                <span className="text-base sm:text-lg font-bold text-white">
-                  President's Circle
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 🌟 2. Year Filter Bar (Current Year 2026 selected by default) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-card border border-border/80 shadow-xs">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-primary" />
-          <div>
-            <h2 className="text-sm font-bold text-foreground">Select Induction Year</h2>
-            <p className="text-xs text-muted-foreground">
-              Displaying monthly champions inducted during the {selectedYear} performance cycle
-            </p>
-          </div>
-        </div>
-
-        {/* Year Select & Year Pill Buttons */}
-        <div className="flex items-center gap-2.5 self-start sm:self-auto">
-          <div className="flex items-center gap-1.5 p-1 rounded-lg bg-muted/60 border border-border/60">
-            {YEAR_OPTIONS.map((yr) => (
-              <Button
-                key={yr}
-                variant={selectedYear === yr ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setSelectedYear(yr)}
-                className={`h-7 px-3 text-xs font-semibold rounded-md transition-all ${
-                  selectedYear === yr
-                    ? "shadow-xs font-bold"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {yr}
-                {yr === "2026" && (
-                  <span className="ml-1 text-[9px] px-1 py-0.2 bg-white/20 rounded font-normal">
-                    Current
+            {/* Quick Laureate Stats banner row */}
+            <div className="pt-5 mt-4 border-t border-white/10 flex items-center gap-6 sm:gap-10 flex-wrap">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400">
+                  <Trophy className="h-5 w-5" />
+                </div>
+                <div>
+                  <span className="text-[11px] uppercase tracking-wider text-zinc-300 block font-medium">
+                    Induction Cycle
                   </span>
-                )}
-              </Button>
-            ))}
-          </div>
+                  <span className="text-base sm:text-lg font-bold text-white">
+                    Year {selectedYear}
+                  </span>
+                </div>
+              </div>
 
-          <div className="w-[120px] sm:hidden">
-            <Select value={selectedYear} onValueChange={setSelectedYear}>
-              <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="Year" />
-              </SelectTrigger>
-              <SelectContent>
-                {YEAR_OPTIONS.map((yr) => (
-                  <SelectItem key={yr} value={yr} className="text-xs">
-                    Year {yr}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-indigo-500/20 border border-indigo-500/30 text-indigo-300">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <span className="text-[11px] uppercase tracking-wider text-zinc-300 block font-medium">
+                    Recognition
+                  </span>
+                  <span className="text-base sm:text-lg font-bold text-white">
+                    Grand Monthly Champions
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-300">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <span className="text-[11px] uppercase tracking-wider text-zinc-300 block font-medium">
+                    Honor Status
+                  </span>
+                  <span className="text-base sm:text-lg font-bold text-white">
+                    President's Circle
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* 🌟 3. 3 Bary Sary Frames (Large Prominent Champion Frames) */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        {/* 🌟 2. Year Filter Bar (Current Year 2026 selected by default) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-card border border-border/80 shadow-xs">
           <div className="flex items-center gap-2">
-            <Trophy className="h-5 w-5 text-amber-500" />
-            <h2 className="font-display text-lg sm:text-xl font-bold tracking-tight text-foreground">
-              Featured Monthly Champions ({selectedYear})
-            </h2>
+            <Calendar className="h-4 w-4 text-primary" />
+            <div>
+              <h2 className="text-sm font-bold text-foreground">Select Induction Year</h2>
+              <p className="text-xs text-muted-foreground">
+                Displaying monthly champions inducted during the {selectedYear} performance cycle
+              </p>
+            </div>
           </div>
-          <span className="text-xs text-muted-foreground font-medium">
-            Spotlight Hall of Fame Frames
-          </span>
+
+          {/* Year Select & Year Pill Buttons */}
+          <div className="flex items-center gap-2.5 self-start sm:self-auto">
+            <div className="flex items-center gap-1.5 p-1 rounded-lg bg-muted/60 border border-border/60">
+              {YEAR_OPTIONS.map((yr) => (
+                <Button
+                  key={yr}
+                  variant={selectedYear === yr ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setSelectedYear(yr)}
+                  className={`h-7 px-3 text-xs font-semibold rounded-md transition-all ${
+                    selectedYear === yr
+                      ? "shadow-xs font-bold"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {yr}
+                  {yr === "2026" && (
+                    <span className="ml-1 text-[9px] px-1 py-0.2 bg-white/20 rounded font-normal">
+                      Current
+                    </span>
+                  )}
+                </Button>
+              ))}
+            </div>
+
+            <div className="w-[120px] sm:hidden">
+              <Select value={selectedYear} onValueChange={setSelectedYear}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  {YEAR_OPTIONS.map((yr) => (
+                    <SelectItem key={yr} value={yr} className="text-xs">
+                      Year {yr}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
 
-        {primaryThreeChampions.length === 0 ? (
-          <div className="p-12 text-center rounded-2xl border border-dashed border-border text-muted-foreground text-xs">
-            No champions recorded for year {selectedYear}.
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-            {primaryThreeChampions.map((champ, index) => (
-              <BigChampionFrame key={champ.id} champion={champ} spotlightIndex={index + 1} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* 🌟 4. Extended Archive: Other Monthly Champions of the Year */}
-      {otherMonthlyChampions.length > 0 && (
-        <div className="space-y-4 pt-4 border-t border-border/60">
+        {/* 🌟 3. 3 Bary Sary Frames (Large Square Portrait Frames) */}
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Medal className="h-5 w-5 text-indigo-500" />
-              <h3 className="font-display text-base sm:text-lg font-bold tracking-tight text-foreground">
-                All {selectedYear} Monthly Champions
-              </h3>
+              <Trophy className="h-5 w-5 text-amber-500" />
+              <h2 className="font-display text-lg sm:text-xl font-bold tracking-tight text-foreground">
+                Monthly Champions ({selectedYear})
+              </h2>
             </div>
-            <span className="text-xs text-muted-foreground">Additional Honorees</span>
+            <span className="text-xs text-muted-foreground font-medium">
+              Grand Hall of Fame Frames
+            </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {otherMonthlyChampions.map((champ) => (
-              <Card
-                key={champ.id}
-                className="overflow-hidden border border-border/80 bg-card/80 hover:bg-accent/20 transition-all duration-200 hover:shadow-md"
-              >
-                <CardContent className="p-4 flex items-center gap-4">
-                  <div className="relative shrink-0">
-                    <img
-                      src={champ.photo}
-                      alt={champ.name}
-                      referrerPolicy="no-referrer"
-                      className="h-14 w-14 rounded-full object-cover border-2 border-amber-400/60 shadow-xs"
-                    />
-                    <div className="absolute -bottom-1 -right-1 bg-amber-500 text-amber-950 p-1 rounded-full shadow">
-                      <Trophy className="h-3 w-3" />
-                    </div>
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <Badge
-                      variant="outline"
-                      className="text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 py-0 mb-1"
-                    >
-                      {champ.championTitle}
-                    </Badge>
-                    <h4 className="text-sm font-bold text-foreground truncate">{champ.name}</h4>
-                    <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                      <MapPin className="h-3 w-3 shrink-0 text-muted-foreground" />
-                      <span className="truncate">{champ.market}</span>
-                    </div>
-                  </div>
-
-                  <div className="text-right shrink-0">
-                    <span className="text-[10px] text-muted-foreground block">Score</span>
-                    <span className="font-display text-base font-bold text-primary">
-                      {champ.score}%
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {primaryThreeChampions.length === 0 ? (
+            <div className="p-12 text-center rounded-2xl border border-dashed border-border text-muted-foreground text-xs">
+              No champions recorded for year {selectedYear}.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+              {primaryThreeChampions.map((champ, index) => (
+                <BigChampionFrame key={champ.id} champion={champ} spotlightIndex={index + 1} />
+              ))}
+            </div>
+          )}
         </div>
-      )}
-    </div>
+      </div>
+    </ConfettiBackground>
   );
 }
 
 // ---------------------------------------------------------------------------
-// 🌟 BigChampionFrame: Grand showcase for user image, market name, monthly champion title
+// 🌟 BigChampionFrame: Grand showcase with massive square profile image,
+// Market name, and Monthly Champion title (score, boxes sold & tenure removed)
 // ---------------------------------------------------------------------------
 function BigChampionFrame({
   champion,
@@ -551,18 +493,16 @@ function BigChampionFrame({
   champion: MonthlyChampion;
   spotlightIndex: number;
 }) {
-  const isFirst = spotlightIndex === 1;
-
   return (
     <Card className="group relative overflow-hidden rounded-2xl sm:rounded-3xl border-2 border-amber-400/60 dark:border-amber-500/40 shadow-xl shadow-amber-500/5 dark:shadow-amber-950/30 transition-all duration-300 hover:scale-[1.01] hover:shadow-2xl hover:border-amber-500 flex flex-col justify-between bg-card">
-      {/* Top accent radiant bar */}
+      {/* Top radiant gold bar */}
       <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500" />
 
-      {/* Subtle glowing backdrop gradient */}
+      {/* Subtle background gradient glow */}
       <div className="absolute inset-0 bg-gradient-to-b from-amber-500/5 via-transparent to-amber-500/5 pointer-events-none" />
 
-      <div className="relative p-6 flex flex-col items-center text-center space-y-4">
-        {/* Monthly Champion Badge / Ribbon */}
+      <div className="relative p-5 sm:p-6 flex flex-col items-center text-center space-y-4">
+        {/* Top Ribbon / Monthly Champion Badge */}
         <div className="w-full flex items-center justify-between">
           <Badge
             variant="outline"
@@ -577,26 +517,23 @@ function BigChampionFrame({
           </span>
         </div>
 
-        {/* User's Large Image with Trophy Laurel Frame */}
-        <div className="relative my-2">
-          {/* Golden laurel halo border */}
-          <div className="relative p-1.5 rounded-full bg-gradient-to-tr from-amber-400 via-yellow-200 to-amber-500 shadow-xl group-hover:scale-105 transition-transform duration-300">
-            <img
-              src={champion.photo}
-              alt={champion.name}
-              referrerPolicy="no-referrer"
-              className="h-32 w-32 sm:h-36 sm:w-36 rounded-full object-cover border-4 border-white dark:border-slate-900 shadow-inner"
-            />
-          </div>
+        {/* 🌟 Profile Picture in Square Shape as Large as Possible */}
+        <div className="relative w-full aspect-square rounded-2xl overflow-hidden border-2 border-amber-400/60 dark:border-amber-500/50 shadow-lg group-hover:border-amber-400 transition-all bg-muted">
+          <img
+            src={champion.photo}
+            alt={champion.name}
+            referrerPolicy="no-referrer"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
 
-          {/* Floating Gold Medal Badge */}
-          <div className="absolute -bottom-2 -right-1 bg-gradient-to-br from-amber-500 to-yellow-600 text-amber-950 p-2.5 rounded-full shadow-xl border-2 border-white dark:border-slate-900">
-            <Crown className="h-5 w-5 text-amber-950 fill-amber-950" />
+          {/* Floating Gold Crown Badge at corner */}
+          <div className="absolute bottom-3 right-3 bg-gradient-to-br from-amber-500 to-yellow-600 text-amber-950 p-2 sm:p-2.5 rounded-xl shadow-xl border-2 border-white dark:border-slate-900 flex items-center justify-center">
+            <Crown className="h-5 w-5 fill-amber-950 text-amber-950" />
           </div>
         </div>
 
-        {/* User Name & Market Name */}
-        <div className="space-y-1.5 w-full">
+        {/* User Name, Market Name & Award Category */}
+        <div className="space-y-1.5 w-full pt-1">
           <div className="text-[11px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400">
             {champion.awardCategory}
           </div>
@@ -607,42 +544,6 @@ function BigChampionFrame({
             <MapPin className="h-3.5 w-3.5 text-amber-500 shrink-0" />
             <span className="font-semibold text-foreground/80">{champion.market}</span>
           </div>
-        </div>
-
-        {/* Score & Volume Highlight Card */}
-        <div className="w-full bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-amber-500/10 dark:from-amber-950/40 dark:via-amber-900/20 dark:to-amber-950/40 p-4 rounded-2xl border border-amber-400/40 dark:border-amber-700/50 shadow-xs">
-          <div className="flex items-center justify-around divide-x divide-border/60">
-            <div className="px-2">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block">
-                Overall Score
-              </span>
-              <span className="font-display text-2xl sm:text-3xl font-black text-amber-600 dark:text-amber-400">
-                {champion.score}%
-              </span>
-            </div>
-
-            <div className="px-2">
-              <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block">
-                Boxes Sold
-              </span>
-              <span className="font-display text-2xl sm:text-3xl font-black text-foreground">
-                {champion.totalBoxes.toLocaleString()}
-              </span>
-            </div>
-          </div>
-
-          <div className="mt-2.5 pt-2 border-t border-amber-400/20 text-[11px] text-muted-foreground italic line-clamp-1">
-            "{champion.highlight}"
-          </div>
-        </div>
-
-        {/* Induction detail footer */}
-        <div className="w-full flex items-center justify-between text-[11px] text-muted-foreground pt-1">
-          <span className="flex items-center gap-1">
-            <Award className="h-3.5 w-3.5 text-amber-500" />
-            Inducted {champion.month} {champion.year}
-          </span>
-          <span className="font-medium text-foreground">Tenure: {champion.tenure}</span>
         </div>
       </div>
     </Card>
