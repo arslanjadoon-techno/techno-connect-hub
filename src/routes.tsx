@@ -33,6 +33,9 @@ import StandingsPage from "@/pages/portals/ranker/Standings";
 import StandingsDetailPage from "@/pages/portals/ranker/StandingsDetail";
 import StarRankerPage from "@/pages/portals/ranker/StarRankerPage";
 import WallOfFamePage from "@/pages/portals/ranker/WallOfFamePage";
+import HappeningBoardPage from "@/pages/portals/ranker/HappeningBoardPage";
+import RulesPage from "@/pages/portals/ranker/RulesPage";
+import CriteriaDetailsPage from "@/pages/portals/ranker/CriteriaDetailsPage";
 
 // ---------- Leave Portal ---------- //
 import RequestLeavePage from "@/pages/portals/leave/RequestLeavePage";
@@ -180,6 +183,9 @@ export function AppRoutes() {
         <Route path="/ranker/standings/detail" element={<StandingsDetailPage />} />
         <Route path="/ranker/star-ranker" element={<StarRankerPage />} />
         <Route path="/ranker/wall-of-fame" element={<WallOfFamePage />} />
+        <Route path="/ranker/happening-board" element={<HappeningBoardPage />} />
+        <Route path="/ranker/rules" element={<RulesPage />} />
+        <Route path="/ranker/criteria-details" element={<CriteriaDetailsPage />} />
         // ---------- Lease / Scheduling Portals ---------- //
         <Route path="/lease/dashboard" element={<ComingSoon title="Lease Portal Dashboard" />} />
         <Route

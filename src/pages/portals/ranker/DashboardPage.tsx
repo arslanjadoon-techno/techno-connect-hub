@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Users,
   MapPin,
@@ -11,6 +12,8 @@ import {
   Star,
   ArrowRight,
   Gem,
+  BookOpen,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   PieChart,
@@ -135,11 +138,30 @@ function SectionCard({
 export default function RankerDashboardPage() {
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="font-display text-2xl font-semibold">Ranker Portal</h1>
-        <p className="text-sm text-muted-foreground">
-          Live KPI performance, monthly stars, and the yearly champion across all markets.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-semibold">Ranker Portal</h1>
+          <p className="text-sm text-muted-foreground">
+            Live KPI performance, monthly stars, happening board, and performance rules across all markets.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            to="/ranker/rules"
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-amber-400/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition flex items-center gap-1.5"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+            Rules
+          </Link>
+          <Link
+            to="/ranker/criteria-details"
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-sky-400/40 bg-sky-500/10 text-sky-600 dark:text-sky-400 hover:bg-sky-500/20 transition flex items-center gap-1.5"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            Criteria Details
+          </Link>
+        </div>
       </div>
 
       {/* KPI cards */}
@@ -167,12 +189,15 @@ export default function RankerDashboardPage() {
       {/* Row 1: Upcoming + KPI Weights */}
       <div className="grid gap-4 lg:grid-cols-2">
         <SectionCard
-          title="Upcoming"
+          title="Happening Board"
           icon={CalendarDays}
           action={
-            <button className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1">
-              VIEW ALL <ArrowRight className="h-3 w-3" />
-            </button>
+            <Link
+              to="/ranker/happening-board"
+              className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
+            >
+              VIEW BOARD <ArrowRight className="h-3 w-3" />
+            </Link>
           }
         >
           <div className="flex h-[260px] flex-col items-center justify-center gap-2 text-center">
@@ -180,12 +205,23 @@ export default function RankerDashboardPage() {
               <Sparkles className="h-7 w-7 text-amber-500" />
             </div>
             <div className="font-display text-lg font-semibold text-amber-500">COMING SOON…</div>
-            <p className="text-xs italic text-muted-foreground">Exciting events are on the way!</p>
+            <p className="text-xs italic text-muted-foreground">New exciting events are being planned!</p>
             <div className="mt-2 h-1 w-24 rounded-full bg-gradient-to-r from-primary to-primary/30" />
           </div>
         </SectionCard>
 
-        <SectionCard title="KPI Weights" icon={Award}>
+        <SectionCard
+          title="KPI Weights"
+          icon={Award}
+          action={
+            <Link
+              to="/ranker/criteria-details"
+              className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
+            >
+              CRITERIA DETAILS <ArrowRight className="h-3 w-3" />
+            </Link>
+          }
+        >
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
