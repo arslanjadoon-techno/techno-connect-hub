@@ -711,33 +711,6 @@ export default function GoalsVsAchievementPage() {
                 </Select>
               </div>
 
-              {/* Date Selector for Total Achievements */}
-              {isTotalAchievements && (
-                <div className="w-44">
-                  <Select
-                    value={String(activeDayIdx)}
-                    onValueChange={(v) => setSelectedDayIndex(Number(v))}
-                  >
-                    <SelectTrigger
-                      id="date-select"
-                      className="bg-white text-zinc-900 font-bold text-xs h-9 border-0 shadow-sm focus:ring-amber-400"
-                    >
-                      <div className="flex items-center gap-1.5 truncate">
-                        <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                        <SelectValue placeholder="Date" />
-                      </div>
-                    </SelectTrigger>
-                    <SelectContent className="text-xs">
-                      {rawData[0]?.days.map((d, idx) => (
-                        <SelectItem key={idx} value={String(idx)}>
-                          {d.dayName} - {d.dateStr}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
               {/* Search Store Name Input */}
               <div className="relative w-44 sm:w-52">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
