@@ -162,6 +162,8 @@ export interface StoreGoalRecord {
 }
 
 // Stores catalog
+const MARKETS = ["ARIZONA", "TEXAS", "FLORIDA", "CALIFORNIA", "NEVADA", "NEW YORK"];
+
 const BASE_STORE_LIST = [
   { id: "az-1", store: "N ARIZONA AVE", manager: "ALI KHAN", baseVolume: 1.1 },
   { id: "az-2", store: "3202 E GREENWAY RD", manager: "ALI KHAN", baseVolume: 0.65 },
@@ -386,7 +388,7 @@ type SortColumn =
 type SortDirection = "asc" | "desc" | "normal";
 
 export default function GoalsVsAchievementPage() {
-  const [selectedMarket, setSelectedMarket] = useState<string>("ARIZONA");
+  const [selectedMarket, setSelectedMarket] = useState<string>(MARKETS[0]);
   const [selectedYear, setSelectedYear] = useState<string>("2026");
   const [selectedMonth, setSelectedMonth] = useState<string>("September");
   const [activeCategory, setActiveCategory] = useState<MetricKey>("ACCESSORIES");
@@ -576,7 +578,7 @@ export default function GoalsVsAchievementPage() {
   }, [filteredData, activeCategory]);
 
   const handleResetFilters = () => {
-    setSelectedMarket("ARIZONA");
+    setSelectedMarket(MARKETS[0]);
     setSelectedYear("2026");
     setSelectedMonth("September");
     setSelectedWeekId("week-1");
@@ -637,12 +639,11 @@ export default function GoalsVsAchievementPage() {
                     </div>
                   </SelectTrigger>
                   <SelectContent className="text-xs">
-                    <SelectItem value="ARIZONA">ARIZONA</SelectItem>
-                    <SelectItem value="TEXAS">TEXAS</SelectItem>
-                    <SelectItem value="FLORIDA">FLORIDA</SelectItem>
-                    <SelectItem value="CALIFORNIA">CALIFORNIA</SelectItem>
-                    <SelectItem value="NEVADA">NEVADA</SelectItem>
-                    <SelectItem value="NEW YORK">NEW YORK</SelectItem>
+                    {MARKETS.map((m) => (
+                      <SelectItem key={m} value={m}>
+                        {m}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

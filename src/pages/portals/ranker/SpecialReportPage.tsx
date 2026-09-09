@@ -65,7 +65,7 @@ export interface SpecialReportStoreRecord {
   };
 }
 
-const MARKETS = ["ALL MARKETS", "ARIZONA", "TEXAS", "FLORIDA", "CALIFORNIA", "NEVADA", "NEW YORK"];
+const MARKETS = ["ARIZONA", "TEXAS", "FLORIDA", "CALIFORNIA", "NEVADA", "NEW YORK"];
 
 const MONTH_NAMES = [
   "January",
@@ -339,7 +339,7 @@ function renderDiff(diff: number) {
 
 export default function SpecialReportPage() {
   const [activeTab, setActiveTab] = useState<SpecialReportTab>("SUMMARY");
-  const [selectedMarket, setSelectedMarket] = useState<string>("ALL MARKETS");
+  const [selectedMarket, setSelectedMarket] = useState<string>(MARKETS[0]);
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Sorting state
@@ -356,7 +356,7 @@ export default function SpecialReportPage() {
     let list = rawData;
 
     // Filter by market
-    if (selectedMarket !== "ALL MARKETS") {
+    if (selectedMarket) {
       list = list.filter((r) => r.market.toUpperCase() === selectedMarket.toUpperCase());
     }
 
@@ -535,7 +535,7 @@ export default function SpecialReportPage() {
   };
 
   const handleResetFilters = () => {
-    setSelectedMarket("ALL MARKETS");
+    setSelectedMarket(MARKETS[0]);
     setSearchQuery("");
     setSortCol(null);
     setSortDir("desc");
