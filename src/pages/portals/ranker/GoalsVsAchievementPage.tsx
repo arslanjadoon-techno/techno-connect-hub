@@ -223,7 +223,13 @@ function generateDynamicStoreData(
 
       // Performance factor (some stores perform high, some low, mirroring the screenshot)
       let perfFactor = 0.95;
-      if (sIdx === 0) {
+      if (category === "TOTAL ACHIEVEMENTS") {
+        // Screenshot shows realistic percentage range: 86%, 64%, 145%, 115%, 168%, 81%, 60%, 245%, 77%, 39%, 104%
+        const samplePcts = [0.86, 0.64, 1.45, 1.15, 1.68, 0.81, 0.6, 2.45, 0.77, 0.39, 1.04];
+        const baseFactor = samplePcts[sIdx % samplePcts.length];
+        const dayVariance = dIdx === 0 ? 0 : (((sIdx * 17 + dIdx * 23) % 30) - 15) / 100;
+        perfFactor = Math.max(0.2, baseFactor + dayVariance);
+      } else if (sIdx === 0) {
         perfFactor = [0.85, 0.34, 0.19, 1.56, 1.68, 1.27, 0.89][dIdx % 7] ?? 1.1;
       } else if (sIdx === 1) {
         perfFactor = [0.09, 0.33, 0.42, 0.1, 0.23, 1.0, 0.23][dIdx % 7] ?? 0.4;
@@ -334,7 +340,50 @@ function renderThirdColumn(val: number, isAffirm: boolean) {
   );
 }
 
-type SortColumn = "store" | "mtdPct" | "fullMtdPct" | "weeklyPct";
+/**
+ * Renders the % To Target pill badge for TOTAL ACHIEVEMENTS tab:
+ * - <= 70% : Red color
+ * - 71% to 99% : Yellow color
+ * - >= 100% : Green color
+ */
+function renderTotalAchievementPctBadge(pct: number) {
+  let badgeClass = "";
+  if (pct <= 70) {
+    // 70 or less: Red color
+    badgeClass =
+      "bg-[#fee2e2] text-[#991b1b] border border-[#fca5a5] dark:bg-red-950/70 dark:text-red-300 dark:border-red-800";
+  } else if (pct <= 99) {
+    // 71 to 99: Yellow color
+    badgeClass =
+      "bg-[#fef9c3] text-[#854d0e] border border-[#fde047] dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800";
+  } else {
+    // 100 above: Green color
+    badgeClass =
+      "bg-[#dcfce7] text-[#166534] border border-[#86efac] dark:bg-emerald-950/70 dark:text-emerald-300 dark:border-emerald-800";
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center justify-center font-extrabold px-3.5 py-1 rounded-xl text-xs sm:text-sm min-w-[64px] shadow-2xs ${badgeClass}`}
+    >
+      {pct}%
+    </span>
+  );
+}
+
+type SortColumn =
+  | "store"
+  | "market"
+  | "date"
+  | "dailyTgt"
+  | "dailyAct"
+  | "dailyPct"
+  | "mtdAct"
+  | "fullMtdAct"
+  | "weeklyAct"
+  | "mtdPct"
+  | "fullMtdPct"
+  | "weeklyPct";
 type SortDirection = "asc" | "desc" | "normal";
 
 export default function GoalsVsAchievementPage() {
@@ -343,6 +392,10 @@ export default function GoalsVsAchievementPage() {
   const [selectedMonth, setSelectedMonth] = useState<string>("September");
   const [activeCategory, setActiveCategory] = useState<MetricKey>("ACCESSORIES");
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
+
+  const isByod = activeCategory === "BYOD";
+  const isTotalAchievements = activeCategory === "TOTAL ACHIEVEMENTS";
 
   // Dynamic weeks covering the entire selected month
   const availableWeeks = useMemo(() => {
@@ -386,6 +439,15 @@ export default function GoalsVsAchievementPage() {
     );
   }, [activeCategory, selectedMarket, selectedYear, selectedMonth, activeWeekDef]);
 
+  const activeDayIdx = Math.max(
+    0,
+    Math.min(selectedDayIndex, (rawData[0]?.days?.length ?? 1) - 1),
+  );
+  const activeDay = rawData[0]?.days[activeDayIdx] || rawData[0]?.days[0];
+  const activeDayDateFormatted = activeDay
+    ? `${activeDay.dayName}, ${activeDay.dateStr} ${selectedYear}`
+    : `${selectedMonth} ${selectedYear}`;
+
   const handleSort = (col: SortColumn) => {
     if (sortCol !== col) {
       setSortCol(col);
@@ -421,7 +483,36 @@ export default function GoalsVsAchievementPage() {
             ? a.store.localeCompare(b.store)
             : b.store.localeCompare(a.store);
         }
-        if (sortCol === "mtdPct") {
+        if (sortCol === "market") {
+          return sortDir === "asc"
+            ? a.market.localeCompare(b.market)
+            : b.market.localeCompare(a.market);
+        }
+        if (sortCol === "dailyTgt") {
+          valA = a.days[activeDayIdx]?.tgt ?? 0;
+          valB = b.days[activeDayIdx]?.tgt ?? 0;
+          return sortDir === "asc" ? valA - valB : valB - valA;
+        }
+        if (sortCol === "dailyAct") {
+          valA = a.days[activeDayIdx]?.act ?? 0;
+          valB = b.days[activeDayIdx]?.act ?? 0;
+          return sortDir === "asc" ? valA - valB : valB - valA;
+        }
+        if (sortCol === "dailyPct") {
+          valA = a.days[activeDayIdx]?.pct ?? 0;
+          valB = b.days[activeDayIdx]?.pct ?? 0;
+          return sortDir === "asc" ? valA - valB : valB - valA;
+        }
+        if (sortCol === "mtdAct") {
+          valA = a.mtd.act;
+          valB = b.mtd.act;
+        } else if (sortCol === "fullMtdAct") {
+          valA = a.fullMtd.act;
+          valB = b.fullMtd.act;
+        } else if (sortCol === "weeklyAct") {
+          valA = a.weekly.act;
+          valB = b.weekly.act;
+        } else if (sortCol === "mtdPct") {
           valA = a.mtd.pct;
           valB = b.mtd.pct;
         } else if (sortCol === "fullMtdPct") {
@@ -436,7 +527,7 @@ export default function GoalsVsAchievementPage() {
     }
 
     return list;
-  }, [rawData, searchQuery, sortCol, sortDir]);
+  }, [rawData, searchQuery, sortCol, sortDir, activeDayIdx]);
 
   // Total row aggregates
   const totalRow = useMemo(() => {
@@ -493,6 +584,7 @@ export default function GoalsVsAchievementPage() {
     setSelectedYear("2026");
     setSelectedMonth("September");
     setSelectedWeekId("week-1");
+    setSelectedDayIndex(0);
     setSearchQuery("");
     setActiveCategory("ACCESSORIES");
     setSortCol(null);
@@ -501,6 +593,87 @@ export default function GoalsVsAchievementPage() {
   };
 
   const handleExportCSV = () => {
+    if (isTotalAchievements) {
+      const headers = [
+        "Store",
+        "Manager",
+        "Market",
+        "Date",
+        "Daily Target",
+        "Daily Achieved",
+        "% To Target",
+      ];
+      const rows = filteredData.map((r) => {
+        const d = r.days[activeDayIdx] || r.days[0];
+        return [
+          `"${r.store}"`,
+          `"${r.manager}"`,
+          `"${r.market}"`,
+          `"${activeDayDateFormatted}"`,
+          d?.tgt ?? 0,
+          d?.act ?? 0,
+          `${d?.pct ?? 0}%`,
+        ];
+      });
+
+      const csvContent =
+        "data:text/csv;charset=utf-8," +
+        [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute(
+        "download",
+        `Total_Achievement_${selectedMarket}_${selectedMonth}_${selectedYear}.csv`,
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("Total Achievement CSV exported");
+      return;
+    }
+
+    if (isByod) {
+      const dayHeaders = (rawData[0]?.days || []).map((d) => `${d.dayName} ${d.dateStr}`);
+      const headers = [
+        "Store",
+        "Manager",
+        "Market",
+        "MTD",
+        "Full MTD",
+        ...dayHeaders,
+        "Weekly",
+      ];
+
+      const rows = filteredData.map((r) => [
+        `"${r.store}"`,
+        `"${r.manager}"`,
+        `"${r.market}"`,
+        r.mtd.act,
+        r.fullMtd.act,
+        ...r.days.map((d) => d.act),
+        r.weekly.act,
+      ]);
+
+      const csvContent =
+        "data:text/csv;charset=utf-8," +
+        [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute(
+        "download",
+        `BYOD_${selectedMarket}_${selectedMonth}_${selectedYear}.csv`,
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success("BYOD CSV exported");
+      return;
+    }
+
     const isAffirm = activeCategory === "AFFIRM";
     const subCol1 = isAffirm ? "Inv" : "Target";
     const subCol2 = isAffirm ? "Fin" : "Actual";
@@ -683,6 +856,33 @@ export default function GoalsVsAchievementPage() {
                 </Select>
               </div>
 
+              {/* Date Selector for Total Achievements */}
+              {isTotalAchievements && (
+                <div className="w-44">
+                  <Select
+                    value={String(activeDayIdx)}
+                    onValueChange={(v) => setSelectedDayIndex(Number(v))}
+                  >
+                    <SelectTrigger
+                      id="date-select"
+                      className="bg-white text-zinc-900 font-bold text-xs h-9 border-0 shadow-sm focus:ring-amber-400"
+                    >
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <SelectValue placeholder="Date" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="text-xs">
+                      {rawData[0]?.days.map((d, idx) => (
+                        <SelectItem key={idx} value={String(idx)}>
+                          {d.dayName} - {d.dateStr}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               {/* Search Store Name Input */}
               <div className="relative w-44 sm:w-52">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
@@ -755,119 +955,361 @@ export default function GoalsVsAchievementPage() {
               <table className="w-full text-xs border-collapse">
                 {/* Header Row 1: High Level Groupings */}
                 <thead>
-                  <tr className="bg-zinc-100 dark:bg-zinc-900 text-foreground border-b border-border text-[11px] font-bold tracking-wider uppercase">
-                    {/* Sticky Store / Manager Column scoped inside isolated card */}
-                    <th
-                      rowSpan={2}
-                      className="sticky left-0 z-20 bg-zinc-100 dark:bg-zinc-900 px-4 py-3 text-left min-w-[200px] border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.12)]"
-                    >
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => handleSort("store")}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            handleSort("store");
-                          }
-                        }}
-                        className="flex items-center gap-1.5 cursor-pointer hover:text-amber-600 transition-colors"
-                      >
-                        <span>STORE / MANAGER</span>
-                        {sortCol === "store" && sortDir !== "normal" ? (
-                          sortDir === "asc" ? (
-                            <ArrowUp className="w-3.5 h-3.5 text-amber-500" />
+                  {isTotalAchievements ? (
+                    // Total Achievement Headers: "Store / Manager", "Market", "Date", "Daily Target", "Daily Achieved", "% To Target"
+                    <tr className="bg-zinc-100 dark:bg-zinc-900 text-foreground border-b border-border text-[11px] font-bold tracking-wider uppercase">
+                      {/* Store / Manager */}
+                      <th className="sticky left-0 z-20 bg-zinc-100 dark:bg-zinc-900 px-4 py-3 text-left min-w-[200px] border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.12)]">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleSort("store")}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleSort("store");
+                            }
+                          }}
+                          className="flex items-center gap-1.5 cursor-pointer hover:text-amber-600 transition-colors"
+                        >
+                          <span>STORE / MANAGER</span>
+                          {sortCol === "store" && sortDir !== "normal" ? (
+                            sortDir === "asc" ? (
+                              <ArrowUp className="w-3.5 h-3.5 text-amber-500" />
+                            ) : (
+                              <ArrowDown className="w-3.5 h-3.5 text-amber-500" />
+                            )
                           ) : (
-                            <ArrowDown className="w-3.5 h-3.5 text-amber-500" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3 h-3 text-muted-foreground/50" />
-                        )}
-                      </div>
-                    </th>
-
-                    {/* MTD */}
-                    <th
-                      colSpan={3}
-                      className="px-3 py-2 text-center border-r border-border bg-blue-50/50 dark:bg-blue-950/20"
-                    >
-                      MTD
-                    </th>
-
-                    {/* FULL MTD */}
-                    <th
-                      colSpan={3}
-                      className="px-3 py-2 text-center border-r border-border bg-indigo-50/50 dark:bg-indigo-950/20"
-                    >
-                      FULL MTD
-                    </th>
-
-                    {/* Dynamic Days of the Selected Week */}
-                    {rawData[0]?.days.map((d, idx) => (
-                      <th
-                        key={idx}
-                        colSpan={3}
-                        className="px-3 py-2 text-center border-r border-border bg-muted/40"
-                      >
-                        <div className="font-bold text-foreground">{d.dayName}</div>
-                        <div className="text-[10px] text-muted-foreground font-medium whitespace-nowrap">
-                          {d.dateStr}
+                            <ArrowUpDown className="w-3 h-3 text-muted-foreground/50" />
+                          )}
                         </div>
                       </th>
-                    ))}
 
-                    {/* WEEKLY Summary */}
-                    <th
-                      colSpan={3}
-                      className="px-3 py-2 text-center bg-amber-50/60 dark:bg-amber-950/20"
-                    >
-                      WEEKLY
-                    </th>
-                  </tr>
+                      {/* Market */}
+                      <th className="px-4 py-3 text-center border-r border-border min-w-[120px]">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleSort("market")}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleSort("market");
+                            }
+                          }}
+                          className="flex items-center justify-center gap-1.5 cursor-pointer hover:text-amber-600 transition-colors"
+                        >
+                          <span>MARKET</span>
+                          {sortCol === "market" && sortDir !== "normal" ? (
+                            sortDir === "asc" ? (
+                              <ArrowUp className="w-3.5 h-3.5 text-amber-500" />
+                            ) : (
+                              <ArrowDown className="w-3.5 h-3.5 text-amber-500" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-muted-foreground/50" />
+                          )}
+                        </div>
+                      </th>
 
-                  {/* Header Row 2: Sub-headers (TGT, ACT, % or Inv, Fin, Non-Fin for Affirm) */}
-                  <tr className="bg-muted/60 dark:bg-zinc-900/60 text-muted-foreground border-b border-border/80 text-[10px] font-semibold">
-                    {/* Under MTD */}
-                    <th className="px-2 py-1.5 text-center">{subCol1}</th>
-                    <th className="px-2 py-1.5 text-center">{subCol2}</th>
-                    <th
-                      className="px-2 py-1.5 text-center border-r border-border cursor-pointer hover:text-foreground"
-                      onClick={() => handleSort("mtdPct")}
-                    >
-                      {subCol3}
-                    </th>
+                      {/* Date */}
+                      <th className="px-4 py-3 text-center border-r border-border min-w-[150px]">
+                        <span>DATE</span>
+                      </th>
 
-                    {/* Under FULL MTD */}
-                    <th className="px-2 py-1.5 text-center">{subCol1}</th>
-                    <th className="px-2 py-1.5 text-center">{subCol2}</th>
-                    <th
-                      className="px-2 py-1.5 text-center border-r border-border cursor-pointer hover:text-foreground"
-                      onClick={() => handleSort("fullMtdPct")}
-                    >
-                      {subCol3}
-                    </th>
+                      {/* Daily Target */}
+                      <th className="px-4 py-3 text-center border-r border-border min-w-[130px]">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleSort("dailyTgt")}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleSort("dailyTgt");
+                            }
+                          }}
+                          className="flex items-center justify-center gap-1.5 cursor-pointer hover:text-amber-600 transition-colors"
+                        >
+                          <span>DAILY TARGET</span>
+                          {sortCol === "dailyTgt" && sortDir !== "normal" ? (
+                            sortDir === "asc" ? (
+                              <ArrowUp className="w-3.5 h-3.5 text-amber-500" />
+                            ) : (
+                              <ArrowDown className="w-3.5 h-3.5 text-amber-500" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-muted-foreground/50" />
+                          )}
+                        </div>
+                      </th>
 
-                    {/* Under Daily Days */}
-                    {rawData[0]?.days.map((_, idx) => (
-                      <React.Fragment key={idx}>
+                      {/* Daily Achieved */}
+                      <th className="px-4 py-3 text-center border-r border-border min-w-[130px]">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleSort("dailyAct")}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleSort("dailyAct");
+                            }
+                          }}
+                          className="flex items-center justify-center gap-1.5 cursor-pointer hover:text-amber-600 transition-colors"
+                        >
+                          <span>DAILY ACHIEVED</span>
+                          {sortCol === "dailyAct" && sortDir !== "normal" ? (
+                            sortDir === "asc" ? (
+                              <ArrowUp className="w-3.5 h-3.5 text-amber-500" />
+                            ) : (
+                              <ArrowDown className="w-3.5 h-3.5 text-amber-500" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-muted-foreground/50" />
+                          )}
+                        </div>
+                      </th>
+
+                      {/* % To Target */}
+                      <th className="px-4 py-3 text-center min-w-[130px]">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleSort("dailyPct")}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleSort("dailyPct");
+                            }
+                          }}
+                          className="flex items-center justify-center gap-1.5 cursor-pointer hover:text-amber-600 transition-colors"
+                        >
+                          <span>% TO TARGET</span>
+                          {sortCol === "dailyPct" && sortDir !== "normal" ? (
+                            sortDir === "asc" ? (
+                              <ArrowUp className="w-3.5 h-3.5 text-amber-500" />
+                            ) : (
+                              <ArrowDown className="w-3.5 h-3.5 text-amber-500" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-muted-foreground/50" />
+                          )}
+                        </div>
+                      </th>
+                    </tr>
+                  ) : isByod ? (
+                    // BYOD Header: Single Header row, NO sub-headers (TGT, ACT, %)
+                    <tr className="bg-zinc-100 dark:bg-zinc-900 text-foreground border-b border-border text-[11px] font-bold tracking-wider uppercase">
+                      {/* Sticky Store / Manager Column */}
+                      <th className="sticky left-0 z-20 bg-zinc-100 dark:bg-zinc-900 px-4 py-3 text-left min-w-[200px] border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.12)]">
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleSort("store")}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              handleSort("store");
+                            }
+                          }}
+                          className="flex items-center gap-1.5 cursor-pointer hover:text-amber-600 transition-colors"
+                        >
+                          <span>STORE / MANAGER</span>
+                          {sortCol === "store" && sortDir !== "normal" ? (
+                            sortDir === "asc" ? (
+                              <ArrowUp className="w-3.5 h-3.5 text-amber-500" />
+                            ) : (
+                              <ArrowDown className="w-3.5 h-3.5 text-amber-500" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="w-3 h-3 text-muted-foreground/50" />
+                          )}
+                        </div>
+                      </th>
+
+                      {/* MTD */}
+                      <th
+                        className="px-4 py-3 text-center border-r border-border bg-blue-50/50 dark:bg-blue-950/20 cursor-pointer hover:text-amber-600"
+                        onClick={() => handleSort("mtdAct")}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>MTD</span>
+                          {sortCol === "mtdAct" && sortDir !== "normal" ? (
+                            sortDir === "asc" ? (
+                              <ArrowUp className="w-3 h-3 text-amber-500" />
+                            ) : (
+                              <ArrowDown className="w-3 h-3 text-amber-500" />
+                            )
+                          ) : null}
+                        </div>
+                      </th>
+
+                      {/* FULL MTD */}
+                      <th
+                        className="px-4 py-3 text-center border-r border-border bg-indigo-50/50 dark:bg-indigo-950/20 cursor-pointer hover:text-amber-600"
+                        onClick={() => handleSort("fullMtdAct")}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>FULL MTD</span>
+                          {sortCol === "fullMtdAct" && sortDir !== "normal" ? (
+                            sortDir === "asc" ? (
+                              <ArrowUp className="w-3 h-3 text-amber-500" />
+                            ) : (
+                              <ArrowDown className="w-3 h-3 text-amber-500" />
+                            )
+                          ) : null}
+                        </div>
+                      </th>
+
+                      {/* Dynamic Days of the Selected Week */}
+                      {rawData[0]?.days.map((d, idx) => (
+                        <th
+                          key={idx}
+                          className="px-3 py-2 text-center border-r border-border bg-muted/40 min-w-[85px]"
+                        >
+                          <div className="font-bold text-foreground">{d.dayName}</div>
+                          <div className="text-[10px] text-muted-foreground font-medium whitespace-nowrap">
+                            {d.dateStr}
+                          </div>
+                        </th>
+                      ))}
+
+                      {/* WEEKLY Summary */}
+                      <th
+                        className="px-4 py-3 text-center bg-amber-50/60 dark:bg-amber-950/20 cursor-pointer hover:text-amber-600 min-w-[90px]"
+                        onClick={() => handleSort("weeklyAct")}
+                      >
+                        <div className="flex items-center justify-center gap-1">
+                          <span>WEEKLY</span>
+                          {sortCol === "weeklyAct" && sortDir !== "normal" ? (
+                            sortDir === "asc" ? (
+                              <ArrowUp className="w-3 h-3 text-amber-500" />
+                            ) : (
+                              <ArrowDown className="w-3 h-3 text-amber-500" />
+                            )
+                          ) : null}
+                        </div>
+                      </th>
+                    </tr>
+                  ) : (
+                    // Standard Categories (ACCESSORIES, VOICE, HSI, BTS, UPGRADES, MIM, AFFIRM)
+                    <>
+                      <tr className="bg-zinc-100 dark:bg-zinc-900 text-foreground border-b border-border text-[11px] font-bold tracking-wider uppercase">
+                        {/* Sticky Store / Manager Column scoped inside isolated card */}
+                        <th
+                          rowSpan={2}
+                          className="sticky left-0 z-20 bg-zinc-100 dark:bg-zinc-900 px-4 py-3 text-left min-w-[200px] border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.12)]"
+                        >
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => handleSort("store")}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                handleSort("store");
+                              }
+                            }}
+                            className="flex items-center gap-1.5 cursor-pointer hover:text-amber-600 transition-colors"
+                          >
+                            <span>STORE / MANAGER</span>
+                            {sortCol === "store" && sortDir !== "normal" ? (
+                              sortDir === "asc" ? (
+                                <ArrowUp className="w-3.5 h-3.5 text-amber-500" />
+                              ) : (
+                                <ArrowDown className="w-3.5 h-3.5 text-amber-500" />
+                              )
+                            ) : (
+                              <ArrowUpDown className="w-3 h-3 text-muted-foreground/50" />
+                            )}
+                          </div>
+                        </th>
+
+                        {/* MTD */}
+                        <th
+                          colSpan={3}
+                          className="px-3 py-2 text-center border-r border-border bg-blue-50/50 dark:bg-blue-950/20"
+                        >
+                          MTD
+                        </th>
+
+                        {/* FULL MTD */}
+                        <th
+                          colSpan={3}
+                          className="px-3 py-2 text-center border-r border-border bg-indigo-50/50 dark:bg-indigo-950/20"
+                        >
+                          FULL MTD
+                        </th>
+
+                        {/* Dynamic Days of the Selected Week */}
+                        {rawData[0]?.days.map((d, idx) => (
+                          <th
+                            key={idx}
+                            colSpan={3}
+                            className="px-3 py-2 text-center border-r border-border bg-muted/40"
+                          >
+                            <div className="font-bold text-foreground">{d.dayName}</div>
+                            <div className="text-[10px] text-muted-foreground font-medium whitespace-nowrap">
+                              {d.dateStr}
+                            </div>
+                          </th>
+                        ))}
+
+                        {/* WEEKLY Summary */}
+                        <th
+                          colSpan={3}
+                          className="px-3 py-2 text-center bg-amber-50/60 dark:bg-amber-950/20"
+                        >
+                          WEEKLY
+                        </th>
+                      </tr>
+
+                      {/* Header Row 2: Sub-headers (TGT, ACT, % or Inv, Fin, Non-Fin for Affirm) */}
+                      <tr className="bg-muted/60 dark:bg-zinc-900/60 text-muted-foreground border-b border-border/80 text-[10px] font-semibold">
+                        {/* Under MTD */}
                         <th className="px-2 py-1.5 text-center">{subCol1}</th>
                         <th className="px-2 py-1.5 text-center">{subCol2}</th>
-                        <th className="px-2 py-1.5 text-center border-r border-border">
+                        <th
+                          className="px-2 py-1.5 text-center border-r border-border cursor-pointer hover:text-foreground"
+                          onClick={() => handleSort("mtdPct")}
+                        >
                           {subCol3}
                         </th>
-                      </React.Fragment>
-                    ))}
 
-                    {/* Under WEEKLY */}
-                    <th className="px-2 py-1.5 text-center font-bold text-foreground">{subCol1}</th>
-                    <th className="px-2 py-1.5 text-center font-bold text-foreground">{subCol2}</th>
-                    <th
-                      className="px-2 py-1.5 text-center font-bold text-foreground cursor-pointer hover:text-amber-600"
-                      onClick={() => handleSort("weeklyPct")}
-                    >
-                      {subCol3}
-                    </th>
-                  </tr>
+                        {/* Under FULL MTD */}
+                        <th className="px-2 py-1.5 text-center">{subCol1}</th>
+                        <th className="px-2 py-1.5 text-center">{subCol2}</th>
+                        <th
+                          className="px-2 py-1.5 text-center border-r border-border cursor-pointer hover:text-foreground"
+                          onClick={() => handleSort("fullMtdPct")}
+                        >
+                          {subCol3}
+                        </th>
+
+                        {/* Under Daily Days */}
+                        {rawData[0]?.days.map((_, idx) => (
+                          <React.Fragment key={idx}>
+                            <th className="px-2 py-1.5 text-center">{subCol1}</th>
+                            <th className="px-2 py-1.5 text-center">{subCol2}</th>
+                            <th className="px-2 py-1.5 text-center border-r border-border">
+                              {subCol3}
+                            </th>
+                          </React.Fragment>
+                        ))}
+
+                        {/* Under WEEKLY */}
+                        <th className="px-2 py-1.5 text-center font-bold text-foreground">{subCol1}</th>
+                        <th className="px-2 py-1.5 text-center font-bold text-foreground">{subCol2}</th>
+                        <th
+                          className="px-2 py-1.5 text-center font-bold text-foreground cursor-pointer hover:text-amber-600"
+                          onClick={() => handleSort("weeklyPct")}
+                        >
+                          {subCol3}
+                        </th>
+                      </tr>
+                    </>
+                  )}
                 </thead>
 
                 {/* Table Body */}
@@ -875,13 +1317,133 @@ export default function GoalsVsAchievementPage() {
                   {filteredData.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={7 + (rawData[0]?.days.length || 7) * 3}
+                        colSpan={
+                          isTotalAchievements
+                            ? 6
+                            : isByod
+                              ? 4 + (rawData[0]?.days.length || 7)
+                              : 7 + (rawData[0]?.days.length || 7) * 3
+                        }
                         className="py-12 text-center text-muted-foreground"
                       >
                         No stores found matching "{searchQuery}".
                       </td>
                     </tr>
+                  ) : isTotalAchievements ? (
+                    // Total Achievement Rows: Store / Manager, Market, Date, Daily Target, Daily Achieved, % To Target
+                    filteredData.map((row, index) => {
+                      const d = row.days[activeDayIdx] || row.days[0];
+                      const dailyTgt = d?.tgt ?? 0;
+                      const dailyAct = d?.act ?? 0;
+                      const dailyPct = d?.pct ?? 0;
+
+                      return (
+                        <tr
+                          key={row.id}
+                          className={`group transition-colors ${
+                            index % 2 === 1
+                              ? "bg-zinc-50/80 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                              : "bg-white dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                          }`}
+                        >
+                          {/* Sticky Store & Manager Cell */}
+                          <td
+                            className={`sticky left-0 z-10 px-4 py-2.5 border-r border-border whitespace-nowrap shadow-[2px_0_5px_-2px_rgba(0,0,0,0.12)] transition-colors ${
+                              index % 2 === 1
+                                ? "bg-zinc-50 dark:bg-zinc-900 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800"
+                                : "bg-white dark:bg-zinc-950 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800"
+                            }`}
+                          >
+                            <div className="font-bold text-foreground text-xs tracking-tight uppercase">
+                              {row.store}
+                            </div>
+                            <div className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wider">
+                              {row.manager}
+                            </div>
+                          </td>
+
+                          {/* Market */}
+                          <td className="px-4 py-2.5 text-center font-bold text-xs uppercase tracking-wider border-r border-border text-zinc-700 dark:text-zinc-300">
+                            {row.market}
+                          </td>
+
+                          {/* Date */}
+                          <td className="px-4 py-2.5 text-center text-xs font-semibold whitespace-nowrap border-r border-border text-zinc-600 dark:text-zinc-400">
+                            {activeDayDateFormatted}
+                          </td>
+
+                          {/* Daily Target */}
+                          <td className="px-4 py-2.5 text-center font-mono font-bold text-xs border-r border-border text-zinc-800 dark:text-zinc-200">
+                            {dailyTgt.toLocaleString()}
+                          </td>
+
+                          {/* Daily Achieved */}
+                          <td className="px-4 py-2.5 text-center font-mono font-bold text-xs border-r border-border text-zinc-900 dark:text-zinc-100">
+                            {dailyAct.toLocaleString()}
+                          </td>
+
+                          {/* % To Target (Red <= 70, Yellow 71-99, Green >= 100) */}
+                          <td className="px-4 py-2.5 text-center">
+                            {renderTotalAchievementPctBadge(dailyPct)}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : isByod ? (
+                    // BYOD Rows: Single value per column, no sub-headers
+                    filteredData.map((row, index) => (
+                      <tr
+                        key={row.id}
+                        className={`group transition-colors ${
+                          index % 2 === 1
+                            ? "bg-zinc-50/80 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                            : "bg-white dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        }`}
+                      >
+                        {/* Sticky Store & Manager Cell */}
+                        <td
+                          className={`sticky left-0 z-10 px-4 py-2.5 border-r border-border whitespace-nowrap shadow-[2px_0_5px_-2px_rgba(0,0,0,0.12)] transition-colors ${
+                            index % 2 === 1
+                              ? "bg-zinc-50 dark:bg-zinc-900 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800"
+                              : "bg-white dark:bg-zinc-950 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800"
+                          }`}
+                        >
+                          <div className="font-bold text-foreground text-xs tracking-tight uppercase">
+                            {row.store}
+                          </div>
+                          <div className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wider">
+                            {row.manager}
+                          </div>
+                        </td>
+
+                        {/* MTD Single Metric */}
+                        <td className="px-3 py-2 text-center font-mono font-semibold text-zinc-900 dark:text-zinc-100 border-r border-border">
+                          {row.mtd.act}
+                        </td>
+
+                        {/* FULL MTD Single Metric */}
+                        <td className="px-3 py-2 text-center font-mono font-semibold text-zinc-900 dark:text-zinc-100 border-r border-border">
+                          {row.fullMtd.act}
+                        </td>
+
+                        {/* Dynamic Days Single Metrics */}
+                        {row.days.map((day, dIdx) => (
+                          <td
+                            key={dIdx}
+                            className="px-3 py-2 text-center font-mono font-medium text-zinc-900 dark:text-zinc-100 border-r border-border"
+                          >
+                            {day.act}
+                          </td>
+                        ))}
+
+                        {/* WEEKLY Single Metric */}
+                        <td className="px-3 py-2 text-center font-mono font-bold text-zinc-950 dark:text-white">
+                          {row.weekly.act}
+                        </td>
+                      </tr>
+                    ))
                   ) : (
+                    // Standard Multi-Metric Rows
                     filteredData.map((row, index) => (
                       <tr
                         key={row.id}
@@ -962,47 +1524,98 @@ export default function GoalsVsAchievementPage() {
                 {/* Table Footer: Total / Summary Row */}
                 {totalRow && (
                   <tfoot>
-                    <tr className="bg-zinc-100 dark:bg-zinc-900 border-t-2 border-border font-bold text-foreground">
-                      <td className="sticky left-0 z-10 bg-zinc-100 dark:bg-zinc-900 px-4 py-3 border-r border-border text-left uppercase tracking-wider text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.12)]">
-                        TOTAL / AVERAGE
-                      </td>
-
-                      {/* MTD Total */}
-                      <td className="px-2 py-2 text-center font-mono">{totalRow.mtdTgt}</td>
-                      <td className="px-2 py-2 text-center font-mono">{totalRow.mtdAct}</td>
-                      <td className="px-2 py-2 text-center border-r border-border">
-                        {renderThirdColumn(totalRow.mtdPct, isAffirm)}
-                      </td>
-
-                      {/* FULL MTD Total */}
-                      <td className="px-2 py-2 text-center font-mono">{totalRow.fullMtdTgt}</td>
-                      <td className="px-2 py-2 text-center font-mono">{totalRow.fullMtdAct}</td>
-                      <td className="px-2 py-2 text-center border-r border-border">
-                        {renderThirdColumn(totalRow.fullMtdPct, isAffirm)}
-                      </td>
-
-                      {/* Dynamic Days Totals */}
-                      {totalRow.dayTotals.map((dt, dIdx) => (
-                        <React.Fragment key={dIdx}>
-                          <td className="px-2 py-2 text-center font-mono">{dt.tgt}</td>
-                          <td className="px-2 py-2 text-center font-mono">{dt.act}</td>
-                          <td className="px-2 py-2 text-center border-r border-border">
-                            {renderThirdColumn(dt.pct, isAffirm)}
+                    {isTotalAchievements ? (
+                      // Total Achievement Footer
+                      <tr className="bg-zinc-100 dark:bg-zinc-900 border-t-2 border-border font-bold text-foreground">
+                        <td className="sticky left-0 z-10 bg-zinc-100 dark:bg-zinc-900 px-4 py-3 border-r border-border text-left uppercase tracking-wider text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.12)]">
+                          TOTAL / AVERAGE
+                        </td>
+                        <td className="px-4 py-3 text-center uppercase tracking-wider text-xs font-bold text-zinc-700 dark:text-zinc-300 border-r border-border">
+                          {selectedMarket}
+                        </td>
+                        <td className="px-4 py-3 text-center text-xs font-bold text-zinc-700 dark:text-zinc-300 border-r border-border">
+                          {activeDayDateFormatted}
+                        </td>
+                        <td className="px-4 py-3 text-center font-mono font-bold text-xs border-r border-border">
+                          {(totalRow.dayTotals[activeDayIdx]?.tgt ?? 0).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-center font-mono font-bold text-xs border-r border-border">
+                          {(totalRow.dayTotals[activeDayIdx]?.act ?? 0).toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {renderTotalAchievementPctBadge(
+                            totalRow.dayTotals[activeDayIdx]?.pct ?? 0,
+                          )}
+                        </td>
+                      </tr>
+                    ) : isByod ? (
+                      // BYOD Footer: Single total value per column
+                      <tr className="bg-zinc-100 dark:bg-zinc-900 border-t-2 border-border font-bold text-foreground">
+                        <td className="sticky left-0 z-10 bg-zinc-100 dark:bg-zinc-900 px-4 py-3 border-r border-border text-left uppercase tracking-wider text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.12)]">
+                          TOTAL / AVERAGE
+                        </td>
+                        <td className="px-3 py-2 text-center font-mono font-bold border-r border-border">
+                          {totalRow.mtdAct}
+                        </td>
+                        <td className="px-3 py-2 text-center font-mono font-bold border-r border-border">
+                          {totalRow.fullMtdAct}
+                        </td>
+                        {totalRow.dayTotals.map((dt, dIdx) => (
+                          <td
+                            key={dIdx}
+                            className="px-3 py-2 text-center font-mono font-bold border-r border-border"
+                          >
+                            {dt.act}
                           </td>
-                        </React.Fragment>
-                      ))}
+                        ))}
+                        <td className="px-3 py-2 text-center font-mono font-bold text-zinc-950 dark:text-white">
+                          {totalRow.weeklyAct}
+                        </td>
+                      </tr>
+                    ) : (
+                      // Standard Footer
+                      <tr className="bg-zinc-100 dark:bg-zinc-900 border-t-2 border-border font-bold text-foreground">
+                        <td className="sticky left-0 z-10 bg-zinc-100 dark:bg-zinc-900 px-4 py-3 border-r border-border text-left uppercase tracking-wider text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.12)]">
+                          TOTAL / AVERAGE
+                        </td>
 
-                      {/* WEEKLY Total */}
-                      <td className="px-2 py-2 text-center font-mono text-zinc-950 dark:text-white">
-                        {totalRow.weeklyTgt}
-                      </td>
-                      <td className="px-2 py-2 text-center font-mono text-zinc-950 dark:text-white">
-                        {totalRow.weeklyAct}
-                      </td>
-                      <td className="px-2 py-2 text-center">
-                        {renderThirdColumn(totalRow.weeklyPct, isAffirm)}
-                      </td>
-                    </tr>
+                        {/* MTD Total */}
+                        <td className="px-2 py-2 text-center font-mono">{totalRow.mtdTgt}</td>
+                        <td className="px-2 py-2 text-center font-mono">{totalRow.mtdAct}</td>
+                        <td className="px-2 py-2 text-center border-r border-border">
+                          {renderThirdColumn(totalRow.mtdPct, isAffirm)}
+                        </td>
+
+                        {/* FULL MTD Total */}
+                        <td className="px-2 py-2 text-center font-mono">{totalRow.fullMtdTgt}</td>
+                        <td className="px-2 py-2 text-center font-mono">{totalRow.fullMtdAct}</td>
+                        <td className="px-2 py-2 text-center border-r border-border">
+                          {renderThirdColumn(totalRow.fullMtdPct, isAffirm)}
+                        </td>
+
+                        {/* Dynamic Days Totals */}
+                        {totalRow.dayTotals.map((dt, dIdx) => (
+                          <React.Fragment key={dIdx}>
+                            <td className="px-2 py-2 text-center font-mono">{dt.tgt}</td>
+                            <td className="px-2 py-2 text-center font-mono">{dt.act}</td>
+                            <td className="px-2 py-2 text-center border-r border-border">
+                              {renderThirdColumn(dt.pct, isAffirm)}
+                            </td>
+                          </React.Fragment>
+                        ))}
+
+                        {/* WEEKLY Total */}
+                        <td className="px-2 py-2 text-center font-mono text-zinc-950 dark:text-white">
+                          {totalRow.weeklyTgt}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono text-zinc-950 dark:text-white">
+                          {totalRow.weeklyAct}
+                        </td>
+                        <td className="px-2 py-2 text-center">
+                          {renderThirdColumn(totalRow.weeklyPct, isAffirm)}
+                        </td>
+                      </tr>
+                    )}
                   </tfoot>
                 )}
               </table>
