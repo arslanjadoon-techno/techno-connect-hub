@@ -29,7 +29,6 @@ import {
   ArrowUp,
   ArrowDown,
   RotateCcw,
-  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -439,10 +438,7 @@ export default function GoalsVsAchievementPage() {
     );
   }, [activeCategory, selectedMarket, selectedYear, selectedMonth, activeWeekDef]);
 
-  const activeDayIdx = Math.max(
-    0,
-    Math.min(selectedDayIndex, (rawData[0]?.days?.length ?? 1) - 1),
-  );
+  const activeDayIdx = Math.max(0, Math.min(selectedDayIndex, (rawData[0]?.days?.length ?? 1) - 1));
   const activeDay = rawData[0]?.days[activeDayIdx] || rawData[0]?.days[0];
   const activeDayDateFormatted = activeDay
     ? `${activeDay.dayName}, ${activeDay.dateStr} ${selectedYear}`
@@ -590,148 +586,6 @@ export default function GoalsVsAchievementPage() {
     setSortCol(null);
     setSortDir("normal");
     toast.success("Filters reset to default");
-  };
-
-  const handleExportCSV = () => {
-    if (isTotalAchievements) {
-      const headers = [
-        "Store",
-        "Manager",
-        "Market",
-        "Date",
-        "Daily Target",
-        "Daily Achieved",
-        "% To Target",
-      ];
-      const rows = filteredData.map((r) => {
-        const d = r.days[activeDayIdx] || r.days[0];
-        return [
-          `"${r.store}"`,
-          `"${r.manager}"`,
-          `"${r.market}"`,
-          `"${activeDayDateFormatted}"`,
-          d?.tgt ?? 0,
-          d?.act ?? 0,
-          `${d?.pct ?? 0}%`,
-        ];
-      });
-
-      const csvContent =
-        "data:text/csv;charset=utf-8," +
-        [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute(
-        "download",
-        `Total_Achievement_${selectedMarket}_${selectedMonth}_${selectedYear}.csv`,
-      );
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success("Total Achievement CSV exported");
-      return;
-    }
-
-    if (isByod) {
-      const dayHeaders = (rawData[0]?.days || []).map((d) => `${d.dayName} ${d.dateStr}`);
-      const headers = [
-        "Store",
-        "Manager",
-        "Market",
-        "MTD",
-        "Full MTD",
-        ...dayHeaders,
-        "Weekly",
-      ];
-
-      const rows = filteredData.map((r) => [
-        `"${r.store}"`,
-        `"${r.manager}"`,
-        `"${r.market}"`,
-        r.mtd.act,
-        r.fullMtd.act,
-        ...r.days.map((d) => d.act),
-        r.weekly.act,
-      ]);
-
-      const csvContent =
-        "data:text/csv;charset=utf-8," +
-        [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute(
-        "download",
-        `BYOD_${selectedMarket}_${selectedMonth}_${selectedYear}.csv`,
-      );
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success("BYOD CSV exported");
-      return;
-    }
-
-    const isAffirm = activeCategory === "AFFIRM";
-    const subCol1 = isAffirm ? "Inv" : "Target";
-    const subCol2 = isAffirm ? "Fin" : "Actual";
-    const subCol3 = isAffirm ? "Non-Fin" : "%";
-
-    const dayHeaders = (rawData[0]?.days || []).flatMap((d) => [
-      `${d.dayName} ${d.dateStr} ${subCol1}`,
-      `${d.dayName} ${d.dateStr} ${subCol2}`,
-      `${d.dayName} ${d.dateStr} ${subCol3}`,
-    ]);
-
-    const headers = [
-      "Store",
-      "Manager",
-      "Market",
-      `MTD ${subCol1}`,
-      `MTD ${subCol2}`,
-      `MTD ${subCol3}`,
-      `Full MTD ${subCol1}`,
-      `Full MTD ${subCol2}`,
-      `Full MTD ${subCol3}`,
-      ...dayHeaders,
-      `Weekly ${subCol1}`,
-      `Weekly ${subCol2}`,
-      `Weekly ${subCol3}`,
-    ];
-
-    const rows = filteredData.map((r) => [
-      `"${r.store}"`,
-      `"${r.manager}"`,
-      `"${r.market}"`,
-      r.mtd.tgt,
-      r.mtd.act,
-      isAffirm ? r.mtd.pct : `${r.mtd.pct}%`,
-      r.fullMtd.tgt,
-      r.fullMtd.act,
-      isAffirm ? r.fullMtd.pct : `${r.fullMtd.pct}%`,
-      ...r.days.flatMap((d) => [d.tgt, d.act, isAffirm ? d.pct : `${d.pct}%`]),
-      r.weekly.tgt,
-      r.weekly.act,
-      isAffirm ? r.weekly.pct : `${r.weekly.pct}%`,
-    ]);
-
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
-      `Goals_vs_Achievement_${selectedMarket}_${selectedMonth}_${activeWeekDef.label.replace(/[^a-zA-Z0-9]/g, "_")}.csv`,
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("Export downloaded successfully");
   };
 
   const isAffirm = activeCategory === "AFFIRM";
@@ -896,7 +750,7 @@ export default function GoalsVsAchievementPage() {
                 />
               </div>
 
-              {/* Reset & Export Buttons */}
+              {/* Reset Button */}
               <Button
                 id="reset-filters-btn"
                 variant="outline"
@@ -906,17 +760,6 @@ export default function GoalsVsAchievementPage() {
                 title="Reset Filters"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-              </Button>
-
-              <Button
-                id="export-csv-btn"
-                variant="outline"
-                size="sm"
-                onClick={handleExportCSV}
-                className="h-9 px-2.5 text-xs bg-zinc-800/80 border-zinc-700 text-zinc-200 hover:bg-zinc-700 hover:text-white"
-                title="Export CSV"
-              >
-                <Download className="w-3.5 h-3.5" />
               </Button>
             </div>
           </div>
@@ -1299,8 +1142,12 @@ export default function GoalsVsAchievementPage() {
                         ))}
 
                         {/* Under WEEKLY */}
-                        <th className="px-2 py-1.5 text-center font-bold text-foreground">{subCol1}</th>
-                        <th className="px-2 py-1.5 text-center font-bold text-foreground">{subCol2}</th>
+                        <th className="px-2 py-1.5 text-center font-bold text-foreground">
+                          {subCol1}
+                        </th>
+                        <th className="px-2 py-1.5 text-center font-bold text-foreground">
+                          {subCol2}
+                        </th>
                         <th
                           className="px-2 py-1.5 text-center font-bold text-foreground cursor-pointer hover:text-amber-600"
                           onClick={() => handleSort("weeklyPct")}

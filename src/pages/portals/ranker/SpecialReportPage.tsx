@@ -12,10 +12,7 @@ import {
 import {
   Search,
   RotateCcw,
-  Download,
   Store,
-  Calendar,
-  Layers,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -214,7 +211,10 @@ function buildQuint(tgt: number, dcs: number, rtDiscrepancy: number): MetricQuin
 }
 
 // Generate realistic data for all stores based on year and month
-function generateSpecialReportData(yearStr: string, monthStr: string): SpecialReportStoreRecord[] {
+function generateSpecialReportData(
+  yearStr: string = "2026",
+  monthStr: string = "September",
+): SpecialReportStoreRecord[] {
   const year = parseInt(yearStr, 10) || 2026;
   const monthIdx = MONTH_NAMES.indexOf(monthStr);
   const mIdx = monthIdx >= 0 ? monthIdx : 8;
@@ -343,8 +343,6 @@ function renderDiff(diff: number) {
 export default function SpecialReportPage() {
   const [activeTab, setActiveTab] = useState<SpecialReportTab>("SUMMARY");
   const [selectedMarket, setSelectedMarket] = useState<string>("ALL MARKETS");
-  const [selectedYear, setSelectedYear] = useState<string>("2026");
-  const [selectedMonth, setSelectedMonth] = useState<string>("September");
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   // Sorting state
@@ -353,8 +351,8 @@ export default function SpecialReportPage() {
 
   // Raw dataset
   const rawData = useMemo(() => {
-    return generateSpecialReportData(selectedYear, selectedMonth);
-  }, [selectedYear, selectedMonth]);
+    return generateSpecialReportData();
+  }, []);
 
   // Filtered dataset
   const filteredData = useMemo(() => {
@@ -541,201 +539,10 @@ export default function SpecialReportPage() {
 
   const handleResetFilters = () => {
     setSelectedMarket("ALL MARKETS");
-    setSelectedYear("2026");
-    setSelectedMonth("September");
     setSearchQuery("");
     setSortCol(null);
     setSortDir("desc");
     toast.info("Filters reset to default");
-  };
-
-  const handleExportCSV = () => {
-    if (activeTab === "SUMMARY") {
-      const headers = [
-        "Store",
-        "Manager",
-        "Market",
-        // FULL MONTH
-        "Full Month Tgt",
-        "Full Month Act",
-        "Full Month Diff",
-        "Full Month %",
-        // MTD
-        "MTD Tgt",
-        "MTD Act",
-        "MTD Diff",
-        "MTD %",
-        // VOICE
-        "Voice Tgt",
-        "Voice Act",
-        "Voice Diff",
-        "Voice %",
-        // UPGRADE
-        "Upgrade Tgt",
-        "Upgrade Act",
-        "Upgrade Diff",
-        "Upgrade %",
-        // BTS
-        "BTS Tgt",
-        "BTS Act",
-        "BTS Diff",
-        "BTS %",
-        // HSI
-        "HSI Tgt",
-        "HSI Act",
-        "HSI Diff",
-        "HSI %",
-        // MIM
-        "MIM Tgt",
-        "MIM Act",
-        "MIM Diff",
-        "MIM %",
-        // ACC
-        "ACC Tgt",
-        "ACC Act",
-        "ACC Diff",
-        "ACC %",
-      ];
-
-      const rows = filteredData.map((r) => [
-        `"${r.store}"`,
-        `"${r.manager}"`,
-        `"${r.market}"`,
-        r.summary.fullMonth.tgt,
-        r.summary.fullMonth.act,
-        r.summary.fullMonth.diff,
-        `${r.summary.fullMonth.pct}%`,
-        r.summary.mtd.tgt,
-        r.summary.mtd.act,
-        r.summary.mtd.diff,
-        `${r.summary.mtd.pct}%`,
-        r.summary.voice.tgt,
-        r.summary.voice.act,
-        r.summary.voice.diff,
-        `${r.summary.voice.pct}%`,
-        r.summary.upgrade.tgt,
-        r.summary.upgrade.act,
-        r.summary.upgrade.diff,
-        `${r.summary.upgrade.pct}%`,
-        r.summary.bts.tgt,
-        r.summary.bts.act,
-        r.summary.bts.diff,
-        `${r.summary.bts.pct}%`,
-        r.summary.hsi.tgt,
-        r.summary.hsi.act,
-        r.summary.hsi.diff,
-        `${r.summary.hsi.pct}%`,
-        r.summary.mim.tgt,
-        r.summary.mim.act,
-        r.summary.mim.diff,
-        `${r.summary.mim.pct}%`,
-        r.summary.acc.tgt,
-        r.summary.acc.act,
-        r.summary.acc.diff,
-        `${r.summary.acc.pct}%`,
-      ]);
-
-      const csvContent =
-        "data:text/csv;charset=utf-8," +
-        [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      link.setAttribute(
-        "download",
-        `Special_Report_Summary_${selectedMarket}_${selectedMonth}_${selectedYear}.csv`,
-      );
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success("Summary report exported to CSV");
-      return;
-    }
-
-    // DCS vs RTBDI CSV
-    const headers = [
-      "Store",
-      "Manager",
-      "Market",
-      // FMTD ACHIEVEMENT
-      "FMTD Tgt",
-      "FMTD Dcs",
-      "FMTD %",
-      "FMTD Rt",
-      "FMTD Diff",
-      // VOICE
-      "Voice Tgt",
-      "Voice Dcs",
-      "Voice %",
-      "Voice Rt",
-      "Voice Diff",
-      // BTS
-      "BTS Tgt",
-      "BTS Dcs",
-      "BTS %",
-      "BTS Rt",
-      "BTS Diff",
-      // HSI
-      "HSI Tgt",
-      "HSI Dcs",
-      "HSI %",
-      "HSI Rt",
-      "HSI Diff",
-      // MIM
-      "MIM Tgt",
-      "MIM Dcs",
-      "MIM %",
-      "MIM Rt",
-      "MIM Diff",
-    ];
-
-    const rows = filteredData.map((r) => [
-      `"${r.store}"`,
-      `"${r.manager}"`,
-      `"${r.market}"`,
-      r.dcsVsRt.fmtdAch.tgt,
-      r.dcsVsRt.fmtdAch.dcs,
-      `${r.dcsVsRt.fmtdAch.pct}%`,
-      r.dcsVsRt.fmtdAch.rt,
-      r.dcsVsRt.fmtdAch.diff,
-      r.dcsVsRt.voice.tgt,
-      r.dcsVsRt.voice.dcs,
-      `${r.dcsVsRt.voice.pct}%`,
-      r.dcsVsRt.voice.rt,
-      r.dcsVsRt.voice.diff,
-      r.dcsVsRt.bts.tgt,
-      r.dcsVsRt.bts.dcs,
-      `${r.dcsVsRt.bts.pct}%`,
-      r.dcsVsRt.bts.rt,
-      r.dcsVsRt.bts.diff,
-      r.dcsVsRt.hsi.tgt,
-      r.dcsVsRt.hsi.dcs,
-      `${r.dcsVsRt.hsi.pct}%`,
-      r.dcsVsRt.hsi.rt,
-      r.dcsVsRt.hsi.diff,
-      r.dcsVsRt.mim.tgt,
-      r.dcsVsRt.mim.dcs,
-      `${r.dcsVsRt.mim.pct}%`,
-      r.dcsVsRt.mim.rt,
-      r.dcsVsRt.mim.diff,
-    ]);
-
-    const csvContent =
-      "data:text/csv;charset=utf-8," +
-      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute(
-      "download",
-      `Special_Report_DCS_vs_RTBDI_${selectedMarket}_${selectedMonth}_${selectedYear}.csv`,
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success("DCS vs RTBDI report exported to CSV");
   };
 
   return (
@@ -766,7 +573,7 @@ export default function SpecialReportPage() {
             {/* Filter Controls Row */}
             <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
               {/* Market Dropdown */}
-              <div className="w-40">
+              <div className="w-44 sm:w-48">
                 <Select value={selectedMarket} onValueChange={setSelectedMarket}>
                   <SelectTrigger
                     id="market-select"
@@ -787,49 +594,8 @@ export default function SpecialReportPage() {
                 </Select>
               </div>
 
-              {/* Year Dropdown */}
-              <div className="w-24">
-                <Select value={selectedYear} onValueChange={setSelectedYear}>
-                  <SelectTrigger
-                    id="year-select"
-                    className="bg-white text-zinc-900 font-bold text-xs h-9 border-0 shadow-sm focus:ring-amber-400"
-                  >
-                    <div className="flex items-center gap-1.5 truncate">
-                      <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <SelectValue placeholder="Year" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent className="text-xs">
-                    <SelectItem value="2026">2026</SelectItem>
-                    <SelectItem value="2027">2027</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Month Dropdown */}
-              <div className="w-32">
-                <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                  <SelectTrigger
-                    id="month-select"
-                    className="bg-white text-zinc-900 font-bold text-xs h-9 border-0 shadow-sm focus:ring-amber-400"
-                  >
-                    <div className="flex items-center gap-1.5 truncate">
-                      <Flame className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <SelectValue placeholder="Month" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent className="text-xs max-h-64">
-                    {MONTH_NAMES.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {m}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
               {/* Search Store Name Input */}
-              <div className="relative w-44 sm:w-52">
+              <div className="relative w-52 sm:w-64">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
                 <Input
                   id="store-search-input"
@@ -841,7 +607,7 @@ export default function SpecialReportPage() {
                 />
               </div>
 
-              {/* Reset & Export Buttons */}
+              {/* Reset Button */}
               <Button
                 id="reset-filters-btn"
                 variant="outline"
@@ -851,17 +617,6 @@ export default function SpecialReportPage() {
                 title="Reset Filters"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-              </Button>
-
-              <Button
-                id="export-csv-btn"
-                variant="outline"
-                size="sm"
-                onClick={handleExportCSV}
-                className="h-9 px-2.5 text-xs bg-zinc-800/80 border-zinc-700 text-zinc-200 hover:bg-zinc-700 hover:text-white"
-                title="Export CSV"
-              >
-                <Download className="w-3.5 h-3.5" />
               </Button>
             </div>
           </div>
