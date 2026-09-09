@@ -109,8 +109,8 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     icon: TicketIcon,
     items: [
       { title: "Dashboard", url: "/ticketing/dashboard", icon: LayoutDashboard },
-      { title: "Tickets", url: "/ticketing/tickets", icon: TicketCheck },
-      { title: "External Team", url: "/ticketing/external", icon: Wrench },
+      // { title: "Tickets", url: "/ticketing/tickets", icon: TicketCheck },
+      // { title: "External Team", url: "/ticketing/external", icon: Wrench },
     ],
   },
   leave: {
