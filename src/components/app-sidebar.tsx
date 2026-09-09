@@ -35,6 +35,7 @@ import {
   BookOpen,
   SlidersHorizontal,
   Target,
+  FileSpreadsheet,
 } from "lucide-react";
 
 import {
@@ -97,6 +98,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
       { title: "Star Ranker", url: "/ranker/star-ranker", icon: Sparkles },
       { title: "Wall of Fame", url: "/ranker/wall-of-fame", icon: Trophy },
       { title: "Goals vs Achievement", url: "/ranker/goals-vs-achievement", icon: Target },
+      { title: "Special Report", url: "/ranker/special-report", icon: FileSpreadsheet },
       { title: "Happening Board", url: "/ranker/happening-board", icon: CalendarDays },
       { title: "Criteria Details", url: "/ranker/criteria-details", icon: SlidersHorizontal },
       { title: "Rules", url: "/ranker/rules", icon: BookOpen },

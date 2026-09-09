@@ -34,6 +34,7 @@ import StandingsDetailPage from "@/pages/portals/ranker/StandingsDetail";
 import StarRankerPage from "@/pages/portals/ranker/StarRankerPage";
 import WallOfFamePage from "@/pages/portals/ranker/WallOfFamePage";
 import GoalsVsAchievementPage from "@/pages/portals/ranker/GoalsVsAchievementPage";
+import SpecialReportPage from "@/pages/portals/ranker/SpecialReportPage";
 import HappeningBoardPage from "@/pages/portals/ranker/HappeningBoardPage";
 import RulesPage from "@/pages/portals/ranker/RulesPage";
 import CriteriaDetailsPage from "@/pages/portals/ranker/CriteriaDetailsPage";
@@ -185,6 +186,7 @@ export function AppRoutes() {
         <Route path="/ranker/star-ranker" element={<StarRankerPage />} />
         <Route path="/ranker/wall-of-fame" element={<WallOfFamePage />} />
         <Route path="/ranker/goals-vs-achievement" element={<GoalsVsAchievementPage />} />
+        <Route path="/ranker/special-report" element={<SpecialReportPage />} />
         <Route path="/ranker/happening-board" element={<HappeningBoardPage />} />
         <Route path="/ranker/rules" element={<RulesPage />} />
         <Route path="/ranker/criteria-details" element={<CriteriaDetailsPage />} />
