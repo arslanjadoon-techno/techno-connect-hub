@@ -143,7 +143,10 @@ function NotFound() {
 
 export function AppRoutes() {
   return (
+    
     <Routes>
+
+
       // ---------- Authentication ---------- //
       <Route path="/" element={<Navigate to="/ai-chat" replace />} />
       <Route path="/login" element={<LoginPage />} />
@@ -158,15 +161,21 @@ export function AppRoutes() {
           </ProtectedRoute>
         }
       >
+
+
         // ---------- Dashboard ---------- //
         <Route path="/ai-chat" element={<AiChatPage />} />
         <Route path="/chat" element={<TeamChatPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+
+
         // ---------- Ticketing Portal ---------- //
-        <Route path="/ticketing/dashboard" element={<TicketingDashboardPage />} />
+        {/* <Route path="/ticketing/dashboard" element={<TicketingDashboardPage />} /> */}
         <Route path="/ticketing/tickets" element={<TicketsPage />} />
         <Route path="/ticketing/tickets/:id" element={<TicketDetailPage />} />
         <Route path="/ticketing/external" element={<ExternalPage />} />
+
+
         // ---------- Commission Portal ---------- //
         <Route
           path="/commission/dashboard"
@@ -179,6 +188,8 @@ export function AppRoutes() {
         <Route path="/commission/my-commission" element={<CommissionPage />} />
         <Route path="/commission/privacy" element={<Privacy />} />
         <Route path="/commission/support" element={<Support />} />
+
+
         // ---------- Ranker Portal ---------- //
         <Route path="/ranker/dashboard" element={<RankerDashboardPage />} />
         <Route path="/ranker/standings" element={<StandingsPage />} />
@@ -190,7 +201,9 @@ export function AppRoutes() {
         <Route path="/ranker/happening-board" element={<HappeningBoardPage />} />
         <Route path="/ranker/rules" element={<RulesPage />} />
         <Route path="/ranker/criteria-details" element={<CriteriaDetailsPage />} />
-        // ---------- Lease / Scheduling Portals ---------- //
+
+
+        // ---------- Lease / Scheduling / Ticketing Portals ---------- //
         <Route path="/lease/dashboard" element={<ComingSoon title="Lease Portal Dashboard" />} />
         <Route
           path="/leasing/dashboard"
@@ -200,6 +213,12 @@ export function AppRoutes() {
           path="/scheduling/dashboard"
           element={<ComingSoon title="Scheduling Portal Dashboard" />}
         />
+        <Route
+          path="/ticketing/dashboard"
+          element={<ComingSoon title="Ticketing Portal Dashboard" />}
+        />
+
+
         // ---------- Leave Portal ---------- //
         <Route path="/leave" element={<LeaveDashboardRedirect />} />
         <Route path="/leave/dashboard" element={<LeaveDashboardRedirect />} />
@@ -236,6 +255,8 @@ export function AppRoutes() {
           }
         />
         <Route path="/attendance/dashboard" element={<LeaveDashboardRedirect />} />
+
+
         // ---------- User Manager ---------- //
         <Route path="/admin/users" element={<UsersPage />} />
         <Route path="/admin/users/:id" element={<UserDetailPage />} />
