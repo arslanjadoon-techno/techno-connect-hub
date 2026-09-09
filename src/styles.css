@@ -124,6 +124,14 @@
   --sidebar-accent-foreground: oklch(0.98 0.01 270);
   --sidebar-border: oklch(0.3 0.08 280);
   --sidebar-ring: oklch(0.66 0.22 295);
+  --sidebar-gradient: linear-gradient(
+    170deg,
+    #253be6 0%,
+    #4f39f2 28%,
+    #7e35f4 60%,
+    #a436f5 84%,
+    #c33ef7 100%
+  );
 
   --gradient-primary: linear-gradient(135deg, oklch(0.52 0.21 275), oklch(0.66 0.22 295));
   --gradient-gold: linear-gradient(135deg, oklch(0.78 0.15 75), oklch(0.86 0.12 85));

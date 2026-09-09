@@ -33,8 +33,29 @@ export interface Palette {
   swatches: string[];
 }
 
+export const DEFAULT_PALETTE_ID = "violet";
+
 // Curated palette set — each entry uses harmonious accent + sidebar tones.
 export const PALETTES: Palette[] = [
+  {
+    id: "violet",
+    name: "Violet",
+    // Matches the vibrant MIS theme in the image
+    primary: "#7e35f4",
+    primaryGlow: "#a855f7",
+    ring: "#7e35f4",
+    sidebar: "#4f39f2",
+    sidebarForeground: "#FFFFFF",
+    sidebarAccent: "rgba(255, 255, 255, 0.18)",
+    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    sidebarGradient:
+      "linear-gradient(170deg, #253be6 0%, #4f39f2 28%, #7e35f4 60%, #a436f5 84%, #c33ef7 100%)",
+    previewGradient:
+      "linear-gradient(135deg, #253be6 0%, #7e35f4 50%, #c33ef7 100%)",
+    heroGradient:
+      "linear-gradient(135deg, oklch(0.45 0.22 270) 0%, oklch(0.55 0.23 295) 50%, oklch(0.6 0.2 320) 100%)",
+    swatches: ["#253be6", "#7e35f4", "#c33ef7"],
+  },
   {
     id: "blue-2742f5",
     name: "Blue (#2742F5)",
@@ -382,16 +403,6 @@ export const PALETTES: Palette[] = [
         "linear-gradient(135deg, #022423 0%, #0284c7 50%, #2563eb 100%)",
       ],
       [
-        "violet",
-        "Deep Violet",
-        0.54,
-        0.25,
-        293,
-        ["#7C3AED", "#A78BFA", "#EDE9FE"],
-        "linear-gradient(170deg, #250954 0%, #581c87 40%, #7c3aed 75%, #2563eb 100%)",
-        "linear-gradient(135deg, #250954 0%, #7c3aed 50%, #2563eb 100%)",
-      ],
-      [
         "crimson",
         "Crimson Red",
         0.59,
@@ -493,12 +504,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   });
   const [paletteId, setPaletteId] = useState<string>(() => {
-    if (typeof window === "undefined") return "indigo";
+    if (typeof window === "undefined") return DEFAULT_PALETTE_ID;
     try {
       const pid = window.localStorage.getItem(PALETTE_KEY);
-      return pid && PALETTES.some((p) => p.id === pid) ? pid : "indigo";
+      if (!pid || pid === "indigo") return DEFAULT_PALETTE_ID;
+      return PALETTES.some((p) => p.id === pid) ? pid : DEFAULT_PALETTE_ID;
     } catch {
-      return "indigo";
+      return DEFAULT_PALETTE_ID;
     }
   });
 
