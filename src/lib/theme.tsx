@@ -26,6 +26,7 @@ export interface Palette {
   sidebarBorder: string;
   sidebarGradient?: string;
   previewGradient?: string;
+  primaryGradient?: string;
   sidebarAccentForeground?: string;
   /** Hero gradient used on the login screen */
   heroGradient: string;
@@ -40,21 +41,23 @@ export const PALETTES: Palette[] = [
   {
     id: "violet",
     name: "Violet",
-    // Matches the vibrant MIS theme in the image
-    primary: "#7e35f4",
-    primaryGlow: "#a855f7",
-    ring: "#7e35f4",
-    sidebar: "#4f39f2",
-    sidebarForeground: "#FFFFFF",
-    sidebarAccent: "rgba(255, 255, 255, 0.18)",
-    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    // Exact colors from MIS workspace reference
+    primary: "#7F5AD6",
+    primaryGlow: "#8B6EF0",
+    ring: "#7F5AD6",
+    primaryGradient: "linear-gradient(135deg, #8B6EF0 0%, #5B3FA8 100%)",
+    sidebar: "#3C2E86",
+    sidebarForeground: "#F1EEFB",
+    sidebarAccent: "rgba(255, 255, 255, 0.14)",
+    sidebarAccentForeground: "#FFFFFF",
+    sidebarBorder: "rgba(255, 255, 255, 0.12)",
     sidebarGradient:
-      "linear-gradient(170deg, #253be6 0%, #4f39f2 28%, #7e35f4 60%, #a436f5 84%, #c33ef7 100%)",
+      "linear-gradient(160deg, #3C2E86 0%, #5B3FA8 45%, #7F5AD6 100%)",
     previewGradient:
-      "linear-gradient(135deg, #253be6 0%, #7e35f4 50%, #c33ef7 100%)",
+      "linear-gradient(135deg, #3C2E86 0%, #5B3FA8 45%, #7F5AD6 100%)",
     heroGradient:
-      "linear-gradient(135deg, oklch(0.45 0.22 270) 0%, oklch(0.55 0.23 295) 50%, oklch(0.6 0.2 320) 100%)",
-    swatches: ["#253be6", "#7e35f4", "#c33ef7"],
+      "linear-gradient(160deg, #3C2E86 0%, #5B3FA8 45%, #7F5AD6 100%)",
+    swatches: ["#3C2E86", "#5B3FA8", "#7F5AD6"],
   },
   {
     id: "blue-2742f5",
@@ -466,7 +469,10 @@ function applyPalette(p: Palette, theme: Theme) {
   r.setProperty("--primary-foreground", "#FFFFFF");
   r.setProperty("--primary-glow", p.primaryGlow);
   r.setProperty("--ring", p.ring);
-  r.setProperty("--gradient-primary", `linear-gradient(135deg, ${p.primary}, ${p.primaryGlow})`);
+  r.setProperty(
+    "--gradient-primary",
+    p.primaryGradient || `linear-gradient(135deg, ${p.primary}, ${p.primaryGlow})`,
+  );
   r.setProperty("--gradient-hero", p.heroGradient);
 
   // Accent used by hover states
