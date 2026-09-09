@@ -18,9 +18,6 @@ import {
   ArrowDown,
   FileSpreadsheet,
   GitCompare,
-  CheckCircle2,
-  AlertTriangle,
-  Flame,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -661,73 +658,6 @@ export default function SpecialReportPage() {
             />
             <span>DCS VS RTBDI</span>
           </button>
-        </div>
-
-        {/* Quick KPI Cards Overview */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-card border border-border rounded-xl p-3 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
-              <Store className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold text-muted-foreground uppercase">
-                Active Stores
-              </div>
-              <div className="text-base font-bold text-foreground">{filteredData.length}</div>
-            </div>
-          </div>
-
-          <div className="bg-card border border-border rounded-xl p-3 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold text-muted-foreground uppercase">
-                {activeTab === "SUMMARY" ? "MTD Achieved" : "DCS Total"}
-              </div>
-              <div className="text-base font-bold text-foreground">
-                {activeTab === "SUMMARY"
-                  ? (summaryTotals?.mtd.act ?? 0).toLocaleString()
-                  : (dcsVsRtTotals?.fmtdAch.dcs ?? 0).toLocaleString()}
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-card border border-border rounded-xl p-3 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-              <Flame className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold text-muted-foreground uppercase">
-                {activeTab === "SUMMARY" ? "MTD % Target" : "FMTD % Target"}
-              </div>
-              <div className="text-base font-bold text-foreground">
-                {activeTab === "SUMMARY"
-                  ? `${summaryTotals?.mtd.pct ?? 0}%`
-                  : `${dcsVsRtTotals?.fmtdAch.pct ?? 0}%`}
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-card border border-border rounded-xl p-3 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-              <AlertTriangle className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="text-[11px] font-semibold text-muted-foreground uppercase">
-                {activeTab === "SUMMARY" ? "Net Discrepancy" : "DCS vs RT Diff"}
-              </div>
-              <div className="text-base font-bold text-foreground">
-                {activeTab === "SUMMARY"
-                  ? (summaryTotals?.mtd.diff ?? 0) >= 0
-                    ? `+${summaryTotals?.mtd.diff ?? 0}`
-                    : `${summaryTotals?.mtd.diff ?? 0}`
-                  : (dcsVsRtTotals?.fmtdAch.diff ?? 0) >= 0
-                    ? `+${dcsVsRtTotals?.fmtdAch.diff ?? 0}`
-                    : `${dcsVsRtTotals?.fmtdAch.diff ?? 0}`}
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Main Data Table */}
