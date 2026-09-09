@@ -749,17 +749,17 @@ export default function GoalsVsAchievementPage() {
           Main MIS Multi-tier Data Table Card 
           With 'isolate' class to strictly isolate internal z-indices from the rest of the page 
         */}
-        <Card className="border border-border/80 shadow-md bg-card/95 backdrop-blur-xs overflow-hidden isolate relative z-0">
+        <Card className="border border-border/80 shadow-md bg-card overflow-hidden isolate relative z-0">
           <CardContent className="p-0">
             <div className="overflow-x-auto w-full max-w-full">
               <table className="w-full text-xs border-collapse">
                 {/* Header Row 1: High Level Groupings */}
                 <thead>
-                  <tr className="bg-muted/90 dark:bg-zinc-900/90 text-foreground border-b border-border text-[11px] font-bold tracking-wider uppercase">
+                  <tr className="bg-zinc-100 dark:bg-zinc-900 text-foreground border-b border-border text-[11px] font-bold tracking-wider uppercase">
                     {/* Sticky Store / Manager Column scoped inside isolated card */}
                     <th
                       rowSpan={2}
-                      className="sticky left-0 z-20 bg-muted dark:bg-zinc-900 px-4 py-3 text-left min-w-[200px] border-r border-border shadow-xs"
+                      className="sticky left-0 z-20 bg-zinc-100 dark:bg-zinc-900 px-4 py-3 text-left min-w-[200px] border-r border-border shadow-[2px_0_5px_-2px_rgba(0,0,0,0.12)]"
                     >
                       <div
                         role="button"
@@ -885,12 +885,20 @@ export default function GoalsVsAchievementPage() {
                     filteredData.map((row, index) => (
                       <tr
                         key={row.id}
-                        className={`hover:bg-muted/50 dark:hover:bg-zinc-800/50 transition-colors ${
-                          index % 2 === 1 ? "bg-muted/20 dark:bg-zinc-900/30" : "bg-card"
+                        className={`group transition-colors ${
+                          index % 2 === 1
+                            ? "bg-zinc-50/80 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                            : "bg-white dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                         }`}
                       >
                         {/* Sticky Store & Manager Cell scoped inside isolated card */}
-                        <td className="sticky left-0 z-10 bg-inherit px-4 py-2.5 border-r border-border whitespace-nowrap shadow-xs">
+                        <td
+                          className={`sticky left-0 z-10 px-4 py-2.5 border-r border-border whitespace-nowrap shadow-[2px_0_5px_-2px_rgba(0,0,0,0.12)] transition-colors ${
+                            index % 2 === 1
+                              ? "bg-zinc-50 dark:bg-zinc-900 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800"
+                              : "bg-white dark:bg-zinc-950 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800"
+                          }`}
+                        >
                           <div className="font-bold text-foreground text-xs tracking-tight uppercase">
                             {row.store}
                           </div>
@@ -955,7 +963,7 @@ export default function GoalsVsAchievementPage() {
                 {totalRow && (
                   <tfoot>
                     <tr className="bg-zinc-100 dark:bg-zinc-900 border-t-2 border-border font-bold text-foreground">
-                      <td className="sticky left-0 z-10 bg-zinc-100 dark:bg-zinc-900 px-4 py-3 border-r border-border text-left uppercase tracking-wider text-xs">
+                      <td className="sticky left-0 z-10 bg-zinc-100 dark:bg-zinc-900 px-4 py-3 border-r border-border text-left uppercase tracking-wider text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.12)]">
                         TOTAL / AVERAGE
                       </td>
 
