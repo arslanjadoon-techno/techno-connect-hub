@@ -358,7 +358,7 @@ export default function SettingsPage() {
           <div>
             <h2 className="font-display text-lg font-semibold">Color palette</h2>
             <p className="text-xs text-muted-foreground">
-              Pick the accent — sidebar and buttons match automatically. Saved to your device only.
+              Pick the accent — sidebar gradient, buttons, and tables match automatically. Saved to your device only.
             </p>
           </div>
         </div>
@@ -382,6 +382,7 @@ export default function SettingsPage() {
                   style={{
                     backgroundImage:
                       p.previewGradient ||
+                      p.sidebarGradient ||
                       `linear-gradient(135deg, ${p.primary}, ${p.primaryGlow})`,
                   }}
                 />

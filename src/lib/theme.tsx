@@ -47,8 +47,9 @@ export const PALETTES: Palette[] = [
     sidebarForeground: "#FFFFFF",
     sidebarAccent: "rgba(255, 255, 255, 0.18)",
     sidebarBorder: "rgba(255, 255, 255, 0.16)",
-    sidebarGradient: "none",
-    previewGradient: "linear-gradient(135deg, #2742F5 0%, #5C73F8 100%)",
+    sidebarGradient:
+      "linear-gradient(170deg, #1224ab 0%, #2742F5 45%, #0284c7 85%, #06b6d4 100%)",
+    previewGradient: "linear-gradient(135deg, #1224ab 0%, #2742F5 50%, #06b6d4 100%)",
     heroGradient:
       "linear-gradient(135deg, #182BB8 0%, #2742F5 50%, #5C73F8 100%)",
     swatches: ["#2742F5", "#5C73F8", "#BAC5FC"],
@@ -65,8 +66,9 @@ export const PALETTES: Palette[] = [
     sidebarForeground: "#FFFFFF",
     sidebarAccent: "rgba(255, 255, 255, 0.18)",
     sidebarBorder: "rgba(255, 255, 255, 0.16)",
-    sidebarGradient: "none",
-    previewGradient: "linear-gradient(135deg, #7327F5 0%, #975CF8 100%)",
+    sidebarGradient:
+      "linear-gradient(170deg, #3d0c94 0%, #7327F5 45%, #9333ea 75%, #2563eb 100%)",
+    previewGradient: "linear-gradient(135deg, #3d0c94 0%, #7327F5 50%, #2563eb 100%)",
     heroGradient:
       "linear-gradient(135deg, #4A12B0 0%, #7327F5 50%, #975CF8 100%)",
     swatches: ["#7327F5", "#975CF8", "#DCC7FE"],
@@ -83,8 +85,9 @@ export const PALETTES: Palette[] = [
     sidebarForeground: "#FFFFFF",
     sidebarAccent: "rgba(255, 255, 255, 0.18)",
     sidebarBorder: "rgba(255, 255, 255, 0.16)",
-    sidebarGradient: "none",
-    previewGradient: "linear-gradient(135deg, #696969 0%, #828282 100%)",
+    sidebarGradient:
+      "linear-gradient(170deg, #1f2937 0%, #374151 40%, #696969 75%, #111827 100%)",
+    previewGradient: "linear-gradient(135deg, #1f2937 0%, #696969 50%, #9ca3af 100%)",
     heroGradient:
       "linear-gradient(135deg, #444444 0%, #696969 50%, #888888 100%)",
     swatches: ["#696969", "#828282", "#E2E2E2"],
@@ -96,9 +99,12 @@ export const PALETTES: Palette[] = [
     primaryGlow: "oklch(0.66 0.22 295)",
     ring: "oklch(0.66 0.22 295)",
     sidebar: "oklch(0.21 0.06 275)",
-    sidebarForeground: "oklch(0.96 0.01 270)",
-    sidebarAccent: "oklch(0.3 0.08 280)",
-    sidebarBorder: "oklch(0.3 0.08 280)",
+    sidebarForeground: "#FFFFFF",
+    sidebarAccent: "rgba(255, 255, 255, 0.18)",
+    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    sidebarGradient:
+      "linear-gradient(170deg, #1e1b4b 0%, #3730a3 40%, #6366f1 75%, #2563eb 100%)",
+    previewGradient: "linear-gradient(135deg, #1e1b4b 0%, #6366f1 50%, #2563eb 100%)",
     heroGradient:
       "linear-gradient(135deg, oklch(0.45 0.22 270) 0%, oklch(0.55 0.23 295) 50%, oklch(0.6 0.2 320) 100%)",
     swatches: ["#1e1b4b", "#4f46e5", "#a78bfa"],
@@ -112,9 +118,12 @@ export const PALETTES: Palette[] = [
     ring: "oklch(0.72 0.15 35)",
     // Derived sidebar using the deep tone of #588c7e (Sage Green)
     sidebar: "oklch(0.24 0.04 175)",
-    sidebarForeground: "oklch(0.96 0.02 90)",
-    sidebarAccent: "oklch(0.34 0.05 175)",
-    sidebarBorder: "oklch(0.34 0.05 175)",
+    sidebarForeground: "#FFFFFF",
+    sidebarAccent: "rgba(255, 255, 255, 0.18)",
+    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    sidebarGradient:
+      "linear-gradient(170deg, #162f28 0%, #234d41 40%, #588c7e 75%, #b94f44 100%)",
+    previewGradient: "linear-gradient(135deg, #162f28 0%, #588c7e 50%, #d96459 100%)",
     // Hero gradient blending all your colors beautifully
     heroGradient:
       "linear-gradient(135deg, oklch(0.56 0.07 175) 0%, oklch(0.72 0.17 40) 50%, oklch(0.9 0.12 90) 100%)",
@@ -130,9 +139,12 @@ export const PALETTES: Palette[] = [
     ring: "oklch(0.6 0.11 45)",
     // Derived sidebar using the deep tone of #838060 (Olive Khaki)
     sidebar: "oklch(0.25 0.03 105)",
-    sidebarForeground: "oklch(0.95 0.02 95)",
-    sidebarAccent: "oklch(0.35 0.04 105)",
-    sidebarBorder: "oklch(0.35 0.04 105)",
+    sidebarForeground: "#FFFFFF",
+    sidebarAccent: "rgba(255, 255, 255, 0.18)",
+    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    sidebarGradient:
+      "linear-gradient(170deg, #351c12 0%, #542f21 40%, #7e4a35 75%, #9e8947 100%)",
+    previewGradient: "linear-gradient(135deg, #351c12 0%, #7e4a35 50%, #cab577 100%)",
     // Hero gradient blending your brown, gold, and sand tones
     heroGradient:
       "linear-gradient(135deg, oklch(0.46 0.12 35) 0%, oklch(0.75 0.11 92) 50%, oklch(0.85 0.06 95) 100%)",
@@ -148,9 +160,12 @@ export const PALETTES: Palette[] = [
     ring: "oklch(0.76 0.06 190)",
     // Derived sidebar using a deep slate-gray base that complements the soft tones
     sidebar: "oklch(0.24 0.02 240)",
-    sidebarForeground: "oklch(0.94 0.02 10)",
-    sidebarAccent: "oklch(0.34 0.03 210)",
-    sidebarBorder: "oklch(0.34 0.03 210)",
+    sidebarForeground: "#FFFFFF",
+    sidebarAccent: "rgba(255, 255, 255, 0.18)",
+    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    sidebarGradient:
+      "linear-gradient(170deg, #1a2727 0%, #2d4545 40%, #557979 75%, #85616e 100%)",
+    previewGradient: "linear-gradient(135deg, #1a2727 0%, #77a8a8 50%, #c496a8 100%)",
     // Hero gradient blending the soft pink, mint, and teal tones
     heroGradient:
       "linear-gradient(135deg, oklch(0.88 0.03 15) 0%, oklch(0.92 0.04 140) 50%, oklch(0.66 0.06 195) 100%)",
@@ -164,9 +179,12 @@ export const PALETTES: Palette[] = [
     primaryGlow: "oklch(0.7 0.15 200)",
     ring: "oklch(0.7 0.15 200)",
     sidebar: "oklch(0.22 0.07 230)",
-    sidebarForeground: "oklch(0.97 0.01 220)",
-    sidebarAccent: "oklch(0.32 0.09 225)",
-    sidebarBorder: "oklch(0.32 0.09 225)",
+    sidebarForeground: "#FFFFFF",
+    sidebarAccent: "rgba(255, 255, 255, 0.18)",
+    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    sidebarGradient:
+      "linear-gradient(170deg, #051626 0%, #0c3860 40%, #0284c7 75%, #06b6d4 100%)",
+    previewGradient: "linear-gradient(135deg, #051626 0%, #0284c7 50%, #06b6d4 100%)",
     heroGradient:
       "linear-gradient(135deg, oklch(0.32 0.1 240) 0%, oklch(0.5 0.16 220) 50%, oklch(0.72 0.14 195) 100%)",
     swatches: ["#0c2d48", "#0ea5e9", "#67e8f9"],
@@ -178,9 +196,12 @@ export const PALETTES: Palette[] = [
     primaryGlow: "oklch(0.76 0.18 55)",
     ring: "oklch(0.76 0.18 55)",
     sidebar: "oklch(0.25 0.08 25)",
-    sidebarForeground: "oklch(0.97 0.02 40)",
-    sidebarAccent: "oklch(0.35 0.1 30)",
-    sidebarBorder: "oklch(0.35 0.1 30)",
+    sidebarForeground: "#FFFFFF",
+    sidebarAccent: "rgba(255, 255, 255, 0.18)",
+    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    sidebarGradient:
+      "linear-gradient(170deg, #3d1003 0%, #7c2d12 40%, #ea580c 75%, #f59e0b 100%)",
+    previewGradient: "linear-gradient(135deg, #3d1003 0%, #ea580c 50%, #f59e0b 100%)",
     heroGradient:
       "linear-gradient(135deg, oklch(0.42 0.18 10) 0%, oklch(0.6 0.21 30) 50%, oklch(0.78 0.18 70) 100%)",
     swatches: ["#7c2d12", "#f97316", "#fcd34d"],
@@ -192,9 +213,12 @@ export const PALETTES: Palette[] = [
     primaryGlow: "oklch(0.66 0.16 150)",
     ring: "oklch(0.66 0.16 150)",
     sidebar: "oklch(0.22 0.05 160)",
-    sidebarForeground: "oklch(0.97 0.02 155)",
-    sidebarAccent: "oklch(0.32 0.07 155)",
-    sidebarBorder: "oklch(0.32 0.07 155)",
+    sidebarForeground: "#FFFFFF",
+    sidebarAccent: "rgba(255, 255, 255, 0.18)",
+    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    sidebarGradient:
+      "linear-gradient(170deg, #042411 0%, #14532d 40%, #16a34a 75%, #0d9488 100%)",
+    previewGradient: "linear-gradient(135deg, #042411 0%, #16a34a 50%, #0d9488 100%)",
     heroGradient:
       "linear-gradient(135deg, oklch(0.3 0.08 160) 0%, oklch(0.48 0.13 155) 50%, oklch(0.7 0.16 145) 100%)",
     swatches: ["#14532d", "#16a34a", "#86efac"],
@@ -206,9 +230,12 @@ export const PALETTES: Palette[] = [
     primaryGlow: "oklch(0.7 0.22 350)",
     ring: "oklch(0.7 0.22 350)",
     sidebar: "oklch(0.23 0.09 335)",
-    sidebarForeground: "oklch(0.97 0.02 340)",
-    sidebarAccent: "oklch(0.33 0.11 335)",
-    sidebarBorder: "oklch(0.33 0.11 335)",
+    sidebarForeground: "#FFFFFF",
+    sidebarAccent: "rgba(255, 255, 255, 0.18)",
+    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    sidebarGradient:
+      "linear-gradient(170deg, #350216 0%, #5e0a30 40%, #9d174d 75%, #db2777 100%)",
+    previewGradient: "linear-gradient(135deg, #350216 0%, #9d174d 50%, #db2777 100%)",
     heroGradient:
       "linear-gradient(135deg, oklch(0.4 0.16 330) 0%, oklch(0.56 0.24 340) 50%, oklch(0.72 0.2 355) 100%)",
     swatches: ["#500724", "#db2777", "#f9a8d4"],
@@ -220,9 +247,12 @@ export const PALETTES: Palette[] = [
     primaryGlow: "oklch(0.7 0.13 185)",
     ring: "oklch(0.7 0.13 185)",
     sidebar: "oklch(0.22 0.06 195)",
-    sidebarForeground: "oklch(0.97 0.02 190)",
-    sidebarAccent: "oklch(0.32 0.07 195)",
-    sidebarBorder: "oklch(0.32 0.07 195)",
+    sidebarForeground: "#FFFFFF",
+    sidebarAccent: "rgba(255, 255, 255, 0.18)",
+    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    sidebarGradient:
+      "linear-gradient(170deg, #032423 0%, #115e59 40%, #0d9488 75%, #0284c7 100%)",
+    previewGradient: "linear-gradient(135deg, #032423 0%, #0d9488 50%, #0284c7 100%)",
     heroGradient:
       "linear-gradient(135deg, oklch(0.32 0.08 200) 0%, oklch(0.5 0.12 195) 50%, oklch(0.72 0.13 180) 100%)",
     swatches: ["#134e4a", "#14b8a6", "#5eead4"],
@@ -234,9 +264,12 @@ export const PALETTES: Palette[] = [
     primaryGlow: "oklch(0.6 0.2 315)",
     ring: "oklch(0.6 0.2 315)",
     sidebar: "oklch(0.2 0.08 305)",
-    sidebarForeground: "oklch(0.97 0.02 310)",
-    sidebarAccent: "oklch(0.3 0.1 305)",
-    sidebarBorder: "oklch(0.3 0.1 305)",
+    sidebarForeground: "#FFFFFF",
+    sidebarAccent: "rgba(255, 255, 255, 0.18)",
+    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    sidebarGradient:
+      "linear-gradient(170deg, #200238 0%, #4c0d82 40%, #7e22ce 75%, #4338ca 100%)",
+    previewGradient: "linear-gradient(135deg, #200238 0%, #7e22ce 50%, #4338ca 100%)",
     heroGradient:
       "linear-gradient(135deg, oklch(0.28 0.12 295) 0%, oklch(0.45 0.18 310) 50%, oklch(0.65 0.2 325) 100%)",
     swatches: ["#3b0764", "#9333ea", "#d8b4fe"],
@@ -248,9 +281,12 @@ export const PALETTES: Palette[] = [
     primaryGlow: "oklch(0.65 0.1 245)",
     ring: "oklch(0.65 0.1 245)",
     sidebar: "oklch(0.18 0.04 250)",
-    sidebarForeground: "oklch(0.96 0.01 245)",
-    sidebarAccent: "oklch(0.28 0.05 250)",
-    sidebarBorder: "oklch(0.28 0.05 250)",
+    sidebarForeground: "#FFFFFF",
+    sidebarAccent: "rgba(255, 255, 255, 0.18)",
+    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    sidebarGradient:
+      "linear-gradient(170deg, #080c16 0%, #1e293b 40%, #334155 75%, #1d4ed8 100%)",
+    previewGradient: "linear-gradient(135deg, #080c16 0%, #334155 50%, #1d4ed8 100%)",
     heroGradient:
       "linear-gradient(135deg, oklch(0.22 0.05 250) 0%, oklch(0.4 0.08 248) 50%, oklch(0.62 0.1 240) 100%)",
     swatches: ["#0f172a", "#334155", "#94a3b8"],
@@ -262,38 +298,142 @@ export const PALETTES: Palette[] = [
     primaryGlow: "oklch(0.78 0.15 30)",
     ring: "oklch(0.78 0.15 30)",
     sidebar: "oklch(0.26 0.08 15)",
-    sidebarForeground: "oklch(0.97 0.02 25)",
-    sidebarAccent: "oklch(0.36 0.1 18)",
-    sidebarBorder: "oklch(0.36 0.1 18)",
+    sidebarForeground: "#FFFFFF",
+    sidebarAccent: "rgba(255, 255, 255, 0.18)",
+    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    sidebarGradient:
+      "linear-gradient(170deg, #3a0808 0%, #7f1d1d 40%, #e11d48 75%, #f43f5e 100%)",
+    previewGradient: "linear-gradient(135deg, #3a0808 0%, #e11d48 50%, #f43f5e 100%)",
     heroGradient:
       "linear-gradient(135deg, oklch(0.42 0.14 8) 0%, oklch(0.62 0.18 20) 50%, oklch(0.8 0.15 35) 100%)",
     swatches: ["#7f1d1d", "#fb7185", "#fecaca"],
   },
   ...(
     [
-      // [id, name, L, C, H, swatches]
-      ["rose-pop", "Rose Pop", 0.63, 0.24, 9, ["#F5276C", "#FF7FA5", "#FFD6E3"]],
-      ["ember", "Ember Orange", 0.65, 0.21, 33, ["#F54927", "#FF8A63", "#FFD8C9"]],
-      ["gold", "Golden Hour", 0.72, 0.16, 78, ["#F5B027", "#FFD37A", "#FFF0CC"]],
-      ["mint", "Fresh Mint", 0.72, 0.16, 163, ["#27F5B0", "#7DF0CE", "#D6FBEE"]],
-      ["azure", "Azure Blue", 0.57, 0.22, 262, ["#276CF5", "#7BA4FF", "#D6E3FF"]],
-      ["magenta", "Magenta Ink", 0.5, 0.23, 328, ["#A300A3", "#D45BD4", "#F3D2F3"]],
-      ["cyan", "Electric Cyan", 0.64, 0.13, 215, ["#06B6D4", "#67E8F9", "#CFFAFE"]],
-      ["violet", "Deep Violet", 0.54, 0.25, 293, ["#7C3AED", "#A78BFA", "#EDE9FE"]],
-      ["crimson", "Crimson Red", 0.59, 0.22, 18, ["#E11D48", "#FB7185", "#FFE4E6"]],
-      ["graphite", "Graphite Grey", 0.5, 0.02, 257, ["#334155", "#64748B", "#CBD5E1"]],
-      ["obsidian", "Obsidian Black", 0.32, 0.01, 266, ["#0F172A", "#1F2937", "#94A3B8"]],
-    ] as Array<[string, string, number, number, number, string[]]>
-  ).map(([id, name, L, C, H, swatches]) => ({
+      // [id, name, L, C, H, swatches, sidebarGradient, previewGradient]
+      [
+        "rose-pop",
+        "Rose Pop",
+        0.63,
+        0.24,
+        9,
+        ["#F5276C", "#FF7FA5", "#FFD6E3"],
+        "linear-gradient(170deg, #42031c 0%, #831843 40%, #be185d 75%, #7c3aed 100%)",
+        "linear-gradient(135deg, #42031c 0%, #be185d 50%, #7c3aed 100%)",
+      ],
+      [
+        "ember",
+        "Ember Orange",
+        0.65,
+        0.21,
+        33,
+        ["#F54927", "#FF8A63", "#FFD8C9"],
+        "linear-gradient(170deg, #3d1003 0%, #7c2d12 40%, #c2410c 75%, #b91c1c 100%)",
+        "linear-gradient(135deg, #3d1003 0%, #c2410c 50%, #b91c1c 100%)",
+      ],
+      [
+        "gold",
+        "Golden Hour",
+        0.72,
+        0.16,
+        78,
+        ["#F5B027", "#FFD37A", "#FFF0CC"],
+        "linear-gradient(170deg, #261702 0%, #543606 40%, #854d0e 75%, #b45309 100%)",
+        "linear-gradient(135deg, #261702 0%, #854d0e 50%, #b45309 100%)",
+      ],
+      [
+        "mint",
+        "Fresh Mint",
+        0.72,
+        0.16,
+        163,
+        ["#27F5B0", "#7DF0CE", "#D6FBEE"],
+        "linear-gradient(170deg, #02241b 0%, #064e3b 40%, #047857 75%, #0284c7 100%)",
+        "linear-gradient(135deg, #02241b 0%, #047857 50%, #0284c7 100%)",
+      ],
+      [
+        "azure",
+        "Azure Blue",
+        0.57,
+        0.22,
+        262,
+        ["#276CF5", "#7BA4FF", "#D6E3FF"],
+        "linear-gradient(170deg, #0a1738 0%, #1e3a8a 40%, #2563eb 75%, #4f46e5 100%)",
+        "linear-gradient(135deg, #0a1738 0%, #2563eb 50%, #4f46e5 100%)",
+      ],
+      [
+        "magenta",
+        "Magenta Ink",
+        0.5,
+        0.23,
+        328,
+        ["#A300A3", "#D45BD4", "#F3D2F3"],
+        "linear-gradient(170deg, #300230 0%, #701a75 40%, #a21caf 75%, #e11d48 100%)",
+        "linear-gradient(135deg, #300230 0%, #a21caf 50%, #e11d48 100%)",
+      ],
+      [
+        "cyan",
+        "Electric Cyan",
+        0.64,
+        0.13,
+        215,
+        ["#06B6D4", "#67E8F9", "#CFFAFE"],
+        "linear-gradient(170deg, #022423 0%, #0e7490 40%, #0284c7 75%, #2563eb 100%)",
+        "linear-gradient(135deg, #022423 0%, #0284c7 50%, #2563eb 100%)",
+      ],
+      [
+        "violet",
+        "Deep Violet",
+        0.54,
+        0.25,
+        293,
+        ["#7C3AED", "#A78BFA", "#EDE9FE"],
+        "linear-gradient(170deg, #250954 0%, #581c87 40%, #7c3aed 75%, #2563eb 100%)",
+        "linear-gradient(135deg, #250954 0%, #7c3aed 50%, #2563eb 100%)",
+      ],
+      [
+        "crimson",
+        "Crimson Red",
+        0.59,
+        0.22,
+        18,
+        ["#E11D48", "#FB7185", "#FFE4E6"],
+        "linear-gradient(170deg, #3d0313 0%, #881337 40%, #be123c 75%, #7e22ce 100%)",
+        "linear-gradient(135deg, #3d0313 0%, #be123c 50%, #7e22ce 100%)",
+      ],
+      [
+        "graphite",
+        "Graphite Grey",
+        0.5,
+        0.02,
+        257,
+        ["#334155", "#64748B", "#CBD5E1"],
+        "linear-gradient(170deg, #0b111e 0%, #1e293b 40%, #334155 75%, #475569 100%)",
+        "linear-gradient(135deg, #0b111e 0%, #334155 50%, #475569 100%)",
+      ],
+      [
+        "obsidian",
+        "Obsidian Black",
+        0.32,
+        0.01,
+        266,
+        ["#0F172A", "#1F2937", "#94A3B8"],
+        "linear-gradient(170deg, #020617 0%, #0f172a 40%, #1e1b4b 75%, #0f172a 100%)",
+        "linear-gradient(135deg, #020617 0%, #0f172a 50%, #1e1b4b 100%)",
+      ],
+    ] as Array<[string, string, number, number, number, string[], string, string]>
+  ).map(([id, name, L, C, H, swatches, sidebarGradient, previewGradient]) => ({
     id,
     name,
     primary: `oklch(${L} ${C} ${H})`,
     primaryGlow: `oklch(${Math.min(L + 0.14, 0.9)} ${Math.max(C - 0.03, 0.02)} ${H})`,
     ring: `oklch(${Math.min(L + 0.14, 0.9)} ${Math.max(C - 0.03, 0.02)} ${H})`,
     sidebar: `oklch(0.22 ${Math.min(C * 0.35, 0.08)} ${H})`,
-    sidebarForeground: `oklch(0.97 0.01 ${H})`,
-    sidebarAccent: `oklch(0.32 ${Math.min(C * 0.4, 0.09)} ${H})`,
-    sidebarBorder: `oklch(0.32 ${Math.min(C * 0.4, 0.09)} ${H})`,
+    sidebarForeground: "#FFFFFF",
+    sidebarAccent: "rgba(255, 255, 255, 0.18)",
+    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    sidebarGradient,
+    previewGradient,
     heroGradient: `linear-gradient(135deg, oklch(${Math.max(L - 0.2, 0.2)} ${C} ${H}) 0%, oklch(${L} ${C} ${H}) 50%, oklch(${Math.min(L + 0.2, 0.92)} ${Math.max(C - 0.05, 0.03)} ${(H + 25) % 360}) 100%)`,
     swatches,
   })),
@@ -336,7 +476,10 @@ function applyPalette(p: Palette, theme: Theme) {
   );
   r.setProperty("--sidebar-border", p.sidebarBorder || "rgba(255, 255, 255, 0.15)");
   r.setProperty("--sidebar-ring", p.ring);
-  r.setProperty("--sidebar-gradient", p.sidebarGradient ?? "none");
+  const sidebarGrad =
+    p.sidebarGradient ||
+    `linear-gradient(170deg, ${p.sidebar} 0%, color-mix(in oklab, ${p.sidebar} 70%, ${p.primary}) 50%, ${p.primary} 100%)`;
+  r.setProperty("--sidebar-gradient", sidebarGrad);
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

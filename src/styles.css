@@ -359,10 +359,12 @@ table tbody tr:hover {
   transform: translateX(100%);
 }
 
-/* Sidebar background — exact color from the active palette */
+/* Sidebar background — gradient version from the active palette */
 [data-sidebar="sidebar"] {
   background-color: var(--sidebar) !important;
-  background-image: var(--sidebar-gradient, none) !important;
+  background-image: var(--sidebar-gradient) !important;
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
 }
 
 /* Hero and Primary Gradients */
