@@ -115,13 +115,49 @@ export default function MarketDetailPage() {
       setSortField(field);
       setSortOrder("asc");
     } else {
-      if (sortOrder === "asc") setSortOrder("desc");
-      else if (sortOrder === "desc") setSortOrder("normal");
-      else {
+      if (sortOrder === "asc") {
+        setSortOrder("desc");
+      } else if (sortOrder === "desc") {
+        setSortField(null);
+        setSortOrder("normal");
+      } else {
         setSortField(field);
         setSortOrder("asc");
       }
     }
+  };
+
+  // Sortable Header Component with Arrow indicator
+  const renderSortableHeader = (label: string, field: SortField) => {
+    const isActive = sortField === field && sortOrder !== "normal";
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleSort(field);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            handleSort(field);
+          }
+        }}
+        className="flex items-center justify-center gap-1.5 cursor-pointer select-none group py-1 hover:text-primary transition-colors uppercase font-bold text-[11px] tracking-wider w-full"
+      >
+        <span>{label}</span>
+        {isActive ? (
+          sortOrder === "asc" ? (
+            <ArrowUp className="h-3.5 w-3.5 text-primary stroke-[2.5] shrink-0" />
+          ) : (
+            <ArrowDown className="h-3.5 w-3.5 text-primary stroke-[2.5] shrink-0" />
+          )
+        ) : (
+          <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors shrink-0" />
+        )}
+      </div>
+    );
   };
 
   const processedData = useMemo(() => {
@@ -410,36 +446,45 @@ export default function MarketDetailPage() {
 
               {
                 key: "accessories",
-                header: "ACCESSORIES",
+                header: renderSortableHeader("ACCESSORIES", "accessories"),
                 accessor: (r) => renderMetricsCell(r, "accessories"),
               },
-              { key: "voice", header: "VOICE", accessor: (r) => renderMetricsCell(r, "voice") },
-              { key: "hsi", header: "HSI", accessor: (r) => renderMetricsCell(r, "hsi") },
-              { key: "bts", header: "BTS", accessor: (r) => renderMetricsCell(r, "bts") },
+              {
+                key: "voice",
+                header: renderSortableHeader("VOICE", "voice"),
+                accessor: (r) => renderMetricsCell(r, "voice"),
+              },
+              {
+                key: "hsi",
+                header: renderSortableHeader("HSI", "hsi"),
+                accessor: (r) => renderMetricsCell(r, "hsi"),
+              },
+              {
+                key: "bts",
+                header: renderSortableHeader("BTS", "bts"),
+                accessor: (r) => renderMetricsCell(r, "bts"),
+              },
               {
                 key: "upgrades",
-                header: "UPGRADES",
+                header: renderSortableHeader("UPGRADES", "upgrades"),
                 accessor: (r) => renderMetricsCell(r, "upgrades"),
               },
-              { key: "mim", header: "MIM", accessor: (r) => renderMetricsCell(r, "mim") },
+              {
+                key: "mim",
+                header: renderSortableHeader("MIM", "mim"),
+                accessor: (r) => renderMetricsCell(r, "mim"),
+              },
               {
                 key: "retention",
-                header: "RETENTION",
+                header: renderSortableHeader("RETENTION", "retention"),
                 accessor: (r) => renderMetricsCell(r, "retention"),
               },
-              { key: "total", header: "TOTAL", accessor: (r) => renderMetricsCell(r, "total") },
+              {
+                key: "total",
+                header: renderSortableHeader("TOTAL", "total"),
+                accessor: (r) => renderMetricsCell(r, "total"),
+              },
             ]}
-          />
-        </div>
-
-        <div>
-          <style
-            dangerouslySetInnerHTML={{
-              __html: `
-                        .detail-table th:nth-child(4) { cursor: pointer; position: relative; }
-                        .detail-table th:nth-child(4)::after { content: '${sortField === "accessories" && sortOrder === "asc" ? " ▲" : sortField === "accessories" && sortOrder === "desc" ? " ▼" : " ↕"}'; opacity: 0.7; font-size: 11px; color: #18181b; }
-                        `,
-            }}
           />
         </div>
       </div>

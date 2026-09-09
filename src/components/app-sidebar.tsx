@@ -96,8 +96,8 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
       { title: "Star Ranker", url: "/ranker/star-ranker", icon: Sparkles },
       { title: "Wall of Fame", url: "/ranker/wall-of-fame", icon: Trophy },
       { title: "Happening Board", url: "/ranker/happening-board", icon: CalendarDays },
-      { title: "Rules", url: "/ranker/rules", icon: BookOpen },
       { title: "Criteria Details", url: "/ranker/criteria-details", icon: SlidersHorizontal },
+      { title: "Rules", url: "/ranker/rules", icon: BookOpen },
     ],
   },
   ticketing: {

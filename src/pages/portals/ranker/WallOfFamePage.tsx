@@ -291,13 +291,16 @@ const CHAMPIONS_DATABASE: Record<number, MonthlyChampion[]> = {
       tenure: "1 Year",
     },
   ],
+  2027: [],
 };
 
-const YEAR_OPTIONS = ["2026", "2025", "2024", "2023"];
+const YEAR_OPTIONS = ["2026", "2027"];
 
 export default function WallOfFamePage() {
-  // By default current year (2026) is selected
-  const [selectedYear, setSelectedYear] = useState<string>("2026");
+  // Dynamically default to the current calendar year (2026 currently, 2027 when 2027 arrives)
+  const currentYearStr = new Date().getFullYear().toString();
+  const defaultYear = YEAR_OPTIONS.includes(currentYearStr) ? currentYearStr : "2026";
+  const [selectedYear, setSelectedYear] = useState<string>(defaultYear);
 
   const yearChampions = useMemo(() => {
     const yr = parseInt(selectedYear, 10) || 2026;
@@ -425,8 +428,8 @@ export default function WallOfFamePage() {
                   }`}
                 >
                   {yr}
-                  {yr === "2026" && (
-                    <span className="ml-1 text-[9px] px-1 py-0.2 bg-white/20 rounded font-normal">
+                  {yr === currentYearStr && (
+                    <span className="ml-1 text-[9px] px-1 py-0.2 bg-amber-500/20 text-amber-600 dark:text-amber-300 rounded font-normal">
                       Current
                     </span>
                   )}
@@ -466,8 +469,14 @@ export default function WallOfFamePage() {
           </div>
 
           {primaryThreeChampions.length === 0 ? (
-            <div className="p-12 text-center rounded-2xl border border-dashed border-border text-muted-foreground text-xs">
-              No champions recorded for year {selectedYear}.
+            <div className="p-12 text-center rounded-2xl border-2 border-dashed border-border/80 bg-card/60 backdrop-blur-sm space-y-2">
+              <Trophy className="h-10 w-10 text-amber-500/50 mx-auto" />
+              <h3 className="font-display text-base font-bold text-foreground">
+                {selectedYear} Hall of Fame Cycle
+              </h3>
+              <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                No monthly champions inducted yet for {selectedYear}. Records will appear here as the cycle progresses!
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
