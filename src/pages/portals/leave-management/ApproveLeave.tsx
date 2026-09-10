@@ -341,7 +341,10 @@ export default function ManagerLeaveManagement() {
       }
 
       req.selectedDates.forEach((d) => {
-        if (d.dateStr === dateStr && (d.status === 1 || req.status === "Approved" || req.status === "Partially Approved")) {
+        if (
+          d.dateStr === dateStr &&
+          (d.status === 1 || req.status === "Approved" || req.status === "Partially Approved")
+        ) {
           // Add approved employee day
           leaves.push({
             request: req,

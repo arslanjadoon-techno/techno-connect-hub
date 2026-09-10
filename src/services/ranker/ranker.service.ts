@@ -21,7 +21,7 @@ export const KPI_WEIGHTS = {
 } as const;
 
 /**
- * Calculate KPI score for a record using official category weightage:
+ * Calculate KPI score for a record using official category weightage matching previous Ranker project:
  * - Accessories: 25%
  * - Voice Activations: 20%
  * - HSI: 15%
@@ -41,17 +41,33 @@ export function calculateKpiScore(
     | "btsAchievedPCt"
     | "retentionAchievedPCt"
   >,
+  precision = 2,
 ): number {
   const score =
-    (Number(record.accessoriesAchievedPCt) || 0) * KPI_WEIGHTS.accessories +
-    (Number(record.voiceAchievedPCt) || 0) * KPI_WEIGHTS.voice +
-    (Number(record.hsiAchievedPCt) || 0) * KPI_WEIGHTS.hsi +
-    (Number(record.mimAchievedPCt) || 0) * KPI_WEIGHTS.mim +
-    (Number(record.upgradesAchievedPCt) || 0) * KPI_WEIGHTS.upgrades +
-    (Number(record.btsAchievedPCt) || 0) * KPI_WEIGHTS.bts +
-    (Number(record.retentionAchievedPCt) || 0) * KPI_WEIGHTS.retention;
+    (parseFloat(String(record.accessoriesAchievedPCt)) || 0) * 0.25 +
+    (parseFloat(String(record.voiceAchievedPCt)) || 0) * 0.2 +
+    (parseFloat(String(record.hsiAchievedPCt)) || 0) * 0.15 +
+    (parseFloat(String(record.mimAchievedPCt)) || 0) * 0.1 +
+    (parseFloat(String(record.upgradesAchievedPCt)) || 0) * 0.1 +
+    (parseFloat(String(record.btsAchievedPCt)) || 0) * 0.1 +
+    (parseFloat(String(record.retentionAchievedPCt)) || 0) * 0.1;
 
-  return Math.round(score * 10) / 10;
+  return parseFloat(score.toFixed(precision));
+}
+
+/**
+ * Helper to extract max year, max month, and max day from records.
+ */
+export function getLatestDate(records: RankerAggregatedRecord[]) {
+  if (!records || records.length === 0) {
+    return { maxYear: 0, maxMonth: 0, maxDay: 0 };
+  }
+  const maxYear = Math.max(...records.map((m) => m.year));
+  const maxMonth = Math.max(...records.filter((m) => m.year === maxYear).map((m) => m.month));
+  const maxDay = Math.max(
+    ...records.filter((m) => m.year === maxYear && m.month === maxMonth).map((m) => m.day),
+  );
+  return { maxYear, maxMonth, maxDay };
 }
 
 /**
@@ -144,104 +160,111 @@ export class RankerService {
   }
 
   /**
-   * Extract Dashboard summary metrics:
-   * - Total Unique Users
-   * - Active Markets Count
-   * - Yearly Champion (highest score performer across the year)
-   * - Monthly Stars (top 3 performers by score)
-   * - Average KPI performance for radar chart
+   * Extract Dashboard summary metrics matching previous Ranker project:
+   * 1. Map all data with totalScore calculated to 1 decimal place.
+   * 2. Extract latest date (maxYear, maxMonth, maxDay).
+   * 3. Filter only latest records sorted by totalScore descending.
+   * 4. Yearly Champ = top latest record, Top Monthly = top 3 latest records.
+   * 5. Radar chart = average of each KPI across latest records.
    */
   getDashboardMetrics(records: RankerAggregatedRecord[]) {
-    const usersSet = new Set<string>();
-    const marketsSet = new Set<string>();
-
-    let totalVoice = 0;
-    let totalBts = 0;
-    let totalHsi = 0;
-    let totalMim = 0;
-    let totalUpgrades = 0;
-    let totalAccessories = 0;
-    let totalRetention = 0;
-    const count = records.length || 1;
-
-    for (const r of records) {
-      const name = (r.marketManager || r.dM_Name || "").trim();
-      if (name) usersSet.add(name);
-      if (r.market) marketsSet.add(r.market.trim());
-
-      totalVoice += Number(r.voiceAchievedPCt) || 0;
-      totalBts += Number(r.btsAchievedPCt) || 0;
-      totalHsi += Number(r.hsiAchievedPCt) || 0;
-      totalMim += Number(r.mimAchievedPCt) || 0;
-      totalUpgrades += Number(r.upgradesAchievedPCt) || 0;
-      totalAccessories += Number(r.accessoriesAchievedPCt) || 0;
-      totalRetention += Number(r.retentionAchievedPCt) || 0;
+    if (!records || records.length === 0) {
+      return {
+        totalUsers: 0,
+        activeMarkets: 0,
+        yearlyChampion: null,
+        monthlyStars: [],
+        radarData: [
+          { kpi: "Accessories", value: 0 },
+          { kpi: "Voice", value: 0 },
+          { kpi: "HSI", value: 0 },
+          { kpi: "MIM", value: 0 },
+          { kpi: "Upgrades", value: 0 },
+          { kpi: "BTS", value: 0 },
+          { kpi: "Retention", value: 0 },
+        ],
+      };
     }
 
-    // Scored records
-    const scored = this.getScoredRecords(records);
-
-    // Group by manager to find their highest achieved score
-    const managerMap = new Map<
-      string,
-      {
-        name: string;
-        market: string;
-        photo: string | null;
-        highestScore: number;
-        latestMonth: number;
-        record: RankerAggregatedRecord;
-      }
-    >();
-
-    for (const r of scored) {
-      const name = (r.marketManager || r.dM_Name || "").trim();
-      if (!name) continue;
-
-      const existing = managerMap.get(name);
-      if (!existing || r.score > existing.highestScore) {
-        managerMap.set(name, {
-          name,
-          market: r.market,
-          photo: r.mM_PIC_URL,
-          highestScore: r.score,
-          latestMonth: r.month,
-          record: r,
-        });
-      }
-    }
-
-    const uniquePerformers = Array.from(managerMap.values()).sort(
-      (a, b) => b.highestScore - a.highestScore,
-    );
-
-    // Yearly Champion is rank #1
-    const yearlyChampion = uniquePerformers[0] || null;
-
-    // Monthly stars: top 3 performers
-    const monthlyStars: RankerStar[] = uniquePerformers.slice(0, 3).map((p, idx) => ({
-      name: p.name,
-      market: p.market,
-      rank: idx + 1,
-      score: p.highestScore,
-      photo: p.photo,
-      tone: idx === 0 ? "bg-sky-500" : idx === 1 ? "bg-amber-500" : "bg-emerald-500",
+    // 1. All data mapping
+    const allData = records.map((item, index) => ({
+      ...item,
+      id: item.tid || `${item.marketManager || item.dM_Name}-${index}`,
+      name: item.dM_Name || "No Name",
+      market: item.market || "N/A",
+      image: item.mM_PIC_URL || "",
+      totalScore: parseFloat(
+        (
+          (parseFloat(String(item.accessoriesAchievedPCt)) || 0) * 0.25 +
+          (parseFloat(String(item.voiceAchievedPCt)) || 0) * 0.2 +
+          (parseFloat(String(item.hsiAchievedPCt)) || 0) * 0.15 +
+          (parseFloat(String(item.mimAchievedPCt)) || 0) * 0.1 +
+          (parseFloat(String(item.upgradesAchievedPCt)) || 0) * 0.1 +
+          (parseFloat(String(item.btsAchievedPCt)) || 0) * 0.1 +
+          (parseFloat(String(item.retentionAchievedPCt)) || 0) * 0.1
+        ).toFixed(1),
+      ),
     }));
 
-    // Average KPI Radar data
-    const radarData = [
-      { kpi: "Accessories", value: Math.round(totalAccessories / count) },
-      { kpi: "Voice", value: Math.round(totalVoice / count) },
-      { kpi: "HSI", value: Math.round(totalHsi / count) },
-      { kpi: "MIM", value: Math.round(totalMim / count) },
-      { kpi: "Upgrades", value: Math.round(totalUpgrades / count) },
-      { kpi: "BTS", value: Math.round(totalBts / count) },
-      { kpi: "Retention", value: Math.round(totalRetention / count) },
-    ];
+    // 2. Latest Date extraction
+    const maxYear = Math.max(...allData.map((m) => m.year));
+    const maxMonth = Math.max(...allData.filter((m) => m.year === maxYear).map((m) => m.month));
+    const maxDay = Math.max(
+      ...allData.filter((m) => m.year === maxYear && m.month === maxMonth).map((m) => m.day),
+    );
+
+    // 3. Filter only Latest Records
+    const latestRecords = allData
+      .filter((m) => m.year === maxYear && m.month === maxMonth && m.day === maxDay)
+      .sort((a, b) => b.totalScore - a.totalScore);
+
+    const yearlyChamp = latestRecords[0] || null;
+    const topMonthly = latestRecords.slice(0, 3);
+
+    // Radar chart: Real-time average across all latest managers
+    const kpiKeyMap: Record<string, keyof RankerAggregatedRecord> = {
+      Accessories: "accessoriesAchievedPCt",
+      Voice: "voiceAchievedPCt",
+      HSI: "hsiAchievedPCt",
+      MIM: "mimAchievedPCt",
+      Upgrades: "upgradesAchievedPCt",
+      BTS: "btsAchievedPCt",
+      Retention: "retentionAchievedPCt",
+    };
+
+    const radarData = Object.entries(kpiKeyMap).map(([shortName, apiKey]) => {
+      const total = latestRecords.reduce((sum, m) => {
+        const val = parseFloat(String(m[apiKey])) || 0;
+        return sum + val;
+      }, 0);
+      const average = latestRecords.length > 0 ? total / latestRecords.length : 0;
+      return {
+        kpi: shortName,
+        value: parseFloat(average.toFixed(1)),
+      };
+    });
+
+    const yearlyChampion = yearlyChamp
+      ? {
+          name: yearlyChamp.name,
+          market: yearlyChamp.market,
+          photo: yearlyChamp.image || null,
+          highestScore: yearlyChamp.totalScore,
+        }
+      : null;
+
+    const monthlyStars: RankerStar[] = topMonthly.map((m, idx) => ({
+      name: m.name,
+      market: m.market,
+      rank: idx + 1,
+      score: m.totalScore,
+      photo: m.image || null,
+      tone: idx === 0 ? "bg-[#00a3e0]" : idx === 1 ? "bg-[#ffcc00]" : "bg-gray-400",
+    }));
 
     return {
-      totalUsers: usersSet.size,
-      activeMarkets: marketsSet.size,
+      totalUsers: latestRecords.length,
+      activeMarkets: new Set(latestRecords.map((m) => m.market)).size,
       yearlyChampion,
       monthlyStars,
       radarData,
@@ -249,38 +272,58 @@ export class RankerService {
   }
 
   /**
-   * Calculate Top 6 Star Rankers based on KPI weightage.
+   * Calculate Top 6 Star Rankers based on latest date records matching previous Ranker project.
    */
   getTopStarRankers(records: RankerAggregatedRecord[], limit = 6): RankerStarPerformer[] {
-    const scored = this.getScoredRecords(records);
+    if (!records || records.length === 0) return [];
 
-    // Group by manager to get their top performance
-    const managerMap = new Map<
-      string,
-      {
-        name: string;
-        market: string;
-        photo: string | null;
-        record: RankerScoredRecord;
-      }
-    >();
+    const maxYear = Math.max(...records.map((m) => m.year));
+    const maxMonth = Math.max(...records.filter((m) => m.year === maxYear).map((m) => m.month));
+    const maxDay = Math.max(
+      ...records.filter((m) => m.year === maxYear && m.month === maxMonth).map((m) => m.day),
+    );
 
-    for (const r of scored) {
-      const name = (r.marketManager || r.dM_Name || "").trim();
-      if (!name) continue;
+    const latestData = records.filter(
+      (item) => item.year === maxYear && item.month === maxMonth && item.day === maxDay,
+    );
 
-      const existing = managerMap.get(name);
-      if (!existing || r.score > existing.record.score) {
-        managerMap.set(name, {
-          name,
-          market: r.market,
-          photo: r.mM_PIC_URL,
-          record: r,
-        });
-      }
-    }
+    const mappedData = latestData.map((item, index) => {
+      const score = parseFloat(
+        (
+          (parseFloat(String(item.accessoriesAchievedPCt)) || 0) * 0.25 +
+          (parseFloat(String(item.voiceAchievedPCt)) || 0) * 0.2 +
+          (parseFloat(String(item.hsiAchievedPCt)) || 0) * 0.15 +
+          (parseFloat(String(item.mimAchievedPCt)) || 0) * 0.1 +
+          (parseFloat(String(item.upgradesAchievedPCt)) || 0) * 0.1 +
+          (parseFloat(String(item.btsAchievedPCt)) || 0) * 0.1 +
+          (parseFloat(String(item.retentionAchievedPCt)) || 0) * 0.1
+        ).toFixed(2),
+      );
 
-    const sorted = Array.from(managerMap.values()).sort((a, b) => b.record.score - a.record.score);
+      return {
+        id: index + 1,
+        rank: index + 1,
+        title: "",
+        name: item.dM_Name || "No Name",
+        market: item.market || "N/A",
+        score,
+        photo: item.mM_PIC_URL || null,
+        tier: "normal" as const,
+        ntid: item.marketManager?.toLowerCase().replace(/\s+/g, "") || `user${index + 1}`,
+        category: score >= 90 ? "Top Performer" : "Consistent Achiever",
+        breakdown: {
+          accessories: Math.round(Number(item.accessoriesAchievedPCt) || 0),
+          voice: Math.round(Number(item.voiceAchievedPCt) || 0),
+          hsi: Math.round(Number(item.hsiAchievedPCt) || 0),
+          mim: Math.round(Number(item.mimAchievedPCt) || 0),
+          upgrades: Math.round(Number(item.upgradesAchievedPCt) || 0),
+          bts: Math.round(Number(item.btsAchievedPCt) || 0),
+          retention: Math.round(Number(item.retentionAchievedPCt) || 0),
+        },
+      };
+    });
+
+    const sortedData = mappedData.sort((a, b) => b.score - a.score);
 
     const titles = [
       "Legendary Performer",
@@ -300,31 +343,13 @@ export class RankerService {
       "normal",
     ];
 
-    return sorted.slice(0, limit).map((item, idx) => {
-      const rec = item.record;
-      return {
-        id: idx + 1,
-        rank: idx + 1,
-        title: titles[idx] || "Star Ranker",
-        name: item.name,
-        market: item.market,
-        score: rec.score,
-        photo:
-          item.photo ||
-          `https://ui-avatars.com/api/?name=${encodeURIComponent(item.name)}&background=random&size=200`,
-        tier: tiers[idx] || "normal",
-        ntid: rec.marketManager?.toLowerCase().replace(/\s+/g, "") || `user${idx + 1}`,
-        breakdown: {
-          accessories: Math.round(rec.accessoriesAchievedPCt || 0),
-          voice: Math.round(rec.voiceAchievedPCt || 0),
-          hsi: Math.round(rec.hsiAchievedPCt || 0),
-          mim: Math.round(rec.mimAchievedPCt || 0),
-          upgrades: Math.round(rec.upgradesAchievedPCt || 0),
-          bts: Math.round(rec.btsAchievedPCt || 0),
-          retention: Math.round(rec.retentionAchievedPCt || 0),
-        },
-      };
-    });
+    return sortedData.slice(0, limit).map((item, idx) => ({
+      ...item,
+      id: idx + 1,
+      rank: idx + 1,
+      title: titles[idx] || (item.score >= 90 ? "Top Performer" : "Consistent Achiever"),
+      tier: tiers[idx] || "normal",
+    }));
   }
 }
 

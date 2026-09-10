@@ -137,4 +137,3 @@ export const RANKER_API_BASE_URL =
 export const RANKER_API_PATHS = {
   getAggregatedAchieved: "/GetAggregatedAchieved",
 } as const;
-

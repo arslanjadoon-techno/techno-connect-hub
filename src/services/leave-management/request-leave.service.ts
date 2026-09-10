@@ -122,10 +122,12 @@ export async function getManagersByMarket(
 
     const data = await res.json();
     if (Array.isArray(data)) {
-      return data.map((m: { id?: number; managerId?: number; name?: string; managerName?: string }) => ({
-        id: m.id ?? m.managerId ?? 0,
-        name: m.name ?? m.managerName ?? "Unknown Manager",
-      }));
+      return data.map(
+        (m: { id?: number; managerId?: number; name?: string; managerName?: string }) => ({
+          id: m.id ?? m.managerId ?? 0,
+          name: m.name ?? m.managerName ?? "Unknown Manager",
+        }),
+      );
     }
     return [];
   } catch (err: unknown) {
@@ -176,9 +178,7 @@ export async function submitLeaveRequest(payload: SubmitLeavePayload): Promise<L
     fromDate: payload.fromDate.includes("Z")
       ? payload.fromDate
       : `${payload.fromDate.split(".")[0]}.000Z`,
-    toDate: payload.toDate.includes("Z")
-      ? payload.toDate
-      : `${payload.toDate.split(".")[0]}.000Z`,
+    toDate: payload.toDate.includes("Z") ? payload.toDate : `${payload.toDate.split(".")[0]}.000Z`,
     reason: payload.reason,
   };
 

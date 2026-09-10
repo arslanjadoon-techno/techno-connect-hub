@@ -244,15 +244,11 @@ export default function RequestLeavePage() {
 
   // Month navigation handlers
   const handlePrevMonth = () => {
-    setCalendarDate(
-      new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 1),
-    );
+    setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() - 1, 1));
   };
 
   const handleNextMonth = () => {
-    setCalendarDate(
-      new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1),
-    );
+    setCalendarDate(new Date(calendarDate.getFullYear(), calendarDate.getMonth() + 1, 1));
   };
 
   // Submit Leave Request
@@ -384,9 +380,7 @@ export default function RequestLeavePage() {
         {/* Card Header */}
         <div className="flex items-center space-x-2 border-b border-slate-100 pb-4">
           <span className="text-violet-600 font-extrabold text-lg leading-none">+</span>
-          <h2 className="text-base sm:text-lg font-bold text-slate-900">
-            Apply for Leave
-          </h2>
+          <h2 className="text-base sm:text-lg font-bold text-slate-900">Apply for Leave</h2>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -457,7 +451,6 @@ export default function RequestLeavePage() {
                 </div>
               </div>
             </div>
-
           </div>
 
           {/* Select Dates Calendar Section */}
@@ -524,16 +517,21 @@ export default function RequestLeavePage() {
                   const dayNum = parseInt(dateStr.split("-")[2], 10);
 
                   // Compute dynamic button styling based on date status
-                  let buttonStyle = "bg-white text-slate-800 border-slate-200 hover:border-violet-300 hover:bg-violet-50/30 cursor-pointer";
+                  let buttonStyle =
+                    "bg-white text-slate-800 border-slate-200 hover:border-violet-300 hover:bg-violet-50/30 cursor-pointer";
 
                   if (info.type === "passed") {
-                    buttonStyle = "bg-slate-100/80 text-slate-300 border-slate-200 cursor-not-allowed";
+                    buttonStyle =
+                      "bg-slate-100/80 text-slate-300 border-slate-200 cursor-not-allowed";
                   } else if (info.type === "approved") {
-                    buttonStyle = "bg-emerald-100 text-emerald-800 border-emerald-300 font-bold cursor-not-allowed shadow-xs";
+                    buttonStyle =
+                      "bg-emerald-100 text-emerald-800 border-emerald-300 font-bold cursor-not-allowed shadow-xs";
                   } else if (info.type === "pending") {
-                    buttonStyle = "bg-amber-100 text-amber-800 border-amber-300 font-bold cursor-not-allowed shadow-xs";
+                    buttonStyle =
+                      "bg-amber-100 text-amber-800 border-amber-300 font-bold cursor-not-allowed shadow-xs";
                   } else if (isSelected) {
-                    buttonStyle = "bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-600/20 font-bold scale-[1.02]";
+                    buttonStyle =
+                      "bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-600/20 font-bold scale-[1.02]";
                   }
 
                   return (
@@ -580,9 +578,7 @@ export default function RequestLeavePage() {
                 <div className="pt-2 text-xs text-violet-700 font-semibold flex items-center space-x-1">
                   <span>Selected:</span>
                   <span className="font-bold">{selectedDates.length} date(s)</span>
-                  <span className="text-slate-400 font-normal">
-                    ({selectedDates.join(", ")})
-                  </span>
+                  <span className="text-slate-400 font-normal">({selectedDates.join(", ")})</span>
                 </div>
               )}
             </div>
@@ -590,9 +586,7 @@ export default function RequestLeavePage() {
 
           {/* Reason Section */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-600 block">
-              Reason
-            </label>
+            <label className="text-xs font-semibold text-slate-600 block">Reason</label>
             <textarea
               rows={3}
               value={reason}
@@ -625,9 +619,7 @@ export default function RequestLeavePage() {
       {/* ======================== CARD 2: LEAVE HISTORY ======================== */}
       <div className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 shadow-sm space-y-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-base sm:text-lg font-bold text-slate-900">
-            Leave History
-          </h2>
+          <h2 className="text-base sm:text-lg font-bold text-slate-900">Leave History</h2>
           {loadingHistory && (
             <div className="flex items-center space-x-1.5 text-xs text-slate-400">
               <Loader2 className="w-3.5 h-3.5 animate-spin text-violet-600" />
@@ -652,10 +644,7 @@ export default function RequestLeavePage() {
             <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
               {historyRequests.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={6}
-                    className="py-8 text-center text-xs text-slate-400 font-medium"
-                  >
+                  <td colSpan={6} className="py-8 text-center text-xs text-slate-400 font-medium">
                     No leave requests history found.
                   </td>
                 </tr>
@@ -668,8 +657,7 @@ export default function RequestLeavePage() {
                         ? Math.max(
                             1,
                             Math.round(
-                              (new Date(req.toDate).getTime() -
-                                new Date(req.fromDate).getTime()) /
+                              (new Date(req.toDate).getTime() - new Date(req.fromDate).getTime()) /
                                 (1000 * 60 * 60 * 24),
                             ) + 1,
                           )
@@ -681,10 +669,7 @@ export default function RequestLeavePage() {
                       : [req.fromDate.split("T")[0]];
 
                   return (
-                    <tr
-                      key={req.id}
-                      className="hover:bg-slate-50/80 transition group"
-                    >
+                    <tr key={req.id} className="hover:bg-slate-50/80 transition group">
                       {/* MARKET */}
                       <td className="py-4 pr-4 font-bold text-slate-900 uppercase">
                         {req.marketName || "—"}
@@ -725,9 +710,7 @@ export default function RequestLeavePage() {
                       </td>
 
                       {/* STATUS */}
-                      <td className="py-4 text-right">
-                        {getStatusBadge(req.status)}
-                      </td>
+                      <td className="py-4 text-right">{getStatusBadge(req.status)}</td>
                     </tr>
                   );
                 })

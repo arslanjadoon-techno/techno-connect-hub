@@ -1,14 +1,6 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  ShieldCheck,
-  Clock,
-  Trophy,
-  Zap,
-  Info,
-  BookOpen,
-  CheckCircle2,
-} from "lucide-react";
+import { ShieldCheck, Clock, Trophy, Zap, Info, BookOpen, CheckCircle2 } from "lucide-react";
 import { ConfettiBackground } from "@/components/confetti-background";
 
 export default function RulesPage() {
@@ -31,7 +23,8 @@ export default function RulesPage() {
               </Badge>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-              Official governance and participation policies for Market Managers and regional standings.
+              Official governance and participation policies for Market Managers and regional
+              standings.
             </p>
           </div>
 

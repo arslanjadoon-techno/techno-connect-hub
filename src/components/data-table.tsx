@@ -134,7 +134,9 @@ export function DataTable<T>({
     setPageSize(next);
     try {
       window.localStorage.setItem(PAGE_SIZE_KEY, String(next));
-    } catch {}
+    } catch {
+      // Ignore storage errors
+    }
     window.dispatchEvent(new CustomEvent(PAGE_SIZE_EVENT, { detail: next }));
     if (onPageSizeChange) onPageSizeChange(next);
     if (isServerPagination && onPageChange) onPageChange(0);

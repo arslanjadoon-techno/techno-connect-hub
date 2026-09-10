@@ -146,7 +146,8 @@ export default function StarRankerPage() {
               </Badge>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-              Honoring our 6 Star Performers calculated dynamically using official KPI weightages: 3 grand tier podium champions and 3 honor roll leaders.
+              Honoring our 6 Star Performers calculated dynamically using official KPI weightages: 3
+              grand tier podium champions and 3 honor roll leaders.
             </p>
           </div>
 
@@ -160,12 +161,14 @@ export default function StarRankerPage() {
               className="h-8 px-3 text-xs gap-1.5 border-border/70 hover:bg-accent"
               title="Refresh star rankers from API"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin text-primary" : ""}`} />
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin text-primary" : ""}`}
+              />
               Refresh
             </Button>
             <span className="text-xs font-semibold text-muted-foreground bg-muted/80 px-3 py-1.5 rounded-lg border border-border/60 flex items-center gap-1.5">
-              {loading && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
-              6 Star Performers Inducted
+              {loading && <Loader2 className="h-3 w-3 animate-spin text-primary" />}6 Star
+              Performers Inducted
             </span>
           </div>
         </div>

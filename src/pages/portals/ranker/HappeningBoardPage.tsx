@@ -1,14 +1,6 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import {
-  CalendarDays,
-  MapPin,
-  UserCheck,
-  Sparkles,
-  Clock,
-  Radio,
-  PartyPopper,
-} from "lucide-react";
+import { CalendarDays, MapPin, UserCheck, Sparkles, Clock, Radio, PartyPopper } from "lucide-react";
 import { ConfettiBackground } from "@/components/confetti-background";
 
 interface EventFrame {
@@ -94,7 +86,10 @@ export default function HappeningBoardPage() {
               <div>
                 <CardHeader className="p-6 pb-2 relative z-10">
                   <div className="flex items-center justify-between gap-2 mb-3">
-                    <Badge variant="outline" className={`text-xs font-bold ${eventItem.badgeColor}`}>
+                    <Badge
+                      variant="outline"
+                      className={`text-xs font-bold ${eventItem.badgeColor}`}
+                    >
                       <Sparkles className="h-3 w-3 mr-1" />
                       {eventItem.badge}
                     </Badge>

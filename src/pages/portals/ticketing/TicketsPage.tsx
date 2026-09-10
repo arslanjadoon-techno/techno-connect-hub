@@ -75,14 +75,15 @@ export default function TicketsPage() {
     setStatusFilter(search.status);
   }, [search.status]);
 
-  if (!user) return null;
-
   const setStatus = (s: StatusSearch) => {
     setStatusFilter(s);
     setSearchParams({ status: s }, { replace: true });
   };
 
-  const myTickets = useMemo(() => visibleTickets(user, data.tickets), [user, data.tickets]);
+  const myTickets = useMemo(
+    () => (user ? visibleTickets(user, data.tickets) : []),
+    [user, data.tickets],
+  );
 
   const filtered = useMemo(() => {
     const from = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
@@ -224,6 +225,8 @@ export default function TicketsPage() {
     toast.success(`Ticket ${t.id} created`);
     setOpen(false);
   };
+
+  if (!user) return null;
 
   return (
     <div className="space-y-5">

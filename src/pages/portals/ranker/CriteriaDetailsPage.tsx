@@ -184,9 +184,7 @@ export default function CriteriaDetailsPage() {
                     <span className="font-display text-4xl sm:text-5xl font-black text-amber-500">
                       7
                     </span>
-                    <span className="text-sm font-semibold text-muted-foreground">
-                      Categories
-                    </span>
+                    <span className="text-sm font-semibold text-muted-foreground">Categories</span>
                   </div>
                 </div>
                 <div className="text-right border-l border-amber-400/30 pl-4 space-y-1">
@@ -328,10 +326,7 @@ export default function CriteriaDetailsPage() {
               </thead>
               <tbody className="divide-y divide-border/60">
                 {CATEGORIES.map((cat) => (
-                  <tr
-                    key={cat.id}
-                    className="hover:bg-accent/30 transition-colors duration-150"
-                  >
+                  <tr key={cat.id} className="hover:bg-accent/30 transition-colors duration-150">
                     {/* Column 1: Circular Letter Indicator */}
                     <td className="py-4 px-4 sm:px-6">
                       <div

@@ -3,16 +3,11 @@
 
 /* Auth screens always use the default violet palette regardless of in-app theme. */
 .auth-standard {
-  --primary: #7F5AD6;
-  --primary-glow: #8B6EF0;
-  --ring: #7F5AD6;
-  --gradient-primary: linear-gradient(135deg, #8B6EF0, #5B3FA8);
-  --gradient-hero: linear-gradient(
-    160deg,
-    #3C2E86 0%,
-    #5B3FA8 45%,
-    #7F5AD6 100%
-  );
+  --primary: #7f5ad6;
+  --primary-glow: #8b6ef0;
+  --ring: #7f5ad6;
+  --gradient-primary: linear-gradient(135deg, #8b6ef0, #5b3fa8);
+  --gradient-hero: linear-gradient(160deg, #3c2e86 0%, #5b3fa8 45%, #7f5ad6 100%);
 }
 
 @custom-variant dark (&:is(.dark *));
@@ -78,9 +73,9 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.22 0.04 270);
 
-  --primary: #7F5AD6;
-  --primary-foreground: #FFFFFF;
-  --primary-glow: #8B6EF0;
+  --primary: #7f5ad6;
+  --primary-foreground: #ffffff;
+  --primary-glow: #8b6ef0;
 
   --secondary: oklch(0.96 0.015 270);
   --secondary-foreground: oklch(0.28 0.07 275);
@@ -108,7 +103,7 @@
 
   --border: oklch(0.91 0.012 270);
   --input: oklch(0.93 0.012 270);
-  --ring: #7F5AD6;
+  --ring: #7f5ad6;
 
   --chart-1: oklch(0.52 0.21 275);
   --chart-2: oklch(0.66 0.22 295);
@@ -116,29 +111,19 @@
   --chart-4: oklch(0.62 0.14 230);
   --chart-5: oklch(0.58 0.22 25);
 
-  --sidebar: #3C2E86;
-  --sidebar-foreground: #F1EEFB;
-  --sidebar-primary: #8B6EF0;
-  --sidebar-primary-foreground: #3C2E86;
+  --sidebar: #3c2e86;
+  --sidebar-foreground: #f1eefb;
+  --sidebar-primary: #8b6ef0;
+  --sidebar-primary-foreground: #3c2e86;
   --sidebar-accent: rgba(255, 255, 255, 0.14);
-  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-accent-foreground: #ffffff;
   --sidebar-border: rgba(255, 255, 255, 0.12);
-  --sidebar-ring: #7F5AD6;
-  --sidebar-gradient: linear-gradient(
-    160deg,
-    #3C2E86 0%,
-    #5B3FA8 45%,
-    #7F5AD6 100%
-  );
+  --sidebar-ring: #7f5ad6;
+  --sidebar-gradient: linear-gradient(160deg, #3c2e86 0%, #5b3fa8 45%, #7f5ad6 100%);
 
-  --gradient-primary: linear-gradient(135deg, #8B6EF0, #5B3FA8);
+  --gradient-primary: linear-gradient(135deg, #8b6ef0, #5b3fa8);
   --gradient-gold: linear-gradient(135deg, oklch(0.78 0.15 75), oklch(0.86 0.12 85));
-  --gradient-hero: linear-gradient(
-    160deg,
-    #3C2E86 0%,
-    #5B3FA8 45%,
-    #7F5AD6 100%
-  );
+  --gradient-hero: linear-gradient(160deg, #3c2e86 0%, #5b3fa8 45%, #7f5ad6 100%);
   --shadow-elegant: 0 12px 36px -10px color-mix(in oklab, var(--primary) 30%, transparent);
   --shadow-glow: 0 0 0 0 color-mix(in oklab, var(--primary-glow) 40%, transparent);
   --shadow-card:

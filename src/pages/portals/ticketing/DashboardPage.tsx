@@ -126,9 +126,10 @@ function DashboardPage() {
   const [category, setCategory] = useState<CategoryFilter>("all");
   const [locationId, setLocationId] = useState<string>("all");
 
-  if (!user) return null;
-
-  const baseTickets = useMemo(() => visibleTickets(user, data.tickets), [user, data.tickets]);
+  const baseTickets = useMemo(
+    () => (user ? visibleTickets(user, data.tickets) : []),
+    [user, data.tickets],
+  );
 
   const myTickets = useMemo(() => {
     const from = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
@@ -216,6 +217,8 @@ function DashboardPage() {
     }
     return buckets;
   }, [myTickets]);
+
+  if (!user) return null;
 
   return (
     <div className="space-y-6">

@@ -218,7 +218,8 @@ export default function RankerDashboardPage() {
         <div>
           <h1 className="font-display text-2xl font-semibold">Ranker Portal</h1>
           <p className="text-sm text-muted-foreground">
-            Live KPI performance, monthly stars, happening board, and performance rules across all markets.
+            Live KPI performance, monthly stars, happening board, and performance rules across all
+            markets.
           </p>
         </div>
 
@@ -230,7 +231,9 @@ export default function RankerDashboardPage() {
             className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-accent transition flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
             title="Refresh data from API"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin text-primary" : ""}`} />
+            <RefreshCw
+              className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin text-primary" : ""}`}
+            />
             Refresh
           </button>
           <Link
@@ -294,7 +297,9 @@ export default function RankerDashboardPage() {
               <Sparkles className="h-7 w-7 text-amber-500" />
             </div>
             <div className="font-display text-lg font-semibold text-amber-500">COMING SOON…</div>
-            <p className="text-xs italic text-muted-foreground">New exciting events are being planned!</p>
+            <p className="text-xs italic text-muted-foreground">
+              New exciting events are being planned!
+            </p>
             <div className="mt-2 h-1 w-24 rounded-full bg-gradient-to-r from-primary to-primary/30" />
           </div>
         </SectionCard>
@@ -500,4 +505,3 @@ export default function RankerDashboardPage() {
     </div>
   );
 }
-

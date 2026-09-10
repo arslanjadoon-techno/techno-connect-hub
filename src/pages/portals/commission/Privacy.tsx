@@ -15,7 +15,8 @@ const sections = [
     icon: UserCheck,
     title: "How We Use Your Information",
     body: "Your information is used to authenticate access, calculate commissions, process leave requests, and provide reporting to your market managers and administrators.",
-    cardBg: "bg-emerald-50/80 dark:bg-emerald-950/25 border-emerald-200/80 dark:border-emerald-900/40",
+    cardBg:
+      "bg-emerald-50/80 dark:bg-emerald-950/25 border-emerald-200/80 dark:border-emerald-900/40",
     iconBg: "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-600 dark:text-emerald-300",
     titleColor: "text-emerald-950 dark:text-emerald-100",
     bodyColor: "text-emerald-900/80 dark:text-emerald-200/80",
@@ -81,16 +82,18 @@ export default function Privacy() {
         {sections.map((s) => (
           <Card key={s.title} className={`transition-all hover:shadow-md ${s.cardBg}`}>
             <CardHeader className="pb-2">
-              <CardTitle className={`flex items-center gap-3 text-base font-semibold ${s.titleColor}`}>
-                <span className={`h-9 w-9 rounded-lg flex items-center justify-center shadow-xs shrink-0 ${s.iconBg}`}>
+              <CardTitle
+                className={`flex items-center gap-3 text-base font-semibold ${s.titleColor}`}
+              >
+                <span
+                  className={`h-9 w-9 rounded-lg flex items-center justify-center shadow-xs shrink-0 ${s.iconBg}`}
+                >
                   <s.icon className="h-5 w-5" />
                 </span>
                 {s.title}
               </CardTitle>
             </CardHeader>
-            <CardContent className={`text-sm leading-relaxed ${s.bodyColor}`}>
-              {s.body}
-            </CardContent>
+            <CardContent className={`text-sm leading-relaxed ${s.bodyColor}`}>{s.body}</CardContent>
           </Card>
         ))}
       </div>

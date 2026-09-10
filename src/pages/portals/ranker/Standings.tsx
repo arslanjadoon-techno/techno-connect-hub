@@ -11,9 +11,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Search, XCircle, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
+import { Search, RotateCcw, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
 import { ConfettiBackground } from "@/components/confetti-background";
-import { rankerService, calculateKpiScore } from "@/services/ranker";
+import { rankerService, calculateKpiScore, getLatestDate } from "@/services/ranker";
 import type { RankerAggregatedRecord } from "@/services/ranker/types";
 
 // 1. Interfaces
@@ -34,14 +34,7 @@ interface StandingRow {
 }
 
 type SortField =
-  | "accessories"
-  | "voice"
-  | "hsi"
-  | "bts"
-  | "upgrades"
-  | "mim"
-  | "retention"
-  | "total";
+  "accessories" | "voice" | "hsi" | "bts" | "upgrades" | "mim" | "retention" | "total";
 type SortOrder = "asc" | "desc" | "normal";
 
 const MONTH_NAMES: Record<number, string> = {
@@ -87,8 +80,18 @@ export default function StandingsPage() {
       if (forceRefresh) setIsRefreshing(true);
       else setLoading(true);
 
-      const records = await rankerService.getAggregatedAchieved({ forceRefresh });
+      const records = await rankerService.getAggregatedAchieved({
+        forceRefresh,
+      });
       setRawRecords(records);
+
+      // Default filters to latest date matching previous project
+      if (records.length > 0 && (selectedYear === "all" || forceRefresh)) {
+        const { maxYear, maxMonth, maxDay } = getLatestDate(records);
+        if (maxYear > 0) setSelectedYear(String(maxYear));
+        if (maxMonth > 0) setSelectedMonth(String(maxMonth));
+        if (maxDay > 0) setSelectedDay(String(maxDay));
+      }
     } catch (err) {
       console.error("Failed to load Standings from API:", err);
       toast.error("Failed to load Standings data from API");
@@ -102,44 +105,122 @@ export default function StandingsPage() {
     fetchData();
   }, []);
 
-  // Filter options derived dynamically from unique API values
-  const filterOptions = useMemo(() => {
-    return rankerService.getFilterOptions(rawRecords);
+  // Filter options derived dynamically from unique API values cascading by date
+  const years = useMemo(() => {
+    return [...new Set(rawRecords.map((m) => m.year))].filter(Boolean).sort((a, b) => b - a);
   }, [rawRecords]);
 
-  // Helper function for percentage conditional colors
-  const renderPercentageBadge = (value: number, isTotal = false) => {
+  const months = useMemo(() => {
+    const list =
+      selectedYear === "all"
+        ? rawRecords
+        : rawRecords.filter((m) => String(m.year) === selectedYear);
+    return [...new Set(list.map((m) => m.month))].filter(Boolean).sort((a, b) => a - b);
+  }, [rawRecords, selectedYear]);
+
+  const days = useMemo(() => {
+    const list = rawRecords.filter((m) => {
+      const matchY = selectedYear === "all" || String(m.year) === selectedYear;
+      const matchM = selectedMonth === "all" || String(m.month) === selectedMonth;
+      return matchY && matchM;
+    });
+    return [...new Set(list.map((m) => m.day))].filter(Boolean).sort((a, b) => a - b);
+  }, [rawRecords, selectedYear, selectedMonth]);
+
+  // KPI badge matching previous project:
+  // >= 100: green, >= 70: yellow, < 70: red
+  const renderKPIBadge = (value: number) => {
     const val = Number.isFinite(value) ? value : 0;
     let bgClass = "";
     let textClass = "";
     let borderClass = "";
 
-    if (val < 60) {
-      bgClass = "bg-red-50 dark:bg-red-950/30";
-      textClass = "text-red-600 dark:text-red-400 font-semibold";
-      borderClass = isTotal
-        ? "border-2 border-red-500"
-        : "border border-red-200/60 dark:border-red-900/40";
-    } else if (val >= 60 && val <= 100) {
-      bgClass = "bg-amber-50 dark:bg-amber-950/20";
-      textClass = "text-amber-700 dark:text-amber-500 font-semibold";
-      borderClass = isTotal
-        ? "border-2 border-amber-500"
-        : "border border-amber-200/60 dark:border-amber-900/40";
+    if (val >= 100) {
+      bgClass = "bg-green-100 dark:bg-green-900/30";
+      textClass = "text-green-700 dark:text-green-400 font-bold";
+      borderClass = "border border-green-200 dark:border-green-800";
+    } else if (val >= 70) {
+      bgClass = "bg-yellow-100 dark:bg-yellow-900/30";
+      textClass = "text-yellow-700 dark:text-yellow-400 font-bold";
+      borderClass = "border border-yellow-200 dark:border-yellow-800";
     } else {
-      bgClass = "bg-emerald-50 dark:bg-emerald-950/30";
-      textClass = "text-emerald-700 dark:text-emerald-400 font-semibold";
-      borderClass = isTotal
-        ? "border-2 border-emerald-500"
-        : "border border-emerald-200/60 dark:border-emerald-900/40";
+      bgClass = "bg-red-100 dark:bg-red-900/30";
+      textClass = "text-red-700 dark:text-red-400 font-bold";
+      borderClass = "border border-red-200 dark:border-red-800";
     }
 
     return (
-      <div className="py-2">
+      <div className="py-2 flex justify-center">
         <span
-          className={`inline-flex items-center justify-center rounded-md px-2.5 py-1 text-xs tabular-nums transition-colors shadow-xs ${bgClass} ${textClass} ${borderClass}`}
+          className={`inline-flex items-center justify-center w-16 py-1 rounded-md text-xs font-bold shadow-xs ${bgClass} ${textClass} ${borderClass}`}
         >
-          {val}%
+          {Math.round(val)}%
+        </span>
+      </div>
+    );
+  };
+
+  // Retention badge matching previous project:
+  // >= 65: green, >= 62: yellow, < 62: red
+  const renderRetentionBadge = (value: number) => {
+    const val = Number.isFinite(value) ? value : 0;
+    let bgClass = "";
+    let textClass = "";
+    let borderClass = "";
+
+    if (val >= 65) {
+      bgClass = "bg-green-100 dark:bg-green-900/30";
+      textClass = "text-green-700 dark:text-green-400 font-bold";
+      borderClass = "border border-green-200 dark:border-green-800";
+    } else if (val >= 62) {
+      bgClass = "bg-yellow-100 dark:bg-yellow-900/30";
+      textClass = "text-yellow-700 dark:text-yellow-400 font-bold";
+      borderClass = "border border-yellow-200 dark:border-yellow-800";
+    } else {
+      bgClass = "bg-red-100 dark:bg-red-900/30";
+      textClass = "text-red-700 dark:text-red-400 font-bold";
+      borderClass = "border border-red-200 dark:border-red-800";
+    }
+
+    return (
+      <div className="py-2 flex justify-center">
+        <span
+          className={`inline-flex items-center justify-center w-16 py-1 rounded-md text-xs font-bold shadow-xs ${bgClass} ${textClass} ${borderClass}`}
+        >
+          {Math.round(val)}%
+        </span>
+      </div>
+    );
+  };
+
+  // Total score badge matching previous project:
+  // >= 100: green, >= 70: yellow, < 70: red
+  const renderTotalBadge = (value: number) => {
+    const val = Number.isFinite(value) ? value : 0;
+    let bgClass = "";
+    let textClass = "";
+    let borderClass = "";
+
+    if (val >= 100) {
+      bgClass = "bg-green-50 dark:bg-green-950/40";
+      textClass = "text-green-700 dark:text-green-400";
+      borderClass = "border-2 border-green-500";
+    } else if (val >= 70) {
+      bgClass = "bg-yellow-50 dark:bg-yellow-950/30";
+      textClass = "text-yellow-700 dark:text-yellow-500";
+      borderClass = "border-2 border-yellow-500";
+    } else {
+      bgClass = "bg-red-50 dark:bg-red-950/30";
+      textClass = "text-red-700 dark:text-red-400";
+      borderClass = "border-2 border-red-500";
+    }
+
+    return (
+      <div className="py-2 flex justify-center">
+        <span
+          className={`inline-flex items-center justify-center w-20 py-1.5 rounded-md text-xs font-extrabold shadow-md ${bgClass} ${textClass} ${borderClass}`}
+        >
+          {Math.round(val)}%
         </span>
       </div>
     );
@@ -205,8 +286,18 @@ export default function StandingsPage() {
     }
 
     let rows: StandingRow[] = list.map((r, idx) => {
-      const totalScore = calculateKpiScore(r);
-      const name = r.marketManager || r.dM_Name || "N/A";
+      const totalScore = parseFloat(
+        (
+          (parseFloat(String(r.accessoriesAchievedPCt)) || 0) * 0.25 +
+          (parseFloat(String(r.voiceAchievedPCt)) || 0) * 0.2 +
+          (parseFloat(String(r.hsiAchievedPCt)) || 0) * 0.15 +
+          (parseFloat(String(r.mimAchievedPCt)) || 0) * 0.1 +
+          (parseFloat(String(r.upgradesAchievedPCt)) || 0) * 0.1 +
+          (parseFloat(String(r.btsAchievedPCt)) || 0) * 0.1 +
+          (parseFloat(String(r.retentionAchievedPCt)) || 0) * 0.1
+        ).toFixed(2),
+      );
+      const name = r.dM_Name || "No Name";
       const market = r.market || "N/A";
 
       return {
@@ -346,7 +437,7 @@ export default function StandingsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Years</SelectItem>
-                      {filterOptions.years.map((y) => (
+                      {years.map((y) => (
                         <SelectItem key={y} value={String(y)}>
                           {y}
                         </SelectItem>
@@ -372,7 +463,7 @@ export default function StandingsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Months</SelectItem>
-                      {filterOptions.months.map((m) => (
+                      {months.map((m) => (
                         <SelectItem key={m} value={String(m)}>
                           {MONTH_NAMES[m] || `Month ${m}`}
                         </SelectItem>
@@ -398,7 +489,7 @@ export default function StandingsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All Days</SelectItem>
-                      {filterOptions.days.map((d) => (
+                      {days.map((d) => (
                         <SelectItem key={d} value={String(d)}>
                           {String(d).padStart(2, "0")}
                         </SelectItem>
@@ -406,6 +497,30 @@ export default function StandingsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* RESET TO LATEST BUTTON */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (rawRecords.length === 0) return;
+                    const { maxYear, maxMonth, maxDay } = getLatestDate(rawRecords);
+                    setSelectedYear(String(maxYear));
+                    setSelectedMonth(String(maxMonth));
+                    setSelectedDay(String(maxDay));
+                    setSearchQuery("");
+                    setSortField(null);
+                    setSortOrder("normal");
+                    setPage(0);
+                    toast.success("Reset to latest date");
+                  }}
+                  className="h-9 px-3 text-xs font-semibold border-amber-400/50 bg-amber-50/50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all active:scale-95"
+                  title="Reset to Latest Date"
+                >
+                  <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                  Reset to Latest
+                </Button>
 
                 {/* REFRESH BUTTON */}
                 <Button
@@ -417,27 +532,10 @@ export default function StandingsPage() {
                   className="h-9 px-3 text-xs font-medium border-muted-foreground/30 hover:bg-accent transition"
                   title="Refresh from API"
                 >
-                  <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isRefreshing ? "animate-spin text-primary" : ""}`} />
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 mr-1.5 ${isRefreshing ? "animate-spin text-primary" : ""}`}
+                  />
                   Refresh
-                </Button>
-
-                {/* RESET BUTTON */}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={
-                    selectedYear === "all" &&
-                    selectedMonth === "all" &&
-                    selectedDay === "all" &&
-                    searchQuery === "" &&
-                    sortField === null
-                  }
-                  onClick={handleResetFilters}
-                  className="h-9 px-3 text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-dashed border-muted-foreground/30 disabled:opacity-40 transition-all active:scale-95 group"
-                >
-                  <XCircle className="h-3.5 w-3.5 mr-1.5 transition-transform group-hover:rotate-90 duration-300" />
-                  Reset Filters
                 </Button>
               </div>
             }
@@ -479,42 +577,42 @@ export default function StandingsPage() {
               {
                 key: "accessories",
                 header: renderSortableHeader("ACCESSORIES", "accessories"),
-                accessor: (r) => renderPercentageBadge(r.accessories),
+                accessor: (r) => renderKPIBadge(r.accessories),
               },
               {
                 key: "voice",
                 header: renderSortableHeader("VOICE", "voice"),
-                accessor: (r) => renderPercentageBadge(r.voice),
+                accessor: (r) => renderKPIBadge(r.voice),
               },
               {
                 key: "hsi",
                 header: renderSortableHeader("HSI", "hsi"),
-                accessor: (r) => renderPercentageBadge(r.hsi),
+                accessor: (r) => renderKPIBadge(r.hsi),
               },
               {
                 key: "bts",
                 header: renderSortableHeader("BTS", "bts"),
-                accessor: (r) => renderPercentageBadge(r.bts),
+                accessor: (r) => renderKPIBadge(r.bts),
               },
               {
                 key: "upgrades",
                 header: renderSortableHeader("UPGRADES", "upgrades"),
-                accessor: (r) => renderPercentageBadge(r.upgrades),
+                accessor: (r) => renderKPIBadge(r.upgrades),
               },
               {
                 key: "mim",
                 header: renderSortableHeader("MIM", "mim"),
-                accessor: (r) => renderPercentageBadge(r.mim),
+                accessor: (r) => renderKPIBadge(r.mim),
               },
               {
                 key: "retention",
                 header: renderSortableHeader("RETENTION", "retention"),
-                accessor: (r) => renderPercentageBadge(r.retention),
+                accessor: (r) => renderRetentionBadge(r.retention),
               },
               {
                 key: "total",
                 header: renderSortableHeader("TOTAL", "total"),
-                accessor: (r) => renderPercentageBadge(r.total, true),
+                accessor: (r) => renderTotalBadge(r.total),
               },
             ]}
           />

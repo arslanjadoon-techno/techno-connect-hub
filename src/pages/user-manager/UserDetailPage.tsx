@@ -116,7 +116,9 @@ export default function UserDetailPage() {
         const userObj = JSON.parse(userStr);
         return userObj?.email ? String(userObj.email).toLowerCase().trim() : null;
       }
-    } catch {}
+    } catch {
+      // Ignore JSON parse error
+    }
     return null;
   }, []);
 
@@ -144,7 +146,9 @@ export default function UserDetailPage() {
 
       if (portalsRes?.success && Array.isArray(portalsRes.data))
         setPortalsMasterList(portalsRes.data);
-    } catch {}
+    } catch {
+      // Ignore lookup error
+    }
   };
 
   useEffect(() => {

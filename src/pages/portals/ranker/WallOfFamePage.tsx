@@ -475,7 +475,8 @@ export default function WallOfFamePage() {
                 {selectedYear} Hall of Fame Cycle
               </h3>
               <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                No monthly champions inducted yet for {selectedYear}. Records will appear here as the cycle progresses!
+                No monthly champions inducted yet for {selectedYear}. Records will appear here as
+                the cycle progresses!
               </p>
             </div>
           ) : (

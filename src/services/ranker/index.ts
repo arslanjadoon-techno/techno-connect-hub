@@ -1,4 +1,10 @@
-export { rankerService, RankerService, calculateKpiScore, KPI_WEIGHTS } from "./ranker.service";
+export {
+  rankerService,
+  RankerService,
+  calculateKpiScore,
+  getLatestDate,
+  KPI_WEIGHTS,
+} from "./ranker.service";
 export type {
   RankerAggregatedRecord,
   RankerScoredRecord,
