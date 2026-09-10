@@ -217,39 +217,6 @@ export default function StandingsPage() {
     );
   };
 
-  // Total score badge matching previous project:
-  // >= 100: green, >= 70: yellow, < 70: red
-  const renderTotalBadge = (value: number) => {
-    const val = Number.isFinite(value) ? value : 0;
-    let bgClass = "";
-    let textClass = "";
-    let borderClass = "";
-
-    if (val >= 100) {
-      bgClass = "bg-green-50 dark:bg-green-950/40";
-      textClass = "text-green-700 dark:text-green-400";
-      borderClass = "border-2 border-green-500";
-    } else if (val >= 70) {
-      bgClass = "bg-yellow-50 dark:bg-yellow-950/30";
-      textClass = "text-yellow-700 dark:text-yellow-500";
-      borderClass = "border-2 border-yellow-500";
-    } else {
-      bgClass = "bg-red-50 dark:bg-red-950/30";
-      textClass = "text-red-700 dark:text-red-400";
-      borderClass = "border-2 border-red-500";
-    }
-
-    return (
-      <div className="py-2 flex justify-center">
-        <span
-          className={`inline-flex items-center justify-center w-20 py-1.5 rounded-md text-xs font-extrabold shadow-md ${bgClass} ${textClass} ${borderClass}`}
-        >
-          {Math.round(val)}%
-        </span>
-      </div>
-    );
-  };
-
   // Sort Handler
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -373,9 +340,6 @@ export default function StandingsPage() {
                     .standings-table .absolute.right-4.top-4,
                     .standings-table h2 + button,
                     .standings-table header button { display: none !important; }
-                    
-                    .standings-table th:last-child, 
-                    .standings-table td:last-child { display: none !important; }
                     `,
           }}
         />
@@ -643,7 +607,8 @@ export default function StandingsPage() {
               {
                 key: "total",
                 header: renderSortableHeader("TOTAL", "total"),
-                accessor: (r) => renderTotalBadge(r.total),
+                accessor: (r) => renderKPIBadge(r.total),
+                searchValue: (r) => `${Math.round(r.total)}%`,
               },
             ]}
           />
