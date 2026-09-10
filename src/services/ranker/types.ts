@@ -60,9 +60,10 @@ export interface RankerStarPerformer {
   name: string;
   market: string;
   score: number;
-  photo: string;
+  photo: string | null;
   tier: "platinum" | "gold" | "silver" | "normal";
   ntid: string;
+  category?: string;
   breakdown?: {
     accessories: number;
     voice: number;
