@@ -20,79 +20,79 @@ import type { RankerStarPerformer } from "@/services/ranker/types";
 
 export type StarPerformer = RankerStarPerformer;
 
-const FALLBACK_PERFORMERS: StarPerformer[] = [
+const DEFAULT_ZERO_PERFORMERS: StarPerformer[] = [
   {
     id: 1,
     rank: 1,
     title: "Legendary Performer",
-    name: "Zaid Waseem",
-    market: "Memphis - North",
-    score: 117.1,
-    photo: "https://ranker-marketmanagers-pics.s3.us-east-2.amazonaws.com/Zaid+Waseem.jpeg",
+    name: "No Data",
+    market: "-",
+    score: 0,
+    photo: null,
     tier: "platinum",
-    ntid: "zwaseem",
+    ntid: "",
   },
   {
     id: 2,
     rank: 2,
     title: "Elite Performer",
-    name: "Muhammad Afzal",
-    market: "Boston",
-    score: 114.5,
-    photo: "https://ranker-marketmanagers-pics.s3.us-east-2.amazonaws.com/Muhammad+Afzal.jpeg",
+    name: "No Data",
+    market: "-",
+    score: 0,
+    photo: null,
     tier: "gold",
-    ntid: "mafzal",
+    ntid: "",
   },
   {
     id: 3,
     rank: 3,
     title: "Premier Performer",
-    name: "Salim Thanawala",
-    market: "Dallas - North",
-    score: 111.5,
-    photo: "https://ranker-marketmanagers-pics.s3.us-east-2.amazonaws.com/Salim+Thanawal.jpeg",
+    name: "No Data",
+    market: "-",
+    score: 0,
+    photo: null,
     tier: "silver",
-    ntid: "sthanawala",
+    ntid: "",
   },
   {
     id: 4,
     rank: 4,
     title: "Top Achiever",
-    name: "Waqas Masood",
-    market: "Memphis - South",
-    score: 110.8,
-    photo: "https://ranker-marketmanagers-pics.s3.us-east-2.amazonaws.com/Waqas+Masood.jpeg",
+    name: "No Data",
+    market: "-",
+    score: 0,
+    photo: null,
     tier: "normal",
-    ntid: "wmasood",
+    ntid: "",
   },
   {
     id: 5,
     rank: 5,
     title: "Rising Star",
-    name: "Hamed Ali Sufi Syed",
-    market: "Phily",
-    score: 108.4,
-    photo: "https://ranker-marketmanagers-pics.s3.us-east-2.amazonaws.com/Hamed+Ali+Sufi.jpeg",
+    name: "No Data",
+    market: "-",
+    score: 0,
+    photo: null,
     tier: "normal",
-    ntid: "hsyed",
+    ntid: "",
   },
   {
     id: 6,
     rank: 6,
     title: "Impact Star",
-    name: "Prabhakar Sivan",
-    market: "Oregon",
-    score: 106.9,
-    photo: "https://ranker-marketmanagers-pics.s3.us-east-2.amazonaws.com/Prabhakar+Sivan.jpeg",
+    name: "No Data",
+    market: "-",
+    score: 0,
+    photo: null,
     tier: "normal",
-    ntid: "psivan",
+    ntid: "",
   },
 ];
 
 export default function StarRankerPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [performers, setPerformers] = useState<StarPerformer[]>(FALLBACK_PERFORMERS);
+  const [performers, setPerformers] = useState<StarPerformer[]>(DEFAULT_ZERO_PERFORMERS);
 
   const fetchStars = async (forceRefresh = false) => {
     try {
@@ -104,10 +104,13 @@ export default function StarRankerPage() {
         const top6 = rankerService.getTopStarRankers(records, 6);
         if (top6 && top6.length > 0) {
           setPerformers(top6);
+          return;
         }
       }
+      setPerformers(DEFAULT_ZERO_PERFORMERS);
     } catch (err) {
       console.error("Failed to load Top 6 Star Rankers from API:", err);
+      setPerformers(DEFAULT_ZERO_PERFORMERS);
     } finally {
       setLoading(false);
       setIsRefreshing(false);

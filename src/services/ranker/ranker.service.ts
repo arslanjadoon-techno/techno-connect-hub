@@ -68,7 +68,9 @@ export class RankerService {
    * Fetch aggregated achievement data from the Ranker AWS API.
    * Caches response in-memory to prevent redundant network requests.
    */
-  async getAggregatedAchieved(opts?: { forceRefresh?: boolean }): Promise<RankerAggregatedRecord[]> {
+  async getAggregatedAchieved(opts?: {
+    forceRefresh?: boolean;
+  }): Promise<RankerAggregatedRecord[]> {
     if (!opts?.forceRefresh && this.cache) {
       return this.cache;
     }
@@ -89,7 +91,9 @@ export class RankerService {
         });
 
         if (!response.ok) {
-          throw new Error(`Failed to fetch Ranker data (${response.status}: ${response.statusText})`);
+          throw new Error(
+            `Failed to fetch Ranker data (${response.status}: ${response.statusText})`,
+          );
         }
 
         const data = await response.json();
@@ -276,9 +280,7 @@ export class RankerService {
       }
     }
 
-    const sorted = Array.from(managerMap.values()).sort(
-      (a, b) => b.record.score - a.record.score,
-    );
+    const sorted = Array.from(managerMap.values()).sort((a, b) => b.record.score - a.record.score);
 
     const titles = [
       "Legendary Performer",

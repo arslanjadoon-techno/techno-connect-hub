@@ -109,17 +109,18 @@ export default function StandingsPage() {
 
   // Helper function for percentage conditional colors
   const renderPercentageBadge = (value: number, isTotal = false) => {
+    const val = Number.isFinite(value) ? value : 0;
     let bgClass = "";
     let textClass = "";
     let borderClass = "";
 
-    if (value < 60) {
+    if (val < 60) {
       bgClass = "bg-red-50 dark:bg-red-950/30";
       textClass = "text-red-600 dark:text-red-400 font-semibold";
       borderClass = isTotal
         ? "border-2 border-red-500"
         : "border border-red-200/60 dark:border-red-900/40";
-    } else if (value >= 60 && value <= 100) {
+    } else if (val >= 60 && val <= 100) {
       bgClass = "bg-amber-50 dark:bg-amber-950/20";
       textClass = "text-amber-700 dark:text-amber-500 font-semibold";
       borderClass = isTotal
@@ -138,7 +139,7 @@ export default function StandingsPage() {
         <span
           className={`inline-flex items-center justify-center rounded-md px-2.5 py-1 text-xs tabular-nums transition-colors shadow-xs ${bgClass} ${textClass} ${borderClass}`}
         >
-          {value}%
+          {val}%
         </span>
       </div>
     );

@@ -104,27 +104,18 @@ export default function RankerDashboardPage() {
     monthlyStars: RankerStar[];
     radarData: Array<{ kpi: string; value: number }>;
   }>({
-    totalUsers: 43,
-    activeMarkets: 47,
-    yearlyChampion: {
-      name: "ZAID WASEEM",
-      market: "MEMPHIS - NORTH",
-      photo: "https://ranker-marketmanagers-pics.s3.us-east-2.amazonaws.com/Zaid+Waseem.jpeg",
-      highestScore: 117.1,
-    },
-    monthlyStars: [
-      { name: "Zaid Waseem", market: "Memphis - North", rank: 1, score: 117.1, tone: "bg-sky-500", photo: "https://ranker-marketmanagers-pics.s3.us-east-2.amazonaws.com/Zaid+Waseem.jpeg" },
-      { name: "Muhammad Afzal", market: "Boston", rank: 2, score: 114.5, tone: "bg-amber-500", photo: "https://ranker-marketmanagers-pics.s3.us-east-2.amazonaws.com/Muhammad+Afzal.jpeg" },
-      { name: "Salim Thanawala", market: "Dallas - North", rank: 3, score: 111.5, tone: "bg-emerald-500", photo: "https://ranker-marketmanagers-pics.s3.us-east-2.amazonaws.com/Salim+Thanawal.jpeg" },
-    ],
+    totalUsers: 0,
+    activeMarkets: 0,
+    yearlyChampion: null,
+    monthlyStars: [],
     radarData: [
-      { kpi: "Accessories", value: 104 },
-      { kpi: "Voice", value: 92 },
-      { kpi: "HSI", value: 107 },
-      { kpi: "MIM", value: 98 },
-      { kpi: "Upgrades", value: 89 },
-      { kpi: "BTS", value: 88 },
-      { kpi: "Retention", value: 66 },
+      { kpi: "Accessories", value: 0 },
+      { kpi: "Voice", value: 0 },
+      { kpi: "HSI", value: 0 },
+      { kpi: "MIM", value: 0 },
+      { kpi: "Upgrades", value: 0 },
+      { kpi: "BTS", value: 0 },
+      { kpi: "Retention", value: 0 },
     ],
   });
 
@@ -137,9 +128,40 @@ export default function RankerDashboardPage() {
       if (records && records.length > 0) {
         const calculated = rankerService.getDashboardMetrics(records);
         setMetrics(calculated);
+      } else {
+        setMetrics({
+          totalUsers: 0,
+          activeMarkets: 0,
+          yearlyChampion: null,
+          monthlyStars: [],
+          radarData: [
+            { kpi: "Accessories", value: 0 },
+            { kpi: "Voice", value: 0 },
+            { kpi: "HSI", value: 0 },
+            { kpi: "MIM", value: 0 },
+            { kpi: "Upgrades", value: 0 },
+            { kpi: "BTS", value: 0 },
+            { kpi: "Retention", value: 0 },
+          ],
+        });
       }
     } catch (err) {
       console.error("Failed to load Ranker dashboard metrics from API:", err);
+      setMetrics({
+        totalUsers: 0,
+        activeMarkets: 0,
+        yearlyChampion: null,
+        monthlyStars: [],
+        radarData: [
+          { kpi: "Accessories", value: 0 },
+          { kpi: "Voice", value: 0 },
+          { kpi: "HSI", value: 0 },
+          { kpi: "MIM", value: 0 },
+          { kpi: "Upgrades", value: 0 },
+          { kpi: "BTS", value: 0 },
+          { kpi: "Retention", value: 0 },
+        ],
+      });
     } finally {
       setLoading(false);
       setIsRefreshing(false);
@@ -360,7 +382,7 @@ export default function RankerDashboardPage() {
                   className="flex h-24 w-24 items-center justify-center rounded-full text-2xl font-bold text-white shadow-md"
                   style={{ backgroundImage: "var(--gradient-primary)" }}
                 >
-                  {initials(metrics.yearlyChampion?.name || "YW")}
+                  {initials(metrics.yearlyChampion?.name || "NA")}
                 </div>
               )}
               <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-sky-500 text-[11px] font-bold text-white shadow">
@@ -369,14 +391,14 @@ export default function RankerDashboardPage() {
             </div>
             <div>
               <div className="font-semibold uppercase tracking-wide">
-                {metrics.yearlyChampion?.name || "ZAID WASEEM"}
+                {metrics.yearlyChampion?.name || (loading ? "Loading..." : "No Data")}
               </div>
               <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                {metrics.yearlyChampion?.market || "MEMPHIS - NORTH"}
+                {metrics.yearlyChampion?.market || "-"}
               </div>
             </div>
             <span className="rounded-full bg-sky-100 px-3 py-0.5 text-xs font-semibold text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">
-              {metrics.yearlyChampion?.highestScore ?? 117.1}% Score
+              {metrics.yearlyChampion?.highestScore ?? 0}% Score
             </span>
           </div>
         </SectionCard>
@@ -397,44 +419,48 @@ export default function RankerDashboardPage() {
           }
         >
           <div className="space-y-2.5">
-            {metrics.monthlyStars.map((s) => (
-              <div
-                key={s.name}
-                className="flex items-center gap-3 rounded-lg border bg-card/60 p-3 transition hover:bg-accent/40"
-              >
-                {s.photo ? (
-                  <img
-                    src={s.photo}
-                    alt={s.name}
-                    className="h-10 w-10 rounded-full object-cover border border-primary/30"
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                    }}
-                  />
-                ) : (
-                  <div
-                    className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white ${s.tone || "bg-sky-500"}`}
-                  >
-                    {s.name[0]}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="truncate text-sm font-semibold">{s.name}</div>
-                  <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                    {s.market}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="font-display text-sm font-bold text-amber-500">#{s.rank}</span>
-                  {s.score !== undefined && (
-                    <div className="text-[11px] font-semibold text-muted-foreground">
-                      {s.score}%
+            {metrics.monthlyStars.length === 0 ? (
+              <div className="flex h-[200px] flex-col items-center justify-center text-center text-xs text-muted-foreground">
+                {loading ? "Loading performers..." : "No performer data available (0% score)"}
+              </div>
+            ) : (
+              metrics.monthlyStars.map((s) => (
+                <div
+                  key={`${s.name}-${s.rank}`}
+                  className="flex items-center gap-3 rounded-lg border bg-card/60 p-3 transition hover:bg-accent/40"
+                >
+                  {s.photo ? (
+                    <img
+                      src={s.photo}
+                      alt={s.name}
+                      className="h-10 w-10 rounded-full object-cover border border-primary/30"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <div
+                      className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white ${s.tone || "bg-sky-500"}`}
+                    >
+                      {s.name[0] || "?"}
                     </div>
                   )}
+                  <div className="flex-1 min-w-0">
+                    <div className="truncate text-sm font-semibold">{s.name}</div>
+                    <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                      {s.market}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-display text-sm font-bold text-amber-500">#{s.rank}</span>
+                    <div className="text-[11px] font-semibold text-muted-foreground">
+                      {s.score ?? 0}%
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </SectionCard>
 
