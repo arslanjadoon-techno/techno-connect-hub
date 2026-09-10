@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,8 @@ import {
   Gem,
   BookOpen,
   SlidersHorizontal,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import {
   PieChart,
@@ -33,40 +36,10 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
+import { rankerService } from "@/services/ranker";
+import type { RankerStar } from "@/services/ranker/types";
 
-// ---------- KPI cards on top ----------
-const KPIS = [
-  {
-    label: "Total Users",
-    value: "37",
-    icon: Users,
-    tone: "from-sky-500/20 to-sky-500/5",
-    fg: "text-sky-600 dark:text-sky-400",
-  },
-  {
-    label: "Active Markets",
-    value: "12",
-    icon: MapPin,
-    tone: "from-emerald-500/20 to-emerald-500/5",
-    fg: "text-emerald-600 dark:text-emerald-400",
-  },
-  {
-    label: "KPI Categories",
-    value: "7",
-    icon: Layers,
-    tone: "from-amber-500/20 to-amber-500/5",
-    fg: "text-amber-600 dark:text-amber-400",
-  },
-  {
-    label: "Upcoming Events",
-    value: "0",
-    icon: CalendarDays,
-    tone: "from-violet-500/20 to-violet-500/5",
-    fg: "text-violet-600 dark:text-violet-400",
-  },
-];
-
-// ---------- KPI Weights (donut) ----------
+// ---------- KPI Weights (donut & bar) ----------
 const KPI_WEIGHTS = [
   { name: "Accessories", value: 25 },
   { name: "Voice", value: 20 },
@@ -78,25 +51,6 @@ const KPI_WEIGHTS = [
 ];
 const WEIGHT_COLORS = ["#ef4444", "#3b82f6", "#10b981", "#a855f7", "#eab308", "#ec4899", "#06b6d4"];
 
-// ---------- Avg KPI Performance (radar) ----------
-const RADAR = [
-  { kpi: "Accessories", value: 70 },
-  { kpi: "Voice", value: 50 },
-  { kpi: "HSI", value: 45 },
-  { kpi: "MIM", value: 90 },
-  { kpi: "Upgrades", value: 55 },
-  { kpi: "BTS", value: 40 },
-  { kpi: "Retention", value: 35 },
-];
-
-// ---------- Monthly stars ----------
-const STARS = [
-  { name: "Salim Thanawala", market: "Dallas - North", rank: 1, tone: "bg-sky-500" },
-  { name: "Hamed Ali Sufi Syed", market: "Phily", rank: 2, tone: "bg-amber-500" },
-  { name: "Prabhakar Sivan", market: "Oregon", rank: 3, tone: "bg-zinc-400" },
-];
-
-// ---------- KPI overview (horizontal bars) ----------
 const OVERVIEW = [
   { name: "Accessories", value: 25, color: "#ef4444" },
   { name: "Voice", value: 20, color: "#3b82f6" },
@@ -136,6 +90,106 @@ function SectionCard({
 }
 
 export default function RankerDashboardPage() {
+  const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [metrics, setMetrics] = useState<{
+    totalUsers: number;
+    activeMarkets: number;
+    yearlyChampion: {
+      name: string;
+      market: string;
+      photo: string | null;
+      highestScore: number;
+    } | null;
+    monthlyStars: RankerStar[];
+    radarData: Array<{ kpi: string; value: number }>;
+  }>({
+    totalUsers: 43,
+    activeMarkets: 47,
+    yearlyChampion: {
+      name: "ZAID WASEEM",
+      market: "MEMPHIS - NORTH",
+      photo: "https://ranker-marketmanagers-pics.s3.us-east-2.amazonaws.com/Zaid+Waseem.jpeg",
+      highestScore: 117.1,
+    },
+    monthlyStars: [
+      { name: "Zaid Waseem", market: "Memphis - North", rank: 1, score: 117.1, tone: "bg-sky-500", photo: "https://ranker-marketmanagers-pics.s3.us-east-2.amazonaws.com/Zaid+Waseem.jpeg" },
+      { name: "Muhammad Afzal", market: "Boston", rank: 2, score: 114.5, tone: "bg-amber-500", photo: "https://ranker-marketmanagers-pics.s3.us-east-2.amazonaws.com/Muhammad+Afzal.jpeg" },
+      { name: "Salim Thanawala", market: "Dallas - North", rank: 3, score: 111.5, tone: "bg-emerald-500", photo: "https://ranker-marketmanagers-pics.s3.us-east-2.amazonaws.com/Salim+Thanawal.jpeg" },
+    ],
+    radarData: [
+      { kpi: "Accessories", value: 104 },
+      { kpi: "Voice", value: 92 },
+      { kpi: "HSI", value: 107 },
+      { kpi: "MIM", value: 98 },
+      { kpi: "Upgrades", value: 89 },
+      { kpi: "BTS", value: 88 },
+      { kpi: "Retention", value: 66 },
+    ],
+  });
+
+  const fetchData = async (forceRefresh = false) => {
+    try {
+      if (forceRefresh) setIsRefreshing(true);
+      else setLoading(true);
+
+      const records = await rankerService.getAggregatedAchieved({ forceRefresh });
+      if (records && records.length > 0) {
+        const calculated = rankerService.getDashboardMetrics(records);
+        setMetrics(calculated);
+      }
+    } catch (err) {
+      console.error("Failed to load Ranker dashboard metrics from API:", err);
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const kpis = [
+    {
+      label: "Total Users",
+      value: loading ? "..." : String(metrics.totalUsers),
+      icon: Users,
+      tone: "from-sky-500/20 to-sky-500/5",
+      fg: "text-sky-600 dark:text-sky-400",
+    },
+    {
+      label: "Active Markets",
+      value: loading ? "..." : String(metrics.activeMarkets),
+      icon: MapPin,
+      tone: "from-emerald-500/20 to-emerald-500/5",
+      fg: "text-emerald-600 dark:text-emerald-400",
+    },
+    {
+      label: "KPI Categories",
+      value: "7",
+      icon: Layers,
+      tone: "from-amber-500/20 to-amber-500/5",
+      fg: "text-amber-600 dark:text-amber-400",
+    },
+    {
+      label: "Upcoming Events",
+      value: "0",
+      icon: CalendarDays,
+      tone: "from-violet-500/20 to-violet-500/5",
+      fg: "text-violet-600 dark:text-violet-400",
+    },
+  ];
+
+  const initials = (name: string) =>
+    name
+      .split(" ")
+      .map((n) => n[0])
+      .filter(Boolean)
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -147,6 +201,16 @@ export default function RankerDashboardPage() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => fetchData(true)}
+            disabled={isRefreshing || loading}
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-accent transition flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
+            title="Refresh data from API"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin text-primary" : ""}`} />
+            Refresh
+          </button>
           <Link
             to="/ranker/rules"
             className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-amber-400/40 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition flex items-center gap-1.5"
@@ -166,7 +230,7 @@ export default function RankerDashboardPage() {
 
       {/* KPI cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {KPIS.map((k) => (
+        {kpis.map((k) => (
           <Card key={k.label} className="relative overflow-hidden p-5 transition hover:shadow-lg">
             <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${k.tone}`} />
             <div className="relative flex items-start justify-between">
@@ -174,7 +238,10 @@ export default function RankerDashboardPage() {
                 <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {k.label}
                 </div>
-                <div className="mt-2 font-display text-3xl font-semibold">{k.value}</div>
+                <div className="mt-2 font-display text-3xl font-semibold flex items-center gap-2">
+                  {k.value}
+                  {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                </div>
               </div>
               <div
                 className={`flex h-10 w-10 items-center justify-center rounded-xl bg-background/70 backdrop-blur ${k.fg}`}
@@ -250,17 +317,17 @@ export default function RankerDashboardPage() {
         <SectionCard title="Avg KPI Performance" icon={Sparkles}>
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
-              <RadarChart data={RADAR} outerRadius="75%">
+              <RadarChart data={metrics.radarData} outerRadius="75%">
                 <PolarGrid />
                 <PolarAngleAxis dataKey="kpi" tick={{ fontSize: 11 }} />
-                <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                <PolarRadiusAxis domain={[0, 150]} tick={false} axisLine={false} />
                 <Radar dataKey="value" stroke="#eab308" fill="#fcd34d" fillOpacity={0.7} />
-                <Tooltip />
+                <Tooltip formatter={(val: number) => [`${val}%`, "Average Achieved"]} />
               </RadarChart>
             </ResponsiveContainer>
           </div>
           <p className="mt-2 text-center text-[11px] italic text-muted-foreground">
-            Real-time average across all 37 managers
+            Real-time average across all {metrics.totalUsers} managers calculated from API
           </p>
         </SectionCard>
 
@@ -278,24 +345,38 @@ export default function RankerDashboardPage() {
         >
           <div className="flex h-[260px] flex-col items-center justify-center gap-3 text-center">
             <div className="relative">
-              <div
-                className="flex h-24 w-24 items-center justify-center rounded-full text-2xl font-bold text-white"
-                style={{ backgroundImage: "var(--gradient-primary)" }}
-              >
-                ST
-              </div>
-              <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-sky-400 text-[11px] font-bold text-white shadow">
+              {metrics.yearlyChampion?.photo ? (
+                <img
+                  src={metrics.yearlyChampion.photo}
+                  alt={metrics.yearlyChampion.name}
+                  className="h-24 w-24 rounded-full object-cover border-2 border-primary shadow-md"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              ) : (
+                <div
+                  className="flex h-24 w-24 items-center justify-center rounded-full text-2xl font-bold text-white shadow-md"
+                  style={{ backgroundImage: "var(--gradient-primary)" }}
+                >
+                  {initials(metrics.yearlyChampion?.name || "YW")}
+                </div>
+              )}
+              <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-sky-500 text-[11px] font-bold text-white shadow">
                 #1
               </span>
             </div>
             <div>
-              <div className="font-semibold">SALIM THANAWALA</div>
+              <div className="font-semibold uppercase tracking-wide">
+                {metrics.yearlyChampion?.name || "ZAID WASEEM"}
+              </div>
               <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                DALLAS - NORTH
+                {metrics.yearlyChampion?.market || "MEMPHIS - NORTH"}
               </div>
             </div>
             <span className="rounded-full bg-sky-100 px-3 py-0.5 text-xs font-semibold text-sky-700 dark:bg-sky-950/40 dark:text-sky-300">
-              111.1% Score
+              {metrics.yearlyChampion?.highestScore ?? 117.1}% Score
             </span>
           </div>
         </SectionCard>
@@ -316,23 +397,42 @@ export default function RankerDashboardPage() {
           }
         >
           <div className="space-y-2.5">
-            {STARS.map((s) => (
+            {metrics.monthlyStars.map((s) => (
               <div
                 key={s.name}
                 className="flex items-center gap-3 rounded-lg border bg-card/60 p-3 transition hover:bg-accent/40"
               >
-                <div
-                  className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white ${s.tone}`}
-                >
-                  {s.name[0]}
-                </div>
+                {s.photo ? (
+                  <img
+                    src={s.photo}
+                    alt={s.name}
+                    className="h-10 w-10 rounded-full object-cover border border-primary/30"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                ) : (
+                  <div
+                    className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold text-white ${s.tone || "bg-sky-500"}`}
+                  >
+                    {s.name[0]}
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="truncate text-sm font-semibold">{s.name}</div>
                   <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
                     {s.market}
                   </div>
                 </div>
-                <span className="font-display text-sm font-bold text-amber-500">#{s.rank}</span>
+                <div className="text-right">
+                  <span className="font-display text-sm font-bold text-amber-500">#{s.rank}</span>
+                  {s.score !== undefined && (
+                    <div className="text-[11px] font-semibold text-muted-foreground">
+                      {s.score}%
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -342,9 +442,12 @@ export default function RankerDashboardPage() {
           title="KPI Overview"
           icon={Award}
           action={
-            <button className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1">
+            <Link
+              to="/ranker/criteria-details"
+              className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1"
+            >
               DETAILS <ArrowRight className="h-3 w-3" />
-            </button>
+            </Link>
           }
         >
           <div className="h-[260px]">
@@ -371,3 +474,4 @@ export default function RankerDashboardPage() {
     </div>
   );
 }
+

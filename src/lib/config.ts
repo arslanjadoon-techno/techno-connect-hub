@@ -129,3 +129,12 @@ export const LEAVE_API_PATHS = {
   summary: "/api/leave/summary",
   leaveById: (id: string | number) => `/api/leave/${id}`,
 } as const;
+
+export const RANKER_API_BASE_URL =
+  (import.meta.env.VITE_RANKER_API_URL as string) ||
+  "https://cz4cn4y5ul.execute-api.us-east-2.amazonaws.com/Prod/Ranker";
+
+export const RANKER_API_PATHS = {
+  getAggregatedAchieved: "/GetAggregatedAchieved",
+} as const;
+

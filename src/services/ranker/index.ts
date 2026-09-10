@@ -1,2 +1,11 @@
-export { rankerService, RankerService } from "./ranker.service";
-export type { RankerKpi, RankerStar, RankerWeight, RankerStandingsQuery } from "./types";
+export { rankerService, RankerService, calculateKpiScore, KPI_WEIGHTS } from "./ranker.service";
+export type {
+  RankerAggregatedRecord,
+  RankerScoredRecord,
+  RankerKpi,
+  RankerStar,
+  RankerStarPerformer,
+  RankerWeight,
+  RankerStandingsQuery,
+  RankerFilterOptions,
+} from "./types";
