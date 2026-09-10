@@ -5,6 +5,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -41,6 +42,8 @@ interface Props<T> {
   searchPlaceholder?: string;
   onRowClick?: (row: T) => void;
   rowClassName?: (row: T, index: number) => string | undefined;
+  subHeaderRow?: ReactNode;
+  footerRow?: ReactNode;
 
   rowCount?: number;
   page?: number;
@@ -72,6 +75,8 @@ export function DataTable<T>({
   searchPlaceholder = "Search...",
   onRowClick,
   rowClassName,
+  subHeaderRow,
+  footerRow,
   rowCount,
   page: serverPage,
   onPageChange,
@@ -221,6 +226,7 @@ export function DataTable<T>({
                 </TableHead>
               ))}
             </TableRow>
+            {subHeaderRow}
           </TableHeader>
           <TableBody>
             {isLoading ? (
@@ -263,6 +269,7 @@ export function DataTable<T>({
               ))
             )}
           </TableBody>
+          {footerRow && <TableFooter>{footerRow}</TableFooter>}
         </Table>
       </div>
 

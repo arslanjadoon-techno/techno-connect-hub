@@ -52,6 +52,8 @@ interface CrudPageProps<T> {
   isLoading?: boolean;
   onRowClick?: (row: T) => void;
   rowClassName?: (row: T, index: number) => string | undefined;
+  subHeaderRow?: ReactNode;
+  footerRow?: ReactNode;
   /** When set, the Edit pencil button calls this handler instead of opening the inline dialog form. */
   onEditClick?: (row: T) => void;
   extraRowActions?: (row: T) => ReactNode;
@@ -81,6 +83,8 @@ export function CrudPage<T>({
   isLoading = false,
   onRowClick,
   rowClassName,
+  subHeaderRow,
+  footerRow,
   onEditClick,
   extraRowActions,
   hideEdit = false,
@@ -102,88 +106,97 @@ export function CrudPage<T>({
     }
   }, [isSaving]);
 
-  const augmentedCols: Column<T>[] = [
-    ...columns,
-    {
-      key: "__actions",
-      header: "Actions",
-      className: "w-32 text-right pr-6",
-      accessor: (row) => {
-        const currentKey = rowKey(row);
-        const isThisDeleting = isSaving && activeDeleteKey === currentKey;
+  const showActions = !hideEdit || !hideDelete || Boolean(extraRowActions);
 
-        return (
-          <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-            {extraRowActions?.(row)}
-            {!hideEdit && (
-              <Button
-                size="icon"
-                variant="ghost"
-                disabled={isSaving}
-                onClick={() => {
-                  if (onEditClick) {
-                    onEditClick(row);
-                    return;
-                  }
-                  setEditing(row);
-                  setOpen(true);
-                }}
-                title="Edit"
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-            )}
+  const augmentedCols: Column<T>[] = showActions
+    ? [
+        ...columns,
+        {
+          key: "__actions",
+          header: "Actions",
+          className: "w-32 text-right pr-6",
+          accessor: (row) => {
+            const currentKey = rowKey(row);
+            const isThisDeleting = isSaving && activeDeleteKey === currentKey;
 
-            {!hideDelete && (
-              <AlertDialog
-                open={activeDeleteKey === currentKey}
-                onOpenChange={(isOpen) => {
-                  if (isSaving) return;
-                  setActiveDeleteKey(isOpen ? currentKey : null);
-                }}
-              >
-                <AlertDialogTrigger asChild>
+            return (
+              <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                {extraRowActions?.(row)}
+                {!hideEdit && (
                   <Button
                     size="icon"
                     variant="ghost"
-                    title="Delete"
                     disabled={isSaving}
-                    onClick={() => setActiveDeleteKey(currentKey)}
+                    onClick={() => {
+                      if (onEditClick) {
+                        onEditClick(row);
+                        return;
+                      }
+                      setEditing(row);
+                      setOpen(true);
+                    }}
+                    title="Edit"
                   >
-                    <Trash2 className="h-4 w-4 text-destructive" />
+                    <Pencil className="h-4 w-4" />
                   </Button>
-                </AlertDialogTrigger>
+                )}
 
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete record?</AlertDialogTitle>
-                    <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isSaving} onClick={() => setActiveDeleteKey(null)}>
-                      Cancel
-                    </AlertDialogCancel>
+                {!hideDelete && (
+                  <AlertDialog
+                    open={activeDeleteKey === currentKey}
+                    onOpenChange={(isOpen) => {
+                      if (isSaving) return;
+                      setActiveDeleteKey(isOpen ? currentKey : null);
+                    }}
+                  >
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        title="Delete"
+                        disabled={isSaving}
+                        onClick={() => setActiveDeleteKey(currentKey)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </AlertDialogTrigger>
 
-                    <Button
-                      variant="destructive"
-                      className="flex items-center gap-2"
-                      disabled={isSaving}
-                      onClick={() => {
-                        onDelete(row);
-                      }}
-                    >
-                      {isThisDeleting && <Loader2 className="h-4 w-4 animate-spin" />}
-                      Delete
-                    </Button>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-          </div>
-        );
-      },
-    },
-  ];
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete record?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel
+                          disabled={isSaving}
+                          onClick={() => setActiveDeleteKey(null)}
+                        >
+                          Cancel
+                        </AlertDialogCancel>
+
+                        <Button
+                          variant="destructive"
+                          className="flex items-center gap-2"
+                          disabled={isSaving}
+                          onClick={() => {
+                            onDelete(row);
+                          }}
+                        >
+                          {isThisDeleting && <Loader2 className="h-4 w-4 animate-spin" />}
+                          Delete
+                        </Button>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+              </div>
+            );
+          },
+        },
+      ]
+    : columns;
 
   return (
     <div className="space-y-5">
@@ -229,6 +242,8 @@ export function CrudPage<T>({
         isLoading={isLoading}
         onRowClick={onRowClick}
         rowClassName={rowClassName}
+        subHeaderRow={subHeaderRow}
+        footerRow={footerRow}
 
         {...(rowCount !== undefined && {
           rowCount,

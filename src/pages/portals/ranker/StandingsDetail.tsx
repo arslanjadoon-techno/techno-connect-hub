@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TableRow, TableCell } from "@/components/ui/table";
 import { toast } from "sonner";
 import {
   ArrowUpDown,
@@ -20,7 +21,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { ConfettiBackground } from "@/components/confetti-background";
-import { rankerService, calculateKpiScore, getLatestDate } from "@/services/ranker";
+import { rankerService, getLatestDate } from "@/services/ranker";
 import type { RankerAggregatedRecord } from "@/services/ranker/types";
 import { useRankerAuth, isCurrentManager } from "@/services/ranker/ranker-auth";
 import { RankerUserAccessModal } from "@/components/ranker/RankerUserAccessModal";
@@ -46,7 +47,6 @@ interface StoreDetailRow {
   mim: KPIMetrics;
   retention: KPIMetrics;
   total: KPIMetrics;
-  isSubHeaderRow?: boolean;
 }
 
 type SortField =
@@ -98,8 +98,7 @@ export default function StandingsDetailPage() {
   const [sortOrder, setSortOrder] = useState<SortOrder>("normal");
 
   // Pagination
-  const [page, setPage] = useState<number>(0);
-  const [size, setSize] = useState<number>(15);
+  const [size] = useState<number>(50);
 
   // Unauthorized manager check state
   const [isUnauthorizedManager, setIsUnauthorizedManager] = useState<boolean>(false);
@@ -185,7 +184,7 @@ export default function StandingsDetailPage() {
         setSelectedMonth(String(months[months.length - 1]));
       }
     });
-  }, [selectedYear]);
+  }, [selectedYear, selectedMonth]);
 
   // Sync available days when selectedMonth or selectedYear changes
   useEffect(() => {
@@ -206,7 +205,7 @@ export default function StandingsDetailPage() {
         setSelectedDay(String(days[days.length - 1]));
       }
     });
-  }, [selectedYear, selectedMonth]);
+  }, [selectedYear, selectedMonth, selectedDay]);
 
   // Fetch store data using GetMonthlyAchieved API
   const fetchMonthlyAchieved = useCallback(
@@ -259,10 +258,14 @@ export default function StandingsDetailPage() {
     }
   }, [selectedYear, selectedMonth, selectedDay, fetchMonthlyAchieved]);
 
+  // User color rule:
+  // < 70: Red
+  // 70 to 100: Dark Yellow (replacing orange/amber)
+  // > 100: Green
   const getPctColorClass = (value: number) => {
-    if (value < 70) return "text-red-700 dark:text-red-400 font-bold";
-    if (value >= 70 && value < 100) return "text-amber-700 dark:text-amber-500 font-bold";
-    return "text-emerald-700 dark:text-emerald-400 font-bold";
+    if (value < 70) return "text-red-600 dark:text-red-400 font-bold";
+    if (value <= 100) return "text-yellow-600 dark:text-yellow-400 font-bold";
+    return "text-emerald-600 dark:text-emerald-400 font-bold";
   };
 
   const handleSort = (field: SortField) => {
@@ -315,10 +318,22 @@ export default function StandingsDetailPage() {
     );
   };
 
-  // Process rows with subheader
+  // Process store rows (Without fake subheader row, so rowCount is exact!)
   const processedData = useMemo(() => {
     const rows: StoreDetailRow[] = storeRecords.map((r, idx) => {
-      const totalScore = Math.round(calculateKpiScore(r));
+      const accPct = Number(r.accessoriesAchievedPCt) || 0;
+      const voicePct = Number(r.voiceAchievedPCt) || 0;
+      const hsiPct = Number(r.hsiAchievedPCt) || 0;
+      const btsPct = Number(r.btsAchievedPCt) || 0;
+      const upgradesPct = Number(r.upgradesAchievedPCt) || 0;
+      const mimPct = Number(r.mimAchievedPCt) || 0;
+      const retentionPct = Number(r.retentionAchievedPCt) || 0;
+
+      // User's formula: (10+20+25+100+96+67+78) / 7 = 56.57 => 57%
+      const totalScore = Math.round(
+        (accPct + voicePct + hsiPct + btsPct + upgradesPct + mimPct + retentionPct) / 7,
+      );
+
       return {
         id: idx + 1,
         tId: r.tid || r.techID || "N/A",
@@ -328,37 +343,37 @@ export default function StandingsDetailPage() {
         accessories: {
           tgt: "$" + Math.round(Number(r.accessoriesTarget) || 0).toLocaleString(),
           act: "$" + Math.round(Number(r.accessoriesAchieved) || 0).toLocaleString(),
-          pct: Math.round(Number(r.accessoriesAchievedPCt) || 0),
+          pct: Math.round(accPct),
         },
         voice: {
           tgt: Math.round(Number(r.voiceTarget) || 0).toLocaleString(),
           act: Math.round(Number(r.voiceAchieved) || 0).toLocaleString(),
-          pct: Math.round(Number(r.voiceAchievedPCt) || 0),
+          pct: Math.round(voicePct),
         },
         hsi: {
           tgt: Math.round(Number(r.hsiTarget) || 0).toLocaleString(),
           act: Math.round(Number(r.hsiAchieved) || 0).toLocaleString(),
-          pct: Math.round(Number(r.hsiAchievedPCt) || 0),
+          pct: Math.round(hsiPct),
         },
         bts: {
           tgt: Math.round(Number(r.btsTarget) || 0).toLocaleString(),
           act: Math.round(Number(r.btsAchieved) || 0).toLocaleString(),
-          pct: Math.round(Number(r.btsAchievedPCt) || 0),
+          pct: Math.round(btsPct),
         },
         upgrades: {
           tgt: Math.round(Number(r.upgradesTarget) || 0).toLocaleString(),
           act: Math.round(Number(r.upgradesAchieved) || 0).toLocaleString(),
-          pct: Math.round(Number(r.upgradesAchievedPCt) || 0),
+          pct: Math.round(upgradesPct),
         },
         mim: {
           tgt: Math.round(Number(r.mimTarget) || 0).toLocaleString(),
           act: Math.round(Number(r.mimAchieved) || 0).toLocaleString(),
-          pct: Math.round(Number(r.mimAchievedPCt) || 0),
+          pct: Math.round(mimPct),
         },
         retention: {
           tgt: Math.round(Number(r.retentionTarget) || 0).toLocaleString(),
           act: Math.round(Number(r.retentionAchieved) || 0).toLocaleString(),
-          pct: Math.round(Number(r.retentionAchievedPCt) || 0),
+          pct: Math.round(retentionPct),
         },
         total: { tgt: "%", act: "", pct: totalScore },
       };
@@ -372,24 +387,48 @@ export default function StandingsDetailPage() {
       });
     }
 
-    const subHeaderRow: StoreDetailRow = {
-      id: -999,
-      tId: "",
-      market: "",
-      store: "",
-      isSubHeaderRow: true,
-      accessories: { tgt: "Tgt", act: "Act", pct: 0 },
-      voice: { tgt: "Tgt", act: "Act", pct: 0 },
-      hsi: { tgt: "Tgt", act: "Act", pct: 0 },
-      bts: { tgt: "Tgt", act: "Act", pct: 0 },
-      upgrades: { tgt: "Tgt", act: "Act", pct: 0 },
-      mim: { tgt: "Tgt", act: "Act", pct: 0 },
-      retention: { tgt: "Tgt", act: "Act", pct: 0 },
-      total: { tgt: "%", act: "", pct: 0 },
+    return rows;
+  }, [storeRecords, marketName, sortField, sortOrder]);
+
+  // Grand Total Calculation across all store records
+  const grandTotals = useMemo(() => {
+    if (!storeRecords || storeRecords.length === 0) return null;
+
+    const calcCat = (
+      tgtKey: keyof RankerAggregatedRecord,
+      actKey: keyof RankerAggregatedRecord,
+    ) => {
+      const tgt = storeRecords.reduce((sum, r) => sum + (Number(r[tgtKey]) || 0), 0);
+      const act = storeRecords.reduce((sum, r) => sum + (Number(r[actKey]) || 0), 0);
+      const pct = tgt > 0 ? Math.round((act / tgt) * 100) : 0;
+      return { tgt: Math.round(tgt), act: Math.round(act), pct };
     };
 
-    return [subHeaderRow, ...rows];
-  }, [storeRecords, marketName, sortField, sortOrder]);
+    const accessories = calcCat("accessoriesTarget", "accessoriesAchieved");
+    const voice = calcCat("voiceTarget", "voiceAchieved");
+    const hsi = calcCat("hsiTarget", "hsiAchieved");
+    const bts = calcCat("btsTarget", "btsAchieved");
+    const upgrades = calcCat("upgradesTarget", "upgradesAchieved");
+    const mim = calcCat("mimTarget", "mimAchieved");
+    const retention = calcCat("retentionTarget", "retentionAchieved");
+
+    // Grand total column percentage: sum of the 7 category percentages divided by 7
+    const overallTotalPct = Math.round(
+      (accessories.pct + voice.pct + hsi.pct + bts.pct + upgrades.pct + mim.pct + retention.pct) /
+        7,
+    );
+
+    return {
+      accessories,
+      voice,
+      hsi,
+      bts,
+      upgrades,
+      mim,
+      retention,
+      overallTotalPct,
+    };
+  }, [storeRecords]);
 
   const kpiBgColors: Record<SortField, string> = {
     accessories: "bg-blue-100/50 dark:bg-blue-950/30 border-x border-blue-200/40",
@@ -407,32 +446,11 @@ export default function StandingsDetailPage() {
     const bgColor = kpiBgColors[field];
 
     if (field === "total") {
-      if (row.isSubHeaderRow) {
-        return (
-          <div
-            className={`w-full text-center text-[11px] uppercase font-bold text-zinc-700 dark:text-zinc-300 tracking-wider py-1.5 h-full flex items-center justify-center ${bgColor}`}
-          >
-            %
-          </div>
-        );
-      }
       return (
         <div
           className={`w-full h-full flex items-center justify-center text-xs font-extrabold py-2 ${bgColor} ${getPctColorClass(metrics.pct)}`}
         >
           {metrics.pct}%
-        </div>
-      );
-    }
-
-    if (row.isSubHeaderRow) {
-      return (
-        <div
-          className={`grid grid-cols-3 w-full text-center text-[11px] uppercase font-bold text-zinc-600 dark:text-zinc-400 tracking-wider py-1.5 h-full items-center ${bgColor}`}
-        >
-          <div>Tgt</div>
-          <div>Act</div>
-          <div>%</div>
         </div>
       );
     }
@@ -491,13 +509,6 @@ export default function StandingsDetailPage() {
               .detail-table h2, 
               .detail-table p,
               .detail-table header { display: none !important; }
-              .detail-table th:last-child, .detail-table td:last-child { display: none !important; }
-
-              .detail-table tr:has(div[data-subheader="true"]) {
-                background-color: rgb(241 245 249 / 0.9) !important;
-                pointer-events: none;
-                cursor: default !important;
-              }
 
               .detail-table th {
                 font-size: 11px !important;
@@ -546,6 +557,210 @@ export default function StandingsDetailPage() {
               hideDelete={true}
               pageSize={size}
               searchPlaceholder="Search store name or T-ID..."
+              subHeaderRow={
+                <TableRow className="bg-slate-100/90 dark:bg-slate-800/90 border-b border-border select-none hover:bg-slate-100/90">
+                  <TableCell className="h-7 py-1 pl-4 text-xs font-semibold text-muted-foreground"></TableCell>
+                  <TableCell className="h-7 py-1 text-xs font-semibold text-muted-foreground"></TableCell>
+                  <TableCell className="h-7 py-1 text-xs font-semibold text-muted-foreground"></TableCell>
+                  {/* ACCESSORIES */}
+                  <TableCell className="p-0">
+                    <div className="grid grid-cols-3 w-full text-center text-[10px] uppercase font-bold text-zinc-600 dark:text-zinc-400 tracking-wider py-1 bg-blue-100/50 dark:bg-blue-950/30 border-x border-blue-200/40">
+                      <div>Tgt</div>
+                      <div>Act</div>
+                      <div>%</div>
+                    </div>
+                  </TableCell>
+                  {/* VOICE */}
+                  <TableCell className="p-0">
+                    <div className="grid grid-cols-3 w-full text-center text-[10px] uppercase font-bold text-zinc-600 dark:text-zinc-400 tracking-wider py-1 bg-indigo-100/50 dark:bg-indigo-950/30 border-x border-indigo-200/40">
+                      <div>Tgt</div>
+                      <div>Act</div>
+                      <div>%</div>
+                    </div>
+                  </TableCell>
+                  {/* HSI */}
+                  <TableCell className="p-0">
+                    <div className="grid grid-cols-3 w-full text-center text-[10px] uppercase font-bold text-zinc-600 dark:text-zinc-400 tracking-wider py-1 bg-emerald-100/50 dark:bg-emerald-950/30 border-x border-emerald-200/40">
+                      <div>Tgt</div>
+                      <div>Act</div>
+                      <div>%</div>
+                    </div>
+                  </TableCell>
+                  {/* BTS */}
+                  <TableCell className="p-0">
+                    <div className="grid grid-cols-3 w-full text-center text-[10px] uppercase font-bold text-zinc-600 dark:text-zinc-400 tracking-wider py-1 bg-rose-100/50 dark:bg-rose-950/30 border-x border-rose-200/40">
+                      <div>Tgt</div>
+                      <div>Act</div>
+                      <div>%</div>
+                    </div>
+                  </TableCell>
+                  {/* UPGRADES */}
+                  <TableCell className="p-0">
+                    <div className="grid grid-cols-3 w-full text-center text-[10px] uppercase font-bold text-zinc-600 dark:text-zinc-400 tracking-wider py-1 bg-amber-100/50 dark:bg-amber-950/30 border-x border-amber-200/40">
+                      <div>Tgt</div>
+                      <div>Act</div>
+                      <div>%</div>
+                    </div>
+                  </TableCell>
+                  {/* MIM */}
+                  <TableCell className="p-0">
+                    <div className="grid grid-cols-3 w-full text-center text-[10px] uppercase font-bold text-zinc-600 dark:text-zinc-400 tracking-wider py-1 bg-purple-100/50 dark:bg-purple-950/30 border-x border-purple-200/40">
+                      <div>Tgt</div>
+                      <div>Act</div>
+                      <div>%</div>
+                    </div>
+                  </TableCell>
+                  {/* RETENTION */}
+                  <TableCell className="p-0">
+                    <div className="grid grid-cols-3 w-full text-center text-[10px] uppercase font-bold text-zinc-600 dark:text-zinc-400 tracking-wider py-1 bg-cyan-100/50 dark:bg-cyan-950/30 border-x border-cyan-200/40">
+                      <div>Tgt</div>
+                      <div>Act</div>
+                      <div>%</div>
+                    </div>
+                  </TableCell>
+                  {/* TOTAL */}
+                  <TableCell className="p-0">
+                    <div className="w-full text-center text-[10px] uppercase font-bold text-zinc-700 dark:text-zinc-300 tracking-wider py-1 bg-zinc-200/70 dark:bg-zinc-800/50 border-x border-zinc-300/50 flex items-center justify-center">
+                      %
+                    </div>
+                  </TableCell>
+                </TableRow>
+              }
+              footerRow={
+                grandTotals ? (
+                  <TableRow className="bg-zinc-100/95 dark:bg-zinc-800/95 font-bold border-t-2 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100/95 text-xs shadow-xs">
+                    <TableCell className="py-2.5 pl-4 text-left font-extrabold text-zinc-900 dark:text-zinc-100">
+                      TOTAL
+                    </TableCell>
+                    <TableCell className="py-2.5 text-left text-muted-foreground font-semibold uppercase">
+                      {marketName}
+                    </TableCell>
+                    <TableCell className="py-2.5 text-left font-extrabold text-zinc-900 dark:text-zinc-100 uppercase tracking-wide">
+                      GRAND TOTAL
+                    </TableCell>
+                    {/* ACCESSORIES */}
+                    <TableCell className="p-0">
+                      <div className="grid grid-cols-3 w-full h-full items-center text-xs py-2 bg-blue-100/60 dark:bg-blue-950/40 border-x border-blue-200/40">
+                        <div className="text-center font-bold text-zinc-700 dark:text-zinc-300">
+                          ${grandTotals.accessories.tgt.toLocaleString()}
+                        </div>
+                        <div className="text-center font-extrabold text-zinc-900 dark:text-zinc-100">
+                          ${grandTotals.accessories.act.toLocaleString()}
+                        </div>
+                        <div
+                          className={`text-center font-extrabold ${getPctColorClass(grandTotals.accessories.pct)}`}
+                        >
+                          {grandTotals.accessories.pct}%
+                        </div>
+                      </div>
+                    </TableCell>
+                    {/* VOICE */}
+                    <TableCell className="p-0">
+                      <div className="grid grid-cols-3 w-full h-full items-center text-xs py-2 bg-indigo-100/60 dark:bg-indigo-950/40 border-x border-indigo-200/40">
+                        <div className="text-center font-bold text-zinc-700 dark:text-zinc-300">
+                          {grandTotals.voice.tgt.toLocaleString()}
+                        </div>
+                        <div className="text-center font-extrabold text-zinc-900 dark:text-zinc-100">
+                          {grandTotals.voice.act.toLocaleString()}
+                        </div>
+                        <div
+                          className={`text-center font-extrabold ${getPctColorClass(grandTotals.voice.pct)}`}
+                        >
+                          {grandTotals.voice.pct}%
+                        </div>
+                      </div>
+                    </TableCell>
+                    {/* HSI */}
+                    <TableCell className="p-0">
+                      <div className="grid grid-cols-3 w-full h-full items-center text-xs py-2 bg-emerald-100/60 dark:bg-emerald-950/40 border-x border-emerald-200/40">
+                        <div className="text-center font-bold text-zinc-700 dark:text-zinc-300">
+                          {grandTotals.hsi.tgt.toLocaleString()}
+                        </div>
+                        <div className="text-center font-extrabold text-zinc-900 dark:text-zinc-100">
+                          {grandTotals.hsi.act.toLocaleString()}
+                        </div>
+                        <div
+                          className={`text-center font-extrabold ${getPctColorClass(grandTotals.hsi.pct)}`}
+                        >
+                          {grandTotals.hsi.pct}%
+                        </div>
+                      </div>
+                    </TableCell>
+                    {/* BTS */}
+                    <TableCell className="p-0">
+                      <div className="grid grid-cols-3 w-full h-full items-center text-xs py-2 bg-rose-100/60 dark:bg-rose-950/40 border-x border-rose-200/40">
+                        <div className="text-center font-bold text-zinc-700 dark:text-zinc-300">
+                          {grandTotals.bts.tgt.toLocaleString()}
+                        </div>
+                        <div className="text-center font-extrabold text-zinc-900 dark:text-zinc-100">
+                          {grandTotals.bts.act.toLocaleString()}
+                        </div>
+                        <div
+                          className={`text-center font-extrabold ${getPctColorClass(grandTotals.bts.pct)}`}
+                        >
+                          {grandTotals.bts.pct}%
+                        </div>
+                      </div>
+                    </TableCell>
+                    {/* UPGRADES */}
+                    <TableCell className="p-0">
+                      <div className="grid grid-cols-3 w-full h-full items-center text-xs py-2 bg-amber-100/60 dark:bg-amber-950/40 border-x border-amber-200/40">
+                        <div className="text-center font-bold text-zinc-700 dark:text-zinc-300">
+                          {grandTotals.upgrades.tgt.toLocaleString()}
+                        </div>
+                        <div className="text-center font-extrabold text-zinc-900 dark:text-zinc-100">
+                          {grandTotals.upgrades.act.toLocaleString()}
+                        </div>
+                        <div
+                          className={`text-center font-extrabold ${getPctColorClass(grandTotals.upgrades.pct)}`}
+                        >
+                          {grandTotals.upgrades.pct}%
+                        </div>
+                      </div>
+                    </TableCell>
+                    {/* MIM */}
+                    <TableCell className="p-0">
+                      <div className="grid grid-cols-3 w-full h-full items-center text-xs py-2 bg-purple-100/60 dark:bg-purple-950/40 border-x border-purple-200/40">
+                        <div className="text-center font-bold text-zinc-700 dark:text-zinc-300">
+                          {grandTotals.mim.tgt.toLocaleString()}
+                        </div>
+                        <div className="text-center font-extrabold text-zinc-900 dark:text-zinc-100">
+                          {grandTotals.mim.act.toLocaleString()}
+                        </div>
+                        <div
+                          className={`text-center font-extrabold ${getPctColorClass(grandTotals.mim.pct)}`}
+                        >
+                          {grandTotals.mim.pct}%
+                        </div>
+                      </div>
+                    </TableCell>
+                    {/* RETENTION */}
+                    <TableCell className="p-0">
+                      <div className="grid grid-cols-3 w-full h-full items-center text-xs py-2 bg-cyan-100/60 dark:bg-cyan-950/40 border-x border-cyan-200/40">
+                        <div className="text-center font-bold text-zinc-700 dark:text-zinc-300">
+                          {grandTotals.retention.tgt.toLocaleString()}
+                        </div>
+                        <div className="text-center font-extrabold text-zinc-900 dark:text-zinc-100">
+                          {grandTotals.retention.act.toLocaleString()}
+                        </div>
+                        <div
+                          className={`text-center font-extrabold ${getPctColorClass(grandTotals.retention.pct)}`}
+                        >
+                          {grandTotals.retention.pct}%
+                        </div>
+                      </div>
+                    </TableCell>
+                    {/* TOTAL */}
+                    <TableCell className="p-0">
+                      <div
+                        className={`w-full h-full flex items-center justify-center text-xs font-extrabold py-2 bg-zinc-200/90 dark:bg-zinc-800/80 border-x border-zinc-300/50 ${getPctColorClass(grandTotals.overallTotalPct)}`}
+                      >
+                        {grandTotals.overallTotalPct}%
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : null
+              }
               extraToolbar={
                 <div className="flex flex-wrap items-center gap-3 pb-2 pt-1 w-full md:w-auto relative z-20">
                   {/* YEAR DROPDOWN */}
@@ -652,36 +867,31 @@ export default function StandingsDetailPage() {
                   key: "tId",
                   header: "T-ID",
                   searchValue: (r) => r.tId,
-                  accessor: (r) =>
-                    r.isSubHeaderRow ? (
-                      <div data-subheader="true" className="h-4 pl-4" />
-                    ) : (
-                      <div className="py-2.5 pl-4 text-left font-bold text-amber-600 dark:text-amber-500 text-xs">
-                        {r.tId}
-                      </div>
-                    ),
+                  accessor: (r) => (
+                    <div className="py-2.5 pl-4 text-left font-bold text-amber-600 dark:text-amber-500 text-xs">
+                      {r.tId}
+                    </div>
+                  ),
                 },
                 {
                   key: "market",
                   header: "MARKET",
                   searchValue: (r) => r.market,
-                  accessor: (r) =>
-                    r.isSubHeaderRow ? null : (
-                      <div className="py-2.5 text-left font-medium text-zinc-500 text-xs uppercase">
-                        {r.market}
-                      </div>
-                    ),
+                  accessor: (r) => (
+                    <div className="py-2.5 text-left font-medium text-zinc-500 text-xs uppercase">
+                      {r.market}
+                    </div>
+                  ),
                 },
                 {
                   key: "store",
                   header: "STORE",
                   searchValue: (r) => r.store,
-                  accessor: (r) =>
-                    r.isSubHeaderRow ? null : (
-                      <div className="py-2.5 text-left font-bold text-zinc-800 dark:text-zinc-200 text-xs uppercase">
-                        {r.store}
-                      </div>
-                    ),
+                  accessor: (r) => (
+                    <div className="py-2.5 text-left font-bold text-zinc-800 dark:text-zinc-200 text-xs uppercase">
+                      {r.store}
+                    </div>
+                  ),
                 },
                 {
                   key: "accessories",
