@@ -393,7 +393,7 @@ export default function StandingsPage() {
             createLabel=""
             hideEdit={true}
             hideDelete={true}
-            pageSize={15}
+            pageSize={50}
             searchPlaceholder="Search manager or market..."
             rowClassName={(row) => {
               if (auth.isRankerManager) {
