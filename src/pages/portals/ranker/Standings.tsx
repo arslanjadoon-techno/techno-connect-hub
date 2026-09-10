@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { CrudPage } from "@/components/crud-page";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -11,7 +10,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Search, RotateCcw, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
+import { RotateCcw, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ConfettiBackground } from "@/components/confetti-background";
 import { rankerService, calculateKpiScore, getLatestDate } from "@/services/ranker";
 import type { RankerAggregatedRecord } from "@/services/ranker/types";
@@ -52,6 +52,15 @@ const MONTH_NAMES: Record<number, string> = {
   12: "December",
 };
 
+const getInitials = (name: string) =>
+  name
+    .split(" ")
+    .map((n) => n[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
 export default function StandingsPage() {
   const navigate = useNavigate();
 
@@ -60,19 +69,14 @@ export default function StandingsPage() {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [rawRecords, setRawRecords] = useState<RankerAggregatedRecord[]>([]);
 
-  // Filters States
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedYear, setSelectedYear] = useState<string>("all");
-  const [selectedMonth, setSelectedMonth] = useState<string>("all");
-  const [selectedDay, setSelectedDay] = useState<string>("all");
+  // Filters States (Specific date values without 'all')
+  const [selectedYear, setSelectedYear] = useState<string>("");
+  const [selectedMonth, setSelectedMonth] = useState<string>("");
+  const [selectedDay, setSelectedDay] = useState<string>("");
 
   // Sorting State
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>("normal");
-
-  // Pagination states
-  const [page, setPage] = useState<number>(0);
-  const [size, setSize] = useState<number>(15);
 
   // Fetch API data
   const fetchData = async (forceRefresh = false) => {
@@ -85,8 +89,8 @@ export default function StandingsPage() {
       });
       setRawRecords(records);
 
-      // Default filters to latest date matching previous project
-      if (records.length > 0 && (selectedYear === "all" || forceRefresh)) {
+      // Default filters to latest date
+      if (records.length > 0 && (!selectedYear || forceRefresh)) {
         const { maxYear, maxMonth, maxDay } = getLatestDate(records);
         if (maxYear > 0) setSelectedYear(String(maxYear));
         if (maxMonth > 0) setSelectedMonth(String(maxMonth));
@@ -111,21 +115,38 @@ export default function StandingsPage() {
   }, [rawRecords]);
 
   const months = useMemo(() => {
-    const list =
-      selectedYear === "all"
-        ? rawRecords
-        : rawRecords.filter((m) => String(m.year) === selectedYear);
+    const list = selectedYear
+      ? rawRecords.filter((m) => String(m.year) === selectedYear)
+      : rawRecords;
     return [...new Set(list.map((m) => m.month))].filter(Boolean).sort((a, b) => a - b);
   }, [rawRecords, selectedYear]);
 
   const days = useMemo(() => {
     const list = rawRecords.filter((m) => {
-      const matchY = selectedYear === "all" || String(m.year) === selectedYear;
-      const matchM = selectedMonth === "all" || String(m.month) === selectedMonth;
+      const matchY = !selectedYear || String(m.year) === selectedYear;
+      const matchM = !selectedMonth || String(m.month) === selectedMonth;
       return matchY && matchM;
     });
     return [...new Set(list.map((m) => m.day))].filter(Boolean).sort((a, b) => a - b);
   }, [rawRecords, selectedYear, selectedMonth]);
+
+  // Auto-sync month when year changes or if current month is not in available months
+  useEffect(() => {
+    if (months.length > 0) {
+      if (!selectedMonth || !months.map(String).includes(selectedMonth)) {
+        setSelectedMonth(String(months[months.length - 1]));
+      }
+    }
+  }, [months, selectedMonth]);
+
+  // Auto-sync day when month changes or if current day is not in available days
+  useEffect(() => {
+    if (days.length > 0) {
+      if (!selectedDay || !days.map(String).includes(selectedDay)) {
+        setSelectedDay(String(days[days.length - 1]));
+      }
+    }
+  }, [days, selectedDay]);
 
   // KPI badge matching previous project:
   // >= 100: green, >= 70: yellow, < 70: red
@@ -275,17 +296,17 @@ export default function StandingsPage() {
   const processedData = useMemo(() => {
     let list = rawRecords;
 
-    if (selectedYear !== "all") {
+    if (selectedYear) {
       list = list.filter((r) => String(r.year) === selectedYear);
     }
-    if (selectedMonth !== "all") {
+    if (selectedMonth) {
       list = list.filter((r) => String(r.month) === selectedMonth);
     }
-    if (selectedDay !== "all") {
+    if (selectedDay) {
       list = list.filter((r) => String(r.day) === selectedDay);
     }
 
-    let rows: StandingRow[] = list.map((r, idx) => {
+    const rows: StandingRow[] = list.map((r, idx) => {
       const totalScore = parseFloat(
         (
           (parseFloat(String(r.accessoriesAchievedPCt)) || 0) * 0.25 +
@@ -323,13 +344,6 @@ export default function StandingsPage() {
       r.rank = idx + 1;
     });
 
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      rows = rows.filter(
-        (r) => r.name.toLowerCase().includes(q) || r.market.toLowerCase().includes(q),
-      );
-    }
-
     if (sortField && sortOrder !== "normal") {
       rows.sort((a, b) => {
         const valA = a[sortField];
@@ -339,27 +353,7 @@ export default function StandingsPage() {
     }
 
     return rows;
-  }, [rawRecords, selectedYear, selectedMonth, selectedDay, searchQuery, sortField, sortOrder]);
-
-  // Reset Filters Handler
-  const handleResetFilters = () => {
-    if (
-      selectedYear === "all" &&
-      selectedMonth === "all" &&
-      selectedDay === "all" &&
-      searchQuery === "" &&
-      sortField === null
-    )
-      return;
-    setSearchQuery("");
-    setSelectedYear("all");
-    setSelectedMonth("all");
-    setSelectedDay("all");
-    setSortField(null);
-    setSortOrder("normal");
-    setPage(0);
-    toast.success("Filters cleared successfully");
-  };
+  }, [rawRecords, selectedYear, selectedMonth, selectedDay, sortField, sortOrder]);
 
   return (
     <ConfettiBackground>
@@ -376,8 +370,6 @@ export default function StandingsPage() {
                     .standings-table .absolute.right-4.top-4,
                     .standings-table h2 + button,
                     .standings-table header button { display: none !important; }
-                    
-                    .standings-table div.flex.items-center.gap-2:has(input[placeholder*="Search"]) { display: none !important; }
                     
                     .standings-table th:last-child, 
                     .standings-table td:last-child { display: none !important; }
@@ -398,28 +390,13 @@ export default function StandingsPage() {
             createLabel=""
             hideEdit={true}
             hideDelete={true}
-            rowCount={processedData.length}
-            page={page}
-            pageSize={size}
-            onPageChange={(newPage) => setPage(newPage)}
-            onPageSizeChange={(newSize) => setSize(newSize)}
+            pageSize={15}
+            searchPlaceholder="Search manager or market..."
             onRowClick={(row) => {
               navigate(`/ranker/standings/detail?market=${encodeURIComponent(row.market)}`);
             }}
             extraToolbar={
               <div className="flex flex-wrap items-center gap-3 pb-0.5 w-full md:w-auto relative z-20">
-                {/* SEARCH INPUT */}
-                <div className="relative flex items-center min-w-[180px] max-w-xs">
-                  <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-                  <Input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search manager or market..."
-                    className="h-9 pl-8 pr-3 text-xs focus:ring-1 border-muted-foreground/30"
-                  />
-                </div>
-
                 {/* YEAR DROPDOWN */}
                 <div className="relative flex flex-col pt-2.5">
                   <span className="absolute -top-1 left-2 bg-background px-1 text-[10px] font-bold text-muted-foreground/80 z-10 uppercase tracking-wider">
@@ -429,14 +406,12 @@ export default function StandingsPage() {
                     value={selectedYear}
                     onValueChange={(val) => {
                       setSelectedYear(val);
-                      setPage(0);
                     }}
                   >
                     <SelectTrigger className="w-[110px] h-9 focus:ring-0 border-muted-foreground/30 font-medium text-xs">
                       <SelectValue placeholder="Year" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Years</SelectItem>
                       {years.map((y) => (
                         <SelectItem key={y} value={String(y)}>
                           {y}
@@ -455,14 +430,12 @@ export default function StandingsPage() {
                     value={selectedMonth}
                     onValueChange={(val) => {
                       setSelectedMonth(val);
-                      setPage(0);
                     }}
                   >
                     <SelectTrigger className="w-[125px] h-9 focus:ring-0 border-muted-foreground/30 font-medium text-xs">
                       <SelectValue placeholder="Month" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Months</SelectItem>
                       {months.map((m) => (
                         <SelectItem key={m} value={String(m)}>
                           {MONTH_NAMES[m] || `Month ${m}`}
@@ -481,14 +454,12 @@ export default function StandingsPage() {
                     value={selectedDay}
                     onValueChange={(val) => {
                       setSelectedDay(val);
-                      setPage(0);
                     }}
                   >
                     <SelectTrigger className="w-[110px] h-9 focus:ring-0 border-muted-foreground/30 font-medium text-xs">
                       <SelectValue placeholder="Day" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Days</SelectItem>
                       {days.map((d) => (
                         <SelectItem key={d} value={String(d)}>
                           {String(d).padStart(2, "0")}
@@ -506,13 +477,11 @@ export default function StandingsPage() {
                   onClick={() => {
                     if (rawRecords.length === 0) return;
                     const { maxYear, maxMonth, maxDay } = getLatestDate(rawRecords);
-                    setSelectedYear(String(maxYear));
-                    setSelectedMonth(String(maxMonth));
-                    setSelectedDay(String(maxDay));
-                    setSearchQuery("");
+                    if (maxYear > 0) setSelectedYear(String(maxYear));
+                    if (maxMonth > 0) setSelectedMonth(String(maxMonth));
+                    if (maxDay > 0) setSelectedDay(String(maxDay));
                     setSortField(null);
                     setSortOrder("normal");
-                    setPage(0);
                     toast.success("Reset to latest date");
                   }}
                   className="h-9 px-3 text-xs font-semibold border-amber-400/50 bg-amber-50/50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all active:scale-95"
@@ -550,19 +519,22 @@ export default function StandingsPage() {
               {
                 key: "name",
                 header: "Name",
+                searchValue: (r) => r.name,
                 accessor: (r) => (
                   <div className="py-2 flex items-center gap-2.5 text-left font-semibold text-zinc-800 dark:text-zinc-200">
-                    {r.photo ? (
-                      <img
-                        src={r.photo}
-                        alt={r.name}
-                        className="h-7 w-7 rounded-full object-cover border border-border"
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).style.display = "none";
-                        }}
-                      />
-                    ) : null}
+                    <Avatar className="h-7 w-7 rounded-full border border-border shrink-0 bg-muted/60">
+                      {r.photo ? (
+                        <AvatarImage
+                          src={r.photo}
+                          alt={r.name}
+                          className="h-full w-full object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : null}
+                      <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+                        {getInitials(r.name) || "U"}
+                      </AvatarFallback>
+                    </Avatar>
                     <span>{r.name}</span>
                   </div>
                 ),
@@ -570,6 +542,7 @@ export default function StandingsPage() {
               {
                 key: "market",
                 header: "Market",
+                searchValue: (r) => r.market,
                 accessor: (r) => (
                   <div className="py-2 text-left text-muted-foreground font-medium">{r.market}</div>
                 ),

@@ -56,6 +56,7 @@ interface CrudPageProps<T> {
   extraRowActions?: (row: T) => ReactNode;
   hideEdit?: boolean;
   hideDelete?: boolean;
+  searchPlaceholder?: string;
 
   // Backend sync parameters
   rowCount?: number;
@@ -82,6 +83,7 @@ export function CrudPage<T>({
   extraRowActions,
   hideEdit = false,
   hideDelete = false,
+  searchPlaceholder,
   rowCount,
   page,
   onPageChange,
@@ -220,7 +222,7 @@ export function CrudPage<T>({
         rows={rows}
         columns={augmentedCols}
         rowKey={rowKey}
-        searchPlaceholder={`Search ${(title ?? "records").toLowerCase()}...`}
+        searchPlaceholder={searchPlaceholder ?? `Search ${(title ?? "records").toLowerCase()}...`}
         pageSize={pageSize}
         isLoading={isLoading}
         onRowClick={onRowClick}
