@@ -155,17 +155,19 @@ export default function DepartmentsPage() {
               accessor: (d) => (
                 <div className="py-2 font-semibold text-zinc-900 dark:text-zinc-100">{d.name}</div>
               ),
-              searchValue: (d) => d.name,
+              searchValue: (d) => d.name || "",
             },
             {
               key: "email",
               header: "Email",
               accessor: (d) => <div className="py-2 text-muted-foreground">{d.email || "—"}</div>,
+              searchValue: (d) => d.email || "",
             },
             {
               key: "phone",
               header: "Phone",
               accessor: (d) => <div className="py-2 text-muted-foreground">{d.phone || "—"}</div>,
+              searchValue: (d) => d.phone || "",
             },
             {
               key: "managerName",
@@ -175,6 +177,7 @@ export default function DepartmentsPage() {
                   {d.manager?.fullName || "—"}
                 </div>
               ),
+              searchValue: (d) => d.manager?.fullName || "",
             },
             {
               key: "managerEmail",
@@ -182,6 +185,7 @@ export default function DepartmentsPage() {
               accessor: (d) => (
                 <div className="py-2 text-xs text-muted-foreground">{d.manager?.email || "—"}</div>
               ),
+              searchValue: (d) => d.manager?.email || "",
             },
           ]}
           onDelete={handleDelete}

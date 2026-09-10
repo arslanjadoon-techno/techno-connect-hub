@@ -225,13 +225,18 @@ export default function AssignPermissionsPage() {
   // Filtered users for search bar dropdown
   const filteredUsers = useMemo(() => {
     if (!userSearchQuery.trim()) return users.slice(0, 8);
-    const q = userSearchQuery.toLowerCase();
+    const q = userSearchQuery.toLowerCase().trim();
     return users.filter((u) => {
-      const nameMatch = u.fullName?.toLowerCase().includes(q);
+      const nameMatch =
+        u.fullName?.toLowerCase().includes(q) ||
+        `${u.firstName || ""} ${u.lastName || ""}`.toLowerCase().includes(q);
       const emailMatch = u.email?.toLowerCase().includes(q);
-      const roleMatch = u.role?.name?.toLowerCase().includes(q);
-      const deptMatch = u.department?.name?.toLowerCase().includes(q);
-      return nameMatch || emailMatch || roleMatch || deptMatch;
+      const phoneMatch = u.phone?.toLowerCase().includes(q);
+      const roleStr = typeof u.role === "string" ? u.role : u.role?.name;
+      const roleMatch = roleStr?.toLowerCase().includes(q);
+      const deptStr = typeof u.department === "string" ? u.department : u.department?.name;
+      const deptMatch = deptStr?.toLowerCase().includes(q);
+      return nameMatch || emailMatch || phoneMatch || roleMatch || deptMatch;
     });
   }, [users, userSearchQuery]);
 

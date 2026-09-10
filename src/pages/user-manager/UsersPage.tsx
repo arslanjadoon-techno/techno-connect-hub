@@ -407,16 +407,27 @@ function UsersPage() {
                   </div>
                 </div>
               ),
-              searchValue: (u) => u.fullName,
+              searchValue: (u) => `${u.fullName || ""} ${u.firstName || ""} ${u.lastName || ""}`,
             },
             {
               key: "email",
               header: "Email",
               accessor: (u) => u.email || "—",
-              searchValue: (u) => u.email,
+              searchValue: (u) => u.email || "",
             },
-            { key: "phone", header: "Phone", accessor: (u) => u.phone || "—" },
-            { key: "dept", header: "Department", accessor: (u) => u.department || "—" },
+            {
+              key: "phone",
+              header: "Phone",
+              accessor: (u) => u.phone || "—",
+              searchValue: (u) => u.phone || "",
+            },
+            {
+              key: "dept",
+              header: "Department",
+              accessor: (u) => u.department || "—",
+              searchValue: (u) =>
+                typeof u.department === "string" ? u.department : u.department?.name || "",
+            },
             {
               key: "active",
               header: "Active",

@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Loader2, X } from "lucide-react";
 
 export interface Column<T> {
   key: string;
@@ -63,6 +63,101 @@ function getStoredPageSize(fallback: number) {
   return PAGE_SIZE_OPTIONS.includes(v) ? v : PAGE_SIZE_OPTIONS.includes(fallback) ? fallback : 15;
 }
 
+function extractSearchableStrings(val: unknown, depth = 0, set = new Set<string>()): string[] {
+  if (depth > 4 || val === null || val === undefined) return [];
+  if (typeof val === "string" || typeof val === "number" || typeof val === "boolean") {
+    const s = String(val).trim();
+    if (s && !set.has(s)) {
+      set.add(s);
+    }
+    return Array.from(set);
+  }
+  if (Array.isArray(val)) {
+    for (const item of val) {
+      extractSearchableStrings(item, depth + 1, set);
+    }
+    return Array.from(set);
+  }
+  if (typeof val === "object") {
+    // If it's a React element, check its props (like children)
+    if ("props" in (val as Record<string, unknown>)) {
+      const children = (val as { props?: { children?: unknown } }).props?.children;
+      if (children) {
+        extractSearchableStrings(children, depth + 1, set);
+      }
+      return Array.from(set);
+    }
+    for (const key of Object.keys(val as Record<string, unknown>)) {
+      if (
+        key === "password" ||
+        key === "avatarColor" ||
+        key === "token" ||
+        key === "refreshToken" ||
+        key === "_owner" ||
+        key === "$$typeof"
+      ) {
+        continue;
+      }
+      extractSearchableStrings((val as Record<string, unknown>)[key], depth + 1, set);
+    }
+  }
+  return Array.from(set);
+}
+
+function rowMatchesQuery<T>(row: T, columns: Column<T>[], q: string): boolean {
+  if (!q) return true;
+
+  // 1. Column explicit searchValue
+  for (const c of columns) {
+    if (c.searchValue) {
+      try {
+        const val = c.searchValue(row);
+        if (val && String(val).toLowerCase().includes(q)) return true;
+      } catch {
+        // continue
+      }
+    }
+  }
+
+  // 2. Column accessor or cell
+  for (const c of columns) {
+    if (typeof c.accessor === "function") {
+      try {
+        const val = c.accessor(row);
+        if (typeof val === "string" || typeof val === "number" || typeof val === "boolean") {
+          if (String(val).toLowerCase().includes(q)) return true;
+        } else if (val && typeof val === "object") {
+          const extracted = extractSearchableStrings(val);
+          if (extracted.some((s) => s.toLowerCase().includes(q))) return true;
+        }
+      } catch {
+        // continue
+      }
+    }
+    if (typeof c.cell === "function") {
+      try {
+        const val = c.cell(row);
+        if (typeof val === "string" || typeof val === "number" || typeof val === "boolean") {
+          if (String(val).toLowerCase().includes(q)) return true;
+        } else if (val && typeof val === "object") {
+          const extracted = extractSearchableStrings(val);
+          if (extracted.some((s) => s.toLowerCase().includes(q))) return true;
+        }
+      } catch {
+        // continue
+      }
+    }
+  }
+
+  // 3. Deep search all fields of the row object
+  if (row && typeof row === "object") {
+    const allStrings = extractSearchableStrings(row);
+    if (allStrings.some((s) => s.toLowerCase().includes(q))) return true;
+  }
+
+  return false;
+}
+
 export function DataTable<T>({
   rows: rowsProp,
   data: dataProp,
@@ -88,10 +183,10 @@ export function DataTable<T>({
   const [localPage, setLocalPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(() => getStoredPageSize(pageSizeProp));
 
-  const rawRows = rowsProp ?? dataProp ?? [];
+  const rawRows = rowsProp ?? dataProp;
   const rows = useMemo(() => (Array.isArray(rawRows) ? rawRows : []), [rawRows]);
   const isLoading = Boolean(isLoadingProp || loadingProp);
-  const emptyContent = empty ?? emptyMessage ?? "No results";
+  const emptyContent = empty ?? emptyMessage ?? "No results found";
 
   const getRowKey = (row: T, idx: number): string => {
     if (rowKey) return rowKey(row, idx);
@@ -153,46 +248,37 @@ export function DataTable<T>({
 
   const isServerPagination =
     rowCount !== undefined && serverPage !== undefined && onPageChange !== undefined;
-  const activePage = isServerPagination ? serverPage! : localPage;
+
+  const isSearching = query.trim().length > 0;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return rows;
-    return rows.filter((row) =>
-      columns.some((c) => {
-        if (c.searchValue) {
-          return c.searchValue(row).toLowerCase().includes(q);
-        }
-        if (typeof c.accessor === "function") {
-          const val = c.accessor(row);
-          if (typeof val === "string" || typeof val === "number") {
-            return String(val).toLowerCase().includes(q);
-          }
-        }
-        if (row && typeof row === "object") {
-          const rawVal = (row as Record<string, unknown>)[c.key];
-          if (typeof rawVal === "string" || typeof rawVal === "number") {
-            return String(rawVal).toLowerCase().includes(q);
-          }
-        }
-        return false;
-      }),
-    );
+    return rows.filter((row) => rowMatchesQuery(row, columns, q));
   }, [rows, query, columns]);
 
-  const totalRecords = isServerPagination ? rowCount! : filtered?.length || 0;
+  const totalRecords = isSearching ? filtered.length : isServerPagination ? rowCount! : rows.length;
+
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
-  const safePageDisplay = isServerPagination ? activePage + 1 : activePage;
-  const tableDataSlice = isServerPagination
-    ? rows
-    : (filtered || []).slice((activePage - 1) * pageSize, activePage * pageSize);
+
+  const safePageDisplay = isSearching
+    ? Math.min(localPage, totalPages)
+    : isServerPagination
+      ? serverPage! + 1
+      : localPage;
+
+  const tableDataSlice = isSearching
+    ? filtered.slice((localPage - 1) * pageSize, localPage * pageSize)
+    : isServerPagination
+      ? rows
+      : rows.slice((localPage - 1) * pageSize, localPage * pageSize);
 
   const handlePageSwitch = (target: number) => {
     if (isLoading) return;
-    if (isServerPagination) {
-      onPageChange!(target);
-    } else {
+    if (isSearching || !isServerPagination) {
       setLocalPage(target + 1);
+    } else {
+      onPageChange!(target);
     }
   };
 
@@ -203,15 +289,27 @@ export function DataTable<T>({
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={query}
-            disabled={isLoading}
+            disabled={isLoading && rows.length === 0}
             onChange={(e) => {
               setQuery(e.target.value);
-              if (isServerPagination) onPageChange?.(0);
-              else setLocalPage(1);
+              setLocalPage(1);
             }}
             placeholder={searchPlaceholder}
-            className="pl-8"
+            className="pl-8 pr-8"
           />
+          {query ? (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery("");
+                setLocalPage(1);
+              }}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded-sm"
+              title="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
         </div>
         {toolbar}
       </div>
@@ -229,7 +327,7 @@ export function DataTable<T>({
             {subHeaderRow}
           </TableHeader>
           <TableBody>
-            {isLoading ? (
+            {isLoading && rows.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={Math.max(1, columns.length)}
@@ -247,7 +345,7 @@ export function DataTable<T>({
                   colSpan={Math.max(1, columns.length)}
                   className="h-32 text-center text-muted-foreground"
                 >
-                  {emptyContent}
+                  {isSearching ? `No records matching "${query}"` : emptyContent}
                 </TableCell>
               </TableRow>
             ) : (
@@ -276,15 +374,16 @@ export function DataTable<T>({
       <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
         <span>
           {totalRecords === 0
-            ? 0
-            : isServerPagination
-              ? activePage * pageSize + 1
-              : (activePage - 1) * pageSize + 1}
-          {"–"}
-          {isServerPagination
-            ? Math.min((activePage + 1) * pageSize, totalRecords)
-            : Math.min(activePage * pageSize, totalRecords)}{" "}
-          of {totalRecords}
+            ? "0 results"
+            : `${
+                isSearching || !isServerPagination
+                  ? (localPage - 1) * pageSize + 1
+                  : serverPage! * pageSize + 1
+              }–${
+                isSearching || !isServerPagination
+                  ? Math.min(localPage * pageSize, totalRecords)
+                  : Math.min((serverPage! + 1) * pageSize, totalRecords)
+              } of ${totalRecords}`}
         </span>
         <div className="flex items-center gap-2">
           <span className="text-xs">Rows per page</span>
@@ -303,8 +402,12 @@ export function DataTable<T>({
           <Button
             variant="outline"
             size="icon"
-            disabled={isLoading || (isServerPagination ? activePage === 0 : activePage === 1)}
-            onClick={() => handlePageSwitch(isServerPagination ? activePage - 1 : activePage - 2)}
+            disabled={
+              isLoading || (isSearching || !isServerPagination ? localPage <= 1 : serverPage === 0)
+            }
+            onClick={() =>
+              handlePageSwitch(isSearching || !isServerPagination ? localPage - 2 : serverPage! - 1)
+            }
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -320,9 +423,13 @@ export function DataTable<T>({
             size="icon"
             disabled={
               isLoading ||
-              (isServerPagination ? activePage + 1 >= totalPages : activePage === totalPages)
+              (isSearching || !isServerPagination
+                ? localPage >= totalPages
+                : serverPage! + 1 >= totalPages)
             }
-            onClick={() => handlePageSwitch(isServerPagination ? activePage + 1 : activePage)}
+            onClick={() =>
+              handlePageSwitch(isSearching || !isServerPagination ? localPage : serverPage! + 1)
+            }
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
