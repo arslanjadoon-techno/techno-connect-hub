@@ -1,6 +1,8 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, Outlet } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { type ReactNode } from "react";
+import { RankerUserAccessModal } from "@/components/ranker/RankerUserAccessModal";
+import { useRankerAuth } from "@/services/ranker/ranker-auth";
 
 // ---------- Authentication ---------- //
 import AppLayout from "@/pages/shell/AppLayout";
@@ -127,6 +129,16 @@ function LeaveApproveOnly({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function RankerPortalGuard() {
+  const auth = useRankerAuth();
+  return (
+    <>
+      <Outlet />
+      <RankerUserAccessModal isOpen={auth.isRankerUser} />
+    </>
+  );
+}
+
 function NotFound() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -180,16 +192,18 @@ export function AppRoutes() {
         <Route path="/commission/privacy" element={<Privacy />} />
         <Route path="/commission/support" element={<Support />} />
         // ---------- Ranker Portal ---------- //
-        <Route path="/ranker/dashboard" element={<RankerDashboardPage />} />
-        <Route path="/ranker/standings" element={<StandingsPage />} />
-        <Route path="/ranker/standings/detail" element={<StandingsDetailPage />} />
-        <Route path="/ranker/star-ranker" element={<StarRankerPage />} />
-        <Route path="/ranker/wall-of-fame" element={<WallOfFamePage />} />
-        <Route path="/ranker/goals-vs-achievement" element={<GoalsVsAchievementPage />} />
-        <Route path="/ranker/special-report" element={<SpecialReportPage />} />
-        <Route path="/ranker/happening-board" element={<HappeningBoardPage />} />
-        <Route path="/ranker/rules" element={<RulesPage />} />
-        <Route path="/ranker/criteria-details" element={<CriteriaDetailsPage />} />
+        <Route element={<RankerPortalGuard />}>
+          <Route path="/ranker/dashboard" element={<RankerDashboardPage />} />
+          <Route path="/ranker/standings" element={<StandingsPage />} />
+          <Route path="/ranker/standings/detail" element={<StandingsDetailPage />} />
+          <Route path="/ranker/star-ranker" element={<StarRankerPage />} />
+          <Route path="/ranker/wall-of-fame" element={<WallOfFamePage />} />
+          <Route path="/ranker/goals-vs-achievement" element={<GoalsVsAchievementPage />} />
+          <Route path="/ranker/special-report" element={<SpecialReportPage />} />
+          <Route path="/ranker/happening-board" element={<HappeningBoardPage />} />
+          <Route path="/ranker/rules" element={<RulesPage />} />
+          <Route path="/ranker/criteria-details" element={<CriteriaDetailsPage />} />
+        </Route>
         // ---------- Lease / Scheduling / Ticketing Portals ---------- //
         <Route path="/lease/dashboard" element={<ComingSoon title="Lease Portal Dashboard" />} />
         <Route

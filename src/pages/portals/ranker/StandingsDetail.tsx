@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { CrudPage } from "@/components/crud-page";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Search, XCircle, ArrowUpDown, ArrowUp, ArrowDown, ArrowLeft } from "lucide-react";
+import {
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  RefreshCw,
+  RotateCcw,
+  ShieldAlert,
+} from "lucide-react";
 import { ConfettiBackground } from "@/components/confetti-background";
+import { rankerService, calculateKpiScore, getLatestDate } from "@/services/ranker";
+import type { RankerAggregatedRecord } from "@/services/ranker/types";
+import { useRankerAuth, isCurrentManager } from "@/services/ranker/ranker-auth";
+import { RankerUserAccessModal } from "@/components/ranker/RankerUserAccessModal";
 
 // 1. Types & Interfaces
 interface KPIMetrics {
@@ -25,6 +37,7 @@ interface StoreDetailRow {
   tId: string;
   market: string;
   store: string;
+  dmName?: string;
   accessories: KPIMetrics;
   voice: KPIMetrics;
   hsi: KPIMetrics;
@@ -32,7 +45,7 @@ interface StoreDetailRow {
   upgrades: KPIMetrics;
   mim: KPIMetrics;
   retention: KPIMetrics;
-  total: KPIMetrics; // 🌟 Total will only use the .pct property now
+  total: KPIMetrics;
   isSubHeaderRow?: boolean;
 }
 
@@ -40,17 +53,47 @@ type SortField =
   "accessories" | "voice" | "hsi" | "bts" | "upgrades" | "mim" | "retention" | "total";
 type SortOrder = "asc" | "desc" | "normal";
 
-export default function MarketDetailPage() {
+const MONTH_NAMES: Record<number, string> = {
+  1: "January",
+  2: "February",
+  3: "March",
+  4: "April",
+  5: "May",
+  6: "June",
+  7: "July",
+  8: "August",
+  9: "September",
+  10: "October",
+  11: "November",
+  12: "December",
+};
+
+export default function StandingsDetailPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const auth = useRankerAuth();
 
-  const marketName = searchParams.get("market") || "New York";
+  const marketName = searchParams.get("market") || "LA-EAST";
+  const urlYear = searchParams.get("year");
+  const urlMonth = searchParams.get("month");
+  const urlDay = searchParams.get("day");
 
-  // 2. Filters States
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedYear, setSelectedYear] = useState<string>("all");
-  const [selectedMonth, setSelectedMonth] = useState<string>("all");
-  const [selectedDay, setSelectedDay] = useState<string>("all");
+  // API State
+  const [loading, setLoading] = useState<boolean>(true);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [storeRecords, setStoreRecords] = useState<RankerAggregatedRecord[]>([]);
+
+  // Filter States
+  const [selectedYear, setSelectedYear] = useState<string>(urlYear || "");
+  const [selectedMonth, setSelectedMonth] = useState<string>(urlMonth || "");
+  const [selectedDay, setSelectedDay] = useState<string>(urlDay || "");
+
+  // Available options
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [availableMonths, setAvailableMonths] = useState<number[]>([]);
+  const [availableDays, setAvailableDays] = useState<number[]>([]);
+
+  // Sorting State
   const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortOrder, setSortOrder] = useState<SortOrder>("normal");
 
@@ -58,55 +101,167 @@ export default function MarketDetailPage() {
   const [page, setPage] = useState<number>(0);
   const [size, setSize] = useState<number>(15);
 
-  // 3. Mock Data
-  const initialData: StoreDetailRow[] = [
-    {
-      id: 1,
-      tId: "10328867",
-      market: marketName,
-      store: "3338 BROADWAY",
-      accessories: { tgt: "$22,291", act: "$45,106", pct: 202 },
-      voice: { tgt: "194", act: "193", pct: 99 },
-      hsi: { tgt: "18", act: "21", pct: 117 },
-      bts: { tgt: "116", act: "101", pct: 87 },
-      upgrades: { tgt: "39", act: "88", pct: 226 },
-      mim: { tgt: "55", act: "76", pct: 138 },
-      retention: { tgt: "246", act: "179", pct: 73 },
-      total: { tgt: "0", act: "0", pct: 138 },
+  // Unauthorized manager check state
+  const [isUnauthorizedManager, setIsUnauthorizedManager] = useState<boolean>(false);
+
+  // Initialize available dates from aggregated service
+  useEffect(() => {
+    let isMounted = true;
+    async function loadDates() {
+      try {
+        const aggregated = await rankerService.getAggregatedAchieved();
+        if (!isMounted || aggregated.length === 0) return;
+
+        // Distinct years
+        const years = Array.from(new Set(aggregated.map((r) => r.year)))
+          .filter((y) => typeof y === "number" && y > 0)
+          .sort((a, b) => b - a);
+
+        setAvailableYears(years);
+
+        const defaultYear =
+          urlYear && years.map(String).includes(urlYear) ? urlYear : String(years[0] || 2026);
+
+        setSelectedYear((prev) => prev || defaultYear);
+
+        // Filter months for that year
+        const months = Array.from(
+          new Set(aggregated.filter((r) => String(r.year) === defaultYear).map((r) => r.month)),
+        )
+          .filter((m) => typeof m === "number" && m > 0)
+          .sort((a, b) => a - b);
+
+        setAvailableMonths(months);
+
+        const defaultMonth =
+          urlMonth && months.map(String).includes(urlMonth)
+            ? urlMonth
+            : String(months[months.length - 1] || 8);
+
+        setSelectedMonth((prev) => prev || defaultMonth);
+
+        // Filter days for that year & month
+        const days = Array.from(
+          new Set(
+            aggregated
+              .filter((r) => String(r.year) === defaultYear && String(r.month) === defaultMonth)
+              .map((r) => r.day),
+          ),
+        )
+          .filter((d) => typeof d === "number" && d > 0)
+          .sort((a, b) => a - b);
+
+        setAvailableDays(days);
+
+        const defaultDay =
+          urlDay && days.map(String).includes(urlDay)
+            ? urlDay
+            : String(days[days.length - 1] || 31);
+
+        setSelectedDay((prev) => prev || defaultDay);
+      } catch (err) {
+        console.error("Failed to load initial date filters:", err);
+      }
+    }
+
+    loadDates();
+    return () => {
+      isMounted = false;
+    };
+  }, [urlYear, urlMonth, urlDay]);
+
+  // Sync available months when selectedYear changes
+  useEffect(() => {
+    if (!selectedYear) return;
+    rankerService.getAggregatedAchieved().then((aggregated) => {
+      const months = Array.from(
+        new Set(aggregated.filter((r) => String(r.year) === selectedYear).map((r) => r.month)),
+      )
+        .filter((m) => typeof m === "number" && m > 0)
+        .sort((a, b) => a - b);
+
+      setAvailableMonths(months);
+      if (months.length > 0 && (!selectedMonth || !months.map(String).includes(selectedMonth))) {
+        setSelectedMonth(String(months[months.length - 1]));
+      }
+    });
+  }, [selectedYear]);
+
+  // Sync available days when selectedMonth or selectedYear changes
+  useEffect(() => {
+    if (!selectedYear || !selectedMonth) return;
+    rankerService.getAggregatedAchieved().then((aggregated) => {
+      const days = Array.from(
+        new Set(
+          aggregated
+            .filter((r) => String(r.year) === selectedYear && String(r.month) === selectedMonth)
+            .map((r) => r.day),
+        ),
+      )
+        .filter((d) => typeof d === "number" && d > 0)
+        .sort((a, b) => a - b);
+
+      setAvailableDays(days);
+      if (days.length > 0 && (!selectedDay || !days.map(String).includes(selectedDay))) {
+        setSelectedDay(String(days[days.length - 1]));
+      }
+    });
+  }, [selectedYear, selectedMonth]);
+
+  // Fetch store data using GetMonthlyAchieved API
+  const fetchMonthlyAchieved = useCallback(
+    async (isManualRefresh = false) => {
+      if (!selectedYear || !selectedMonth || !selectedDay || !marketName) {
+        return;
+      }
+
+      try {
+        if (isManualRefresh) setIsRefreshing(true);
+        else setLoading(true);
+
+        const data = await rankerService.getMonthlyAchieved({
+          year: selectedYear,
+          month: selectedMonth,
+          day: selectedDay,
+          market: marketName,
+        });
+
+        // If current user is a manager, verify they have permission for this market
+        if (auth.isRankerManager && data.length > 0) {
+          const hasMatch = data.some((r) =>
+            isCurrentManager(r.dM_Name || r.marketManager, auth.fullName),
+          );
+          if (!hasMatch) {
+            setIsUnauthorizedManager(true);
+            setStoreRecords([]);
+            return;
+          }
+        }
+
+        setIsUnauthorizedManager(false);
+        setStoreRecords(data);
+        if (isManualRefresh) toast.success("Store details updated from API");
+      } catch (err) {
+        console.error("Error fetching monthly achieved store data:", err);
+        toast.error("Failed to load store achievements for this market");
+      } finally {
+        setLoading(false);
+        setIsRefreshing(false);
+      }
     },
-    {
-      id: 2,
-      tId: "10328866",
-      market: marketName,
-      store: "S. HULEN",
-      accessories: { tgt: "$23,646", act: "$38,651", pct: 163 },
-      voice: { tgt: "224", act: "165", pct: 74 },
-      hsi: { tgt: "19", act: "23", pct: 121 },
-      bts: { tgt: "101", act: "98", pct: 97 },
-      upgrades: { tgt: "45", act: "88", pct: 196 },
-      mim: { tgt: "58", act: "77", pct: 133 },
-      retention: { tgt: "250", act: "166", pct: 66 },
-      total: { tgt: "0", act: "0", pct: 124 },
-    },
-    {
-      id: 3,
-      tId: "10328865",
-      market: marketName,
-      store: "E. ABRAM ST",
-      accessories: { tgt: "$28,972", act: "$51,038", pct: 176 },
-      voice: { tgt: "243", act: "210", pct: 86 },
-      hsi: { tgt: "24", act: "22", pct: 92 },
-      bts: { tgt: "162", act: "226", pct: 140 },
-      upgrades: { tgt: "49", act: "70", pct: 143 },
-      mim: { tgt: "63", act: "87", pct: 138 },
-      retention: { tgt: "320", act: "190", pct: 59 },
-      total: { tgt: "0", act: "0", pct: 119 },
-    },
-  ];
+    [selectedYear, selectedMonth, selectedDay, marketName, auth.isRankerManager, auth.fullName],
+  );
+
+  // Trigger fetch when date parameters are set
+  useEffect(() => {
+    if (selectedYear && selectedMonth && selectedDay) {
+      fetchMonthlyAchieved();
+    }
+  }, [selectedYear, selectedMonth, selectedDay, fetchMonthlyAchieved]);
 
   const getPctColorClass = (value: number) => {
-    if (value < 60) return "text-red-700 dark:text-red-400 font-bold";
-    if (value >= 60 && value <= 100) return "text-amber-700 dark:text-amber-500 font-bold";
+    if (value < 70) return "text-red-700 dark:text-red-400 font-bold";
+    if (value >= 70 && value < 100) return "text-amber-700 dark:text-amber-500 font-bold";
     return "text-emerald-700 dark:text-emerald-400 font-bold";
   };
 
@@ -160,14 +315,57 @@ export default function MarketDetailPage() {
     );
   };
 
+  // Process rows with subheader
   const processedData = useMemo(() => {
-    let result = [...initialData];
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter((r) => r.store.toLowerCase().includes(q) || r.tId.includes(q));
-    }
+    const rows: StoreDetailRow[] = storeRecords.map((r, idx) => {
+      const totalScore = Math.round(calculateKpiScore(r));
+      return {
+        id: idx + 1,
+        tId: r.tid || r.techID || "N/A",
+        market: r.market || marketName,
+        store: r.storeName || `Store #${r.tid || idx + 1}`,
+        dmName: r.dM_Name || r.marketManager || "",
+        accessories: {
+          tgt: "$" + Math.round(Number(r.accessoriesTarget) || 0).toLocaleString(),
+          act: "$" + Math.round(Number(r.accessoriesAchieved) || 0).toLocaleString(),
+          pct: Math.round(Number(r.accessoriesAchievedPCt) || 0),
+        },
+        voice: {
+          tgt: Math.round(Number(r.voiceTarget) || 0).toLocaleString(),
+          act: Math.round(Number(r.voiceAchieved) || 0).toLocaleString(),
+          pct: Math.round(Number(r.voiceAchievedPCt) || 0),
+        },
+        hsi: {
+          tgt: Math.round(Number(r.hsiTarget) || 0).toLocaleString(),
+          act: Math.round(Number(r.hsiAchieved) || 0).toLocaleString(),
+          pct: Math.round(Number(r.hsiAchievedPCt) || 0),
+        },
+        bts: {
+          tgt: Math.round(Number(r.btsTarget) || 0).toLocaleString(),
+          act: Math.round(Number(r.btsAchieved) || 0).toLocaleString(),
+          pct: Math.round(Number(r.btsAchievedPCt) || 0),
+        },
+        upgrades: {
+          tgt: Math.round(Number(r.upgradesTarget) || 0).toLocaleString(),
+          act: Math.round(Number(r.upgradesAchieved) || 0).toLocaleString(),
+          pct: Math.round(Number(r.upgradesAchievedPCt) || 0),
+        },
+        mim: {
+          tgt: Math.round(Number(r.mimTarget) || 0).toLocaleString(),
+          act: Math.round(Number(r.mimAchieved) || 0).toLocaleString(),
+          pct: Math.round(Number(r.mimAchievedPCt) || 0),
+        },
+        retention: {
+          tgt: Math.round(Number(r.retentionTarget) || 0).toLocaleString(),
+          act: Math.round(Number(r.retentionAchieved) || 0).toLocaleString(),
+          pct: Math.round(Number(r.retentionAchievedPCt) || 0),
+        },
+        total: { tgt: "%", act: "", pct: totalScore },
+      };
+    });
+
     if (sortField && sortOrder !== "normal") {
-      result.sort((a, b) => {
+      rows.sort((a, b) => {
         const valA = a[sortField].pct;
         const valB = b[sortField].pct;
         return sortOrder === "asc" ? valA - valB : valB - valA;
@@ -187,23 +385,13 @@ export default function MarketDetailPage() {
       upgrades: { tgt: "Tgt", act: "Act", pct: 0 },
       mim: { tgt: "Tgt", act: "Act", pct: 0 },
       retention: { tgt: "Tgt", act: "Act", pct: 0 },
-      total: { tgt: "%", act: "", pct: 0 }, // 🌟 Kept clean for single header representation
+      total: { tgt: "%", act: "", pct: 0 },
     };
 
-    return [subHeaderRow, ...result];
-  }, [searchQuery, sortField, sortOrder]);
+    return [subHeaderRow, ...rows];
+  }, [storeRecords, marketName, sortField, sortOrder]);
 
-  const handleResetFilters = () => {
-    setSearchQuery("");
-    setSelectedYear("all");
-    setSelectedMonth("all");
-    setSelectedDay("all");
-    setSortField(null);
-    setSortOrder("normal");
-    toast.success("Filters reset successfully");
-  };
-
-  const kpiBgColors = {
+  const kpiBgColors: Record<SortField, string> = {
     accessories: "bg-blue-100/50 dark:bg-blue-950/30 border-x border-blue-200/40",
     voice: "bg-indigo-100/50 dark:bg-indigo-950/30 border-x border-indigo-200/40",
     hsi: "bg-emerald-100/50 dark:bg-emerald-950/30 border-x border-emerald-200/40",
@@ -218,7 +406,6 @@ export default function MarketDetailPage() {
     const metrics = row[field];
     const bgColor = kpiBgColors[field];
 
-    // 🌟 Special Layout Rules Check for TOTAL Column (No Grid/Sub-columns)
     if (field === "total") {
       if (row.isSubHeaderRow) {
         return (
@@ -231,14 +418,13 @@ export default function MarketDetailPage() {
       }
       return (
         <div
-          className={`w-full h-full flex items-center justify-center text-sm py-2 ${bgColor} ${getPctColorClass(metrics.pct)}`}
+          className={`w-full h-full flex items-center justify-center text-xs font-extrabold py-2 ${bgColor} ${getPctColorClass(metrics.pct)}`}
         >
           {metrics.pct}%
         </div>
       );
     }
 
-    // Standard 3 sub-columns structure rendering for other fields
     if (row.isSubHeaderRow) {
       return (
         <div
@@ -267,227 +453,283 @@ export default function MarketDetailPage() {
   return (
     <ConfettiBackground>
       <div className="w-full border-0 shadow-none bg-transparent pt-2 [&_input]:bg-white dark:[&_input]:bg-zinc-950 [&_button.w-\[120px\]]:bg-white dark:[&_button.w-\[120px\]]:bg-zinc-950 [&_thead]:bg-zinc-50/90 dark:[&_thead]:bg-zinc-900/80 [&_thead]:border-b [&_thead]:border-border [&_th]:h-11 [&_th]:p-0 [&_td]:p-0 [&_tbody_tr]:bg-background/80 [&_tbody_tr]:backdrop-blur-[1.5px] [&_tbody_tr]:border-b [&_tbody_tr]:border-zinc-200 dark:[&_tbody_tr]:border-zinc-800/50 [&_tbody_tr]:hover:bg-muted/40 transition-all duration-200">
-        {/* Fixed Header Block */}
+        {/* Header Bar */}
         <div className="px-6 py-3 flex flex-col gap-1 border-b border-zinc-100/80 dark:border-zinc-900 bg-background/50 backdrop-blur-sm">
           <div className="flex items-center gap-3">
             <Button
               variant="outline"
               size="icon"
-              onClick={() => navigate(-1)}
-              className="h-8 w-8 rounded-md border-zinc-200 shadow-sm hover:bg-zinc-50 shrink-0"
+              onClick={() => navigate("/ranker/standings")}
+              className="h-8 w-8 rounded-md border-zinc-200 shadow-xs hover:bg-zinc-50 shrink-0"
+              title="Back to Standings"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 uppercase">
-              {marketName}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 uppercase">
+                {marketName}
+              </h1>
+              {storeRecords.length > 0 && storeRecords[0]?.dM_Name && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold">
+                  DM: {storeRecords[0].dM_Name}
+                </span>
+              )}
+            </div>
           </div>
           <p className="text-xs text-muted-foreground font-medium pl-11">
-            Store level performance breakdown
+            Store level performance breakdown &amp; monthly achievement
           </p>
         </div>
 
         <style
           dangerouslySetInnerHTML={{
             __html: `
-                    .detail-table button:has(.lucide-plus), 
-                    .detail-table button:has(svg.lucide-plus),
-                    .detail-table .absolute.right-4.top-4,
-                    .detail-table h2 + button,
-                    .detail-table h2, 
-                    .detail-table p,
-                    .detail-table header { display: none !important; }
-                    .detail-table div.flex.items-center.gap-2:has(input[placeholder*="Search"]) { display: none !important; }
-                    .detail-table th:last-child, .detail-table td:last-child { display: none !important; }
+              .detail-table button:has(.lucide-plus), 
+              .detail-table button:has(svg.lucide-plus),
+              .detail-table .absolute.right-4.top-4,
+              .detail-table h2 + button,
+              .detail-table h2, 
+              .detail-table p,
+              .detail-table header { display: none !important; }
+              .detail-table th:last-child, .detail-table td:last-child { display: none !important; }
 
-                    .detail-table tr:has(div[data-subheader="true"]) {
-                        background-color: rgb(241 245 249 / 0.9) !important;
-                        pointer-events: none;
-                        cursor: default !important;
-                    }
+              .detail-table tr:has(div[data-subheader="true"]) {
+                background-color: rgb(241 245 249 / 0.9) !important;
+                pointer-events: none;
+                cursor: default !important;
+              }
 
-                    .detail-table th {
-                        font-size: 11px !important;
-                        font-weight: 800 !important;
-                        letter-spacing: 0.05em;
-                        text-align: center !important;
-                    }
-                    `,
+              .detail-table th {
+                font-size: 11px !important;
+                font-weight: 800 !important;
+                letter-spacing: 0.05em;
+                text-align: center !important;
+              }
+            `,
           }}
         />
 
-        <div className="detail-table px-2">
-          <CrudPage<StoreDetailRow>
-            title=""
-            subtitle=""
-            rows={processedData}
-            rowKey={(r) => r.id.toString()}
-            isLoading={false}
-            isSaving={false}
-            onDelete={async () => {}}
-            renderForm={() => null}
-            createLabel=""
-            hideEdit={true}
-            hideDelete={true}
+        {/* Unauthorized Manager Banner */}
+        {isUnauthorizedManager ? (
+          <div className="mx-6 my-8 p-8 rounded-xl border border-red-200 dark:border-red-900/50 bg-red-50/70 dark:bg-red-950/30 text-center flex flex-col items-center gap-3">
+            <div className="h-12 w-12 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 flex items-center justify-center">
+              <ShieldAlert className="h-6 w-6" />
+            </div>
+            <h2 className="text-lg font-bold text-red-900 dark:text-red-200">
+              Access Restricted to Your Own Market
+            </h2>
+            <p className="text-sm text-red-700 dark:text-red-300 max-w-md">
+              As a market manager, you are only authorized to view store achievement records for
+              your own assigned market.
+            </p>
+            <Button
+              onClick={() => navigate("/ranker/standings")}
+              className="mt-2 text-xs font-semibold"
+            >
+              <ArrowLeft className="h-3.5 w-3.5 mr-1.5" />
+              Return to Standings
+            </Button>
+          </div>
+        ) : (
+          <div className="detail-table px-2">
+            <CrudPage<StoreDetailRow>
+              title=""
+              subtitle=""
+              rows={processedData}
+              rowKey={(r) => r.id.toString()}
+              isLoading={loading}
+              isSaving={false}
+              onDelete={async () => {}}
+              renderForm={() => null}
+              createLabel=""
+              hideEdit={true}
+              hideDelete={true}
+              pageSize={size}
+              searchPlaceholder="Search store name or T-ID..."
+              extraToolbar={
+                <div className="flex flex-wrap items-center gap-3 pb-2 pt-1 w-full md:w-auto relative z-20">
+                  {/* YEAR DROPDOWN */}
+                  <div className="relative flex flex-col pt-2.5">
+                    <span className="absolute -top-1 left-2 bg-background px-1 text-[10px] font-bold text-muted-foreground/80 z-10 uppercase tracking-wider">
+                      Year
+                    </span>
+                    <Select value={selectedYear} onValueChange={setSelectedYear}>
+                      <SelectTrigger className="w-[110px] h-9 text-xs font-medium">
+                        <SelectValue placeholder="Year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableYears.map((y) => (
+                          <SelectItem key={y} value={String(y)}>
+                            {y}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-            rowCount={processedData.length}
-            page={page}
-            pageSize={size}
-            onPageChange={(newPage) => setPage(newPage)}
-            onPageSizeChange={(newSize) => setSize(newSize)}
+                  {/* MONTH DROPDOWN */}
+                  <div className="relative flex flex-col pt-2.5">
+                    <span className="absolute -top-1 left-2 bg-background px-1 text-[10px] font-bold text-muted-foreground/80 z-10 uppercase tracking-wider">
+                      Month
+                    </span>
+                    <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                      <SelectTrigger className="w-[125px] h-9 text-xs font-medium">
+                        <SelectValue placeholder="Month" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableMonths.map((m) => (
+                          <SelectItem key={m} value={String(m)}>
+                            {MONTH_NAMES[m] || `Month ${m}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-            onRowClick={(row) => {
-              if (row.isSubHeaderRow) return;
-              navigate(`/ranker/stores/detail?id=${row.id}`);
-            }}
+                  {/* DAY DROPDOWN */}
+                  <div className="relative flex flex-col pt-2.5">
+                    <span className="absolute -top-1 left-2 bg-background px-1 text-[10px] font-bold text-muted-foreground/80 z-10 uppercase tracking-wider">
+                      Day
+                    </span>
+                    <Select value={selectedDay} onValueChange={setSelectedDay}>
+                      <SelectTrigger className="w-[95px] h-9 text-xs font-medium">
+                        <SelectValue placeholder="Day" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableDays.map((d) => (
+                          <SelectItem key={d} value={String(d)}>
+                            {d}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
 
-            extraToolbar={
-              <div className="flex flex-wrap items-center gap-3 pb-2 pt-1 w-full md:w-auto relative z-20">
-                <div className="relative flex flex-col pt-2.5">
-                  <span className="absolute -top-1 left-2 bg-background px-1 text-[10px] font-bold text-muted-foreground/80 z-10 uppercase tracking-wider">
-                    Year
-                  </span>
-                  <Select value={selectedYear} onValueChange={setSelectedYear}>
-                    <SelectTrigger className="w-[110px] h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Years</SelectItem>
-                      <SelectItem value="2026">2026</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {/* RESET TO LATEST */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        const agg = await rankerService.getAggregatedAchieved();
+                        const { maxYear, maxMonth, maxDay } = getLatestDate(agg);
+                        if (maxYear > 0) setSelectedYear(String(maxYear));
+                        if (maxMonth > 0) setSelectedMonth(String(maxMonth));
+                        if (maxDay > 0) setSelectedDay(String(maxDay));
+                        setSortField(null);
+                        setSortOrder("normal");
+                        toast.success("Reset to latest date");
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                    className="h-9 px-3 text-xs font-semibold border-amber-400/50 bg-amber-50/50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all active:scale-95"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                    Reset to Latest
+                  </Button>
+
+                  {/* REFRESH BUTTON */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={loading || isRefreshing}
+                    onClick={() => fetchMonthlyAchieved(true)}
+                    className="h-9 px-3 text-xs font-medium border-muted-foreground/30 hover:bg-accent transition"
+                    title="Refresh from API"
+                  >
+                    <RefreshCw
+                      className={`h-3.5 w-3.5 mr-1.5 ${isRefreshing ? "animate-spin text-primary" : ""}`}
+                    />
+                    Refresh
+                  </Button>
                 </div>
-
-                <div className="relative flex flex-col pt-2.5">
-                  <span className="absolute -top-1 left-2 bg-background px-1 text-[10px] font-bold text-muted-foreground/80 z-10 uppercase tracking-wider">
-                    Month
-                  </span>
-                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger className="w-[110px] h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Months</SelectItem>
-                      <SelectItem value="jan">January</SelectItem>
-                      <SelectItem value="feb">February</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="relative flex flex-col pt-2.5">
-                  <span className="absolute -top-1 left-2 bg-background px-1 text-[10px] font-bold text-muted-foreground/80 z-10 uppercase tracking-wider">
-                    Day
-                  </span>
-                  <Select value={selectedDay} onValueChange={setSelectedDay}>
-                    <SelectTrigger className="w-[110px] h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Days</SelectItem>
-                      <SelectItem value="01">01</SelectItem>
-                      <SelectItem value="15">15</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  disabled={
-                    selectedYear === "all" &&
-                    selectedMonth === "all" &&
-                    selectedDay === "all" &&
-                    searchQuery === "" &&
-                    sortField === null
-                  }
-                  onClick={handleResetFilters}
-                  className="h-9 px-3 text-xs border border-dashed border-muted-foreground/30 group"
-                >
-                  <XCircle className="h-3.5 w-3.5 mr-1.5 transition-transform group-hover:rotate-90 duration-300" />
-                  Reset Filters
-                </Button>
-              </div>
-            }
-
-            columns={[
-              {
-                key: "tId",
-                header: "T-ID",
-                accessor: (r) =>
-                  r.isSubHeaderRow ? (
-                    <div data-subheader="true" className="h-4 pl-4" />
-                  ) : (
-                    <div className="py-2.5 pl-4 text-left font-bold text-amber-600 dark:text-amber-500 text-xs">
-                      {r.tId}
-                    </div>
-                  ),
-              },
-              {
-                key: "market",
-                header: "MARKET",
-                accessor: (r) =>
-                  r.isSubHeaderRow ? null : (
-                    <div className="py-2.5 text-left font-medium text-zinc-500 text-xs uppercase">
-                      {r.market}
-                    </div>
-                  ),
-              },
-              {
-                key: "store",
-                header: "STORE",
-                accessor: (r) =>
-                  r.isSubHeaderRow ? null : (
-                    <div className="py-2.5 text-left font-bold text-zinc-800 dark:text-zinc-200 text-xs uppercase">
-                      {r.store}
-                    </div>
-                  ),
-              },
-
-              {
-                key: "accessories",
-                header: renderSortableHeader("ACCESSORIES", "accessories"),
-                accessor: (r) => renderMetricsCell(r, "accessories"),
-              },
-              {
-                key: "voice",
-                header: renderSortableHeader("VOICE", "voice"),
-                accessor: (r) => renderMetricsCell(r, "voice"),
-              },
-              {
-                key: "hsi",
-                header: renderSortableHeader("HSI", "hsi"),
-                accessor: (r) => renderMetricsCell(r, "hsi"),
-              },
-              {
-                key: "bts",
-                header: renderSortableHeader("BTS", "bts"),
-                accessor: (r) => renderMetricsCell(r, "bts"),
-              },
-              {
-                key: "upgrades",
-                header: renderSortableHeader("UPGRADES", "upgrades"),
-                accessor: (r) => renderMetricsCell(r, "upgrades"),
-              },
-              {
-                key: "mim",
-                header: renderSortableHeader("MIM", "mim"),
-                accessor: (r) => renderMetricsCell(r, "mim"),
-              },
-              {
-                key: "retention",
-                header: renderSortableHeader("RETENTION", "retention"),
-                accessor: (r) => renderMetricsCell(r, "retention"),
-              },
-              {
-                key: "total",
-                header: renderSortableHeader("TOTAL", "total"),
-                accessor: (r) => renderMetricsCell(r, "total"),
-              },
-            ]}
-          />
-        </div>
+              }
+              columns={[
+                {
+                  key: "tId",
+                  header: "T-ID",
+                  searchValue: (r) => r.tId,
+                  accessor: (r) =>
+                    r.isSubHeaderRow ? (
+                      <div data-subheader="true" className="h-4 pl-4" />
+                    ) : (
+                      <div className="py-2.5 pl-4 text-left font-bold text-amber-600 dark:text-amber-500 text-xs">
+                        {r.tId}
+                      </div>
+                    ),
+                },
+                {
+                  key: "market",
+                  header: "MARKET",
+                  searchValue: (r) => r.market,
+                  accessor: (r) =>
+                    r.isSubHeaderRow ? null : (
+                      <div className="py-2.5 text-left font-medium text-zinc-500 text-xs uppercase">
+                        {r.market}
+                      </div>
+                    ),
+                },
+                {
+                  key: "store",
+                  header: "STORE",
+                  searchValue: (r) => r.store,
+                  accessor: (r) =>
+                    r.isSubHeaderRow ? null : (
+                      <div className="py-2.5 text-left font-bold text-zinc-800 dark:text-zinc-200 text-xs uppercase">
+                        {r.store}
+                      </div>
+                    ),
+                },
+                {
+                  key: "accessories",
+                  header: renderSortableHeader("ACCESSORIES", "accessories"),
+                  accessor: (r) => renderMetricsCell(r, "accessories"),
+                },
+                {
+                  key: "voice",
+                  header: renderSortableHeader("VOICE", "voice"),
+                  accessor: (r) => renderMetricsCell(r, "voice"),
+                },
+                {
+                  key: "hsi",
+                  header: renderSortableHeader("HSI", "hsi"),
+                  accessor: (r) => renderMetricsCell(r, "hsi"),
+                },
+                {
+                  key: "bts",
+                  header: renderSortableHeader("BTS", "bts"),
+                  accessor: (r) => renderMetricsCell(r, "bts"),
+                },
+                {
+                  key: "upgrades",
+                  header: renderSortableHeader("UPGRADES", "upgrades"),
+                  accessor: (r) => renderMetricsCell(r, "upgrades"),
+                },
+                {
+                  key: "mim",
+                  header: renderSortableHeader("MIM", "mim"),
+                  accessor: (r) => renderMetricsCell(r, "mim"),
+                },
+                {
+                  key: "retention",
+                  header: renderSortableHeader("RETENTION", "retention"),
+                  accessor: (r) => renderMetricsCell(r, "retention"),
+                },
+                {
+                  key: "total",
+                  header: renderSortableHeader("TOTAL", "total"),
+                  accessor: (r) => renderMetricsCell(r, "total"),
+                },
+              ]}
+            />
+          </div>
+        )}
       </div>
+
+      <RankerUserAccessModal isOpen={auth.isRankerUser} />
     </ConfettiBackground>
   );
 }

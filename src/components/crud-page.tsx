@@ -51,6 +51,7 @@ interface CrudPageProps<T> {
   isSaving?: boolean;
   isLoading?: boolean;
   onRowClick?: (row: T) => void;
+  rowClassName?: (row: T, index: number) => string | undefined;
   /** When set, the Edit pencil button calls this handler instead of opening the inline dialog form. */
   onEditClick?: (row: T) => void;
   extraRowActions?: (row: T) => ReactNode;
@@ -79,6 +80,7 @@ export function CrudPage<T>({
   isSaving = false,
   isLoading = false,
   onRowClick,
+  rowClassName,
   onEditClick,
   extraRowActions,
   hideEdit = false,
@@ -226,6 +228,7 @@ export function CrudPage<T>({
         pageSize={pageSize}
         isLoading={isLoading}
         onRowClick={onRowClick}
+        rowClassName={rowClassName}
 
         {...(rowCount !== undefined && {
           rowCount,

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -39,6 +40,7 @@ interface Props<T> {
   toolbar?: ReactNode;
   searchPlaceholder?: string;
   onRowClick?: (row: T) => void;
+  rowClassName?: (row: T, index: number) => string | undefined;
 
   rowCount?: number;
   page?: number;
@@ -69,6 +71,7 @@ export function DataTable<T>({
   toolbar,
   searchPlaceholder = "Search...",
   onRowClick,
+  rowClassName,
   rowCount,
   page: serverPage,
   onPageChange,
@@ -246,9 +249,10 @@ export function DataTable<T>({
                 <TableRow
                   key={getRowKey(row, idx)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  className={
-                    onRowClick ? "cursor-pointer transition-colors hover:bg-accent/50" : undefined
-                  }
+                  className={cn(
+                    onRowClick ? "cursor-pointer transition-colors hover:bg-accent/50" : undefined,
+                    rowClassName ? rowClassName(row, idx) : undefined,
+                  )}
                 >
                   {columns.map((c) => (
                     <TableCell key={c.key} className={c.className}>

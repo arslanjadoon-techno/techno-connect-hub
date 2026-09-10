@@ -10,11 +10,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { RotateCcw, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw } from "lucide-react";
+import { RotateCcw, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Lock } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ConfettiBackground } from "@/components/confetti-background";
 import { rankerService, calculateKpiScore, getLatestDate } from "@/services/ranker";
 import type { RankerAggregatedRecord } from "@/services/ranker/types";
+import { useRankerAuth, isCurrentManager } from "@/services/ranker/ranker-auth";
+import { RankerUserAccessModal } from "@/components/ranker/RankerUserAccessModal";
 
 // 1. Interfaces
 interface StandingRow {
@@ -63,6 +65,7 @@ const getInitials = (name: string) =>
 
 export default function StandingsPage() {
   const navigate = useNavigate();
+  const auth = useRankerAuth();
 
   // API State
   const [loading, setLoading] = useState<boolean>(true);
@@ -392,8 +395,40 @@ export default function StandingsPage() {
             hideDelete={true}
             pageSize={15}
             searchPlaceholder="Search manager or market..."
+            rowClassName={(row) => {
+              if (auth.isRankerManager) {
+                const isMe = isCurrentManager(row.name, auth.fullName);
+                if (isMe) {
+                  return "!bg-amber-100/80 dark:!bg-amber-950/40 !border-l-4 !border-l-amber-500 hover:!bg-amber-200/70 dark:hover:!bg-amber-900/60 font-semibold shadow-xs";
+                }
+                return "opacity-75 cursor-not-allowed hover:!bg-muted/30";
+              }
+              return undefined;
+            }}
             onRowClick={(row) => {
-              navigate(`/ranker/standings/detail?market=${encodeURIComponent(row.market)}`);
+              if (auth.isRankerAdmin) {
+                navigate(
+                  `/ranker/standings/detail?market=${encodeURIComponent(row.market)}&year=${selectedYear}&month=${selectedMonth}&day=${selectedDay}`,
+                );
+                return;
+              }
+              if (auth.isRankerManager) {
+                const isMe = isCurrentManager(row.name, auth.fullName);
+                if (isMe) {
+                  navigate(
+                    `/ranker/standings/detail?market=${encodeURIComponent(row.market)}&year=${selectedYear}&month=${selectedMonth}&day=${selectedDay}`,
+                  );
+                } else {
+                  toast.warning(
+                    "Access Restricted: You cannot view other managers' records. You can only view your own market details.",
+                  );
+                }
+                return;
+              }
+              // Role user
+              toast.error(
+                "Access Restricted: Please contact your administrator to access Ranker portal.",
+              );
             }}
             extraToolbar={
               <div className="flex flex-wrap items-center gap-3 pb-0.5 w-full md:w-auto relative z-20">
@@ -520,24 +555,47 @@ export default function StandingsPage() {
                 key: "name",
                 header: "Name",
                 searchValue: (r) => r.name,
-                accessor: (r) => (
-                  <div className="py-2 flex items-center gap-2.5 text-left font-semibold text-zinc-800 dark:text-zinc-200">
-                    <Avatar className="h-7 w-7 rounded-full border border-border shrink-0 bg-muted/60">
-                      {r.photo ? (
-                        <AvatarImage
-                          src={r.photo}
-                          alt={r.name}
-                          className="h-full w-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : null}
-                      <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
-                        {getInitials(r.name) || "U"}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span>{r.name}</span>
-                  </div>
-                ),
+                accessor: (r) => {
+                  const isMe = auth.isRankerManager && isCurrentManager(r.name, auth.fullName);
+                  const isLocked = auth.isRankerManager && !isMe;
+
+                  return (
+                    <div
+                      className="py-2 flex items-center gap-2.5 text-left font-semibold text-zinc-800 dark:text-zinc-200"
+                      title={isLocked ? "You cannot view other managers' records" : undefined}
+                    >
+                      <Avatar className="h-7 w-7 rounded-full border border-border shrink-0 bg-muted/60">
+                        {r.photo ? (
+                          <AvatarImage
+                            src={r.photo}
+                            alt={r.name}
+                            className="h-full w-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : null}
+                        <AvatarFallback className="text-[10px] font-bold bg-primary/10 text-primary">
+                          {getInitials(r.name) || "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="truncate">{r.name}</span>
+                        {isMe && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wide bg-amber-500 text-white shadow-xs shrink-0">
+                            You
+                          </span>
+                        )}
+                        {isLocked && (
+                          <span
+                            title="You cannot view other managers' records"
+                            className="inline-flex items-center text-muted-foreground/60 hover:text-muted-foreground transition-colors shrink-0"
+                          >
+                            <Lock className="h-3.5 w-3.5" />
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                },
               },
               {
                 key: "market",
@@ -591,6 +649,7 @@ export default function StandingsPage() {
           />
         </div>
       </div>
+      <RankerUserAccessModal isOpen={auth.isRankerUser} />
     </ConfettiBackground>
   );
 }

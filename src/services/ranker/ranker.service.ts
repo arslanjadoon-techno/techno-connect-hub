@@ -128,6 +128,46 @@ export class RankerService {
   }
 
   /**
+   * Fetch store-level monthly achieved records for a specific date and market.
+   */
+  async getMonthlyAchieved(params: {
+    year: number | string;
+    month: number | string;
+    day: number | string;
+    market: string;
+  }): Promise<RankerAggregatedRecord[]> {
+    const query = new URLSearchParams({
+      year: String(params.year),
+      month: String(params.month),
+      day: String(params.day),
+      market: params.market,
+    });
+    const endpoint = `${this.baseUrl}${RANKER_API_PATHS.getMonthlyAchieved}?${query.toString()}`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "GET",
+        headers: {
+          accept: "application/json, text/plain, */*",
+          "cache-control": "no-cache",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch Ranker monthly achieved data (${response.status}: ${response.statusText})`,
+        );
+      }
+
+      const data = await response.json();
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.error("Error fetching Ranker monthly achieved data:", err);
+      throw err;
+    }
+  }
+
+  /**
    * Calculate KPI scores for all aggregated records and attach unique id.
    */
   getScoredRecords(records: RankerAggregatedRecord[]): RankerScoredRecord[] {
