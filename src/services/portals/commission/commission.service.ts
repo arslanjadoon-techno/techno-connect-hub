@@ -40,15 +40,18 @@ export class CommissionService {
   }
 
   /**
-   * Fetch single employee commission records by NTID and OTP.
-   * Endpoint: /GetEmployeeCommission?NTID=...&OTP=...
+   * Fetch single employee commission records by NTID.
+   * Endpoint: /GetEmployeeCommission?NTID=...
    */
   async getEmployeeCommission(params: GetEmployeeCommissionParams): Promise<CommissionRow[]> {
-    const query = this.buildQueryString({
+    const queryParams: Record<string, string | number | undefined | null> = {
       NTID: params.ntid,
-      OTP: params.otp ?? DEFAULT_OTP,
-    });
+    };
+    if (params.otp) {
+      queryParams.OTP = params.otp;
+    }
 
+    const query = this.buildQueryString(queryParams);
     const url = `${this.baseUrl}${COMMISSION_API_PATHS.getEmployeeCommission}${query}`;
     const response = await fetch(url);
 

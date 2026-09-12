@@ -28,8 +28,6 @@ import {
   Wallet,
   Loader2,
   Calendar,
-  Sparkles,
-  Award,
   Layers,
   ShoppingBag,
 } from "lucide-react";
@@ -148,7 +146,7 @@ const getTodayDate = (): string => {
 };
 
 export default function CommissionPage() {
-  // Check user role & permissions from stored session
+  // Check user role & extract NTID accurately from stored session (supports email, ntid, or username)
   const userAuthInfo = useMemo(() => {
     try {
       const raw = typeof window !== "undefined" ? window.localStorage.getItem("user") : null;
@@ -175,7 +173,17 @@ export default function CommissionPage() {
           rawRole.includes("supervisor") ||
           rawRole.includes("director");
 
-        const ntid = (u?.ntid || u?.username || u?.empCode || "SPC44739").trim();
+        // Accurately extract NTID: Check u.ntid, or if u.email contains it (e.g., "IVQ44285" or "IVQ44285@domain.com"), or u.username
+        let ntid = (u?.ntid || u?.empCode || "").trim();
+        if (!ntid && u?.email) {
+          const emailVal = String(u.email).trim();
+          ntid = emailVal.includes("@") ? emailVal.split("@")[0].trim() : emailVal;
+        }
+        if (!ntid && u?.username) {
+          const usernameVal = String(u.username).trim();
+          ntid = usernameVal.includes("@") ? usernameVal.split("@")[0].trim() : usernameVal;
+        }
+
         const fullName = (u?.fullName || `${u?.firstName || ""} ${u?.lastName || ""}`).trim();
         return { isManagerOrAdmin, roleName: rawRole, ntid, fullName, rawUser: u };
       }
@@ -185,7 +193,7 @@ export default function CommissionPage() {
     return {
       isManagerOrAdmin: false,
       roleName: "user",
-      ntid: "SPC44739",
+      ntid: "",
       fullName: "",
       rawUser: null,
     };
@@ -283,13 +291,19 @@ export default function CommissionPage() {
     }
   }, [selectedDate, selectedMarket, page, pageSize, isManagerOrAdmin]);
 
-  // Fetch single employee commission data for standard User
+  // Fetch single employee commission data for standard User by their NTID (without OTP)
   const fetchUserCommissionData = useCallback(async () => {
     if (isManagerOrAdmin) return;
+    const ntidToFetch = userAuthInfo.ntid;
+    if (!ntidToFetch) {
+      setUserRows([]);
+      setUserLoading(false);
+      return;
+    }
     try {
       setUserLoading(true);
       const data = await commissionService.getEmployeeCommission({
-        ntid: userAuthInfo.ntid || "SPC44739",
+        ntid: ntidToFetch,
       });
       setUserRows(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -307,6 +321,30 @@ export default function CommissionPage() {
       fetchUserCommissionData();
     }
   }, [isManagerOrAdmin, fetchManagerCommissionData, fetchUserCommissionData]);
+
+  // Auto-sync selectedDate to the most recent record if selectedDate has no records in userRows
+  useEffect(() => {
+    if (userRows && userRows.length > 0) {
+      const [selYear, selMonth, selDay] = selectedDate.split("-").map(Number);
+      const hasMatch = userRows.some(
+        (r) => r.year === selYear && r.month === selMonth && r.day === selDay,
+      );
+      if (!hasMatch) {
+        // Find the latest recorded date
+        const sorted = [...userRows].sort((a, b) => {
+          const dtA = new Date(a.year ?? 2000, (a.month ?? 1) - 1, a.day ?? 1).getTime();
+          const dtB = new Date(b.year ?? 2000, (b.month ?? 1) - 1, b.day ?? 1).getTime();
+          return dtB - dtA;
+        });
+        const latest = sorted[0];
+        if (latest && latest.year && latest.month && latest.day) {
+          setSelectedDate(
+            `${latest.year}-${String(latest.month).padStart(2, "0")}-${String(latest.day).padStart(2, "0")}`,
+          );
+        }
+      }
+    }
+  }, [userRows, selectedDate]);
 
   // Handle filter changes (resets page to 1)
   const handleDateChange = (newDate: string) => {
@@ -623,6 +661,10 @@ export default function CommissionPage() {
                 row={currentSelectedUserRow}
                 formatCurrency={formatCurrency}
                 selectedDate={selectedDate}
+                fallbackUser={{
+                  fullName: userAuthInfo.fullName,
+                  ntid: userAuthInfo.ntid,
+                }}
               />
             ) : (
               <Card className="p-12 text-center border-dashed">
@@ -801,11 +843,12 @@ export default function CommissionPage() {
 function UserCommissionDashboard({
   row,
   formatCurrency,
-  selectedDate,
+  fallbackUser,
 }: {
   row?: Row;
   formatCurrency: (v: number | null | undefined) => string;
   selectedDate?: string;
+  fallbackUser?: { fullName?: string; ntid?: string };
 }) {
   if (!row) {
     return (
@@ -816,6 +859,9 @@ function UserCommissionDashboard({
       </Card>
     );
   }
+
+  const displayName = row.employee_Name || fallbackUser?.fullName || "Employee";
+  const displayNtid = row.ntid || fallbackUser?.ntid || "—";
 
   const kpis = [
     {
@@ -879,13 +925,13 @@ function UserCommissionDashboard({
               className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-xl font-bold text-white shadow-md"
               style={{ backgroundImage: "var(--gradient-primary)" }}
             >
-              {(row.employee_Name ?? "U").trim().charAt(0).toUpperCase()}
+              {displayName.trim().charAt(0).toUpperCase()}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-display text-xl font-bold">{row.employee_Name ?? "—"}</span>
+                <span className="font-display text-xl font-bold">{displayName}</span>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono font-medium">
-                  {row.ntid}
+                  {displayNtid}
                 </span>
               </div>
               <div className="text-sm text-muted-foreground flex flex-wrap items-center gap-2 mt-0.5">
