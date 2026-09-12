@@ -549,64 +549,66 @@ export default function CommissionPage() {
           </Card>
         ) : (
           <>
-            {/* Month-To-Date (MTD) High-Level Summary Card Banner */}
+            {/* Selected Date Summary Metric Cards (Shows exact selected date values or $0.00 / 0 if no record) */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <Card className="p-4 border bg-card/60 relative overflow-hidden">
                 <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                  <span>MTD Total Commission</span>
+                  <span>Total Commission</span>
                   <DollarSign className="w-4 h-4 text-emerald-500" />
                 </div>
                 <div className="mt-2 text-2xl font-bold font-display text-emerald-600 dark:text-emerald-400">
-                  {formatCurrency(userMtdStats.totalCommission)}
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-1">Across all recorded days</p>
-              </Card>
-
-              <Card className="p-4 border bg-card/60 relative overflow-hidden">
-                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                  <span>MTD Boxes Sold</span>
-                  <Boxes className="w-4 h-4 text-blue-500" />
-                </div>
-                <div className="mt-2 text-2xl font-bold font-display">
-                  {userMtdStats.totalBoxes}
+                  {formatCurrency(currentSelectedUserRow?.commission ?? 0)}
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1">
-                  Box Comm: {formatCurrency(userMtdStats.totalBoxCommission)}
+                  {currentSelectedUserRow ? `For ${selectedDate}` : "No sales on this date"}
                 </p>
               </Card>
 
               <Card className="p-4 border bg-card/60 relative overflow-hidden">
                 <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                  <span>Active Days</span>
-                  <Calendar className="w-4 h-4 text-violet-500" />
+                  <span>Boxes Sold</span>
+                  <Boxes className="w-4 h-4 text-blue-500" />
                 </div>
                 <div className="mt-2 text-2xl font-bold font-display">
-                  {userMtdStats.activeDays}
+                  {currentSelectedUserRow?.total_Box ?? 0}
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1">Selling days logged</p>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Box Comm: {formatCurrency(currentSelectedUserRow?.box_Commission ?? 0)}
+                </p>
               </Card>
 
               <Card className="p-4 border bg-card/60 relative overflow-hidden">
                 <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                  <span>Avg Daily Comm.</span>
+                  <span>Box Commission</span>
+                  <Wallet className="w-4 h-4 text-violet-500" />
+                </div>
+                <div className="mt-2 text-2xl font-bold font-display">
+                  {formatCurrency(currentSelectedUserRow?.box_Commission ?? 0)}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">Base box payout</p>
+              </Card>
+
+              <Card className="p-4 border bg-card/60 relative overflow-hidden">
+                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                  <span>Final After Deduction</span>
                   <TrendingUp className="w-4 h-4 text-amber-500" />
                 </div>
                 <div className="mt-2 text-2xl font-bold font-display">
                   {formatCurrency(
-                    userMtdStats.activeDays > 0
-                      ? userMtdStats.totalCommission / userMtdStats.activeDays
-                      : 0,
+                    currentSelectedUserRow?.final_Commission_After_Deduction ??
+                      currentSelectedUserRow?.commission ??
+                      0,
                   )}
                 </div>
-                <p className="text-[11px] text-muted-foreground mt-1">Per active day</p>
+                <p className="text-[11px] text-muted-foreground mt-1">Net day earnings</p>
               </Card>
             </div>
 
             {/* Quick Available Dates Switcher Strip */}
-            {userRows.length > 1 && (
+            {userRows.length > 0 && (
               <div className="flex items-center gap-2 overflow-x-auto pb-1">
                 <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                  Recorded Dates:
+                  Available Dates:
                 </span>
                 <div className="flex gap-1.5 flex-nowrap">
                   {userRows.map((r, idx) => {
@@ -641,6 +643,7 @@ export default function CommissionPage() {
                   fullName: userAuthInfo.fullName,
                   ntid: userAuthInfo.ntid,
                 }}
+                showKpiCards={false}
               />
             ) : (
               <Card className="p-12 text-center border-dashed">
@@ -652,21 +655,22 @@ export default function CommissionPage() {
                   You did not have any recorded sales or commission on this date.
                 </p>
                 {userRows.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4"
-                    onClick={() => {
-                      const first = userRows[0];
-                      if (first) {
-                        setSelectedDate(
-                          `${first.year}-${String(first.month).padStart(2, "0")}-${String(first.day).padStart(2, "0")}`,
-                        );
-                      }
-                    }}
-                  >
-                    View Latest Active Day
-                  </Button>
+                  <div className="mt-4 flex flex-wrap justify-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const first = userRows[0];
+                        if (first) {
+                          setSelectedDate(
+                            `${first.year}-${String(first.month).padStart(2, "0")}-${String(first.day).padStart(2, "0")}`,
+                          );
+                        }
+                      }}
+                    >
+                      View Latest Active Day
+                    </Button>
+                  </div>
                 )}
               </Card>
             )}
@@ -820,11 +824,13 @@ function UserCommissionDashboard({
   row,
   formatCurrency,
   fallbackUser,
+  showKpiCards = true,
 }: {
   row?: Row;
   formatCurrency: (v: number | null | undefined) => string;
   selectedDate?: string;
   fallbackUser?: { fullName?: string; ntid?: string };
+  showKpiCards?: boolean;
 }) {
   if (!row) {
     return (
@@ -933,35 +939,37 @@ function UserCommissionDashboard({
         </div>
       </Card>
 
-      {/* KPI Cards Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {kpis.map((k) => (
-          <Card
-            key={k.label}
-            className={`relative overflow-hidden p-5 transition hover:shadow-md border ${
-              k.highlight ? "border-primary/40 bg-primary/5" : ""
-            }`}
-          >
-            <div className="relative flex items-start justify-between">
-              <div>
-                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {k.label}
+      {/* KPI Cards Grid (Rendered only when showKpiCards is true) */}
+      {showKpiCards && (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          {kpis.map((k) => (
+            <Card
+              key={k.label}
+              className={`relative overflow-hidden p-5 transition hover:shadow-md border ${
+                k.highlight ? "border-primary/40 bg-primary/5" : ""
+              }`}
+            >
+              <div className="relative flex items-start justify-between">
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    {k.label}
+                  </div>
+                  <div className="mt-2 font-display text-2xl font-bold">{k.value}</div>
                 </div>
-                <div className="mt-2 font-display text-2xl font-bold">{k.value}</div>
+                <div
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl backdrop-blur ${
+                    k.highlight
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  <k.icon className="h-5 w-5" />
+                </div>
               </div>
-              <div
-                className={`flex h-10 w-10 items-center justify-center rounded-xl backdrop-blur ${
-                  k.highlight
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground"
-                }`}
-              >
-                <k.icon className="h-5 w-5" />
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Two Columns: Commission Breakdown & MRC/Web Mix */}
       <div className="grid gap-5 lg:grid-cols-2">
