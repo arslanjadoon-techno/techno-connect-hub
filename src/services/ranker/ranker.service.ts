@@ -8,6 +8,8 @@ import type {
   RankerStandingsQuery,
   RankerStarPerformer,
   RankerFilterOptions,
+  GoalVsAchievementResponse,
+  RankerGoalVsAchievementParams,
 } from "./types";
 
 export const KPI_WEIGHTS = {
@@ -163,6 +165,73 @@ export class RankerService {
       return Array.isArray(data) ? data : [];
     } catch (err) {
       console.error("Error fetching Ranker monthly achieved data:", err);
+      throw err;
+    }
+  }
+
+  /**
+   * Fetch list of markets from the Ranker API for dropdown filters.
+   */
+  async getMarketList(): Promise<string[]> {
+    const endpoint = `${this.baseUrl}${RANKER_API_PATHS.getMarketList}`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "GET",
+        headers: {
+          accept: "application/json, text/plain, */*",
+          "cache-control": "no-cache",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch market list (${response.status}: ${response.statusText})`);
+      }
+
+      const data = await response.json();
+      if (!Array.isArray(data)) return [];
+      return data.map((m) => String(m).trim()).filter(Boolean);
+    } catch (err) {
+      console.error("Error fetching Ranker market list:", err);
+      throw err;
+    }
+  }
+
+  /**
+   * Fetch Goal vs Achievement data by market, year, month, and day range.
+   * Handles both week ranges (e.g. dayfrom=1&dayto=7) and MTD/Full MTD (dayfrom=100&dayto=1000).
+   */
+  async getGoalVsAchievement(
+    params: RankerGoalVsAchievementParams,
+  ): Promise<GoalVsAchievementResponse> {
+    const query = new URLSearchParams({
+      market: String(params.market).trim(),
+      year: String(params.year),
+      month: String(params.month),
+      dayfrom: String(params.dayfrom),
+      dayto: String(params.dayto),
+    });
+    const endpoint = `${this.baseUrl}${RANKER_API_PATHS.getGoalVsAchievement}?${query.toString()}`;
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "GET",
+        headers: {
+          accept: "application/json, text/plain, */*",
+          "cache-control": "no-cache",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(
+          `Failed to fetch Goal vs Achievement data (${response.status}: ${response.statusText})`,
+        );
+      }
+
+      const data: GoalVsAchievementResponse = await response.json();
+      return data;
+    } catch (err) {
+      console.error("Error fetching Ranker Goal vs Achievement data:", err);
       throw err;
     }
   }

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { ConfettiBackground } from "@/components/confetti-background";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -29,8 +29,13 @@ import {
   ArrowUp,
   ArrowDown,
   RotateCcw,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
+import { rankerService } from "@/services/ranker/ranker.service";
+import type { GoalVsAchievementResponse } from "@/services/ranker/types";
 
 // Metric definition
 export type MetricKey =
@@ -161,152 +166,346 @@ export interface StoreGoalRecord {
   weekly: { tgt: number; act: number; pct: number };
 }
 
-// Stores catalog
-const MARKETS = ["ARIZONA", "TEXAS", "FLORIDA", "CALIFORNIA", "NEVADA", "NEW YORK"];
-
-const BASE_STORE_LIST = [
-  { id: "az-1", store: "N ARIZONA AVE", manager: "ALI KHAN", baseVolume: 1.1 },
-  { id: "az-2", store: "3202 E GREENWAY RD", manager: "ALI KHAN", baseVolume: 0.65 },
-  { id: "az-3", store: "W VAN BUREN ST", manager: "ALI KHAN", baseVolume: 1.95 },
-  { id: "az-4", store: "6430 W GLENDALE AVE", manager: "ALI KHAN", baseVolume: 0.8 },
-  { id: "az-5", store: "N 75TH AVE", manager: "ALI KHAN", baseVolume: 1.15 },
-  { id: "az-6", store: "8129 NORTH 35TH AVENUE", manager: "ALI KHAN", baseVolume: 0.55 },
-  { id: "az-7", store: "SCOTTSDALE PAVILIONS", manager: "SARAH JENKINS", baseVolume: 1.4 },
-  { id: "az-8", store: "CAMELBACK COLONNADE", manager: "MARCUS VANCE", baseVolume: 1.0 },
-  { id: "az-9", store: "CHANDLER FASHION CENTER", manager: "ELENA ROSTOVA", baseVolume: 1.25 },
-  { id: "az-10", store: "MESA GRAND SHOPPING", manager: "RAUL ORTIZ", baseVolume: 0.9 },
-  { id: "az-11", store: "TUCSON MALL NORTH", manager: "KAREN PATEL", baseVolume: 1.05 },
-];
-
-// Generates data dynamically based on the current week and category
-function generateDynamicStoreData(
+// Transforms live API responses (weekData & mtdData) into UI-ready StoreGoalRecord[]
+function transformApiDataToStoreGoalRecords(
+  weekData: GoalVsAchievementResponse | null,
+  mtdData: GoalVsAchievementResponse | null,
   category: MetricKey,
-  market: string,
+  activeWeekDef: WeekDefinition,
   yearStr: string,
   monthStr: string,
-  weekDef: WeekDefinition,
+  fallbackMarket: string,
 ): StoreGoalRecord[] {
+  if (!weekData && !mtdData) return [];
+
   const year = parseInt(yearStr, 10) || 2026;
   const monthIndex = MONTH_NAMES.indexOf(monthStr);
-  const mIdx = monthIndex >= 0 ? monthIndex : 8;
+  const mIdx = monthIndex >= 0 ? monthIndex : 4; // May is index 4 in 0-indexed Date
   const abbr = MONTH_ABBRS[monthStr] || monthStr.slice(0, 3);
 
-  const multiplierMap: Record<MetricKey, number> = {
-    ACCESSORIES: 1,
-    VOICE: 0.35,
-    HSI: 0.18,
-    BTS: 0.22,
-    UPGRADES: 0.45,
-    MIM: 0.15,
-    AFFIRM: 0.28,
-    BYOD: 0.12,
-    "TOTAL ACHIEVEMENTS": 2.4,
-  };
+  // Extract distinct store metadata from Summary or other arrays
+  const summaryList = mtdData?.Summary?.length ? mtdData.Summary : weekData?.Summary || [];
 
-  const catMult = multiplierMap[category] || 1;
+  interface StoreMeta {
+    storeName: string;
+    manager: string;
+    tid: string;
+    techId: string;
+    market: string;
+  }
+  const storeMap = new Map<string, StoreMeta>();
 
-  // Days in selected week
-  const daysInfo: { dayNum: number; dayName: string; dateStr: string }[] = [];
-  for (let d = weekDef.startDay; d <= weekDef.endDay; d++) {
-    const dateObj = new Date(year, mIdx, d);
-    const dayName = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][dateObj.getDay()];
-    const dateStr = `${abbr.toUpperCase()} ${d}`;
-    daysInfo.push({ dayNum: d, dayName, dateStr });
+  summaryList.forEach((s) => {
+    if (s.storeName && !storeMap.has(s.storeName)) {
+      storeMap.set(s.storeName, {
+        storeName: s.storeName,
+        manager: s.districtManager || (s as any).market_Manager || "ALI KHAN",
+        tid: s.tid || "",
+        techId: s.techId || "",
+        market: s.market || fallbackMarket,
+      });
+    }
+  });
+
+  // If summary was empty, gather storeNames from category arrays
+  if (storeMap.size === 0) {
+    const candidateArrays = [
+      weekData?.ACC,
+      weekData?.VOICE,
+      weekData?.HSI,
+      weekData?.BTS,
+      weekData?.UPGRADE,
+      weekData?.MIM,
+      weekData?.BYOD,
+      weekData?.Affirm,
+      mtdData?.ACC,
+      mtdData?.VOICE,
+    ];
+    for (const arr of candidateArrays) {
+      if (arr && arr.length > 0) {
+        for (const item of arr) {
+          if (item.storeName && !storeMap.has(item.storeName)) {
+            storeMap.set(item.storeName, {
+              storeName: item.storeName,
+              manager: item.market_Manager || "ALI KHAN",
+              tid: item.tid || "",
+              techId: item.techId || "",
+              market: item.market || fallbackMarket,
+            });
+          }
+        }
+      }
+    }
   }
 
-  return BASE_STORE_LIST.map((store, sIdx) => {
-    // Seed variance based on store & day
-    const days: DayMetric[] = daysInfo.map((info, dIdx) => {
-      // Base daily target roughly 500-800 scaled by volume and category
-      const baseDailyTgt = Math.round(
-        (550 + ((sIdx * 43 + dIdx * 37) % 300)) * store.baseVolume * catMult,
-      );
+  const stores = Array.from(storeMap.values());
+  if (stores.length === 0) return [];
 
-      // Performance factor (some stores perform high, some low, mirroring the screenshot)
-      let perfFactor = 0.95;
-      if (category === "TOTAL ACHIEVEMENTS") {
-        // Screenshot shows realistic percentage range: 86%, 64%, 145%, 115%, 168%, 81%, 60%, 245%, 77%, 39%, 104%
-        const samplePcts = [0.86, 0.64, 1.45, 1.15, 1.68, 0.81, 0.6, 2.45, 0.77, 0.39, 1.04];
-        const baseFactor = samplePcts[sIdx % samplePcts.length];
-        const dayVariance = dIdx === 0 ? 0 : (((sIdx * 17 + dIdx * 23) % 30) - 15) / 100;
-        perfFactor = Math.max(0.2, baseFactor + dayVariance);
-      } else if (sIdx === 0) {
-        perfFactor = [0.85, 0.34, 0.19, 1.56, 1.68, 1.27, 0.89][dIdx % 7] ?? 1.1;
-      } else if (sIdx === 1) {
-        perfFactor = [0.09, 0.33, 0.42, 0.1, 0.23, 1.0, 0.23][dIdx % 7] ?? 0.4;
-      } else if (sIdx === 2) {
-        perfFactor = [0.4, 0.46, 0.93, 0.31, 1.18, 0.32, 0.34][dIdx % 7] ?? 0.6;
-      } else if (sIdx === 3) {
-        perfFactor = [0.76, 0.8, 1.79, 3.27, 0.74, 0.88, 0.31][dIdx % 7] ?? 1.2;
-      } else if (sIdx === 4) {
-        perfFactor = [1.3, 1.7, 0.86, 1.86, 0.22, 0.93, 0.36][dIdx % 7] ?? 1.05;
-      } else {
-        perfFactor = 0.5 + ((sIdx * 29 + dIdx * 41) % 110) / 100;
-      }
+  const isAffirm = category === "AFFIRM";
+  const isByod = category === "BYOD";
+  const isTotal = category === "TOTAL ACHIEVEMENTS";
 
-      if (category === "AFFIRM") {
-        // For Affirm: Inv = invoices, Fin = financed transactions, Non-Fin = non-financed (Inv - Fin)
-        const dailyFin = Math.max(
-          1,
-          Math.min(baseDailyTgt, Math.round(baseDailyTgt * Math.min(0.65, perfFactor * 0.42))),
+  const getCatArray = (res: GoalVsAchievementResponse | null) => {
+    if (!res) return [];
+    switch (category) {
+      case "ACCESSORIES":
+        return res.ACC || [];
+      case "VOICE":
+        return res.VOICE || [];
+      case "HSI":
+        return res.HSI || [];
+      case "BTS":
+        return res.BTS || [];
+      case "UPGRADES":
+        return res.UPGRADE || [];
+      case "MIM":
+        return res.MIM || [];
+      case "AFFIRM":
+        return res.Affirm || [];
+      case "BYOD":
+        return res.BYOD || [];
+      default:
+        return [];
+    }
+  };
+
+  const weekCatItems = getCatArray(weekData);
+  const mtdCatItems = getCatArray(mtdData);
+
+  return stores.map((st) => {
+    // Days in current selected week
+    const days: DayMetric[] = [];
+    for (let d = activeWeekDef.startDay; d <= activeWeekDef.endDay; d++) {
+      const dateObj = new Date(year, mIdx, d);
+      const dayName = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][dateObj.getDay()];
+      const dateStr = `${abbr.toUpperCase()} ${d}`;
+
+      if (isAffirm) {
+        const item = (weekData?.Affirm || []).find(
+          (x) => x.storeName === st.storeName && Number(x.day) === d,
         );
-        const dailyNonFin = Math.max(0, baseDailyTgt - dailyFin);
-        return {
-          dayNum: info.dayNum,
-          dayName: info.dayName,
-          dateStr: info.dateStr,
-          tgt: baseDailyTgt, // Inv
-          act: dailyFin, // Fin
-          pct: dailyNonFin, // Non-Fin
-        };
+        const inv = item ? Number(item.invoice_Amount || 0) : 0;
+        const fin = item ? Number(item.financed_Amount || 0) : 0;
+        const nonFin = item ? Number(item.non_Financed_Amount || 0) : 0;
+        days.push({
+          dayNum: d,
+          dayName,
+          dateStr,
+          tgt: Math.round(inv * 100) / 100,
+          act: Math.round(fin * 100) / 100,
+          pct: Math.round(nonFin * 100) / 100,
+        });
+      } else if (isByod) {
+        const item = (weekData?.BYOD || []).find(
+          (x) => x.storeName === st.storeName && Number(x.day) === d,
+        );
+        const act = item ? Number(item.achieved || 0) : 0;
+        days.push({
+          dayNum: d,
+          dayName,
+          dateStr,
+          tgt: 0,
+          act: Math.round(act),
+          pct: 0,
+        });
+      } else if (isTotal) {
+        const explicitTot = (weekData?.TOTAL_ACHIEVEMENTS || []).find(
+          (x) => x.storeName === st.storeName && Number(x.day) === d,
+        );
+        if (explicitTot) {
+          const tgt = Number(explicitTot.target || 0);
+          const act = Number(explicitTot.achieved || 0);
+          const pct =
+            explicitTot.percentage !== undefined
+              ? Math.round(Number(explicitTot.percentage))
+              : tgt > 0
+                ? Math.round((act / tgt) * 100)
+                : 0;
+          days.push({
+            dayNum: d,
+            dayName,
+            dateStr,
+            tgt: Math.round(tgt * 10) / 10,
+            act: Math.round(act),
+            pct,
+          });
+        } else {
+          // Total activations across Voice + BTS + HSI + MIM + Upgrade
+          const v = (weekData?.VOICE || []).find(
+            (x) => x.storeName === st.storeName && Number(x.day) === d,
+          );
+          const b = (weekData?.BTS || []).find(
+            (x) => x.storeName === st.storeName && Number(x.day) === d,
+          );
+          const h = (weekData?.HSI || []).find(
+            (x) => x.storeName === st.storeName && Number(x.day) === d,
+          );
+          const m = (weekData?.MIM || []).find(
+            (x) => x.storeName === st.storeName && Number(x.day) === d,
+          );
+          const u = (weekData?.UPGRADE || []).find(
+            (x) => x.storeName === st.storeName && Number(x.day) === d,
+          );
+
+          const dailyTgt =
+            (v?.target || 0) +
+            (b?.target || 0) +
+            (h?.target || 0) +
+            (m?.target || 0) +
+            (u?.target || 0);
+          const dailyAct =
+            (v?.achieved || 0) +
+            (b?.achieved || 0) +
+            (h?.achieved || 0) +
+            (m?.achieved || 0) +
+            (u?.achieved || 0);
+          const dailyPct = dailyTgt > 0 ? Math.round((dailyAct / dailyTgt) * 100) : 0;
+          days.push({
+            dayNum: d,
+            dayName,
+            dateStr,
+            tgt: Math.round(dailyTgt * 10) / 10,
+            act: Math.round(dailyAct),
+            pct: dailyPct,
+          });
+        }
+      } else {
+        const item = (weekCatItems as any[]).find(
+          (x) => x.storeName === st.storeName && Number(x.day) === d,
+        );
+        const tgt = item ? Number(item.target || 0) : 0;
+        const act = item ? Number(item.achieved || 0) : 0;
+        const pct =
+          item?.percentage !== undefined
+            ? Math.round(Number(item.percentage))
+            : tgt > 0
+              ? Math.round((act / tgt) * 100)
+              : 0;
+        days.push({
+          dayNum: d,
+          dayName,
+          dateStr,
+          tgt: Math.round(tgt * 10) / 10,
+          act: Math.round(act * 10) / 10,
+          pct,
+        });
       }
+    }
 
-      const dailyAct = Math.max(1, Math.round(baseDailyTgt * perfFactor));
-      const dailyPct = Math.round((dailyAct / baseDailyTgt) * 100);
-
-      return {
-        dayNum: info.dayNum,
-        dayName: info.dayName,
-        dateStr: info.dateStr,
-        tgt: baseDailyTgt,
-        act: dailyAct,
-        pct: dailyPct,
-      };
-    });
-
-    const isAffirm = category === "AFFIRM";
+    // Weekly summary
     const weeklyTgt = days.reduce((sum, d) => sum + d.tgt, 0);
     const weeklyAct = days.reduce((sum, d) => sum + d.act, 0);
     const weeklyPct = isAffirm
-      ? Math.max(0, weeklyTgt - weeklyAct) // Non-Fin
-      : weeklyTgt > 0
-        ? Math.round((weeklyAct / weeklyTgt) * 100)
-        : 0;
+      ? Math.max(0, Math.round((weeklyTgt - weeklyAct) * 100) / 100)
+      : isByod
+        ? 0
+        : weeklyTgt > 0
+          ? Math.round((weeklyAct / weeklyTgt) * 100)
+          : 0;
 
-    // MTD and Full MTD (calculated proportionally to month progress)
-    const totalDaysInMonth = new Date(year, mIdx + 1, 0).getDate();
-    const fullMtdTgt = Math.round(weeklyTgt * (totalDaysInMonth / Math.max(1, days.length)));
-    const mtdFactor = Math.min(1, weekDef.endDay / totalDaysInMonth);
-    const mtdTgt = Math.max(weeklyTgt, Math.round(fullMtdTgt * mtdFactor));
-    const mtdAct = isAffirm ? Math.round(mtdTgt * 0.38) : Math.round(mtdTgt * (weeklyPct / 100));
-    const mtdPct = isAffirm
-      ? Math.max(0, mtdTgt - mtdAct) // Non-Fin
-      : mtdTgt > 0
-        ? Math.round((mtdAct / mtdTgt) * 100)
-        : 0;
+    // MTD and Full MTD
+    let mtd = { tgt: 0, act: 0, pct: 0 };
+    let fullMtd = { tgt: 0, act: 0, pct: 0 };
 
-    const fullMtdAct = isAffirm ? Math.round(fullMtdTgt * 0.38) : mtdAct;
-    const fullMtdPct = isAffirm ? Math.max(0, fullMtdTgt - fullMtdAct) : mtdPct;
+    if (isAffirm) {
+      const mItem = (mtdData?.Affirm || []).find(
+        (x) => x.storeName === st.storeName && Number(x.day) === 100,
+      );
+      const fItem =
+        (mtdData?.Affirm || []).find(
+          (x) => x.storeName === st.storeName && Number(x.day) === 1000,
+        ) || mItem;
+      const mInv = mItem ? Number(mItem.invoice_Amount || 0) : 0;
+      const mFin = mItem ? Number(mItem.financed_Amount || 0) : 0;
+      const mNon = mItem ? Number(mItem.non_Financed_Amount || 0) : 0;
+      const fInv = fItem ? Number(fItem.invoice_Amount || 0) : mInv;
+      const fFin = fItem ? Number(fItem.financed_Amount || 0) : mFin;
+      const fNon = fItem ? Number(fItem.non_Financed_Amount || 0) : mNon;
+
+      mtd = {
+        tgt: Math.round(mInv * 100) / 100,
+        act: Math.round(mFin * 100) / 100,
+        pct: Math.round(mNon * 100) / 100,
+      };
+      fullMtd = {
+        tgt: Math.round(fInv * 100) / 100,
+        act: Math.round(fFin * 100) / 100,
+        pct: Math.round(fNon * 100) / 100,
+      };
+    } else if (isByod) {
+      const mItem = (mtdData?.BYOD || []).find(
+        (x) => x.storeName === st.storeName && Number(x.day) === 100,
+      );
+      const fItem =
+        (mtdData?.BYOD || []).find((x) => x.storeName === st.storeName && Number(x.day) === 1000) ||
+        mItem;
+      const mAct = mItem ? Number(mItem.achieved || 0) : 0;
+      const fAct = fItem ? Number(fItem.achieved || 0) : mAct;
+      mtd = { tgt: 0, act: Math.round(mAct), pct: 0 };
+      fullMtd = { tgt: 0, act: Math.round(fAct), pct: 0 };
+    } else if (isTotal) {
+      const sumItem =
+        (mtdData?.Summary || []).find((x) => x.storeName === st.storeName) ||
+        (weekData?.Summary || []).find((x) => x.storeName === st.storeName);
+      if (sumItem) {
+        const mTgt = Math.round(Number(sumItem.mtD_Target || 0) * 10) / 10;
+        const mAct = Math.round(Number(sumItem.mtD_Achieved || 0));
+        const mPct = mTgt > 0 ? Math.round((mAct / mTgt) * 100) : 0;
+        const fTgt = Math.round(Number(sumItem.full_Month_Target || 0) * 10) / 10;
+        const fAct = Math.round(Number(sumItem.full_Month_Achieved || 0));
+        const fPct = fTgt > 0 ? Math.round((fAct / fTgt) * 100) : 0;
+        mtd = { tgt: mTgt, act: mAct, pct: mPct };
+        fullMtd = { tgt: fTgt, act: fAct, pct: fPct };
+      }
+    } else {
+      const mItem = (mtdCatItems as any[]).find(
+        (x) => x.storeName === st.storeName && Number(x.day) === 100,
+      );
+      const fItem = (mtdCatItems as any[]).find(
+        (x) => x.storeName === st.storeName && Number(x.day) === 1000,
+      );
+      const mTgt = mItem ? Number(mItem.target || 0) : 0;
+      const mAct = mItem ? Number(mItem.achieved || 0) : 0;
+      const mPct =
+        mItem?.percentage !== undefined
+          ? Math.round(Number(mItem.percentage))
+          : mTgt > 0
+            ? Math.round((mAct / mTgt) * 100)
+            : 0;
+      const fTgt = fItem ? Number(fItem.target || 0) : mItem ? Number(mItem.target || 0) : 0;
+      const fAct = fItem ? Number(fItem.achieved || 0) : mItem ? Number(mItem.achieved || 0) : 0;
+      const fPct =
+        fItem?.percentage !== undefined
+          ? Math.round(Number(fItem.percentage))
+          : fTgt > 0
+            ? Math.round((fAct / fTgt) * 100)
+            : mPct;
+
+      mtd = {
+        tgt: Math.round(mTgt * 10) / 10,
+        act: Math.round(mAct * 10) / 10,
+        pct: mPct,
+      };
+      fullMtd = {
+        tgt: Math.round(fTgt * 10) / 10,
+        act: Math.round(fAct * 10) / 10,
+        pct: fPct,
+      };
+    }
 
     return {
-      id: store.id,
-      store: store.store,
-      manager: store.manager,
-      market,
-      mtd: { tgt: mtdTgt, act: mtdAct, pct: mtdPct },
-      fullMtd: { tgt: fullMtdTgt, act: fullMtdAct, pct: fullMtdPct },
+      id: st.tid || st.techId || st.storeName,
+      store: st.storeName,
+      manager: st.manager,
+      market: st.market,
+      mtd,
+      fullMtd,
       days,
-      weekly: { tgt: weeklyTgt, act: weeklyAct, pct: weeklyPct },
+      weekly: {
+        tgt: Math.round(weeklyTgt * 10) / 10,
+        act: Math.round(weeklyAct * 10) / 10,
+        pct: weeklyPct,
+      },
     };
   });
 }
@@ -388,12 +587,24 @@ type SortColumn =
 type SortDirection = "asc" | "desc" | "normal";
 
 export default function GoalsVsAchievementPage() {
-  const [selectedMarket, setSelectedMarket] = useState<string>(MARKETS[0]);
+  // Market list fetched from live API
+  const [markets, setMarkets] = useState<string[]>([]);
+  const [isLoadingMarkets, setIsLoadingMarkets] = useState<boolean>(true);
+
+  // Filter selections (default to ARIZONA, 2026, May as requested)
+  const [selectedMarket, setSelectedMarket] = useState<string>("ARIZONA");
   const [selectedYear, setSelectedYear] = useState<string>("2026");
-  const [selectedMonth, setSelectedMonth] = useState<string>("September");
+  const [selectedMonth, setSelectedMonth] = useState<string>("May");
   const [activeCategory, setActiveCategory] = useState<MetricKey>("ACCESSORIES");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
+
+  // Live API data state
+  const [weekData, setWeekData] = useState<GoalVsAchievementResponse | null>(null);
+  const [mtdData, setMtdData] = useState<GoalVsAchievementResponse | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
 
   const isByod = activeCategory === "BYOD";
   const isTotalAchievements = activeCategory === "TOTAL ACHIEVEMENTS";
@@ -426,22 +637,138 @@ export default function GoalsVsAchievementPage() {
     );
   }, [availableWeeks, selectedWeekId]);
 
+  // Load markets from live API
+  useEffect(() => {
+    let isMounted = true;
+    async function loadMarkets() {
+      try {
+        setIsLoadingMarkets(true);
+        const list = await rankerService.getMarketList();
+        if (isMounted && list && list.length > 0) {
+          setMarkets(list);
+          if (!selectedMarket || !list.includes(selectedMarket)) {
+            setSelectedMarket(list.includes("ARIZONA") ? "ARIZONA" : list[0]);
+          }
+        }
+      } catch (err: any) {
+        console.error("Failed to load market list:", err);
+        if (isMounted && markets.length === 0) {
+          setMarkets(["ARIZONA", "TEXAS", "FLORIDA", "CALIFORNIA", "NEVADA", "NEW YORK"]);
+        }
+      } finally {
+        if (isMounted) setIsLoadingMarkets(false);
+      }
+    }
+    loadMarkets();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Fetch weekly and MTD Goal vs Achievement data from live API
+  useEffect(() => {
+    if (!selectedMarket) return;
+    let isMounted = true;
+
+    const monthIndex = MONTH_NAMES.indexOf(selectedMonth);
+    const monthNum = monthIndex >= 0 ? monthIndex + 1 : 5;
+
+    async function loadGoalVsAchievement() {
+      try {
+        setIsLoadingData(true);
+        setDataError(null);
+
+        const [weekRes, mtdRes] = await Promise.all([
+          rankerService.getGoalVsAchievement({
+            market: selectedMarket,
+            year: selectedYear,
+            month: monthNum,
+            dayfrom: activeWeekDef.startDay,
+            dayto: activeWeekDef.endDay,
+          }),
+          rankerService.getGoalVsAchievement({
+            market: selectedMarket,
+            year: selectedYear,
+            month: monthNum,
+            dayfrom: 100,
+            dayto: 1000,
+          }),
+        ]);
+
+        if (isMounted) {
+          setWeekData(weekRes);
+          setMtdData(mtdRes);
+        }
+      } catch (err: any) {
+        console.error("Failed to load goal vs achievement:", err);
+        if (isMounted) {
+          setDataError(err?.message || "Failed to load data from API");
+          toast.error("Failed to fetch achievement data from server");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingData(false);
+        }
+      }
+    }
+
+    loadGoalVsAchievement();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [
+    selectedMarket,
+    selectedYear,
+    selectedMonth,
+    activeWeekDef.startDay,
+    activeWeekDef.endDay,
+    refreshTrigger,
+  ]);
+
   // Sorting
   const [sortCol, setSortCol] = useState<SortColumn | null>(null);
   const [sortDir, setSortDir] = useState<SortDirection>("normal");
 
   const rawData = useMemo(() => {
-    return generateDynamicStoreData(
+    return transformApiDataToStoreGoalRecords(
+      weekData,
+      mtdData,
       activeCategory,
-      selectedMarket,
+      activeWeekDef,
       selectedYear,
       selectedMonth,
-      activeWeekDef,
+      selectedMarket,
     );
-  }, [activeCategory, selectedMarket, selectedYear, selectedMonth, activeWeekDef]);
+  }, [
+    weekData,
+    mtdData,
+    activeCategory,
+    activeWeekDef,
+    selectedYear,
+    selectedMonth,
+    selectedMarket,
+  ]);
 
-  const activeDayIdx = Math.max(0, Math.min(selectedDayIndex, (rawData[0]?.days?.length ?? 1) - 1));
-  const activeDay = rawData[0]?.days[activeDayIdx] || rawData[0]?.days[0];
+  // Days list for headers and Total Achievements day selector
+  const weekDays = useMemo(() => {
+    const year = parseInt(selectedYear, 10) || 2026;
+    const monthIndex = MONTH_NAMES.indexOf(selectedMonth);
+    const mIdx = monthIndex >= 0 ? monthIndex : 4;
+    const abbr = MONTH_ABBRS[selectedMonth] || selectedMonth.slice(0, 3);
+    const days: { dayNum: number; dayName: string; dateStr: string }[] = [];
+    for (let d = activeWeekDef.startDay; d <= activeWeekDef.endDay; d++) {
+      const dateObj = new Date(year, mIdx, d);
+      const dayName = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"][dateObj.getDay()];
+      const dateStr = `${abbr.toUpperCase()} ${d}`;
+      days.push({ dayNum: d, dayName, dateStr });
+    }
+    return days;
+  }, [selectedYear, selectedMonth, activeWeekDef]);
+
+  const displayDays = rawData[0]?.days || weekDays;
+  const activeDayIdx = Math.max(0, Math.min(selectedDayIndex, displayDays.length - 1));
+  const activeDay = displayDays[activeDayIdx] || displayDays[0];
   const activeDayDateFormatted = activeDay
     ? `${activeDay.dayName}, ${activeDay.dateStr} ${selectedYear}`
     : `${selectedMonth} ${selectedYear}`;
@@ -532,33 +859,41 @@ export default function GoalsVsAchievementPage() {
     if (filteredData.length === 0 || !filteredData[0]?.days) return null;
 
     const isAffirm = activeCategory === "AFFIRM";
-    const mtdTgt = filteredData.reduce((sum, r) => sum + r.mtd.tgt, 0);
-    const mtdAct = filteredData.reduce((sum, r) => sum + r.mtd.act, 0);
+    const mtdTgt = Math.round(filteredData.reduce((sum, r) => sum + r.mtd.tgt, 0) * 10) / 10;
+    const mtdAct = Math.round(filteredData.reduce((sum, r) => sum + r.mtd.act, 0) * 10) / 10;
     const mtdPct = isAffirm
-      ? Math.max(0, mtdTgt - mtdAct)
+      ? Math.max(0, Math.round((mtdTgt - mtdAct) * 100) / 100)
       : mtdTgt > 0
         ? Math.round((mtdAct / mtdTgt) * 100)
         : 0;
 
-    const fullMtdTgt = filteredData.reduce((sum, r) => sum + r.fullMtd.tgt, 0);
-    const fullMtdAct = filteredData.reduce((sum, r) => sum + r.fullMtd.act, 0);
+    const fullMtdTgt =
+      Math.round(filteredData.reduce((sum, r) => sum + r.fullMtd.tgt, 0) * 10) / 10;
+    const fullMtdAct =
+      Math.round(filteredData.reduce((sum, r) => sum + r.fullMtd.act, 0) * 10) / 10;
     const fullMtdPct = isAffirm
-      ? Math.max(0, fullMtdTgt - fullMtdAct)
+      ? Math.max(0, Math.round((fullMtdTgt - fullMtdAct) * 100) / 100)
       : fullMtdTgt > 0
         ? Math.round((fullMtdAct / fullMtdTgt) * 100)
         : 0;
 
-    const dayTotals = filteredData[0].days.map((_, dayIdx) => {
-      const dt = filteredData.reduce((sum, r) => sum + (r.days[dayIdx]?.tgt || 0), 0);
-      const da = filteredData.reduce((sum, r) => sum + (r.days[dayIdx]?.act || 0), 0);
-      const dp = isAffirm ? Math.max(0, dt - da) : dt > 0 ? Math.round((da / dt) * 100) : 0;
+    const dayTotals = displayDays.map((_, dayIdx) => {
+      const dt =
+        Math.round(filteredData.reduce((sum, r) => sum + (r.days[dayIdx]?.tgt || 0), 0) * 10) / 10;
+      const da =
+        Math.round(filteredData.reduce((sum, r) => sum + (r.days[dayIdx]?.act || 0), 0) * 10) / 10;
+      const dp = isAffirm
+        ? Math.max(0, Math.round((dt - da) * 100) / 100)
+        : dt > 0
+          ? Math.round((da / dt) * 100)
+          : 0;
       return { tgt: dt, act: da, pct: dp };
     });
 
-    const weeklyTgt = filteredData.reduce((sum, r) => sum + r.weekly.tgt, 0);
-    const weeklyAct = filteredData.reduce((sum, r) => sum + r.weekly.act, 0);
+    const weeklyTgt = Math.round(filteredData.reduce((sum, r) => sum + r.weekly.tgt, 0) * 10) / 10;
+    const weeklyAct = Math.round(filteredData.reduce((sum, r) => sum + r.weekly.act, 0) * 10) / 10;
     const weeklyPct = isAffirm
-      ? Math.max(0, weeklyTgt - weeklyAct)
+      ? Math.max(0, Math.round((weeklyTgt - weeklyAct) * 100) / 100)
       : weeklyTgt > 0
         ? Math.round((weeklyAct / weeklyTgt) * 100)
         : 0;
@@ -575,12 +910,12 @@ export default function GoalsVsAchievementPage() {
       weeklyAct,
       weeklyPct,
     };
-  }, [filteredData, activeCategory]);
+  }, [filteredData, activeCategory, displayDays]);
 
   const handleResetFilters = () => {
-    setSelectedMarket(MARKETS[0]);
+    setSelectedMarket(markets.includes("ARIZONA") ? "ARIZONA" : markets[0] || "ARIZONA");
     setSelectedYear("2026");
-    setSelectedMonth("September");
+    setSelectedMonth("May");
     setSelectedWeekId("week-1");
     setSelectedDayIndex(0);
     setSearchQuery("");
@@ -617,8 +952,14 @@ export default function GoalsVsAchievementPage() {
                   <h1 className="text-xl sm:text-2xl font-black tracking-wider uppercase font-display text-white drop-shadow-sm">
                     WEEKLY BREAKDOWN
                   </h1>
-                  <p className="text-xs font-semibold tracking-widest text-amber-400/95 uppercase">
-                    MARKET: {selectedMarket}
+                  <p className="text-xs font-semibold tracking-widest text-amber-400/95 uppercase flex items-center gap-2">
+                    <span>MARKET: {selectedMarket}</span>
+                    {isLoadingData && (
+                      <span className="inline-flex items-center gap-1 text-[10px] text-amber-300 bg-amber-400/20 px-2 py-0.5 rounded-full font-normal">
+                        <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                        Fetching live data...
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>
@@ -627,19 +968,23 @@ export default function GoalsVsAchievementPage() {
             {/* Filter Controls Row */}
             <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
               {/* Market Dropdown */}
-              <div className="w-36">
+              <div className="w-40">
                 <Select value={selectedMarket} onValueChange={setSelectedMarket}>
                   <SelectTrigger
                     id="market-select"
                     className="bg-white text-zinc-900 font-bold text-xs h-9 border-0 shadow-sm focus:ring-amber-400"
                   >
                     <div className="flex items-center gap-1.5 truncate">
-                      <Store className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <SelectValue placeholder="Market" />
+                      {isLoadingMarkets ? (
+                        <Loader2 className="w-3.5 h-3.5 text-amber-600 animate-spin shrink-0" />
+                      ) : (
+                        <Store className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      )}
+                      <SelectValue placeholder={isLoadingMarkets ? "Loading..." : "Market"} />
                     </div>
                   </SelectTrigger>
-                  <SelectContent className="text-xs">
-                    {MARKETS.map((m) => (
+                  <SelectContent className="text-xs max-h-64">
+                    {(markets.length > 0 ? markets : ["ARIZONA"]).map((m) => (
                       <SelectItem key={m} value={m}>
                         {m}
                       </SelectItem>
@@ -661,6 +1006,7 @@ export default function GoalsVsAchievementPage() {
                     </div>
                   </SelectTrigger>
                   <SelectContent className="text-xs">
+                    <SelectItem value="2025">2025</SelectItem>
                     <SelectItem value="2026">2026</SelectItem>
                     <SelectItem value="2027">2027</SelectItem>
                   </SelectContent>
@@ -724,6 +1070,24 @@ export default function GoalsVsAchievementPage() {
                 />
               </div>
 
+              {/* Refresh Button */}
+              <Button
+                id="refresh-filters-btn"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setRefreshTrigger((prev) => prev + 1);
+                  toast.info("Refreshing live data from server...");
+                }}
+                disabled={isLoadingData}
+                className="h-9 px-2.5 text-xs bg-zinc-800/80 border-zinc-700 text-zinc-200 hover:bg-zinc-700 hover:text-white"
+                title="Refresh Live Data"
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${isLoadingData ? "animate-spin text-amber-400" : ""}`}
+                />
+              </Button>
+
               {/* Reset Button */}
               <Button
                 id="reset-filters-btn"
@@ -761,6 +1125,30 @@ export default function GoalsVsAchievementPage() {
             );
           })}
         </div>
+
+        {/* Total Achievements Day-by-Day Selector */}
+        {isTotalAchievements && displayDays.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 px-1">
+            <span className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider shrink-0 flex items-center gap-1 mr-1">
+              <Calendar className="w-3.5 h-3.5" />
+              Select Day:
+            </span>
+            {displayDays.map((d, idx) => (
+              <button
+                key={d.dayNum}
+                id={`day-select-${d.dayNum}`}
+                onClick={() => setSelectedDayIndex(idx)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all duration-150 shrink-0 whitespace-nowrap ${
+                  activeDayIdx === idx
+                    ? "bg-amber-400 text-zinc-950 font-black shadow-md shadow-amber-400/20 ring-2 ring-amber-500/50"
+                    : "bg-card text-foreground hover:bg-muted border border-border/80"
+                }`}
+              >
+                {d.dayName} {d.dayNum}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* 
           Main MIS Multi-tier Data Table Card 
@@ -980,7 +1368,7 @@ export default function GoalsVsAchievementPage() {
                       </th>
 
                       {/* Dynamic Days of the Selected Week */}
-                      {rawData[0]?.days.map((d, idx) => (
+                      {displayDays.map((d, idx) => (
                         <th
                           key={idx}
                           className="px-3 py-2 text-center border-r border-border bg-muted/40 min-w-[85px]"
@@ -1060,7 +1448,7 @@ export default function GoalsVsAchievementPage() {
                         </th>
 
                         {/* Dynamic Days of the Selected Week */}
-                        {rawData[0]?.days.map((d, idx) => (
+                        {displayDays.map((d, idx) => (
                           <th
                             key={idx}
                             colSpan={3}
@@ -1105,7 +1493,7 @@ export default function GoalsVsAchievementPage() {
                         </th>
 
                         {/* Under Daily Days */}
-                        {rawData[0]?.days.map((_, idx) => (
+                        {displayDays.map((_, idx) => (
                           <React.Fragment key={idx}>
                             <th className="px-2 py-1.5 text-center">{subCol1}</th>
                             <th className="px-2 py-1.5 text-center">{subCol2}</th>
@@ -1135,19 +1523,74 @@ export default function GoalsVsAchievementPage() {
 
                 {/* Table Body */}
                 <tbody className="divide-y divide-border/60 font-medium">
-                  {filteredData.length === 0 ? (
+                  {isLoadingData ? (
                     <tr>
                       <td
                         colSpan={
                           isTotalAchievements
                             ? 6
                             : isByod
-                              ? 4 + (rawData[0]?.days.length || 7)
-                              : 7 + (rawData[0]?.days.length || 7) * 3
+                              ? 4 + displayDays.length
+                              : 7 + displayDays.length * 3
+                        }
+                        className="py-20 text-center"
+                      >
+                        <div className="flex flex-col items-center justify-center gap-3">
+                          <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
+                          <p className="text-sm font-bold text-foreground">
+                            Loading live {activeCategory} data for {selectedMarket}...
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Fetching weekly goals & achievements from Ranker API
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : dataError ? (
+                    <tr>
+                      <td
+                        colSpan={
+                          isTotalAchievements
+                            ? 6
+                            : isByod
+                              ? 4 + displayDays.length
+                              : 7 + displayDays.length * 3
+                        }
+                        className="py-16 text-center"
+                      >
+                        <div className="flex flex-col items-center justify-center gap-3 max-w-md mx-auto">
+                          <AlertCircle className="w-8 h-8 text-rose-500" />
+                          <p className="text-sm font-bold text-rose-600 dark:text-rose-400">
+                            Failed to load live data
+                          </p>
+                          <p className="text-xs text-muted-foreground">{dataError}</p>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setRefreshTrigger((p) => p + 1)}
+                            className="mt-2 text-xs"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5 mr-1" />
+                            Retry
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : filteredData.length === 0 ? (
+                    <tr>
+                      <td
+                        colSpan={
+                          isTotalAchievements
+                            ? 6
+                            : isByod
+                              ? 4 + displayDays.length
+                              : 7 + displayDays.length * 3
                         }
                         className="py-12 text-center text-muted-foreground"
                       >
-                        No stores found matching "{searchQuery}".
+                        {searchQuery
+                          ? `No stores found matching "${searchQuery}".`
+                          : `No store records found for ${selectedMarket} in ${selectedMonth} ${selectedYear}.`}
                       </td>
                     </tr>
                   ) : isTotalAchievements ? (
@@ -1343,7 +1786,7 @@ export default function GoalsVsAchievementPage() {
                 </tbody>
 
                 {/* Table Footer: Total / Summary Row */}
-                {totalRow && (
+                {!isLoadingData && totalRow && (
                   <tfoot>
                     {isTotalAchievements ? (
                       // Total Achievement Footer
