@@ -118,7 +118,7 @@ export interface WeekDefinition {
  *   ...
  *   Week 5 (Oct 29 to 31)
  */
-export function getWeeksForMonth(yearStr: string, monthStr: string): WeekDefinition[] {
+function getWeeksForMonth(yearStr: string, monthStr: string): WeekDefinition[] {
   const year = parseInt(yearStr, 10) || 2026;
   const monthIndex = MONTH_NAMES.indexOf(monthStr);
   const mIdx = monthIndex >= 0 ? monthIndex : 8; // Default September
@@ -291,9 +291,9 @@ function transformApiDataToStoreGoalRecords(
           dayNum: d,
           dayName,
           dateStr,
-          tgt: Math.round(inv * 100) / 100,
-          act: Math.round(fin * 100) / 100,
-          pct: Math.round(nonFin * 100) / 100,
+          tgt: Math.round(inv),
+          act: Math.round(fin),
+          pct: Math.round(nonFin),
         });
       } else if (isByod) {
         const item = (weekData?.BYOD || []).find(
@@ -325,9 +325,9 @@ function transformApiDataToStoreGoalRecords(
             dayNum: d,
             dayName,
             dateStr,
-            tgt: Math.round(tgt * 10) / 10,
+            tgt: Math.round(tgt),
             act: Math.round(act),
-            pct,
+            pct: Math.round(pct),
           });
         } else {
           // Total activations across Voice + BTS + HSI + MIM + Upgrade
@@ -364,9 +364,9 @@ function transformApiDataToStoreGoalRecords(
             dayNum: d,
             dayName,
             dateStr,
-            tgt: Math.round(dailyTgt * 10) / 10,
+            tgt: Math.round(dailyTgt),
             act: Math.round(dailyAct),
-            pct: dailyPct,
+            pct: Math.round(dailyPct),
           });
         }
       } else {
@@ -385,18 +385,18 @@ function transformApiDataToStoreGoalRecords(
           dayNum: d,
           dayName,
           dateStr,
-          tgt: Math.round(tgt * 10) / 10,
-          act: Math.round(act * 10) / 10,
-          pct,
+          tgt: Math.round(tgt),
+          act: Math.round(act),
+          pct: Math.round(pct),
         });
       }
     }
 
     // Weekly summary
-    const weeklyTgt = days.reduce((sum, d) => sum + d.tgt, 0);
-    const weeklyAct = days.reduce((sum, d) => sum + d.act, 0);
+    const weeklyTgt = Math.round(days.reduce((sum, d) => sum + d.tgt, 0));
+    const weeklyAct = Math.round(days.reduce((sum, d) => sum + d.act, 0));
     const weeklyPct = isAffirm
-      ? Math.max(0, Math.round((weeklyTgt - weeklyAct) * 100) / 100)
+      ? Math.max(0, Math.round(weeklyTgt - weeklyAct))
       : isByod
         ? 0
         : weeklyTgt > 0
@@ -423,14 +423,14 @@ function transformApiDataToStoreGoalRecords(
       const fNon = fItem ? Number(fItem.non_Financed_Amount || 0) : mNon;
 
       mtd = {
-        tgt: Math.round(mInv * 100) / 100,
-        act: Math.round(mFin * 100) / 100,
-        pct: Math.round(mNon * 100) / 100,
+        tgt: Math.round(mInv),
+        act: Math.round(mFin),
+        pct: Math.round(mNon),
       };
       fullMtd = {
-        tgt: Math.round(fInv * 100) / 100,
-        act: Math.round(fFin * 100) / 100,
-        pct: Math.round(fNon * 100) / 100,
+        tgt: Math.round(fInv),
+        act: Math.round(fFin),
+        pct: Math.round(fNon),
       };
     } else if (isByod) {
       const mItem = (mtdData?.BYOD || []).find(
@@ -448,10 +448,10 @@ function transformApiDataToStoreGoalRecords(
         (mtdData?.Summary || []).find((x) => x.storeName === st.storeName) ||
         (weekData?.Summary || []).find((x) => x.storeName === st.storeName);
       if (sumItem) {
-        const mTgt = Math.round(Number(sumItem.mtD_Target || 0) * 10) / 10;
+        const mTgt = Math.round(Number(sumItem.mtD_Target || 0));
         const mAct = Math.round(Number(sumItem.mtD_Achieved || 0));
         const mPct = mTgt > 0 ? Math.round((mAct / mTgt) * 100) : 0;
-        const fTgt = Math.round(Number(sumItem.full_Month_Target || 0) * 10) / 10;
+        const fTgt = Math.round(Number(sumItem.full_Month_Target || 0));
         const fAct = Math.round(Number(sumItem.full_Month_Achieved || 0));
         const fPct = fTgt > 0 ? Math.round((fAct / fTgt) * 100) : 0;
         mtd = { tgt: mTgt, act: mAct, pct: mPct };
@@ -482,14 +482,14 @@ function transformApiDataToStoreGoalRecords(
             : mPct;
 
       mtd = {
-        tgt: Math.round(mTgt * 10) / 10,
-        act: Math.round(mAct * 10) / 10,
-        pct: mPct,
+        tgt: Math.round(mTgt),
+        act: Math.round(mAct),
+        pct: Math.round(mPct),
       };
       fullMtd = {
-        tgt: Math.round(fTgt * 10) / 10,
-        act: Math.round(fAct * 10) / 10,
-        pct: fPct,
+        tgt: Math.round(fTgt),
+        act: Math.round(fAct),
+        pct: Math.round(fPct),
       };
     }
 
@@ -502,28 +502,37 @@ function transformApiDataToStoreGoalRecords(
       fullMtd,
       days,
       weekly: {
-        tgt: Math.round(weeklyTgt * 10) / 10,
-        act: Math.round(weeklyAct * 10) / 10,
-        pct: weeklyPct,
+        tgt: Math.round(weeklyTgt),
+        act: Math.round(weeklyAct),
+        pct: Math.round(weeklyPct),
       },
     };
   });
 }
 
+/**
+ * Format any number as a clean integer without any decimal points.
+ */
+function formatRoundNumber(val: number | undefined | null): string {
+  if (val === undefined || val === null || isNaN(val)) return "0";
+  return Math.round(val).toLocaleString();
+}
+
 function renderThirdColumn(val: number, isAffirm: boolean) {
+  const roundedVal = Math.round(val || 0);
   if (isAffirm) {
     return (
       <span className="inline-flex items-center justify-center font-bold px-2 py-0.5 rounded-full text-xs min-w-[46px] shadow-2xs bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700">
-        {val}
+        {roundedVal.toLocaleString()}
       </span>
     );
   }
 
   let badgeClass = "";
-  if (val >= 100) {
+  if (roundedVal >= 100) {
     badgeClass =
       "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-300/50";
-  } else if (val >= 60) {
+  } else if (roundedVal >= 60) {
     badgeClass =
       "bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-300/50";
   } else {
@@ -535,7 +544,7 @@ function renderThirdColumn(val: number, isAffirm: boolean) {
     <span
       className={`inline-flex items-center justify-center font-bold px-2 py-0.5 rounded-full text-xs min-w-[46px] shadow-2xs ${badgeClass}`}
     >
-      {val}%
+      {roundedVal}%
     </span>
   );
 }
@@ -547,12 +556,13 @@ function renderThirdColumn(val: number, isAffirm: boolean) {
  * - >= 100% : Green color
  */
 function renderTotalAchievementPctBadge(pct: number) {
+  const roundedPct = Math.round(pct || 0);
   let badgeClass = "";
-  if (pct <= 70) {
+  if (roundedPct <= 70) {
     // 70 or less: Red color
     badgeClass =
       "bg-[#fee2e2] text-[#991b1b] border border-[#fca5a5] dark:bg-red-950/70 dark:text-red-300 dark:border-red-800";
-  } else if (pct <= 99) {
+  } else if (roundedPct <= 99) {
     // 71 to 99: Yellow color
     badgeClass =
       "bg-[#fef9c3] text-[#854d0e] border border-[#fde047] dark:bg-amber-950/70 dark:text-amber-300 dark:border-amber-800";
@@ -566,7 +576,7 @@ function renderTotalAchievementPctBadge(pct: number) {
     <span
       className={`inline-flex items-center justify-center font-extrabold px-3.5 py-1 rounded-xl text-xs sm:text-sm min-w-[64px] shadow-2xs ${badgeClass}`}
     >
-      {pct}%
+      {roundedPct}%
     </span>
   );
 }
@@ -586,18 +596,45 @@ type SortColumn =
   | "weeklyPct";
 type SortDirection = "asc" | "desc" | "normal";
 
+/**
+ * Helper to compute default date filters matching the current day.
+ * e.g., if today is September 12, it selects September and Week 2 (Sep 8-14).
+ */
+function getCurrentDateDefaults() {
+  const now = new Date();
+  const yearStr = String(now.getFullYear());
+  const monthIdx = now.getMonth();
+  const monthStr = MONTH_NAMES[monthIdx] || "September";
+  const day = now.getDate();
+
+  const weeks = getWeeksForMonth(yearStr, monthStr);
+  const matchedWeek = weeks.find((w) => day >= w.startDay && day <= w.endDay) || weeks[0];
+  const weekId = matchedWeek?.id || "week-1";
+  const dayIndex = matchedWeek ? Math.max(0, day - matchedWeek.startDay) : 0;
+
+  return {
+    year: yearStr,
+    month: monthStr,
+    weekId,
+    dayIndex,
+  };
+}
+
 export default function GoalsVsAchievementPage() {
   // Market list fetched from live API
   const [markets, setMarkets] = useState<string[]>([]);
   const [isLoadingMarkets, setIsLoadingMarkets] = useState<boolean>(true);
 
-  // Filter selections (default to ARIZONA, 2026, May as requested)
+  // Compute current date defaults (e.g. Sep 12 -> Sep, Week 2)
+  const dateDefaults = useMemo(() => getCurrentDateDefaults(), []);
+
+  // Filter selections (default to current date: year, month, and week matching today's date)
   const [selectedMarket, setSelectedMarket] = useState<string>("ARIZONA");
-  const [selectedYear, setSelectedYear] = useState<string>("2026");
-  const [selectedMonth, setSelectedMonth] = useState<string>("May");
+  const [selectedYear, setSelectedYear] = useState<string>(dateDefaults.year);
+  const [selectedMonth, setSelectedMonth] = useState<string>(dateDefaults.month);
   const [activeCategory, setActiveCategory] = useState<MetricKey>("ACCESSORIES");
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(0);
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number>(dateDefaults.dayIndex);
 
   // Live API data state
   const [weekData, setWeekData] = useState<GoalVsAchievementResponse | null>(null);
@@ -614,13 +651,14 @@ export default function GoalsVsAchievementPage() {
     return getWeeksForMonth(selectedYear, selectedMonth);
   }, [selectedYear, selectedMonth]);
 
-  const [selectedWeekId, setSelectedWeekId] = useState<string>("week-1");
+  const [selectedWeekId, setSelectedWeekId] = useState<string>(dateDefaults.weekId);
 
   // If month changes and current selectedWeekId does not exist, fallback to first available week
   useEffect(() => {
     const exists = availableWeeks.some((w) => w.id === selectedWeekId);
     if (!exists && availableWeeks.length > 0) {
       setSelectedWeekId(availableWeeks[0].id);
+      setSelectedDayIndex(0);
     }
   }, [availableWeeks, selectedWeekId]);
 
@@ -859,41 +897,37 @@ export default function GoalsVsAchievementPage() {
     if (filteredData.length === 0 || !filteredData[0]?.days) return null;
 
     const isAffirm = activeCategory === "AFFIRM";
-    const mtdTgt = Math.round(filteredData.reduce((sum, r) => sum + r.mtd.tgt, 0) * 10) / 10;
-    const mtdAct = Math.round(filteredData.reduce((sum, r) => sum + r.mtd.act, 0) * 10) / 10;
+    const mtdTgt = Math.round(filteredData.reduce((sum, r) => sum + r.mtd.tgt, 0));
+    const mtdAct = Math.round(filteredData.reduce((sum, r) => sum + r.mtd.act, 0));
     const mtdPct = isAffirm
-      ? Math.max(0, Math.round((mtdTgt - mtdAct) * 100) / 100)
+      ? Math.max(0, Math.round(mtdTgt - mtdAct))
       : mtdTgt > 0
         ? Math.round((mtdAct / mtdTgt) * 100)
         : 0;
 
-    const fullMtdTgt =
-      Math.round(filteredData.reduce((sum, r) => sum + r.fullMtd.tgt, 0) * 10) / 10;
-    const fullMtdAct =
-      Math.round(filteredData.reduce((sum, r) => sum + r.fullMtd.act, 0) * 10) / 10;
+    const fullMtdTgt = Math.round(filteredData.reduce((sum, r) => sum + r.fullMtd.tgt, 0));
+    const fullMtdAct = Math.round(filteredData.reduce((sum, r) => sum + r.fullMtd.act, 0));
     const fullMtdPct = isAffirm
-      ? Math.max(0, Math.round((fullMtdTgt - fullMtdAct) * 100) / 100)
+      ? Math.max(0, Math.round(fullMtdTgt - fullMtdAct))
       : fullMtdTgt > 0
         ? Math.round((fullMtdAct / fullMtdTgt) * 100)
         : 0;
 
     const dayTotals = displayDays.map((_, dayIdx) => {
-      const dt =
-        Math.round(filteredData.reduce((sum, r) => sum + (r.days[dayIdx]?.tgt || 0), 0) * 10) / 10;
-      const da =
-        Math.round(filteredData.reduce((sum, r) => sum + (r.days[dayIdx]?.act || 0), 0) * 10) / 10;
+      const dt = Math.round(filteredData.reduce((sum, r) => sum + (r.days[dayIdx]?.tgt || 0), 0));
+      const da = Math.round(filteredData.reduce((sum, r) => sum + (r.days[dayIdx]?.act || 0), 0));
       const dp = isAffirm
-        ? Math.max(0, Math.round((dt - da) * 100) / 100)
+        ? Math.max(0, Math.round(dt - da))
         : dt > 0
           ? Math.round((da / dt) * 100)
           : 0;
       return { tgt: dt, act: da, pct: dp };
     });
 
-    const weeklyTgt = Math.round(filteredData.reduce((sum, r) => sum + r.weekly.tgt, 0) * 10) / 10;
-    const weeklyAct = Math.round(filteredData.reduce((sum, r) => sum + r.weekly.act, 0) * 10) / 10;
+    const weeklyTgt = Math.round(filteredData.reduce((sum, r) => sum + r.weekly.tgt, 0));
+    const weeklyAct = Math.round(filteredData.reduce((sum, r) => sum + r.weekly.act, 0));
     const weeklyPct = isAffirm
-      ? Math.max(0, Math.round((weeklyTgt - weeklyAct) * 100) / 100)
+      ? Math.max(0, Math.round(weeklyTgt - weeklyAct))
       : weeklyTgt > 0
         ? Math.round((weeklyAct / weeklyTgt) * 100)
         : 0;
@@ -913,16 +947,17 @@ export default function GoalsVsAchievementPage() {
   }, [filteredData, activeCategory, displayDays]);
 
   const handleResetFilters = () => {
+    const current = getCurrentDateDefaults();
     setSelectedMarket(markets.includes("ARIZONA") ? "ARIZONA" : markets[0] || "ARIZONA");
-    setSelectedYear("2026");
-    setSelectedMonth("May");
-    setSelectedWeekId("week-1");
-    setSelectedDayIndex(0);
+    setSelectedYear(current.year);
+    setSelectedMonth(current.month);
+    setSelectedWeekId(current.weekId);
+    setSelectedDayIndex(current.dayIndex);
     setSearchQuery("");
     setActiveCategory("ACCESSORIES");
     setSortCol(null);
     setSortDir("normal");
-    toast.success("Filters reset to default");
+    toast.success("Filters reset to current date");
   };
 
   const isAffirm = activeCategory === "AFFIRM";
@@ -1006,9 +1041,11 @@ export default function GoalsVsAchievementPage() {
                     </div>
                   </SelectTrigger>
                   <SelectContent className="text-xs">
+                    <SelectItem value="2024">2024</SelectItem>
                     <SelectItem value="2025">2025</SelectItem>
                     <SelectItem value="2026">2026</SelectItem>
                     <SelectItem value="2027">2027</SelectItem>
+                    <SelectItem value="2028">2028</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1638,12 +1675,12 @@ export default function GoalsVsAchievementPage() {
 
                           {/* Daily Target */}
                           <td className="px-4 py-2.5 text-center font-mono font-bold text-xs border-r border-border text-zinc-800 dark:text-zinc-200">
-                            {dailyTgt.toLocaleString()}
+                            {formatRoundNumber(dailyTgt)}
                           </td>
 
                           {/* Daily Achieved */}
                           <td className="px-4 py-2.5 text-center font-mono font-bold text-xs border-r border-border text-zinc-900 dark:text-zinc-100">
-                            {dailyAct.toLocaleString()}
+                            {formatRoundNumber(dailyAct)}
                           </td>
 
                           {/* % To Target (Red <= 70, Yellow 71-99, Green >= 100) */}
@@ -1682,12 +1719,12 @@ export default function GoalsVsAchievementPage() {
 
                         {/* MTD Single Metric */}
                         <td className="px-3 py-2 text-center font-mono font-semibold text-zinc-900 dark:text-zinc-100 border-r border-border">
-                          {row.mtd.act}
+                          {formatRoundNumber(row.mtd.act)}
                         </td>
 
                         {/* FULL MTD Single Metric */}
                         <td className="px-3 py-2 text-center font-mono font-semibold text-zinc-900 dark:text-zinc-100 border-r border-border">
-                          {row.fullMtd.act}
+                          {formatRoundNumber(row.fullMtd.act)}
                         </td>
 
                         {/* Dynamic Days Single Metrics */}
@@ -1696,13 +1733,13 @@ export default function GoalsVsAchievementPage() {
                             key={dIdx}
                             className="px-3 py-2 text-center font-mono font-medium text-zinc-900 dark:text-zinc-100 border-r border-border"
                           >
-                            {day.act}
+                            {formatRoundNumber(day.act)}
                           </td>
                         ))}
 
                         {/* WEEKLY Single Metric */}
                         <td className="px-3 py-2 text-center font-mono font-bold text-zinc-950 dark:text-white">
-                          {row.weekly.act}
+                          {formatRoundNumber(row.weekly.act)}
                         </td>
                       </tr>
                     ))
@@ -1735,10 +1772,10 @@ export default function GoalsVsAchievementPage() {
 
                         {/* MTD Metrics */}
                         <td className="px-2 py-2 text-center font-mono text-zinc-700 dark:text-zinc-300">
-                          {row.mtd.tgt}
+                          {formatRoundNumber(row.mtd.tgt)}
                         </td>
                         <td className="px-2 py-2 text-center font-mono font-semibold text-zinc-900 dark:text-zinc-100">
-                          {row.mtd.act}
+                          {formatRoundNumber(row.mtd.act)}
                         </td>
                         <td className="px-2 py-2 text-center border-r border-border">
                           {renderThirdColumn(row.mtd.pct, isAffirm)}
@@ -1746,10 +1783,10 @@ export default function GoalsVsAchievementPage() {
 
                         {/* FULL MTD Metrics */}
                         <td className="px-2 py-2 text-center font-mono text-zinc-700 dark:text-zinc-300">
-                          {row.fullMtd.tgt}
+                          {formatRoundNumber(row.fullMtd.tgt)}
                         </td>
                         <td className="px-2 py-2 text-center font-mono font-semibold text-zinc-900 dark:text-zinc-100">
-                          {row.fullMtd.act}
+                          {formatRoundNumber(row.fullMtd.act)}
                         </td>
                         <td className="px-2 py-2 text-center border-r border-border">
                           {renderThirdColumn(row.fullMtd.pct, isAffirm)}
@@ -1759,10 +1796,10 @@ export default function GoalsVsAchievementPage() {
                         {row.days.map((day, dIdx) => (
                           <React.Fragment key={dIdx}>
                             <td className="px-2 py-2 text-center font-mono text-zinc-600 dark:text-zinc-400">
-                              {day.tgt}
+                              {formatRoundNumber(day.tgt)}
                             </td>
                             <td className="px-2 py-2 text-center font-mono font-medium text-zinc-900 dark:text-zinc-100">
-                              {day.act}
+                              {formatRoundNumber(day.act)}
                             </td>
                             <td className="px-2 py-2 text-center border-r border-border">
                               {renderThirdColumn(day.pct, isAffirm)}
@@ -1772,10 +1809,10 @@ export default function GoalsVsAchievementPage() {
 
                         {/* WEEKLY Summary Metrics */}
                         <td className="px-2 py-2 text-center font-mono font-bold text-zinc-900 dark:text-zinc-100">
-                          {row.weekly.tgt}
+                          {formatRoundNumber(row.weekly.tgt)}
                         </td>
                         <td className="px-2 py-2 text-center font-mono font-bold text-zinc-900 dark:text-zinc-100">
-                          {row.weekly.act}
+                          {formatRoundNumber(row.weekly.act)}
                         </td>
                         <td className="px-2 py-2 text-center">
                           {renderThirdColumn(row.weekly.pct, isAffirm)}
@@ -1801,10 +1838,10 @@ export default function GoalsVsAchievementPage() {
                           {activeDayDateFormatted}
                         </td>
                         <td className="px-4 py-3 text-center font-mono font-bold text-xs border-r border-border">
-                          {(totalRow.dayTotals[activeDayIdx]?.tgt ?? 0).toLocaleString()}
+                          {formatRoundNumber(totalRow.dayTotals[activeDayIdx]?.tgt ?? 0)}
                         </td>
                         <td className="px-4 py-3 text-center font-mono font-bold text-xs border-r border-border">
-                          {(totalRow.dayTotals[activeDayIdx]?.act ?? 0).toLocaleString()}
+                          {formatRoundNumber(totalRow.dayTotals[activeDayIdx]?.act ?? 0)}
                         </td>
                         <td className="px-4 py-3 text-center">
                           {renderTotalAchievementPctBadge(
@@ -1819,21 +1856,21 @@ export default function GoalsVsAchievementPage() {
                           TOTAL / AVERAGE
                         </td>
                         <td className="px-3 py-2 text-center font-mono font-bold border-r border-border">
-                          {totalRow.mtdAct}
+                          {formatRoundNumber(totalRow.mtdAct)}
                         </td>
                         <td className="px-3 py-2 text-center font-mono font-bold border-r border-border">
-                          {totalRow.fullMtdAct}
+                          {formatRoundNumber(totalRow.fullMtdAct)}
                         </td>
                         {totalRow.dayTotals.map((dt, dIdx) => (
                           <td
                             key={dIdx}
                             className="px-3 py-2 text-center font-mono font-bold border-r border-border"
                           >
-                            {dt.act}
+                            {formatRoundNumber(dt.act)}
                           </td>
                         ))}
                         <td className="px-3 py-2 text-center font-mono font-bold text-zinc-950 dark:text-white">
-                          {totalRow.weeklyAct}
+                          {formatRoundNumber(totalRow.weeklyAct)}
                         </td>
                       </tr>
                     ) : (
@@ -1844,15 +1881,23 @@ export default function GoalsVsAchievementPage() {
                         </td>
 
                         {/* MTD Total */}
-                        <td className="px-2 py-2 text-center font-mono">{totalRow.mtdTgt}</td>
-                        <td className="px-2 py-2 text-center font-mono">{totalRow.mtdAct}</td>
+                        <td className="px-2 py-2 text-center font-mono">
+                          {formatRoundNumber(totalRow.mtdTgt)}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono">
+                          {formatRoundNumber(totalRow.mtdAct)}
+                        </td>
                         <td className="px-2 py-2 text-center border-r border-border">
                           {renderThirdColumn(totalRow.mtdPct, isAffirm)}
                         </td>
 
                         {/* FULL MTD Total */}
-                        <td className="px-2 py-2 text-center font-mono">{totalRow.fullMtdTgt}</td>
-                        <td className="px-2 py-2 text-center font-mono">{totalRow.fullMtdAct}</td>
+                        <td className="px-2 py-2 text-center font-mono">
+                          {formatRoundNumber(totalRow.fullMtdTgt)}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono">
+                          {formatRoundNumber(totalRow.fullMtdAct)}
+                        </td>
                         <td className="px-2 py-2 text-center border-r border-border">
                           {renderThirdColumn(totalRow.fullMtdPct, isAffirm)}
                         </td>
@@ -1860,8 +1905,12 @@ export default function GoalsVsAchievementPage() {
                         {/* Dynamic Days Totals */}
                         {totalRow.dayTotals.map((dt, dIdx) => (
                           <React.Fragment key={dIdx}>
-                            <td className="px-2 py-2 text-center font-mono">{dt.tgt}</td>
-                            <td className="px-2 py-2 text-center font-mono">{dt.act}</td>
+                            <td className="px-2 py-2 text-center font-mono">
+                              {formatRoundNumber(dt.tgt)}
+                            </td>
+                            <td className="px-2 py-2 text-center font-mono">
+                              {formatRoundNumber(dt.act)}
+                            </td>
                             <td className="px-2 py-2 text-center border-r border-border">
                               {renderThirdColumn(dt.pct, isAffirm)}
                             </td>
@@ -1870,10 +1919,10 @@ export default function GoalsVsAchievementPage() {
 
                         {/* WEEKLY Total */}
                         <td className="px-2 py-2 text-center font-mono text-zinc-950 dark:text-white">
-                          {totalRow.weeklyTgt}
+                          {formatRoundNumber(totalRow.weeklyTgt)}
                         </td>
                         <td className="px-2 py-2 text-center font-mono text-zinc-950 dark:text-white">
-                          {totalRow.weeklyAct}
+                          {formatRoundNumber(totalRow.weeklyAct)}
                         </td>
                         <td className="px-2 py-2 text-center">
                           {renderThirdColumn(totalRow.weeklyPct, isAffirm)}
