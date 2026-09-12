@@ -42,8 +42,8 @@ import RulesPage from "@/pages/portals/ranker/RulesPage";
 import CriteriaDetailsPage from "@/pages/portals/ranker/CriteriaDetailsPage";
 
 // ---------- Leave Portal ---------- //
-import RequestLeavePage from "@/pages/portals/leave/RequestLeavePage";
-import ApproveLeavePage from "@/pages/portals/leave/ApproveLeavePage";
+import RequestLeavePage from "@/pages/portals/leave-management/RequestLeave";
+import ApproveLeavePage from "@/pages/portals/leave-management/ApproveLeave";
 
 // ---------- User manager ---------- //
 import UsersPage from "@/pages/user-manager/UsersPage";

@@ -64,7 +64,7 @@ export { ticketingService, TicketingService } from "./ticketing";
 export type { TicketQueryParams, CreateTicketPayload, UpdateTicketPayload } from "./ticketing";
 
 // Leave Management Portal
-export { leaveService, LeaveService } from "./leave";
+export { leaveService, LeaveService } from "./leave-management";
 export type {
   LeaveQueryParams,
   CreateLeaveRequestPayload,
@@ -72,4 +72,4 @@ export type {
   RejectLeavePayload,
   CancelLeavePayload,
   LeaveTypeOption,
-} from "./leave";
+} from "./leave-management";
