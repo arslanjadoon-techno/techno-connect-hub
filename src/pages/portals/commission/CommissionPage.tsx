@@ -322,30 +322,6 @@ export default function CommissionPage() {
     }
   }, [isManagerOrAdmin, fetchManagerCommissionData, fetchUserCommissionData]);
 
-  // Auto-sync selectedDate to the most recent record if selectedDate has no records in userRows
-  useEffect(() => {
-    if (userRows && userRows.length > 0) {
-      const [selYear, selMonth, selDay] = selectedDate.split("-").map(Number);
-      const hasMatch = userRows.some(
-        (r) => r.year === selYear && r.month === selMonth && r.day === selDay,
-      );
-      if (!hasMatch) {
-        // Find the latest recorded date
-        const sorted = [...userRows].sort((a, b) => {
-          const dtA = new Date(a.year ?? 2000, (a.month ?? 1) - 1, a.day ?? 1).getTime();
-          const dtB = new Date(b.year ?? 2000, (b.month ?? 1) - 1, b.day ?? 1).getTime();
-          return dtB - dtA;
-        });
-        const latest = sorted[0];
-        if (latest && latest.year && latest.month && latest.day) {
-          setSelectedDate(
-            `${latest.year}-${String(latest.month).padStart(2, "0")}-${String(latest.day).padStart(2, "0")}`,
-          );
-        }
-      }
-    }
-  }, [userRows, selectedDate]);
-
   // Handle filter changes (resets page to 1)
   const handleDateChange = (newDate: string) => {
     setSelectedDate(newDate);
@@ -371,7 +347,7 @@ export default function CommissionPage() {
     const match = userRows.find(
       (r) => r.year === selYear && r.month === selMonth && r.day === selDay,
     );
-    return match || userRows[0] || null;
+    return match || null;
   }, [userRows, selectedDate]);
 
   // Aggregated MTD Stats for single User
