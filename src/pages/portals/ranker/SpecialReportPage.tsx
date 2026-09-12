@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { ConfettiBackground } from "@/components/confetti-background";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,15 +13,22 @@ import {
   Search,
   RotateCcw,
   Store,
+  Calendar,
+  CalendarDays,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
   FileSpreadsheet,
   GitCompare,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
+import { rankerService } from "@/services/ranker";
+import type { GoalVsAchievementResponse } from "@/services/ranker/types";
 
-// Types
+// Tab types
 export type SpecialReportTab = "SUMMARY" | "DCS_VS_RTBDI";
 
 export interface MetricQuad {
@@ -39,263 +46,65 @@ export interface MetricQuint {
   diff: number;
 }
 
-export interface SpecialReportStoreRecord {
+export interface SummaryRowRecord {
   id: string;
   store: string;
   manager: string;
   market: string;
-  // Tab 1: Summary Columns
-  summary: {
-    fullMonth: MetricQuad;
-    mtd: MetricQuad;
-    voice: MetricQuad;
-    upgrade: MetricQuad;
-    bts: MetricQuad;
-    hsi: MetricQuad;
-    mim: MetricQuad;
-    acc: MetricQuad;
-  };
-  // Tab 2: DCS vs RTBDI Columns
-  dcsVsRt: {
-    fmtdAch: MetricQuint;
-    voice: MetricQuint;
-    bts: MetricQuint;
-    hsi: MetricQuint;
-    mim: MetricQuint;
-  };
+  fullMonth: MetricQuad;
+  mtd: MetricQuad;
+  voice: MetricQuad;
+  upgrade: MetricQuad;
+  bts: MetricQuad;
+  hsi: MetricQuad;
+  mim: MetricQuad;
+  acc: MetricQuad;
 }
 
-const MARKETS = ["ARIZONA", "TEXAS", "FLORIDA", "CALIFORNIA", "NEVADA", "NEW YORK"];
+export interface DcsRowRecord {
+  id: string;
+  store: string;
+  manager: string;
+  market: string;
+  fmtdAch: MetricQuint;
+  voice: MetricQuint;
+  bts: MetricQuint;
+  hsi: MetricQuint;
+  mim: MetricQuint;
+}
 
-const MONTH_NAMES = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
+const DEFAULT_MARKETS = ["ARIZONA", "TEXAS", "FLORIDA", "CALIFORNIA", "NEVADA", "NEW YORK"];
+
+const MONTH_OPTIONS = [
+  { name: "January", value: 1 },
+  { name: "February", value: 2 },
+  { name: "March", value: 3 },
+  { name: "April", value: 4 },
+  { name: "May", value: 5 },
+  { name: "June", value: 6 },
+  { name: "July", value: 7 },
+  { name: "August", value: 8 },
+  { name: "September", value: 9 },
+  { name: "October", value: 10 },
+  { name: "November", value: 11 },
+  { name: "December", value: 12 },
 ];
 
-// Base Store Catalog with manager & market associations
-const STORE_CATALOG = [
-  { id: "az-1", store: "N ARIZONA AVE", manager: "ALI KHAN", market: "ARIZONA", baseVol: 1.15 },
-  {
-    id: "az-2",
-    store: "3202 E GREENWAY RD",
-    manager: "ALI KHAN",
-    market: "ARIZONA",
-    baseVol: 0.75,
-  },
-  { id: "az-3", store: "W VAN BUREN ST", manager: "ALI KHAN", market: "ARIZONA", baseVol: 1.85 },
-  {
-    id: "az-4",
-    store: "6430 W GLENDALE AVE",
-    manager: "ALI KHAN",
-    market: "ARIZONA",
-    baseVol: 0.88,
-  },
-  { id: "az-5", store: "N 75TH AVE", manager: "ALI KHAN", market: "ARIZONA", baseVol: 1.2 },
-  {
-    id: "az-6",
-    store: "8129 NORTH 35TH AVENUE",
-    manager: "ALI KHAN",
-    market: "ARIZONA",
-    baseVol: 0.65,
-  },
-  {
-    id: "az-7",
-    store: "SCOTTSDALE PAVILIONS",
-    manager: "SARAH JENKINS",
-    market: "ARIZONA",
-    baseVol: 1.45,
-  },
-  {
-    id: "az-8",
-    store: "CAMELBACK COLONNADE",
-    manager: "MARCUS VANCE",
-    market: "ARIZONA",
-    baseVol: 1.05,
-  },
-  {
-    id: "tx-1",
-    store: "WESTHEIMER RD GALLERIA",
-    manager: "DAVID MARTINEZ",
-    market: "TEXAS",
-    baseVol: 1.5,
-  },
-  {
-    id: "tx-2",
-    store: "DALLAS MAIN ST DOWNTOWN",
-    manager: "CARLOS REYES",
-    market: "TEXAS",
-    baseVol: 1.25,
-  },
-  {
-    id: "tx-3",
-    store: "ARGYLE SQUARE AUSTIN",
-    manager: "JESSICA TAYLOR",
-    market: "TEXAS",
-    baseVol: 0.95,
-  },
-  {
-    id: "fl-1",
-    store: "BRICKELL FINANCIAL MIAMI",
-    manager: "ELENA ROSTOVA",
-    market: "FLORIDA",
-    baseVol: 1.6,
-  },
-  {
-    id: "fl-2",
-    store: "ORLANDO MILLENIA MALL",
-    manager: "MARIO MORENO",
-    market: "FLORIDA",
-    baseVol: 1.1,
-  },
-  {
-    id: "ca-1",
-    store: "SUNSET BLVD LOS ANGELES",
-    manager: "KENJI SATO",
-    market: "CALIFORNIA",
-    baseVol: 1.7,
-  },
-  {
-    id: "ca-2",
-    store: "MARKET ST SAN FRANCISCO",
-    manager: "RACHEL WEISS",
-    market: "CALIFORNIA",
-    baseVol: 1.35,
-  },
-  {
-    id: "nv-1",
-    store: "LAS VEGAS STRIP PAVILION",
-    manager: "BRAD HARMON",
-    market: "NEVADA",
-    baseVol: 1.65,
-  },
-  {
-    id: "ny-1",
-    store: "TIMES SQUARE 42ND ST",
-    manager: "MICHAEL BROOKS",
-    market: "NEW YORK",
-    baseVol: 1.9,
-  },
-  {
-    id: "ny-2",
-    store: "BROOKLYN FLATBUSH AVE",
-    manager: "TARIQ AHMAD",
-    market: "NEW YORK",
-    baseVol: 1.0,
-  },
-];
-
-function buildQuad(tgt: number, act: number): MetricQuad {
-  const diff = act - tgt;
-  const pct = tgt > 0 ? Math.round((act / tgt) * 100) : 0;
-  return { tgt, act, diff, pct };
+function buildQuad(tgt?: number, act?: number): MetricQuad {
+  const roundTgt = Math.round(Number(tgt) || 0);
+  const roundAct = Math.round(Number(act) || 0);
+  const diff = roundAct - roundTgt;
+  const pct = roundTgt > 0 ? Math.round((roundAct / roundTgt) * 100) : 0;
+  return { tgt: roundTgt, act: roundAct, diff, pct };
 }
 
-function buildQuint(tgt: number, dcs: number, rtDiscrepancy: number): MetricQuint {
-  const pct = tgt > 0 ? Math.round((dcs / tgt) * 100) : 0;
-  const rt = Math.max(0, dcs + rtDiscrepancy);
-  const diff = dcs - rt;
-  return { tgt, dcs, pct, rt, diff };
-}
-
-// Generate realistic data for all stores based on year and month
-function generateSpecialReportData(
-  yearStr: string = "2026",
-  monthStr: string = "September",
-): SpecialReportStoreRecord[] {
-  const year = parseInt(yearStr, 10) || 2026;
-  const monthIdx = MONTH_NAMES.indexOf(monthStr);
-  const mIdx = monthIdx >= 0 ? monthIdx : 8;
-
-  // Realistic performance variation multipliers
-  const performanceProfiles = [
-    { name: "high", factor: 1.18, dcsRtDrift: 1 },
-    { name: "mid", factor: 0.92, dcsRtDrift: -2 },
-    { name: "stellar", factor: 1.42, dcsRtDrift: 0 },
-    { name: "struggling", factor: 0.62, dcsRtDrift: 3 },
-    { name: "onTarget", factor: 1.02, dcsRtDrift: -1 },
-    { name: "low", factor: 0.58, dcsRtDrift: 0 },
-  ];
-
-  return STORE_CATALOG.map((st, idx) => {
-    const prof = performanceProfiles[(idx + mIdx + (year % 5)) % performanceProfiles.length];
-    const vol = st.baseVol;
-
-    // Target scales for each metric
-    const fullMonthTgt = Math.round(2800 * vol);
-    const fullMonthAct = Math.round(fullMonthTgt * prof.factor);
-
-    const mtdTgt = Math.round(950 * vol);
-    const mtdAct = Math.round(mtdTgt * prof.factor);
-
-    const voiceTgt = Math.round(180 * vol);
-    const voiceAct = Math.round(voiceTgt * (prof.factor + ((idx % 3) - 1) * 0.08));
-
-    const upgradeTgt = Math.round(130 * vol);
-    const upgradeAct = Math.round(upgradeTgt * (prof.factor - (idx % 2 === 0 ? 0.05 : -0.06)));
-
-    const btsTgt = Math.round(90 * vol);
-    const btsAct = Math.round(btsTgt * (prof.factor + ((idx % 4) - 2) * 0.06));
-
-    const hsiTgt = Math.round(55 * vol);
-    const hsiAct = Math.round(hsiTgt * (prof.factor + (idx % 3 === 0 ? 0.12 : -0.1)));
-
-    const mimTgt = Math.round(40 * vol);
-    const mimAct = Math.round(mimTgt * (prof.factor + (idx % 2 === 1 ? 0.15 : -0.08)));
-
-    const accTgt = Math.round(1250 * vol);
-    const accAct = Math.round(accTgt * (prof.factor + 0.04));
-
-    // DCS vs RTBDI metrics
-    const fmtdTgt = Math.round(2400 * vol);
-    const fmtdDcs = Math.round(fmtdTgt * prof.factor);
-    const fmtdRtDrift = prof.dcsRtDrift * 3;
-
-    const voiceDcs = Math.round(voiceTgt * prof.factor);
-    const voiceRtDrift = prof.dcsRtDrift;
-
-    const btsDcs = Math.round(btsTgt * (prof.factor + 0.02));
-    const btsRtDrift = (idx % 3) - 1;
-
-    const hsiDcs = Math.round(hsiTgt * (prof.factor - 0.03));
-    const hsiRtDrift = idx % 2 === 0 ? 1 : 0;
-
-    const mimDcs = Math.round(mimTgt * (prof.factor + 0.05));
-    const mimRtDrift = idx % 3 === 0 ? -1 : 0;
-
-    return {
-      id: st.id,
-      store: st.store,
-      manager: st.manager,
-      market: st.market,
-      summary: {
-        fullMonth: buildQuad(fullMonthTgt, fullMonthAct),
-        mtd: buildQuad(mtdTgt, mtdAct),
-        voice: buildQuad(voiceTgt, voiceAct),
-        upgrade: buildQuad(upgradeTgt, upgradeAct),
-        bts: buildQuad(btsTgt, btsAct),
-        hsi: buildQuad(hsiTgt, hsiAct),
-        mim: buildQuad(mimTgt, mimAct),
-        acc: buildQuad(accTgt, accAct),
-      },
-      dcsVsRt: {
-        fmtdAch: buildQuint(fmtdTgt, fmtdDcs, fmtdRtDrift),
-        voice: buildQuint(voiceTgt, voiceDcs, voiceRtDrift),
-        bts: buildQuint(btsTgt, btsDcs, btsRtDrift),
-        hsi: buildQuint(hsiTgt, hsiDcs, hsiRtDrift),
-        mim: buildQuint(mimTgt, mimDcs, mimRtDrift),
-      },
-    };
-  });
+function buildQuint(tgt?: number, dcs?: number, rt?: number): MetricQuint {
+  const roundTgt = Math.round(Number(tgt) || 0);
+  const roundDcs = Math.round(Number(dcs) || 0);
+  const roundRt = Math.round(Number(rt) || 0);
+  const pct = roundTgt > 0 ? Math.round((roundDcs / roundTgt) * 100) : 0;
+  const diff = roundDcs - roundRt;
+  return { tgt: roundTgt, dcs: roundDcs, pct, rt: roundRt, diff };
 }
 
 // Percentage Badge Component following the strict Red, Yellow, Green color rule:
@@ -303,11 +112,12 @@ function generateSpecialReportData(
 // 71% - 99% : Yellow
 // >= 100% : Green
 function renderPctBadge(pct: number) {
+  const roundedPct = Math.round(pct);
   let badgeClass = "";
-  if (pct <= 70) {
+  if (roundedPct <= 70) {
     badgeClass =
       "bg-[#fee2e2] text-[#991b1b] border border-[#fca5a5] dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800";
-  } else if (pct < 100) {
+  } else if (roundedPct < 100) {
     badgeClass =
       "bg-[#fef9c3] text-[#854d0e] border border-[#fde047] dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800";
   } else {
@@ -317,50 +127,173 @@ function renderPctBadge(pct: number) {
 
   return (
     <span
-      className={`inline-flex items-center justify-center font-extrabold px-2.5 py-0.5 rounded-lg text-xs min-w-[50px] shadow-2xs ${badgeClass}`}
+      className={`inline-flex items-center justify-center font-extrabold px-2 py-0.5 rounded-lg text-xs min-w-[48px] shadow-2xs ${badgeClass}`}
     >
-      {pct}%
+      {roundedPct}%
     </span>
   );
 }
 
-// Formatter for differences (+ / - / 0)
+// Formatter for integer differences (+ / - / 0) with no decimals
 function renderDiff(diff: number) {
-  if (diff > 0) {
+  const roundedDiff = Math.round(diff);
+  if (roundedDiff > 0) {
     return (
-      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">+{diff}</span>
+      <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+        +{roundedDiff.toLocaleString()}
+      </span>
     );
   }
-  if (diff < 0) {
-    return <span className="font-mono font-bold text-rose-600 dark:text-rose-400">{diff}</span>;
+  if (roundedDiff < 0) {
+    return (
+      <span className="font-mono font-bold text-rose-600 dark:text-rose-400">
+        {roundedDiff.toLocaleString()}
+      </span>
+    );
   }
   return <span className="font-mono text-muted-foreground font-semibold">0</span>;
 }
 
 export default function SpecialReportPage() {
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth() + 1; // 1-indexed
+
+  // Filter year options: 2 years behind, current year, 2 years ahead
+  const yearOptions = useMemo(() => {
+    return [currentYear - 2, currentYear - 1, currentYear, currentYear + 1, currentYear + 2].map(
+      String,
+    );
+  }, [currentYear]);
+
+  // Tab & Filters state
   const [activeTab, setActiveTab] = useState<SpecialReportTab>("SUMMARY");
-  const [selectedMarket, setSelectedMarket] = useState<string>(MARKETS[0]);
+  const [selectedMarket, setSelectedMarket] = useState<string>("ARIZONA");
+  const [selectedYear, setSelectedYear] = useState<string>(String(currentYear));
+  const [selectedMonth, setSelectedMonth] = useState<number>(currentMonth);
   const [searchQuery, setSearchQuery] = useState<string>("");
+
+  // Market options state
+  const [markets, setMarkets] = useState<string[]>(DEFAULT_MARKETS);
+  const [isLoadingMarkets, setIsLoadingMarkets] = useState<boolean>(false);
+
+  // API response state
+  const [apiData, setApiData] = useState<GoalVsAchievementResponse | null>(null);
+  const [isLoadingData, setIsLoadingData] = useState<boolean>(true);
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState<number>(0);
 
   // Sorting state
   const [sortCol, setSortCol] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
-  // Raw dataset
-  const rawData = useMemo(() => {
-    return generateSpecialReportData();
+  // Load Markets from API
+  useEffect(() => {
+    let isMounted = true;
+    async function loadMarkets() {
+      try {
+        setIsLoadingMarkets(true);
+        const list = await rankerService.getMarketList();
+        if (isMounted && list && list.length > 0) {
+          setMarkets(list);
+          setSelectedMarket((current) => {
+            if (!list.includes(current)) {
+              return list.includes("ARIZONA") ? "ARIZONA" : list[0];
+            }
+            return current;
+          });
+        }
+      } catch (err: any) {
+        console.error("Failed to load market list:", err);
+      } finally {
+        if (isMounted) setIsLoadingMarkets(false);
+      }
+    }
+    loadMarkets();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Filtered dataset
-  const filteredData = useMemo(() => {
-    let list = rawData;
+  // Fetch live Goal vs Achievement data from API
+  useEffect(() => {
+    if (!selectedMarket) return;
+    let isMounted = true;
 
-    // Filter by market
-    if (selectedMarket) {
-      list = list.filter((r) => r.market.toUpperCase() === selectedMarket.toUpperCase());
+    async function loadSpecialReportData() {
+      try {
+        setIsLoadingData(true);
+        setDataError(null);
+
+        const res = await rankerService.getGoalVsAchievement({
+          market: selectedMarket,
+          year: selectedYear,
+          month: selectedMonth,
+          dayfrom: 0,
+          dayto: 31,
+        });
+
+        if (isMounted) {
+          setApiData(res);
+        }
+      } catch (err: any) {
+        console.error("Failed to load special report data:", err);
+        if (isMounted) {
+          setDataError(err?.message || "Failed to load data from server");
+          toast.error("Failed to fetch special report data from server");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingData(false);
+        }
+      }
     }
 
-    // Filter by search query (store or manager)
+    loadSpecialReportData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedMarket, selectedYear, selectedMonth, refreshKey]);
+
+  // Tab 1: Summary List mapped from API
+  const summaryRows: SummaryRowRecord[] = useMemo(() => {
+    if (!apiData?.Summary || !Array.isArray(apiData.Summary)) return [];
+    return apiData.Summary.map((s, idx) => ({
+      id: s.tid ? String(s.tid) : `${s.storeName}-${idx}`,
+      store: s.storeName || "N/A",
+      manager: s.districtManager || "N/A",
+      market: s.market || selectedMarket,
+      fullMonth: buildQuad(s.full_Month_Target, s.full_Month_Achieved),
+      mtd: buildQuad(s.mtD_Target, s.mtD_Achieved),
+      voice: buildQuad(s.voicE_Target, s.voicE_Achieved),
+      upgrade: buildQuad(s.upgrade_Target, s.upgrade_Achieved),
+      bts: buildQuad(s.btS_Target, s.btS_Achieved),
+      hsi: buildQuad(s.hsI_Target, s.hsI_Achieved),
+      mim: buildQuad(s.miM_Target, s.miM_Achieved),
+      acc: buildQuad(s.acC_Target, s.acC_Achieved),
+    }));
+  }, [apiData, selectedMarket]);
+
+  // Tab 2: DCS vs RTBDI List mapped from API
+  const dcsRows: DcsRowRecord[] = useMemo(() => {
+    if (!apiData?.DCS_VS_RTBDI || !Array.isArray(apiData.DCS_VS_RTBDI)) return [];
+    return apiData.DCS_VS_RTBDI.map((d, idx) => ({
+      id: d.tid ? String(d.tid) : `${d.storeName}-${idx}`,
+      store: d.storeName || "N/A",
+      manager: d.market_Manager || "N/A",
+      market: d.market || selectedMarket,
+      fmtdAch: buildQuint(d.total_Targets_FMTD, d.dcS_ACHIEVED_FMTD, d.rT_ACHIEVED_FMTD),
+      voice: buildQuint(d.total_Targets_Voice, d.dcS_ACHIEVED_Voice, d.rT_ACHIEVED_Voice),
+      bts: buildQuint(d.total_Targets_BTS, d.dcS_ACHIEVED_BTS, d.rT_ACHIEVED_BTS),
+      hsi: buildQuint(d.total_Targets_HSI, d.dcS_ACHIEVED_HSI, d.rT_ACHIEVED_HSI),
+      mim: buildQuint(d.total_Targets_MIM, d.dcS_ACHIEVED_MIM, d.rT_ACHIEVED_MIM),
+    }));
+  }, [apiData, selectedMarket]);
+
+  // Filtered & Sorted Tab 1 Summary Data
+  const filteredSummaryData = useMemo(() => {
+    let list = summaryRows;
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(
@@ -371,7 +304,6 @@ export default function SpecialReportPage() {
       );
     }
 
-    // Sorting
     if (sortCol) {
       list = [...list].sort((a, b) => {
         if (sortCol === "store") {
@@ -384,141 +316,86 @@ export default function SpecialReportPage() {
             ? a.manager.localeCompare(b.manager)
             : b.manager.localeCompare(a.manager);
         }
-        if (sortCol === "market") {
-          return sortDir === "asc"
-            ? a.market.localeCompare(b.market)
-            : b.market.localeCompare(a.market);
-        }
-
-        // Summary Tab Sorts
         if (sortCol === "fullMonthPct") {
           return sortDir === "asc"
-            ? a.summary.fullMonth.pct - b.summary.fullMonth.pct
-            : b.summary.fullMonth.pct - a.summary.fullMonth.pct;
+            ? a.fullMonth.pct - b.fullMonth.pct
+            : b.fullMonth.pct - a.fullMonth.pct;
         }
         if (sortCol === "mtdPct") {
-          return sortDir === "asc"
-            ? a.summary.mtd.pct - b.summary.mtd.pct
-            : b.summary.mtd.pct - a.summary.mtd.pct;
+          return sortDir === "asc" ? a.mtd.pct - b.mtd.pct : b.mtd.pct - a.mtd.pct;
         }
         if (sortCol === "voicePct") {
-          return sortDir === "asc"
-            ? a.summary.voice.pct - b.summary.voice.pct
-            : b.summary.voice.pct - a.summary.voice.pct;
+          return sortDir === "asc" ? a.voice.pct - b.voice.pct : b.voice.pct - a.voice.pct;
         }
         if (sortCol === "upgradePct") {
-          return sortDir === "asc"
-            ? a.summary.upgrade.pct - b.summary.upgrade.pct
-            : b.summary.upgrade.pct - a.summary.upgrade.pct;
+          return sortDir === "asc" ? a.upgrade.pct - b.upgrade.pct : b.upgrade.pct - a.upgrade.pct;
         }
         if (sortCol === "btsPct") {
-          return sortDir === "asc"
-            ? a.summary.bts.pct - b.summary.bts.pct
-            : b.summary.bts.pct - a.summary.bts.pct;
+          return sortDir === "asc" ? a.bts.pct - b.bts.pct : b.bts.pct - a.bts.pct;
         }
         if (sortCol === "hsiPct") {
-          return sortDir === "asc"
-            ? a.summary.hsi.pct - b.summary.hsi.pct
-            : b.summary.hsi.pct - a.summary.hsi.pct;
+          return sortDir === "asc" ? a.hsi.pct - b.hsi.pct : b.hsi.pct - a.hsi.pct;
         }
         if (sortCol === "mimPct") {
-          return sortDir === "asc"
-            ? a.summary.mim.pct - b.summary.mim.pct
-            : b.summary.mim.pct - a.summary.mim.pct;
+          return sortDir === "asc" ? a.mim.pct - b.mim.pct : b.mim.pct - a.mim.pct;
         }
         if (sortCol === "accPct") {
-          return sortDir === "asc"
-            ? a.summary.acc.pct - b.summary.acc.pct
-            : b.summary.acc.pct - a.summary.acc.pct;
+          return sortDir === "asc" ? a.acc.pct - b.acc.pct : b.acc.pct - a.acc.pct;
         }
-
-        // DCS vs RTBDI Sorts
-        if (sortCol === "dcsFmtdPct") {
-          return sortDir === "asc"
-            ? a.dcsVsRt.fmtdAch.pct - b.dcsVsRt.fmtdAch.pct
-            : b.dcsVsRt.fmtdAch.pct - a.dcsVsRt.fmtdAch.pct;
-        }
-        if (sortCol === "dcsVoicePct") {
-          return sortDir === "asc"
-            ? a.dcsVsRt.voice.pct - b.dcsVsRt.voice.pct
-            : b.dcsVsRt.voice.pct - a.dcsVsRt.voice.pct;
-        }
-        if (sortCol === "dcsBtsPct") {
-          return sortDir === "asc"
-            ? a.dcsVsRt.bts.pct - b.dcsVsRt.bts.pct
-            : b.dcsVsRt.bts.pct - a.dcsVsRt.bts.pct;
-        }
-        if (sortCol === "dcsHsiPct") {
-          return sortDir === "asc"
-            ? a.dcsVsRt.hsi.pct - b.dcsVsRt.hsi.pct
-            : b.dcsVsRt.hsi.pct - a.dcsVsRt.hsi.pct;
-        }
-        if (sortCol === "dcsMimPct") {
-          return sortDir === "asc"
-            ? a.dcsVsRt.mim.pct - b.dcsVsRt.mim.pct
-            : b.dcsVsRt.mim.pct - a.dcsVsRt.mim.pct;
-        }
-
         return 0;
       });
     }
 
     return list;
-  }, [rawData, selectedMarket, searchQuery, sortCol, sortDir]);
+  }, [summaryRows, searchQuery, sortCol, sortDir]);
 
-  // Aggregates for Total / Average row
-  const summaryTotals = useMemo(() => {
-    if (filteredData.length === 0) return null;
+  // Filtered & Sorted Tab 2 DCS Data
+  const filteredDcsData = useMemo(() => {
+    let list = dcsRows;
 
-    const sumQuad = (key: keyof SpecialReportStoreRecord["summary"]): MetricQuad => {
-      let tgt = 0;
-      let act = 0;
-      filteredData.forEach((row) => {
-        tgt += row.summary[key].tgt;
-        act += row.summary[key].act;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      list = list.filter(
+        (r) =>
+          r.store.toLowerCase().includes(q) ||
+          r.manager.toLowerCase().includes(q) ||
+          r.market.toLowerCase().includes(q),
+      );
+    }
+
+    if (sortCol) {
+      list = [...list].sort((a, b) => {
+        if (sortCol === "store") {
+          return sortDir === "asc"
+            ? a.store.localeCompare(b.store)
+            : b.store.localeCompare(a.store);
+        }
+        if (sortCol === "manager") {
+          return sortDir === "asc"
+            ? a.manager.localeCompare(b.manager)
+            : b.manager.localeCompare(a.manager);
+        }
+        if (sortCol === "dcsFmtdPct") {
+          return sortDir === "asc" ? a.fmtdAch.pct - b.fmtdAch.pct : b.fmtdAch.pct - a.fmtdAch.pct;
+        }
+        if (sortCol === "dcsVoicePct") {
+          return sortDir === "asc" ? a.voice.pct - b.voice.pct : b.voice.pct - a.voice.pct;
+        }
+        if (sortCol === "dcsBtsPct") {
+          return sortDir === "asc" ? a.bts.pct - b.bts.pct : b.bts.pct - a.bts.pct;
+        }
+        if (sortCol === "dcsHsiPct") {
+          return sortDir === "asc" ? a.hsi.pct - b.hsi.pct : b.hsi.pct - a.hsi.pct;
+        }
+        if (sortCol === "dcsMimPct") {
+          return sortDir === "asc" ? a.mim.pct - b.mim.pct : b.mim.pct - a.mim.pct;
+        }
+        return 0;
       });
-      const diff = act - tgt;
-      const pct = tgt > 0 ? Math.round((act / tgt) * 100) : 0;
-      return { tgt, act, diff, pct };
-    };
+    }
 
-    return {
-      fullMonth: sumQuad("fullMonth"),
-      mtd: sumQuad("mtd"),
-      voice: sumQuad("voice"),
-      upgrade: sumQuad("upgrade"),
-      bts: sumQuad("bts"),
-      hsi: sumQuad("hsi"),
-      mim: sumQuad("mim"),
-      acc: sumQuad("acc"),
-    };
-  }, [filteredData]);
-
-  const dcsVsRtTotals = useMemo(() => {
-    if (filteredData.length === 0) return null;
-
-    const sumQuint = (key: keyof SpecialReportStoreRecord["dcsVsRt"]): MetricQuint => {
-      let tgt = 0;
-      let dcs = 0;
-      let rt = 0;
-      filteredData.forEach((row) => {
-        tgt += row.dcsVsRt[key].tgt;
-        dcs += row.dcsVsRt[key].dcs;
-        rt += row.dcsVsRt[key].rt;
-      });
-      const pct = tgt > 0 ? Math.round((dcs / tgt) * 100) : 0;
-      const diff = dcs - rt;
-      return { tgt, dcs, pct, rt, diff };
-    };
-
-    return {
-      fmtdAch: sumQuint("fmtdAch"),
-      voice: sumQuint("voice"),
-      bts: sumQuint("bts"),
-      hsi: sumQuint("hsi"),
-      mim: sumQuint("mim"),
-    };
-  }, [filteredData]);
+    return list;
+  }, [dcsRows, searchQuery, sortCol, sortDir]);
 
   const handleSort = (col: string) => {
     if (sortCol !== col) {
@@ -535,12 +412,19 @@ export default function SpecialReportPage() {
   };
 
   const handleResetFilters = () => {
-    setSelectedMarket(MARKETS[0]);
+    const currentY = new Date().getFullYear();
+    const currentM = new Date().getMonth() + 1;
+    setSelectedMarket(markets.includes("ARIZONA") ? "ARIZONA" : markets[0] || "ARIZONA");
+    setSelectedYear(String(currentY));
+    setSelectedMonth(currentM);
     setSearchQuery("");
     setSortCol(null);
     setSortDir("desc");
     toast.info("Filters reset to default");
   };
+
+  const selectedMonthObj = MONTH_OPTIONS.find((m) => m.value === selectedMonth);
+  const selectedMonthName = selectedMonthObj ? selectedMonthObj.name : "May";
 
   return (
     <ConfettiBackground>
@@ -561,7 +445,7 @@ export default function SpecialReportPage() {
                     SPECIAL REPORT
                   </h1>
                   <p className="text-xs font-semibold tracking-widest text-amber-400/95 uppercase">
-                    MARKET: {selectedMarket}
+                    MARKET: {selectedMarket} • {selectedMonthName.toUpperCase()} {selectedYear}
                   </p>
                 </div>
               </div>
@@ -570,8 +454,15 @@ export default function SpecialReportPage() {
             {/* Filter Controls Row */}
             <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
               {/* Market Dropdown */}
-              <div className="w-44 sm:w-48">
-                <Select value={selectedMarket} onValueChange={setSelectedMarket}>
+              <div className="w-36 sm:w-44">
+                <Select
+                  value={selectedMarket}
+                  onValueChange={(val) => {
+                    setSelectedMarket(val);
+                    setSortCol(null);
+                  }}
+                  disabled={isLoadingMarkets}
+                >
                   <SelectTrigger
                     id="market-select"
                     className="bg-white text-zinc-900 font-bold text-xs h-9 border-0 shadow-sm focus:ring-amber-400"
@@ -582,7 +473,7 @@ export default function SpecialReportPage() {
                     </div>
                   </SelectTrigger>
                   <SelectContent className="text-xs">
-                    {MARKETS.map((m) => (
+                    {markets.map((m) => (
                       <SelectItem key={m} value={m}>
                         {m}
                       </SelectItem>
@@ -591,8 +482,64 @@ export default function SpecialReportPage() {
                 </Select>
               </div>
 
-              {/* Search Store Name Input */}
-              <div className="relative w-52 sm:w-64">
+              {/* Year Dropdown (Current -2 to +2 years) */}
+              <div className="w-28 sm:w-32">
+                <Select
+                  value={selectedYear}
+                  onValueChange={(val) => {
+                    setSelectedYear(val);
+                    setSortCol(null);
+                  }}
+                >
+                  <SelectTrigger
+                    id="year-select"
+                    className="bg-white text-zinc-900 font-bold text-xs h-9 border-0 shadow-sm focus:ring-amber-400"
+                  >
+                    <div className="flex items-center gap-1.5 truncate">
+                      <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <SelectValue placeholder="Year" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent className="text-xs">
+                    {yearOptions.map((yr) => (
+                      <SelectItem key={yr} value={yr}>
+                        {yr}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Month Dropdown (Static 12 Months) */}
+              <div className="w-32 sm:w-36">
+                <Select
+                  value={String(selectedMonth)}
+                  onValueChange={(val) => {
+                    setSelectedMonth(Number(val));
+                    setSortCol(null);
+                  }}
+                >
+                  <SelectTrigger
+                    id="month-select"
+                    className="bg-white text-zinc-900 font-bold text-xs h-9 border-0 shadow-sm focus:ring-amber-400"
+                  >
+                    <div className="flex items-center gap-1.5 truncate">
+                      <CalendarDays className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <SelectValue placeholder="Month" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent className="text-xs">
+                    {MONTH_OPTIONS.map((mo) => (
+                      <SelectItem key={mo.value} value={String(mo.value)}>
+                        {mo.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Search Store Name / Manager Input */}
+              <div className="relative w-44 sm:w-56">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
                 <Input
                   id="store-search-input"
@@ -603,6 +550,21 @@ export default function SpecialReportPage() {
                   className="bg-white text-zinc-900 placeholder:text-zinc-400 pl-8 h-9 text-xs font-medium border-0 shadow-sm focus-visible:ring-amber-400"
                 />
               </div>
+
+              {/* Refresh Button */}
+              <Button
+                id="refresh-data-btn"
+                variant="outline"
+                size="sm"
+                onClick={() => setRefreshKey((k) => k + 1)}
+                disabled={isLoadingData}
+                className="h-9 px-2.5 text-xs bg-zinc-800/80 border-zinc-700 text-zinc-200 hover:bg-zinc-700 hover:text-white"
+                title="Refresh Data"
+              >
+                <RefreshCw
+                  className={`w-3.5 h-3.5 ${isLoadingData ? "animate-spin text-amber-400" : ""}`}
+                />
+              </Button>
 
               {/* Reset Button */}
               <Button
@@ -638,6 +600,17 @@ export default function SpecialReportPage() {
               className={`w-4 h-4 ${activeTab === "SUMMARY" ? "text-zinc-950" : "text-amber-500"}`}
             />
             <span>SUMMARY</span>
+            {summaryRows.length > 0 && (
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                  activeTab === "SUMMARY"
+                    ? "bg-zinc-950/20 text-zinc-950"
+                    : "bg-amber-400/20 text-amber-600 dark:text-amber-400"
+                }`}
+              >
+                {filteredSummaryData.length}
+              </span>
+            )}
           </button>
 
           {/* Tab 2: DCS vs RTBDI */}
@@ -657,12 +630,41 @@ export default function SpecialReportPage() {
               className={`w-4 h-4 ${activeTab === "DCS_VS_RTBDI" ? "text-zinc-950" : "text-amber-500"}`}
             />
             <span>DCS VS RTBDI</span>
+            {dcsRows.length > 0 && (
+              <span
+                className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                  activeTab === "DCS_VS_RTBDI"
+                    ? "bg-zinc-950/20 text-zinc-950"
+                    : "bg-amber-400/20 text-amber-600 dark:text-amber-400"
+                }`}
+              >
+                {filteredDcsData.length}
+              </span>
+            )}
           </button>
         </div>
 
-        {/* Main Data Table */}
-        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden isolate relative z-0">
-          <div className="overflow-x-auto max-w-full">
+        {/* Error Alert if any */}
+        {dataError && (
+          <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive flex items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{dataError}</span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setRefreshKey((k) => k + 1)}
+              className="h-7 text-xs border-destructive/30 hover:bg-destructive/20 text-destructive"
+            >
+              Retry
+            </Button>
+          </div>
+        )}
+
+        {/* Data Table Container */}
+        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+          <div className="overflow-x-auto max-h-[750px] relative scrollbar-thin scrollbar-thumb-zinc-400 dark:scrollbar-thumb-zinc-700">
             <table className="w-full text-xs border-collapse">
               {/* TAB 1: SUMMARY TABLE HEADERS */}
               {activeTab === "SUMMARY" ? (
@@ -997,150 +999,195 @@ export default function SpecialReportPage() {
               )}
 
               {/* TABLE BODY */}
-              <tbody>
-                {filteredData.length === 0 ? (
+              <tbody className="divide-y divide-border">
+                {isLoadingData ? (
                   <tr>
                     <td
                       colSpan={activeTab === "SUMMARY" ? 33 : 26}
-                      className="py-12 text-center text-muted-foreground"
+                      className="py-20 text-center text-muted-foreground"
                     >
-                      No stores found matching your query "{searchQuery}".
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <Loader2 className="w-7 h-7 animate-spin text-amber-500" />
+                        <p className="text-sm font-medium">
+                          Loading Special Report for {selectedMarket}...
+                        </p>
+                      </div>
                     </td>
                   </tr>
                 ) : activeTab === "SUMMARY" ? (
-                  /* TAB 1: SUMMARY DATA ROWS */
-                  filteredData.map((row, index) => (
-                    <tr
-                      key={row.id}
-                      className={`group transition-colors ${
-                        index % 2 === 1
-                          ? "bg-zinc-50/80 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                          : "bg-white dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                      }`}
-                    >
-                      {/* Sticky Store & Manager Cell */}
-                      <td
-                        className={`sticky left-0 z-10 px-4 py-2.5 border-r border-border whitespace-nowrap shadow-[2px_0_5px_-2px_rgba(0,0,0,0.12)] transition-colors ${
-                          index % 2 === 1
-                            ? "bg-zinc-50 dark:bg-zinc-900 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800"
-                            : "bg-white dark:bg-zinc-950 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800"
-                        }`}
-                      >
-                        <div className="font-bold text-foreground text-xs tracking-tight uppercase">
-                          {row.store}
+                  filteredSummaryData.length === 0 ? (
+                    <tr>
+                      <td colSpan={33} className="py-16 text-center text-muted-foreground">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <Store className="w-8 h-8 text-muted-foreground/40" />
+                          <p className="text-sm font-semibold text-foreground">No records found</p>
+                          <p className="text-xs">
+                            No summary achievements found for {selectedMarket} in{" "}
+                            {selectedMonthName} {selectedYear}.
+                          </p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wider">
-                            {row.manager}
-                          </span>
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground uppercase font-semibold">
-                            {row.market}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* FULL MONTH (Tgt, Act, Diff, %) */}
-                      <td className="px-2 py-2 text-center font-mono">
-                        {row.summary.fullMonth.tgt}
-                      </td>
-                      <td className="px-2 py-2 text-center font-mono font-bold">
-                        {row.summary.fullMonth.act}
-                      </td>
-                      <td className="px-2 py-2 text-center font-mono">
-                        {renderDiff(row.summary.fullMonth.diff)}
-                      </td>
-                      <td className="px-2 py-2 text-center border-r border-border">
-                        {renderPctBadge(row.summary.fullMonth.pct)}
-                      </td>
-
-                      {/* MONTH TO DATE (Tgt, Act, Diff, %) */}
-                      <td className="px-2 py-2 text-center font-mono">{row.summary.mtd.tgt}</td>
-                      <td className="px-2 py-2 text-center font-mono font-bold">
-                        {row.summary.mtd.act}
-                      </td>
-                      <td className="px-2 py-2 text-center font-mono">
-                        {renderDiff(row.summary.mtd.diff)}
-                      </td>
-                      <td className="px-2 py-2 text-center border-r border-border">
-                        {renderPctBadge(row.summary.mtd.pct)}
-                      </td>
-
-                      {/* VOICE (Tgt, Act, Diff, %) */}
-                      <td className="px-2 py-2 text-center font-mono">{row.summary.voice.tgt}</td>
-                      <td className="px-2 py-2 text-center font-mono font-bold">
-                        {row.summary.voice.act}
-                      </td>
-                      <td className="px-2 py-2 text-center font-mono">
-                        {renderDiff(row.summary.voice.diff)}
-                      </td>
-                      <td className="px-2 py-2 text-center border-r border-border">
-                        {renderPctBadge(row.summary.voice.pct)}
-                      </td>
-
-                      {/* UPGRADE (Tgt, Act, Diff, %) */}
-                      <td className="px-2 py-2 text-center font-mono">{row.summary.upgrade.tgt}</td>
-                      <td className="px-2 py-2 text-center font-mono font-bold">
-                        {row.summary.upgrade.act}
-                      </td>
-                      <td className="px-2 py-2 text-center font-mono">
-                        {renderDiff(row.summary.upgrade.diff)}
-                      </td>
-                      <td className="px-2 py-2 text-center border-r border-border">
-                        {renderPctBadge(row.summary.upgrade.pct)}
-                      </td>
-
-                      {/* BTS (Tgt, Act, Diff, %) */}
-                      <td className="px-2 py-2 text-center font-mono">{row.summary.bts.tgt}</td>
-                      <td className="px-2 py-2 text-center font-mono font-bold">
-                        {row.summary.bts.act}
-                      </td>
-                      <td className="px-2 py-2 text-center font-mono">
-                        {renderDiff(row.summary.bts.diff)}
-                      </td>
-                      <td className="px-2 py-2 text-center border-r border-border">
-                        {renderPctBadge(row.summary.bts.pct)}
-                      </td>
-
-                      {/* HSI (Tgt, Act, Diff, %) */}
-                      <td className="px-2 py-2 text-center font-mono">{row.summary.hsi.tgt}</td>
-                      <td className="px-2 py-2 text-center font-mono font-bold">
-                        {row.summary.hsi.act}
-                      </td>
-                      <td className="px-2 py-2 text-center font-mono">
-                        {renderDiff(row.summary.hsi.diff)}
-                      </td>
-                      <td className="px-2 py-2 text-center border-r border-border">
-                        {renderPctBadge(row.summary.hsi.pct)}
-                      </td>
-
-                      {/* MIM (Tgt, Act, Diff, %) */}
-                      <td className="px-2 py-2 text-center font-mono">{row.summary.mim.tgt}</td>
-                      <td className="px-2 py-2 text-center font-mono font-bold">
-                        {row.summary.mim.act}
-                      </td>
-                      <td className="px-2 py-2 text-center font-mono">
-                        {renderDiff(row.summary.mim.diff)}
-                      </td>
-                      <td className="px-2 py-2 text-center border-r border-border">
-                        {renderPctBadge(row.summary.mim.pct)}
-                      </td>
-
-                      {/* ACC (Tgt, Act, Diff, %) */}
-                      <td className="px-2 py-2 text-center font-mono">{row.summary.acc.tgt}</td>
-                      <td className="px-2 py-2 text-center font-mono font-bold">
-                        {row.summary.acc.act}
-                      </td>
-                      <td className="px-2 py-2 text-center font-mono">
-                        {renderDiff(row.summary.acc.diff)}
-                      </td>
-                      <td className="px-2 py-2 text-center">
-                        {renderPctBadge(row.summary.acc.pct)}
                       </td>
                     </tr>
-                  ))
+                  ) : (
+                    /* TAB 1: SUMMARY DATA ROWS */
+                    filteredSummaryData.map((row, index) => (
+                      <tr
+                        key={row.id}
+                        className={`group transition-colors ${
+                          index % 2 === 1
+                            ? "bg-zinc-50/80 dark:bg-zinc-900/60 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                            : "bg-white dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        }`}
+                      >
+                        {/* Sticky Store & Manager Cell */}
+                        <td
+                          className={`sticky left-0 z-10 px-4 py-2.5 border-r border-border whitespace-nowrap shadow-[2px_0_5px_-2px_rgba(0,0,0,0.12)] transition-colors ${
+                            index % 2 === 1
+                              ? "bg-zinc-50 dark:bg-zinc-900 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800"
+                              : "bg-white dark:bg-zinc-950 group-hover:bg-zinc-100 dark:group-hover:bg-zinc-800"
+                          }`}
+                        >
+                          <div className="font-bold text-foreground text-xs tracking-tight uppercase">
+                            {row.store}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-500 uppercase tracking-wider">
+                              {row.manager}
+                            </span>
+                            <span className="text-[9px] px-1.5 py-0.2 rounded bg-muted text-muted-foreground uppercase font-semibold">
+                              {row.market}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* FULL MONTH (Tgt, Act, Diff, %) */}
+                        <td className="px-2 py-2 text-center font-mono">
+                          {row.fullMonth.tgt.toLocaleString()}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono font-bold">
+                          {row.fullMonth.act.toLocaleString()}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono">
+                          {renderDiff(row.fullMonth.diff)}
+                        </td>
+                        <td className="px-2 py-2 text-center border-r border-border">
+                          {renderPctBadge(row.fullMonth.pct)}
+                        </td>
+
+                        {/* MONTH TO DATE (Tgt, Act, Diff, %) */}
+                        <td className="px-2 py-2 text-center font-mono">
+                          {row.mtd.tgt.toLocaleString()}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono font-bold">
+                          {row.mtd.act.toLocaleString()}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono">
+                          {renderDiff(row.mtd.diff)}
+                        </td>
+                        <td className="px-2 py-2 text-center border-r border-border">
+                          {renderPctBadge(row.mtd.pct)}
+                        </td>
+
+                        {/* VOICE (Tgt, Act, Diff, %) */}
+                        <td className="px-2 py-2 text-center font-mono">
+                          {row.voice.tgt.toLocaleString()}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono font-bold">
+                          {row.voice.act.toLocaleString()}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono">
+                          {renderDiff(row.voice.diff)}
+                        </td>
+                        <td className="px-2 py-2 text-center border-r border-border">
+                          {renderPctBadge(row.voice.pct)}
+                        </td>
+
+                        {/* UPGRADE (Tgt, Act, Diff, %) */}
+                        <td className="px-2 py-2 text-center font-mono">
+                          {row.upgrade.tgt.toLocaleString()}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono font-bold">
+                          {row.upgrade.act.toLocaleString()}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono">
+                          {renderDiff(row.upgrade.diff)}
+                        </td>
+                        <td className="px-2 py-2 text-center border-r border-border">
+                          {renderPctBadge(row.upgrade.pct)}
+                        </td>
+
+                        {/* BTS (Tgt, Act, Diff, %) */}
+                        <td className="px-2 py-2 text-center font-mono">
+                          {row.bts.tgt.toLocaleString()}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono font-bold">
+                          {row.bts.act.toLocaleString()}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono">
+                          {renderDiff(row.bts.diff)}
+                        </td>
+                        <td className="px-2 py-2 text-center border-r border-border">
+                          {renderPctBadge(row.bts.pct)}
+                        </td>
+
+                        {/* HSI (Tgt, Act, Diff, %) */}
+                        <td className="px-2 py-2 text-center font-mono">
+                          {row.hsi.tgt.toLocaleString()}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono font-bold">
+                          {row.hsi.act.toLocaleString()}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono">
+                          {renderDiff(row.hsi.diff)}
+                        </td>
+                        <td className="px-2 py-2 text-center border-r border-border">
+                          {renderPctBadge(row.hsi.pct)}
+                        </td>
+
+                        {/* MIM (Tgt, Act, Diff, %) */}
+                        <td className="px-2 py-2 text-center font-mono">
+                          {row.mim.tgt.toLocaleString()}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono font-bold">
+                          {row.mim.act.toLocaleString()}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono">
+                          {renderDiff(row.mim.diff)}
+                        </td>
+                        <td className="px-2 py-2 text-center border-r border-border">
+                          {renderPctBadge(row.mim.pct)}
+                        </td>
+
+                        {/* ACC (Tgt, Act, Diff, %) */}
+                        <td className="px-2 py-2 text-center font-mono">
+                          {row.acc.tgt.toLocaleString()}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono font-bold">
+                          {row.acc.act.toLocaleString()}
+                        </td>
+                        <td className="px-2 py-2 text-center font-mono">
+                          {renderDiff(row.acc.diff)}
+                        </td>
+                        <td className="px-2 py-2 text-center">{renderPctBadge(row.acc.pct)}</td>
+                      </tr>
+                    ))
+                  )
+                ) : filteredDcsData.length === 0 ? (
+                  <tr>
+                    <td colSpan={26} className="py-16 text-center text-muted-foreground">
+                      <div className="flex flex-col items-center justify-center gap-2">
+                        <GitCompare className="w-8 h-8 text-muted-foreground/40" />
+                        <p className="text-sm font-semibold text-foreground">No records found</p>
+                        <p className="text-xs">
+                          No DCS vs RTBDI achievements found for {selectedMarket} in{" "}
+                          {selectedMonthName} {selectedYear}.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
                 ) : (
                   /* TAB 2: DCS VS RTBDI DATA ROWS */
-                  filteredData.map((row, index) => (
+                  filteredDcsData.map((row, index) => (
                     <tr
                       key={row.id}
                       className={`group transition-colors ${
@@ -1171,297 +1218,83 @@ export default function SpecialReportPage() {
                       </td>
 
                       {/* FMTD ACHIEVEMENT (Tgt, Dcs, %, Rt, Diff) */}
-                      <td className="px-2 py-2 text-center font-mono">{row.dcsVsRt.fmtdAch.tgt}</td>
+                      <td className="px-2 py-2 text-center font-mono">
+                        {row.fmtdAch.tgt.toLocaleString()}
+                      </td>
                       <td className="px-2 py-2 text-center font-mono font-bold text-zinc-900 dark:text-zinc-100">
-                        {row.dcsVsRt.fmtdAch.dcs}
+                        {row.fmtdAch.dcs.toLocaleString()}
                       </td>
-                      <td className="px-2 py-2 text-center">
-                        {renderPctBadge(row.dcsVsRt.fmtdAch.pct)}
-                      </td>
+                      <td className="px-2 py-2 text-center">{renderPctBadge(row.fmtdAch.pct)}</td>
                       <td className="px-2 py-2 text-center font-mono text-zinc-700 dark:text-zinc-300">
-                        {row.dcsVsRt.fmtdAch.rt}
+                        {row.fmtdAch.rt.toLocaleString()}
                       </td>
                       <td className="px-2 py-2 text-center font-mono border-r border-border">
-                        {renderDiff(row.dcsVsRt.fmtdAch.diff)}
+                        {renderDiff(row.fmtdAch.diff)}
                       </td>
 
                       {/* VOICE (Tgt, Dcs, %, Rt, Diff) */}
-                      <td className="px-2 py-2 text-center font-mono">{row.dcsVsRt.voice.tgt}</td>
+                      <td className="px-2 py-2 text-center font-mono">
+                        {row.voice.tgt.toLocaleString()}
+                      </td>
                       <td className="px-2 py-2 text-center font-mono font-bold text-zinc-900 dark:text-zinc-100">
-                        {row.dcsVsRt.voice.dcs}
+                        {row.voice.dcs.toLocaleString()}
                       </td>
-                      <td className="px-2 py-2 text-center">
-                        {renderPctBadge(row.dcsVsRt.voice.pct)}
-                      </td>
+                      <td className="px-2 py-2 text-center">{renderPctBadge(row.voice.pct)}</td>
                       <td className="px-2 py-2 text-center font-mono text-zinc-700 dark:text-zinc-300">
-                        {row.dcsVsRt.voice.rt}
+                        {row.voice.rt.toLocaleString()}
                       </td>
                       <td className="px-2 py-2 text-center font-mono border-r border-border">
-                        {renderDiff(row.dcsVsRt.voice.diff)}
+                        {renderDiff(row.voice.diff)}
                       </td>
 
                       {/* BTS (Tgt, Dcs, %, Rt, Diff) */}
-                      <td className="px-2 py-2 text-center font-mono">{row.dcsVsRt.bts.tgt}</td>
+                      <td className="px-2 py-2 text-center font-mono">
+                        {row.bts.tgt.toLocaleString()}
+                      </td>
                       <td className="px-2 py-2 text-center font-mono font-bold text-zinc-900 dark:text-zinc-100">
-                        {row.dcsVsRt.bts.dcs}
+                        {row.bts.dcs.toLocaleString()}
                       </td>
-                      <td className="px-2 py-2 text-center">
-                        {renderPctBadge(row.dcsVsRt.bts.pct)}
-                      </td>
+                      <td className="px-2 py-2 text-center">{renderPctBadge(row.bts.pct)}</td>
                       <td className="px-2 py-2 text-center font-mono text-zinc-700 dark:text-zinc-300">
-                        {row.dcsVsRt.bts.rt}
+                        {row.bts.rt.toLocaleString()}
                       </td>
                       <td className="px-2 py-2 text-center font-mono border-r border-border">
-                        {renderDiff(row.dcsVsRt.bts.diff)}
+                        {renderDiff(row.bts.diff)}
                       </td>
 
                       {/* HSI (Tgt, Dcs, %, Rt, Diff) */}
-                      <td className="px-2 py-2 text-center font-mono">{row.dcsVsRt.hsi.tgt}</td>
+                      <td className="px-2 py-2 text-center font-mono">
+                        {row.hsi.tgt.toLocaleString()}
+                      </td>
                       <td className="px-2 py-2 text-center font-mono font-bold text-zinc-900 dark:text-zinc-100">
-                        {row.dcsVsRt.hsi.dcs}
+                        {row.hsi.dcs.toLocaleString()}
                       </td>
-                      <td className="px-2 py-2 text-center">
-                        {renderPctBadge(row.dcsVsRt.hsi.pct)}
-                      </td>
+                      <td className="px-2 py-2 text-center">{renderPctBadge(row.hsi.pct)}</td>
                       <td className="px-2 py-2 text-center font-mono text-zinc-700 dark:text-zinc-300">
-                        {row.dcsVsRt.hsi.rt}
+                        {row.hsi.rt.toLocaleString()}
                       </td>
                       <td className="px-2 py-2 text-center font-mono border-r border-border">
-                        {renderDiff(row.dcsVsRt.hsi.diff)}
+                        {renderDiff(row.hsi.diff)}
                       </td>
 
                       {/* MIM (Tgt, Dcs, %, Rt, Diff) */}
-                      <td className="px-2 py-2 text-center font-mono">{row.dcsVsRt.mim.tgt}</td>
+                      <td className="px-2 py-2 text-center font-mono">
+                        {row.mim.tgt.toLocaleString()}
+                      </td>
                       <td className="px-2 py-2 text-center font-mono font-bold text-zinc-900 dark:text-zinc-100">
-                        {row.dcsVsRt.mim.dcs}
+                        {row.mim.dcs.toLocaleString()}
                       </td>
-                      <td className="px-2 py-2 text-center">
-                        {renderPctBadge(row.dcsVsRt.mim.pct)}
-                      </td>
+                      <td className="px-2 py-2 text-center">{renderPctBadge(row.mim.pct)}</td>
                       <td className="px-2 py-2 text-center font-mono text-zinc-700 dark:text-zinc-300">
-                        {row.dcsVsRt.mim.rt}
+                        {row.mim.rt.toLocaleString()}
                       </td>
                       <td className="px-2 py-2 text-center font-mono">
-                        {renderDiff(row.dcsVsRt.mim.diff)}
+                        {renderDiff(row.mim.diff)}
                       </td>
                     </tr>
                   ))
                 )}
               </tbody>
-
-              {/* TABLE FOOTER: TOTAL / AVERAGE ROW */}
-              <tfoot>
-                {activeTab === "SUMMARY" && summaryTotals ? (
-                  <tr className="bg-zinc-100 dark:bg-zinc-900 border-t-2 border-border font-bold text-foreground">
-                    <td className="sticky left-0 z-10 bg-zinc-100 dark:bg-zinc-900 px-4 py-3 border-r border-border text-left uppercase tracking-wider text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.12)]">
-                      TOTAL / AVERAGE
-                    </td>
-
-                    {/* FULL MONTH TOTAL */}
-                    <td className="px-2 py-2 text-center font-mono">
-                      {summaryTotals.fullMonth.tgt.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono font-black">
-                      {summaryTotals.fullMonth.act.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono">
-                      {renderDiff(summaryTotals.fullMonth.diff)}
-                    </td>
-                    <td className="px-2 py-2 text-center border-r border-border">
-                      {renderPctBadge(summaryTotals.fullMonth.pct)}
-                    </td>
-
-                    {/* MONTH TO DATE TOTAL */}
-                    <td className="px-2 py-2 text-center font-mono">
-                      {summaryTotals.mtd.tgt.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono font-black">
-                      {summaryTotals.mtd.act.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono">
-                      {renderDiff(summaryTotals.mtd.diff)}
-                    </td>
-                    <td className="px-2 py-2 text-center border-r border-border">
-                      {renderPctBadge(summaryTotals.mtd.pct)}
-                    </td>
-
-                    {/* VOICE TOTAL */}
-                    <td className="px-2 py-2 text-center font-mono">
-                      {summaryTotals.voice.tgt.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono font-black">
-                      {summaryTotals.voice.act.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono">
-                      {renderDiff(summaryTotals.voice.diff)}
-                    </td>
-                    <td className="px-2 py-2 text-center border-r border-border">
-                      {renderPctBadge(summaryTotals.voice.pct)}
-                    </td>
-
-                    {/* UPGRADE TOTAL */}
-                    <td className="px-2 py-2 text-center font-mono">
-                      {summaryTotals.upgrade.tgt.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono font-black">
-                      {summaryTotals.upgrade.act.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono">
-                      {renderDiff(summaryTotals.upgrade.diff)}
-                    </td>
-                    <td className="px-2 py-2 text-center border-r border-border">
-                      {renderPctBadge(summaryTotals.upgrade.pct)}
-                    </td>
-
-                    {/* BTS TOTAL */}
-                    <td className="px-2 py-2 text-center font-mono">
-                      {summaryTotals.bts.tgt.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono font-black">
-                      {summaryTotals.bts.act.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono">
-                      {renderDiff(summaryTotals.bts.diff)}
-                    </td>
-                    <td className="px-2 py-2 text-center border-r border-border">
-                      {renderPctBadge(summaryTotals.bts.pct)}
-                    </td>
-
-                    {/* HSI TOTAL */}
-                    <td className="px-2 py-2 text-center font-mono">
-                      {summaryTotals.hsi.tgt.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono font-black">
-                      {summaryTotals.hsi.act.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono">
-                      {renderDiff(summaryTotals.hsi.diff)}
-                    </td>
-                    <td className="px-2 py-2 text-center border-r border-border">
-                      {renderPctBadge(summaryTotals.hsi.pct)}
-                    </td>
-
-                    {/* MIM TOTAL */}
-                    <td className="px-2 py-2 text-center font-mono">
-                      {summaryTotals.mim.tgt.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono font-black">
-                      {summaryTotals.mim.act.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono">
-                      {renderDiff(summaryTotals.mim.diff)}
-                    </td>
-                    <td className="px-2 py-2 text-center border-r border-border">
-                      {renderPctBadge(summaryTotals.mim.pct)}
-                    </td>
-
-                    {/* ACC TOTAL */}
-                    <td className="px-2 py-2 text-center font-mono">
-                      {summaryTotals.acc.tgt.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono font-black">
-                      {summaryTotals.acc.act.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono">
-                      {renderDiff(summaryTotals.acc.diff)}
-                    </td>
-                    <td className="px-2 py-2 text-center">
-                      {renderPctBadge(summaryTotals.acc.pct)}
-                    </td>
-                  </tr>
-                ) : activeTab === "DCS_VS_RTBDI" && dcsVsRtTotals ? (
-                  <tr className="bg-zinc-100 dark:bg-zinc-900 border-t-2 border-border font-bold text-foreground">
-                    <td className="sticky left-0 z-10 bg-zinc-100 dark:bg-zinc-900 px-4 py-3 border-r border-border text-left uppercase tracking-wider text-xs shadow-[2px_0_5px_-2px_rgba(0,0,0,0.12)]">
-                      TOTAL / AVERAGE
-                    </td>
-
-                    {/* FMTD TOTAL */}
-                    <td className="px-2 py-2 text-center font-mono">
-                      {dcsVsRtTotals.fmtdAch.tgt.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono font-black">
-                      {dcsVsRtTotals.fmtdAch.dcs.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center">
-                      {renderPctBadge(dcsVsRtTotals.fmtdAch.pct)}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono">
-                      {dcsVsRtTotals.fmtdAch.rt.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono border-r border-border">
-                      {renderDiff(dcsVsRtTotals.fmtdAch.diff)}
-                    </td>
-
-                    {/* VOICE TOTAL */}
-                    <td className="px-2 py-2 text-center font-mono">
-                      {dcsVsRtTotals.voice.tgt.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono font-black">
-                      {dcsVsRtTotals.voice.dcs.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center">
-                      {renderPctBadge(dcsVsRtTotals.voice.pct)}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono">
-                      {dcsVsRtTotals.voice.rt.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono border-r border-border">
-                      {renderDiff(dcsVsRtTotals.voice.diff)}
-                    </td>
-
-                    {/* BTS TOTAL */}
-                    <td className="px-2 py-2 text-center font-mono">
-                      {dcsVsRtTotals.bts.tgt.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono font-black">
-                      {dcsVsRtTotals.bts.dcs.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center">
-                      {renderPctBadge(dcsVsRtTotals.bts.pct)}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono">
-                      {dcsVsRtTotals.bts.rt.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono border-r border-border">
-                      {renderDiff(dcsVsRtTotals.bts.diff)}
-                    </td>
-
-                    {/* HSI TOTAL */}
-                    <td className="px-2 py-2 text-center font-mono">
-                      {dcsVsRtTotals.hsi.tgt.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono font-black">
-                      {dcsVsRtTotals.hsi.dcs.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center">
-                      {renderPctBadge(dcsVsRtTotals.hsi.pct)}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono">
-                      {dcsVsRtTotals.hsi.rt.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono border-r border-border">
-                      {renderDiff(dcsVsRtTotals.hsi.diff)}
-                    </td>
-
-                    {/* MIM TOTAL */}
-                    <td className="px-2 py-2 text-center font-mono">
-                      {dcsVsRtTotals.mim.tgt.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono font-black">
-                      {dcsVsRtTotals.mim.dcs.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center">
-                      {renderPctBadge(dcsVsRtTotals.mim.pct)}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono">
-                      {dcsVsRtTotals.mim.rt.toLocaleString()}
-                    </td>
-                    <td className="px-2 py-2 text-center font-mono">
-                      {renderDiff(dcsVsRtTotals.mim.diff)}
-                    </td>
-                  </tr>
-                ) : null}
-              </tfoot>
             </table>
           </div>
         </div>
