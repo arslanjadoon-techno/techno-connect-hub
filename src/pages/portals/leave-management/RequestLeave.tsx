@@ -17,7 +17,7 @@ import {
   Market,
   Manager,
   LeaveResponse,
-} from "@/services/leave-management/request-leave.service";
+} from "@/services/portals/leave-management/request-leave.service";
 import { useAuth } from "@/lib/auth";
 
 export default function RequestLeavePage() {

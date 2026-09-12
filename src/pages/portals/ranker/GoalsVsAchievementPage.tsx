@@ -34,8 +34,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
-import { rankerService } from "@/services/ranker/ranker.service";
-import type { GoalVsAchievementResponse } from "@/services/ranker/types";
+import { rankerService } from "@/services/portals/ranker/ranker.service";
+import type { GoalVsAchievementResponse } from "@/services/portals/ranker/types";
 
 // Metric definition
 export type MetricKey =

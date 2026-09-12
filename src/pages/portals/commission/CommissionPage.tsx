@@ -32,7 +32,7 @@ import {
   commissionService,
   type CommissionRow,
   type CommissionMarket,
-} from "@/services/commission";
+} from "@/services/portals/commission";
 
 type SortDir = "asc" | "desc" | null;
 type Row = CommissionRow;

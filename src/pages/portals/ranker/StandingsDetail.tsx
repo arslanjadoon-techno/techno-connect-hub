@@ -21,9 +21,9 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { ConfettiBackground } from "@/components/confetti-background";
-import { rankerService, getLatestDate } from "@/services/ranker";
-import type { RankerAggregatedRecord } from "@/services/ranker/types";
-import { useRankerAuth, isCurrentManager } from "@/services/ranker/ranker-auth";
+import { rankerService, getLatestDate } from "@/services/portals/ranker";
+import type { RankerAggregatedRecord } from "@/services/portals/ranker/types";
+import { useRankerAuth, isCurrentManager } from "@/services/portals/ranker/ranker-auth";
 import { RankerUserAccessModal } from "@/components/ranker/RankerUserAccessModal";
 
 // 1. Types & Interfaces

@@ -15,8 +15,8 @@ import {
   Loader2,
 } from "lucide-react";
 import { ConfettiBackground } from "@/components/confetti-background";
-import { rankerService } from "@/services/ranker";
-import type { RankerStarPerformer } from "@/services/ranker/types";
+import { rankerService } from "@/services/portals/ranker";
+import type { RankerStarPerformer } from "@/services/portals/ranker/types";
 
 export type StarPerformer = RankerStarPerformer;
 

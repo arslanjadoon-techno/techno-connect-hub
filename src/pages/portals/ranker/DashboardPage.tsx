@@ -36,8 +36,8 @@ import {
   YAxis,
   CartesianGrid,
 } from "recharts";
-import { rankerService } from "@/services/ranker";
-import type { RankerStar } from "@/services/ranker/types";
+import { rankerService } from "@/services/portals/ranker";
+import type { RankerStar } from "@/services/portals/ranker/types";
 
 // ---------- KPI Weights (donut & bar) ----------
 const KPI_WEIGHTS = [

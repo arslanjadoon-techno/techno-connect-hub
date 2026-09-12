@@ -21,7 +21,7 @@ import {
   Calendar,
   CheckCircle2,
 } from "lucide-react";
-import { commissionService, type CommissionDashboardData } from "@/services/commission";
+import { commissionService, type CommissionDashboardData } from "@/services/portals/commission";
 import {
   Area,
   AreaChart,

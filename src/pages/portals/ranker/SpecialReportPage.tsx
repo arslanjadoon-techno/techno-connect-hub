@@ -25,8 +25,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
-import { rankerService } from "@/services/ranker";
-import type { GoalVsAchievementResponse } from "@/services/ranker/types";
+import { rankerService } from "@/services/portals/ranker";
+import type { GoalVsAchievementResponse } from "@/services/portals/ranker/types";
 
 // Tab types
 export type SpecialReportTab = "SUMMARY" | "DCS_VS_RTBDI";

@@ -23,7 +23,7 @@ import {
   APILeaveRequest,
   APILeaveDay,
   DecideDayPayload,
-} from "@/services/leave-management/approve-leave.service";
+} from "@/services/portals/leave-management/approve-leave.service";
 import { useAuth } from "@/lib/auth";
 
 export type LeaveStatus = "Pending" | "Approved" | "Partially Approved" | "Rejected";

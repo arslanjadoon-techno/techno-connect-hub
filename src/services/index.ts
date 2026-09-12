@@ -2,19 +2,20 @@
  * Central Service layer — all API access in the app goes through these portal service classes.
  *
  * Folder organization:
- * - /src/services/commission/    -> Commission Portal APIs (CommissionService)
- * - /src/services/user-manager/  -> User Manager Portal APIs (UserManagerService, UsersService, StatesService, etc.)
- * - /src/services/auth/          -> Authentication APIs (AuthService)
- * - /src/services/portals/       -> Portals listing (PortalsService)
- * - /src/services/ranker/        -> Ranker Portal APIs (RankerService)
- * - /src/services/ticketing/     -> Ticketing Portal APIs (TicketingService)
+ * - /src/services/portals/commission/       -> Commission Portal APIs (CommissionService)
+ * - /src/services/portals/leave-management/ -> Leave Management Portal APIs (LeaveService)
+ * - /src/services/portals/ranker/           -> Ranker Portal APIs (RankerService)
+ * - /src/services/portals/ticketing/        -> Ticketing Portal APIs (TicketingService)
+ * - /src/services/user-manager/             -> User Manager Portal APIs (UserManagerService, etc.)
+ * - /src/services/auth/                     -> Authentication APIs (AuthService)
+ * - /src/services/portals/                  -> Portals listing (PortalsService)
  */
 
 export { http, HttpClient } from "./http";
 export type { ApiEnvelope } from "./http";
 
 // Commission Portal
-export { commissionService, CommissionService } from "./commission";
+export { commissionService, CommissionService } from "./portals/commission";
 export type {
   CommissionRow,
   CommissionMarket,
@@ -23,7 +24,7 @@ export type {
   GetEmployeeCommissionParams,
   GetAllCommissionParams,
   CommissionUserContext,
-} from "./commission";
+} from "./portals/commission";
 
 // User Manager Portal
 export {
@@ -56,15 +57,19 @@ export { authService, AuthService } from "./auth";
 export { portalsService, PortalsService } from "./portals";
 
 // Ranker Portal
-export { rankerService, RankerService } from "./ranker";
-export type { RankerKpi, RankerStar, RankerWeight, RankerStandingsQuery } from "./ranker";
+export { rankerService, RankerService } from "./portals/ranker";
+export type { RankerKpi, RankerStar, RankerWeight, RankerStandingsQuery } from "./portals/ranker";
 
 // Ticketing Portal
-export { ticketingService, TicketingService } from "./ticketing";
-export type { TicketQueryParams, CreateTicketPayload, UpdateTicketPayload } from "./ticketing";
+export { ticketingService, TicketingService } from "./portals/ticketing";
+export type {
+  TicketQueryParams,
+  CreateTicketPayload,
+  UpdateTicketPayload,
+} from "./portals/ticketing";
 
 // Leave Management Portal
-export { leaveService, LeaveService } from "./leave-management";
+export { leaveService, LeaveService } from "./portals/leave-management";
 export type {
   LeaveQueryParams,
   CreateLeaveRequestPayload,
@@ -72,4 +77,4 @@ export type {
   RejectLeavePayload,
   CancelLeavePayload,
   LeaveTypeOption,
-} from "./leave-management";
+} from "./portals/leave-management";

@@ -2,7 +2,7 @@ import { Navigate, Route, Routes, Outlet } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { type ReactNode } from "react";
 import { RankerUserAccessModal } from "@/components/ranker/RankerUserAccessModal";
-import { useRankerAuth } from "@/services/ranker/ranker-auth";
+import { useRankerAuth } from "@/services/portals/ranker/ranker-auth";
 
 // ---------- Authentication ---------- //
 import AppLayout from "@/pages/shell/AppLayout";

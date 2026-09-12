@@ -13,9 +13,9 @@ import { toast } from "sonner";
 import { RotateCcw, ArrowUpDown, ArrowUp, ArrowDown, RefreshCw, Lock } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { ConfettiBackground } from "@/components/confetti-background";
-import { rankerService, calculateKpiScore, getLatestDate } from "@/services/ranker";
-import type { RankerAggregatedRecord } from "@/services/ranker/types";
-import { useRankerAuth, isCurrentManager } from "@/services/ranker/ranker-auth";
+import { rankerService, calculateKpiScore, getLatestDate } from "@/services/portals/ranker";
+import type { RankerAggregatedRecord } from "@/services/portals/ranker/types";
+import { useRankerAuth, isCurrentManager } from "@/services/portals/ranker/ranker-auth";
 import { RankerUserAccessModal } from "@/components/ranker/RankerUserAccessModal";
 
 // 1. Interfaces
