@@ -37,6 +37,11 @@ export interface MonthlyChampion {
   name: string;
   market: string;
   photo: string;
+  imageFit?: {
+    objectFit?: "cover" | "contain";
+    objectPosition?: string;
+    scale?: number;
+  };
   score: number; // e.g. 124.5
   totalBoxes: number;
   highlight: string;
@@ -56,6 +61,11 @@ const CHAMPIONS_DATABASE: Record<number, MonthlyChampion[]> = {
       market: "Techno Communications",
       photo:
         "https://ranker-marketmanagers-pics.s3.us-east-2.amazonaws.com/StarPerformers/April+2026.jpeg",
+      imageFit: {
+        objectFit: "cover",
+        objectPosition: "50% 28%",
+        scale: 1.14,
+      },
       score: 124.8,
       totalBoxes: 1540,
       highlight: "Star Performer of the Month",
@@ -72,6 +82,11 @@ const CHAMPIONS_DATABASE: Record<number, MonthlyChampion[]> = {
       market: "Techno Communications",
       photo:
         "https://ranker-marketmanagers-pics.s3.us-east-2.amazonaws.com/StarPerformers/May+2026.jpeg",
+      imageFit: {
+        objectFit: "cover",
+        objectPosition: "50% 16%",
+        scale: 0.98,
+      },
       score: 116.0,
       totalBoxes: 1310,
       highlight: "Star Performer of the Month",
@@ -607,13 +622,22 @@ function BigChampionFrame({
               referrerPolicy="no-referrer"
               className="absolute inset-0 w-full h-full object-cover blur-md opacity-35 scale-110 pointer-events-none"
             />
-            {/* Centered full poster flyer without harsh cropping */}
-            <img
-              src={champion.photo}
-              alt={champion.name}
-              referrerPolicy="no-referrer"
-              className="relative z-10 w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
-            />
+            {/* Centered champion photo with matched zoom, head-level alignment & trophy visibility */}
+            <div className="relative z-10 w-full h-full overflow-hidden flex items-center justify-center transition-transform duration-500 group-hover:scale-[1.03]">
+              <img
+                src={champion.photo}
+                alt={champion.name}
+                referrerPolicy="no-referrer"
+                style={{
+                  objectFit: champion.imageFit?.objectFit || "cover",
+                  objectPosition: champion.imageFit?.objectPosition || "center 22%",
+                  transform: champion.imageFit?.scale
+                    ? `scale(${champion.imageFit.scale})`
+                    : undefined,
+                }}
+                className="w-full h-full"
+              />
+            </div>
 
             {/* Hover overlay hint */}
             <div className="absolute inset-0 z-15 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
