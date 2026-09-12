@@ -54,7 +54,14 @@ const MONTH_OPTIONS = [
   { value: "12", label: "December (12)" },
 ];
 
-const YEAR_OPTIONS = ["2026", "2025", "2024", "2023"];
+const currentYearNum = new Date().getFullYear();
+const YEAR_OPTIONS = [
+  String(currentYearNum + 1),
+  String(currentYearNum),
+  String(currentYearNum - 1),
+  String(currentYearNum - 2),
+  String(currentYearNum - 3),
+];
 
 const PIE_COLORS = [
   "#3b82f6", // Blue
@@ -97,16 +104,19 @@ export default function CommissionDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<CommissionDashboardData | null>(null);
 
-  // Filter params (defaults to August 2026, 8 trend months matching backend API)
-  const [selectedMonth, setSelectedMonth] = useState<string>("8");
-  const [selectedYear, setSelectedYear] = useState<string>("2026");
+  // Filter params (defaults to current month and year)
+  const [selectedMonth, setSelectedMonth] = useState<string>(() =>
+    String(new Date().getMonth() + 1),
+  );
+  const [selectedYear, setSelectedYear] = useState<string>(() => String(new Date().getFullYear()));
 
   const fetchDashboard = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const monthNum = parseInt(selectedMonth, 10) || 8;
-      const yearNum = parseInt(selectedYear, 10) || 2026;
+      const now = new Date();
+      const monthNum = parseInt(selectedMonth, 10) || now.getMonth() + 1;
+      const yearNum = parseInt(selectedYear, 10) || now.getFullYear();
 
       const result = await commissionService.getDashboard({
         month: monthNum,
@@ -194,7 +204,7 @@ export default function CommissionDashboard() {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           })}`,
-      subtext: `Month-to-date ${MONTH_OPTIONS.find((m) => m.value === selectedMonth)?.label.split(" ")[0] || "August"} payout`,
+      subtext: `Month-to-date ${MONTH_OPTIONS.find((m) => m.value === selectedMonth)?.label.split(" ")[0] || "Current Month"} payout`,
       icon: DollarSign,
       accent: "from-emerald-500/20 to-emerald-500/5",
       iconFg: "text-emerald-600 dark:text-emerald-400",

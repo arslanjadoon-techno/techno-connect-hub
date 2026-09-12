@@ -132,10 +132,14 @@ export class CommissionService {
    * Endpoint: https://leasingapi2.techno-communications.com/GetDashboard?month=...&year=...&trendMonths=...
    */
   async getDashboard(params: GetCommissionDashboardParams = {}): Promise<CommissionDashboardData> {
+    const now = new Date();
+    const defaultMonth = now.getMonth() + 1;
+    const defaultYear = now.getFullYear();
+
     const query = this.buildQueryString({
-      month: params.month ?? 8,
-      year: params.year ?? 2026,
-      trendMonths: params.trendMonths ?? params.month ?? 8,
+      month: params.month ?? defaultMonth,
+      year: params.year ?? defaultYear,
+      trendMonths: params.trendMonths ?? params.month ?? defaultMonth,
     });
 
     const url = `${LEASING_COMMISSION_API_BASE_URL}${COMMISSION_API_PATHS.getDashboard}${query}`;
