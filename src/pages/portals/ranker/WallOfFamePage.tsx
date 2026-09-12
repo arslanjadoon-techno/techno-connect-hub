@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -22,6 +23,7 @@ import {
   TrendingUp,
   Flame,
   ArrowRight,
+  Maximize2,
 } from "lucide-react";
 import wallOfFameBanner from "@/assets/images/wall_of_fame_banner_1788807945812.jpg";
 import { ConfettiBackground } from "@/components/confetti-background";
@@ -50,15 +52,46 @@ const CHAMPIONS_DATABASE: Record<number, MonthlyChampion[]> = {
       month: "April",
       monthNumber: 4,
       championTitle: "April 2026 Champion",
-      name: "Salim Thanawala",
-      market: "Arizona - Phoenix",
+      name: "April 2026",
+      market: "Techno Communications",
       photo:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=500&auto=format&fit=crop&q=80",
+        "https://ranker-marketmanagers-pics.s3.us-east-2.amazonaws.com/StarPerformers/April+2026.jpeg",
       score: 124.8,
       totalBoxes: 1540,
-      highlight: "All-Time Highest Market Volume & 148% Accessories Payout",
-      awardCategory: "President's Grand Laureate",
+      highlight: "Star Performer of the Month",
+      awardCategory: "Star Performer",
       tenure: "5 Years",
+    },
+    {
+      id: "2026-05",
+      year: 2026,
+      month: "May",
+      monthNumber: 5,
+      championTitle: "May 2026 Champion",
+      name: "May 2026",
+      market: "Techno Communications",
+      photo:
+        "https://ranker-marketmanagers-pics.s3.us-east-2.amazonaws.com/StarPerformers/May+2026.jpeg",
+      score: 116.0,
+      totalBoxes: 1310,
+      highlight: "Star Performer of the Month",
+      awardCategory: "Star Performer",
+      tenure: "3.5 Years",
+    },
+    {
+      id: "2026-tbd",
+      year: 2026,
+      month: "To be decided",
+      monthNumber: 6,
+      championTitle: "To be decided",
+      name: "To be decided",
+      market: "To be announced",
+      photo: "",
+      score: 0,
+      totalBoxes: 0,
+      highlight: "Upcoming monthly champion announcement",
+      awardCategory: "Next Induction",
+      tenure: "—",
     },
     {
       id: "2026-03",
@@ -312,6 +345,9 @@ export default function WallOfFamePage() {
     return yearChampions.slice(0, 3);
   }, [yearChampions]);
 
+  // High-resolution poster/flyer preview modal state
+  const [previewImg, setPreviewImg] = useState<{ url: string; title: string } | null>(null);
+
   return (
     <ConfettiBackground>
       <div className="space-y-8 p-4 sm:p-6 max-w-7xl mx-auto animate-fade-in relative z-10">
@@ -482,11 +518,36 @@ export default function WallOfFamePage() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
               {primaryThreeChampions.map((champ, index) => (
-                <BigChampionFrame key={champ.id} champion={champ} spotlightIndex={index + 1} />
+                <BigChampionFrame
+                  key={champ.id}
+                  champion={champ}
+                  spotlightIndex={index + 1}
+                  onPreviewPhoto={(url, title) => setPreviewImg({ url, title })}
+                />
               ))}
             </div>
           )}
         </div>
+
+        {/* Full-size Poster Modal Dialog */}
+        <Dialog open={!!previewImg} onOpenChange={(open) => !open && setPreviewImg(null)}>
+          <DialogContent className="max-w-4xl p-4 bg-zinc-950/95 border-amber-500/40 text-white backdrop-blur-md">
+            <DialogHeader className="pb-2">
+              <DialogTitle className="text-base font-bold text-amber-400 flex items-center gap-2">
+                <Trophy className="h-4 w-4" />
+                {previewImg?.title || "Star Performer Flyer"}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="max-h-[82vh] overflow-auto flex items-center justify-center rounded-xl bg-black/50 p-2">
+              <img
+                src={previewImg?.url || ""}
+                alt={previewImg?.title || "Star Performer"}
+                referrerPolicy="no-referrer"
+                className="max-h-[78vh] w-auto max-w-full object-contain rounded-lg shadow-2xl"
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </ConfettiBackground>
   );
@@ -499,10 +560,14 @@ export default function WallOfFamePage() {
 function BigChampionFrame({
   champion,
   spotlightIndex,
+  onPreviewPhoto,
 }: {
   champion: MonthlyChampion;
   spotlightIndex: number;
+  onPreviewPhoto?: (url: string, title: string) => void;
 }) {
+  const isDecided = Boolean(champion.photo && champion.photo.trim().length > 0);
+
   return (
     <Card className="group relative overflow-hidden rounded-2xl sm:rounded-3xl border-2 border-amber-400/60 dark:border-amber-500/40 shadow-xl shadow-amber-500/5 dark:shadow-amber-950/30 transition-all duration-300 hover:scale-[1.01] hover:shadow-2xl hover:border-amber-500 flex flex-col justify-between bg-card">
       {/* Top radiant gold bar */}
@@ -528,19 +593,52 @@ function BigChampionFrame({
         </div>
 
         {/* 🌟 Profile Picture in Square Shape as Large as Possible */}
-        <div className="relative w-full aspect-square rounded-2xl overflow-hidden border-2 border-amber-400/60 dark:border-amber-500/50 shadow-lg group-hover:border-amber-400 transition-all bg-muted">
-          <img
-            src={champion.photo}
-            alt={champion.name}
-            referrerPolicy="no-referrer"
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
+        {isDecided ? (
+          <div
+            onClick={() => onPreviewPhoto?.(champion.photo, champion.championTitle)}
+            className="relative w-full aspect-square rounded-2xl overflow-hidden border-2 border-amber-400/60 dark:border-amber-500/50 shadow-lg group-hover:border-amber-400 transition-all bg-zinc-950 flex items-center justify-center cursor-pointer select-none"
+            title="Click to view full flyer"
+          >
+            {/* Ambient blurred backdrop for portrait flyers */}
+            <img
+              src={champion.photo}
+              alt=""
+              aria-hidden="true"
+              referrerPolicy="no-referrer"
+              className="absolute inset-0 w-full h-full object-cover blur-md opacity-35 scale-110 pointer-events-none"
+            />
+            {/* Centered full poster flyer without harsh cropping */}
+            <img
+              src={champion.photo}
+              alt={champion.name}
+              referrerPolicy="no-referrer"
+              className="relative z-10 w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
+            />
 
-          {/* Floating Gold Crown Badge at corner */}
-          <div className="absolute bottom-3 right-3 bg-gradient-to-br from-amber-500 to-yellow-600 text-amber-950 p-2 sm:p-2.5 rounded-xl shadow-xl border-2 border-white dark:border-slate-900 flex items-center justify-center">
-            <Crown className="h-5 w-5 fill-amber-950 text-amber-950" />
+            {/* Hover overlay hint */}
+            <div className="absolute inset-0 z-15 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+              <span className="bg-black/80 text-white text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-lg border border-white/20">
+                <Maximize2 className="h-3.5 w-3.5 text-amber-400" />
+                View Full Flyer
+              </span>
+            </div>
+
+            {/* Floating Gold Crown Badge at corner */}
+            <div className="absolute bottom-3 right-3 z-20 bg-gradient-to-br from-amber-500 to-yellow-600 text-amber-950 p-2 sm:p-2.5 rounded-xl shadow-xl border-2 border-white dark:border-slate-900 flex items-center justify-center">
+              <Crown className="h-5 w-5 fill-amber-950 text-amber-950" />
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="relative w-full aspect-square rounded-2xl border-2 border-dashed border-amber-400/40 dark:border-amber-500/30 bg-muted/20 flex flex-col items-center justify-center p-6 text-center space-y-3">
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-500/70">
+              <Trophy className="h-10 w-10 stroke-[1.5]" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-base font-bold text-foreground/80">To be decided</p>
+              <p className="text-xs text-muted-foreground">No image uploaded</p>
+            </div>
+          </div>
+        )}
 
         {/* User Name, Market Name & Award Category */}
         <div className="space-y-1.5 w-full pt-1">
