@@ -13,6 +13,7 @@ import {
   Lock,
   ShieldCheck,
   Loader2,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PALETTES, useTheme } from "@/lib/theme";
@@ -343,6 +344,37 @@ export default function SettingsPage() {
             onCheckedChange={onToggleBypass}
             aria-label="Bypass 2FA on login"
           />
+        </div>
+      </Card>
+
+      {/* Inactivity Auto-Logout */}
+      <Card className="p-6 hover-lift">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-white"
+              style={{ backgroundImage: "var(--gradient-primary)" }}
+            >
+              <Clock className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-display text-lg font-semibold">Automatic Session Logout</h2>
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  Active (30 mins)
+                </span>
+              </div>
+              <p className="mt-1 max-w-md text-xs text-muted-foreground">
+                If no activity (mouse, keyboard, scroll) is detected for 30 minutes, a 30-second
+                digital clock countdown modal appears before securely logging you out.
+              </p>
+            </div>
+          </div>
+          <div className="text-right">
+            <span className="text-xs font-mono font-medium px-2.5 py-1 rounded bg-muted text-muted-foreground border">
+              30m Idle + 30s Warning
+            </span>
+          </div>
         </div>
       </Card>
 
