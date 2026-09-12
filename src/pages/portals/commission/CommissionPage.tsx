@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -26,6 +27,11 @@ import {
   Boxes,
   Wallet,
   Loader2,
+  Calendar,
+  Sparkles,
+  Award,
+  Layers,
+  ShoppingBag,
 } from "lucide-react";
 import { FilterReset } from "@/components/filter-reset";
 import {
@@ -142,17 +148,67 @@ const getTodayDate = (): string => {
 };
 
 export default function CommissionPage() {
+  // Check user role & permissions from stored session
+  const userAuthInfo = useMemo(() => {
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem("user") : null;
+      if (raw) {
+        const u = JSON.parse(raw);
+        const accessList = Array.isArray(u?.portalAccess) ? u.portalAccess : [];
+        const commissionAccess = accessList.find(
+          (p: any) => p?.portalName?.toLowerCase() === "commission",
+        );
+        const rawRole = (
+          commissionAccess?.roleName ||
+          u?.role?.name ||
+          u?.roleName ||
+          u?.role ||
+          "user"
+        )
+          .trim()
+          .toLowerCase()
+          .replace(/[\s_-]/g, "");
+
+        const isManagerOrAdmin =
+          rawRole.includes("admin") ||
+          rawRole.includes("manager") ||
+          rawRole.includes("supervisor") ||
+          rawRole.includes("director");
+
+        const ntid = (u?.ntid || u?.username || u?.empCode || "SPC44739").trim();
+        const fullName = (u?.fullName || `${u?.firstName || ""} ${u?.lastName || ""}`).trim();
+        return { isManagerOrAdmin, roleName: rawRole, ntid, fullName, rawUser: u };
+      }
+    } catch (e) {
+      console.error("Error reading user auth in CommissionPage:", e);
+    }
+    return {
+      isManagerOrAdmin: false,
+      roleName: "user",
+      ntid: "SPC44739",
+      fullName: "",
+      rawUser: null,
+    };
+  }, []);
+
+  const isManagerOrAdmin = userAuthInfo.isManagerOrAdmin;
+
+  // Manager/Admin state
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [marketsList, setMarketsList] = useState<CommissionMarket[]>([]);
   const [marketsLoading, setMarketsLoading] = useState<boolean>(false);
+
+  // Single User State
+  const [userRows, setUserRows] = useState<Row[]>([]);
+  const [userLoading, setUserLoading] = useState<boolean>(true);
 
   // Filter states: date & market (defaults to today's date)
   const DEFAULT_DATE = useMemo(() => getTodayDate(), []);
   const [selectedDate, setSelectedDate] = useState<string>(DEFAULT_DATE);
   const [selectedMarket, setSelectedMarket] = useState<string>("all");
 
-  // Server pagination states
+  // Server pagination states (for manager/admin table)
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(100);
   const [paginationInfo, setPaginationInfo] = useState<{
@@ -167,11 +223,12 @@ export default function CommissionPage() {
     hasNextPage: false,
   });
 
-  // Selected employee for detail modal breakdown
+  // Selected employee for detail modal breakdown (in Manager/Admin view)
   const [selectedEmployee, setSelectedEmployee] = useState<Row | null>(null);
 
-  // Load markets from Leave/Markets API
+  // Load markets for Manager/Admin view
   useEffect(() => {
+    if (!isManagerOrAdmin) return;
     let active = true;
     const fetchMarkets = async () => {
       try {
@@ -190,11 +247,11 @@ export default function CommissionPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [isManagerOrAdmin]);
 
-  // Fetch paginated commission data
-  const fetchCommissionData = useCallback(async () => {
-    if (!selectedDate) return;
+  // Fetch paginated commission data for Manager/Admin
+  const fetchManagerCommissionData = useCallback(async () => {
+    if (!selectedDate || !isManagerOrAdmin) return;
     try {
       setLoading(true);
       const res = await commissionService.getAllEmployeeCommissionMarketWiseWithPagination({
@@ -224,11 +281,32 @@ export default function CommissionPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedDate, selectedMarket, page, pageSize]);
+  }, [selectedDate, selectedMarket, page, pageSize, isManagerOrAdmin]);
+
+  // Fetch single employee commission data for standard User
+  const fetchUserCommissionData = useCallback(async () => {
+    if (isManagerOrAdmin) return;
+    try {
+      setUserLoading(true);
+      const data = await commissionService.getEmployeeCommission({
+        ntid: userAuthInfo.ntid || "SPC44739",
+      });
+      setUserRows(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Error fetching user commission:", error);
+      setUserRows([]);
+    } finally {
+      setUserLoading(false);
+    }
+  }, [isManagerOrAdmin, userAuthInfo.ntid]);
 
   useEffect(() => {
-    fetchCommissionData();
-  }, [fetchCommissionData]);
+    if (isManagerOrAdmin) {
+      fetchManagerCommissionData();
+    } else {
+      fetchUserCommissionData();
+    }
+  }, [isManagerOrAdmin, fetchManagerCommissionData, fetchUserCommissionData]);
 
   // Handle filter changes (resets page to 1)
   const handleDateChange = (newDate: string) => {
@@ -247,6 +325,32 @@ export default function CommissionPage() {
   const formatCurrency = (val: number | null | undefined): string => {
     return `$${(val ?? 0).toFixed(2)}`;
   };
+
+  // Find record for the selected date for single User Dashboard
+  const currentSelectedUserRow = useMemo(() => {
+    if (!userRows.length || !selectedDate) return null;
+    const [selYear, selMonth, selDay] = selectedDate.split("-").map(Number);
+    const match = userRows.find(
+      (r) => r.year === selYear && r.month === selMonth && r.day === selDay,
+    );
+    return match || userRows[0] || null;
+  }, [userRows, selectedDate]);
+
+  // Aggregated MTD Stats for single User
+  const userMtdStats = useMemo(() => {
+    if (!userRows.length) {
+      return { totalCommission: 0, totalBoxes: 0, totalBoxCommission: 0, activeDays: 0 };
+    }
+    const totalCommission = userRows.reduce((acc, r) => acc + (r.commission ?? 0), 0);
+    const totalBoxes = userRows.reduce((acc, r) => acc + (r.total_Box ?? 0), 0);
+    const totalBoxCommission = userRows.reduce((acc, r) => acc + (r.box_Commission ?? 0), 0);
+    return {
+      totalCommission,
+      totalBoxes,
+      totalBoxCommission,
+      activeDays: userRows.length,
+    };
+  }, [userRows]);
 
   const summaryCols: Column<Row>[] = [
     { key: "ntid", header: "NTID", accessor: (r) => r.ntid ?? "-", searchValue: (r) => r.ntid },
@@ -359,7 +463,8 @@ export default function CommissionPage() {
     },
   ];
 
-  const filtersActive = selectedDate !== DEFAULT_DATE || selectedMarket !== "all";
+  const filtersActive =
+    selectedDate !== DEFAULT_DATE || (isManagerOrAdmin && selectedMarket !== "all");
 
   const resetFilters = () => {
     setSelectedDate(DEFAULT_DATE);
@@ -367,6 +472,195 @@ export default function CommissionPage() {
     setPage(1);
   };
 
+  // -------------------------------------------------------------
+  // VIEW 1: REGULAR USER VIEW (SINGLE EMPLOYEE DASHBOARD)
+  // -------------------------------------------------------------
+  if (!isManagerOrAdmin) {
+    return (
+      <div className="w-full space-y-6 animate-fade-in pb-8">
+        {/* Top Header & Date Filter (Market Filter is hidden for single user) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="font-display text-2xl font-semibold tracking-tight flex items-center gap-2">
+              <span>My Commission</span>
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary">
+                Personal Dashboard
+              </span>
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Detailed performance metrics, daily earnings, and sales mix overview.
+            </p>
+          </div>
+
+          {/* Date Picker Bar */}
+          <div className="flex items-center gap-2 bg-card p-2 rounded-lg border shadow-xs">
+            <div className="flex items-center gap-2">
+              <Calendar className="w-4 h-4 text-muted-foreground ml-1" />
+              <Input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => handleDateChange(e.target.value)}
+                className="w-[155px] h-8 text-xs font-mono"
+              />
+            </div>
+            {selectedDate !== DEFAULT_DATE && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={resetFilters}
+                className="h-8 text-xs px-2 text-muted-foreground hover:text-foreground"
+              >
+                Today
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fetchUserCommissionData()}
+              disabled={userLoading}
+              className="h-8 text-xs px-2.5"
+            >
+              {userLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Refresh"}
+            </Button>
+          </div>
+        </div>
+
+        {/* Loading State */}
+        {userLoading ? (
+          <Card className="p-16 flex flex-col items-center justify-center space-y-3">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-sm font-medium text-muted-foreground">
+              Loading your commission data...
+            </p>
+          </Card>
+        ) : (
+          <>
+            {/* Month-To-Date (MTD) High-Level Summary Card Banner */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Card className="p-4 border bg-card/60 relative overflow-hidden">
+                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                  <span>MTD Total Commission</span>
+                  <DollarSign className="w-4 h-4 text-emerald-500" />
+                </div>
+                <div className="mt-2 text-2xl font-bold font-display text-emerald-600 dark:text-emerald-400">
+                  {formatCurrency(userMtdStats.totalCommission)}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">Across all recorded days</p>
+              </Card>
+
+              <Card className="p-4 border bg-card/60 relative overflow-hidden">
+                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                  <span>MTD Boxes Sold</span>
+                  <Boxes className="w-4 h-4 text-blue-500" />
+                </div>
+                <div className="mt-2 text-2xl font-bold font-display">
+                  {userMtdStats.totalBoxes}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Box Comm: {formatCurrency(userMtdStats.totalBoxCommission)}
+                </p>
+              </Card>
+
+              <Card className="p-4 border bg-card/60 relative overflow-hidden">
+                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                  <span>Active Days</span>
+                  <Calendar className="w-4 h-4 text-violet-500" />
+                </div>
+                <div className="mt-2 text-2xl font-bold font-display">
+                  {userMtdStats.activeDays}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">Selling days logged</p>
+              </Card>
+
+              <Card className="p-4 border bg-card/60 relative overflow-hidden">
+                <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                  <span>Avg Daily Comm.</span>
+                  <TrendingUp className="w-4 h-4 text-amber-500" />
+                </div>
+                <div className="mt-2 text-2xl font-bold font-display">
+                  {formatCurrency(
+                    userMtdStats.activeDays > 0
+                      ? userMtdStats.totalCommission / userMtdStats.activeDays
+                      : 0,
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">Per active day</p>
+              </Card>
+            </div>
+
+            {/* Quick Available Dates Switcher Strip */}
+            {userRows.length > 1 && (
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                  Recorded Dates:
+                </span>
+                <div className="flex gap-1.5 flex-nowrap">
+                  {userRows.map((r, idx) => {
+                    const rDate = `${r.year}-${String(r.month).padStart(2, "0")}-${String(r.day).padStart(2, "0")}`;
+                    const isSelected = rDate === selectedDate;
+                    return (
+                      <button
+                        key={`${rDate}-${idx}`}
+                        type="button"
+                        onClick={() => setSelectedDate(rDate)}
+                        className={`px-3 py-1 rounded-full text-xs font-mono transition-all whitespace-nowrap border ${
+                          isSelected
+                            ? "bg-primary text-primary-foreground border-primary font-semibold shadow-xs"
+                            : "bg-background hover:bg-muted text-muted-foreground border-border"
+                        }`}
+                      >
+                        {rDate} ({formatCurrency(r.commission)})
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Main Daily Detail Dashboard View */}
+            {currentSelectedUserRow ? (
+              <UserCommissionDashboard
+                row={currentSelectedUserRow}
+                formatCurrency={formatCurrency}
+                selectedDate={selectedDate}
+              />
+            ) : (
+              <Card className="p-12 text-center border-dashed">
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mx-auto text-muted-foreground mb-3">
+                  <Calendar className="w-6 h-6" />
+                </div>
+                <h3 className="font-semibold text-base">No record found for {selectedDate}</h3>
+                <p className="text-sm text-muted-foreground max-w-sm mx-auto mt-1">
+                  You did not have any recorded sales or commission on this date.
+                </p>
+                {userRows.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
+                    onClick={() => {
+                      const first = userRows[0];
+                      if (first) {
+                        setSelectedDate(
+                          `${first.year}-${String(first.month).padStart(2, "0")}-${String(first.day).padStart(2, "0")}`,
+                        );
+                      }
+                    }}
+                  >
+                    View Latest Active Day
+                  </Button>
+                )}
+              </Card>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // -------------------------------------------------------------
+  // VIEW 2: MANAGER / ADMIN MULTI-EMPLOYEE TABLE VIEW
+  // -------------------------------------------------------------
   const FilterBar = (
     <div className="flex flex-wrap items-end gap-3 w-full sm:w-auto">
       {/* Date Filter */}
@@ -376,11 +670,11 @@ export default function CommissionPage() {
           type="date"
           value={selectedDate}
           onChange={(e) => handleDateChange(e.target.value)}
-          className="w-[170px] h-9"
+          className="w-[170px] h-9 font-mono text-xs"
         />
       </div>
 
-      {/* Markets Dropdown Filter */}
+      {/* Markets Dropdown Filter (Visible for Managers & Admins) */}
       <div className="flex flex-col">
         <span className="text-xs font-medium text-muted-foreground mb-1">Market</span>
         <Select value={selectedMarket} onValueChange={handleMarketChange} disabled={marketsLoading}>
@@ -403,7 +697,7 @@ export default function CommissionPage() {
   );
 
   return (
-    <Tabs defaultValue="summary" className="w-full space-y-5 animate-fade-in">
+    <Tabs defaultValue="summary" className="w-full space-y-5 animate-fade-in pb-8">
       {/* Top Line: Title & Subtitle + Tabs */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -480,7 +774,7 @@ export default function CommissionPage() {
         </Card>
       </TabsContent>
 
-      {/* Employee Detail Modal */}
+      {/* Employee Detail Modal for Admin/Manager */}
       <Dialog
         open={Boolean(selectedEmployee)}
         onOpenChange={(open) => !open && setSelectedEmployee(null)}
@@ -489,7 +783,7 @@ export default function CommissionPage() {
           <DialogHeader>
             <DialogTitle>Employee Commission Details</DialogTitle>
             <DialogDescription>
-              Detailed breakdown of commissions, deductions, and mix.
+              Detailed breakdown of commissions, deductions, and sales mix.
             </DialogDescription>
           </DialogHeader>
           {selectedEmployee && (
@@ -501,12 +795,17 @@ export default function CommissionPage() {
   );
 }
 
+// -------------------------------------------------------------
+// REUSABLE USER COMMISSION DASHBOARD COMPONENT
+// -------------------------------------------------------------
 function UserCommissionDashboard({
   row,
   formatCurrency,
+  selectedDate,
 }: {
   row?: Row;
   formatCurrency: (v: number | null | undefined) => string;
+  selectedDate?: string;
 }) {
   if (!row) {
     return (
@@ -519,24 +818,39 @@ function UserCommissionDashboard({
   }
 
   const kpis = [
-    { label: "Total Commission", value: formatCurrency(row.commission), icon: DollarSign },
+    {
+      label: "Total Commission",
+      value: formatCurrency(row.commission),
+      icon: DollarSign,
+      highlight: true,
+    },
     {
       label: "Final After Deduction",
       value: formatCurrency(row.final_Commission_After_Deduction ?? row.commission),
       icon: TrendingUp,
     },
-    { label: "Total Boxes", value: String(row.total_Box ?? 0), icon: Boxes },
+    { label: "Total Boxes Sold", value: String(row.total_Box ?? 0), icon: Boxes },
     { label: "Box Commission", value: formatCurrency(row.box_Commission), icon: Wallet },
   ];
 
   const breakdown = [
-    { label: "Acc Sales", value: String(row.acc_Sales ?? 0) },
-    { label: "Activation / Retention", value: formatCurrency(row.activation_Retention_Commission) },
-    { label: "VAS Commission", value: formatCurrency(row.vaS_Commission) },
-    { label: "HSI", value: String(row.hsi ?? 0) },
-    { label: "HSI Commission", value: formatCurrency(row.hsI_Commission) },
-    { label: "Contest", value: formatCurrency(row.contest) },
-    { label: "Write-ups / Chargebacks", value: formatCurrency(row.write_Ups_Chargebacks) },
+    { label: "Acc Sales Units", value: String(row.acc_Sales ?? 0), isCurrency: false },
+    { label: "Acc Sales Commission", value: formatCurrency(row.acc_Sales), isCurrency: true },
+    {
+      label: "Activation / Retention (Bridge)",
+      value: formatCurrency(row.activation_Retention_Commission),
+      isCurrency: true,
+    },
+    { label: "VAS Commission", value: formatCurrency(row.vaS_Commission), isCurrency: true },
+    { label: "HSI Units", value: String(row.hsi ?? 0), isCurrency: false },
+    { label: "HSI Commission", value: formatCurrency(row.hsI_Commission), isCurrency: true },
+    { label: "Contest Earnings", value: formatCurrency(row.contest), isCurrency: true },
+    {
+      label: "Write-ups / Chargebacks",
+      value: formatCurrency(row.write_Ups_Chargebacks),
+      isCurrency: true,
+      negative: (row.write_Ups_Chargebacks ?? 0) > 0,
+    },
   ];
 
   const mrc = MRC_KEYS.map((k) => ({
@@ -549,43 +863,77 @@ function UserCommissionDashboard({
     value: Number((row as Record<string, unknown>)[w.k] ?? 0),
   })).filter((x) => x.value > 0);
 
+  const formattedRecordDate = `${row.year ?? 0}-${String(row.month ?? 0).padStart(2, "0")}-${String(row.day ?? 0).padStart(2, "0")}`;
+
   return (
     <div className="space-y-5">
-      {/* Identity header */}
-      <Card className="relative overflow-hidden p-6">
+      {/* Identity Banner */}
+      <Card className="relative overflow-hidden p-5 border bg-card">
         <div
           className="pointer-events-none absolute inset-0 opacity-10"
           style={{ backgroundImage: "var(--gradient-primary)" }}
         />
-        <div className="relative flex flex-wrap items-center gap-4">
-          <div
-            className="flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-bold text-white"
-            style={{ backgroundImage: "var(--gradient-primary)" }}
-          >
-            {(row.employee_Name ?? "U").trim().charAt(0).toUpperCase()}
+        <div className="relative flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-xl font-bold text-white shadow-md"
+              style={{ backgroundImage: "var(--gradient-primary)" }}
+            >
+              {(row.employee_Name ?? "U").trim().charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-display text-xl font-bold">{row.employee_Name ?? "—"}</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-mono font-medium">
+                  {row.ntid}
+                </span>
+              </div>
+              <div className="text-sm text-muted-foreground flex flex-wrap items-center gap-2 mt-0.5">
+                <span>
+                  Market: <strong>{row.market ?? "—"}</strong>
+                </span>
+                <span>•</span>
+                <span>
+                  Date: <strong className="font-mono">{formattedRecordDate}</strong>
+                </span>
+              </div>
+            </div>
           </div>
-          <div>
-            <div className="font-display text-xl font-semibold">{row.employee_Name ?? "—"}</div>
-            <div className="text-sm text-muted-foreground">
-              {row.ntid} • {row.market} • {row.year}-{String(row.month).padStart(2, "0")}-
-              {String(row.day).padStart(2, "0")}
+
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <span className="text-xs text-muted-foreground block">Day Net Earnings</span>
+              <span className="text-2xl font-black font-display text-primary">
+                {formatCurrency(row.final_Commission_After_Deduction ?? row.commission)}
+              </span>
             </div>
           </div>
         </div>
       </Card>
 
+      {/* KPI Cards Grid */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {kpis.map((k) => (
-          <Card key={k.label} className="relative overflow-hidden p-5 transition hover:shadow-lg">
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent" />
+          <Card
+            key={k.label}
+            className={`relative overflow-hidden p-5 transition hover:shadow-md border ${
+              k.highlight ? "border-primary/40 bg-primary/5" : ""
+            }`}
+          >
             <div className="relative flex items-start justify-between">
               <div>
-                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   {k.label}
                 </div>
-                <div className="mt-2 font-display text-2xl font-semibold">{k.value}</div>
+                <div className="mt-2 font-display text-2xl font-bold">{k.value}</div>
               </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-background/70 text-primary backdrop-blur">
+              <div
+                className={`flex h-10 w-10 items-center justify-center rounded-xl backdrop-blur ${
+                  k.highlight
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
                 <k.icon className="h-5 w-5" />
               </div>
             </div>
@@ -593,56 +941,89 @@ function UserCommissionDashboard({
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="p-5">
-          <h2 className="font-display text-lg font-semibold">Commission breakdown</h2>
-          <div className="mt-4 divide-y">
+      {/* Two Columns: Commission Breakdown & MRC/Web Mix */}
+      <div className="grid gap-5 lg:grid-cols-2">
+        {/* Left Column: Earnings Breakdown */}
+        <Card className="p-5 border">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-display text-base font-semibold flex items-center gap-2">
+              <ShoppingBag className="w-4 h-4 text-primary" />
+              <span>Earnings & Deductions</span>
+            </h2>
+            <span className="text-xs text-muted-foreground font-mono">Day Breakdown</span>
+          </div>
+
+          <div className="divide-y divide-border/60">
             {breakdown.map((b) => (
-              <div key={b.label} className="flex items-center justify-between py-2.5 text-sm">
+              <div key={b.label} className="flex items-center justify-between py-2 text-sm">
                 <span className="text-muted-foreground">{b.label}</span>
-                <span className="font-medium">{b.value}</span>
+                <span
+                  className={`font-semibold font-mono ${
+                    b.negative ? "text-destructive" : "text-foreground"
+                  }`}
+                >
+                  {b.value}
+                </span>
               </div>
             ))}
           </div>
         </Card>
 
-        <Card className="p-5">
-          <h2 className="font-display text-lg font-semibold">MRC & Web mix</h2>
-          <p className="text-xs text-muted-foreground">Only non-zero buckets are shown.</p>
-          <div className="mt-4 space-y-4">
+        {/* Right Column: MRC & Web Mix */}
+        <Card className="p-5 border space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-base font-semibold flex items-center gap-2">
+              <Layers className="w-4 h-4 text-primary" />
+              <span>MRC & Web Sales Mix</span>
+            </h2>
+            <span className="text-xs text-muted-foreground">Non-zero tiers</span>
+          </div>
+
+          <div className="space-y-4 pt-1">
             <div>
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                MRC
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                <span>Monthly Recurring Charge (MRC)</span>
+                <span className="text-[11px] font-normal">
+                  {mrc.reduce((acc, m) => acc + m.value, 0)} total
+                </span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {mrc.length === 0 ? (
-                  <span className="text-sm text-muted-foreground">No MRC activity</span>
+                  <span className="text-xs text-muted-foreground italic py-1">
+                    No MRC bucket sales for this date
+                  </span>
                 ) : (
                   mrc.map((m) => (
                     <span
                       key={m.label}
-                      className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
+                      className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-mono font-medium text-primary shadow-xs"
                     >
-                      {m.label}: {m.value}
+                      {m.label}: <strong>{m.value}</strong>
                     </span>
                   ))
                 )}
               </div>
             </div>
-            <div>
-              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Web
+
+            <div className="pt-2 border-t">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                <span>Web Sales Tiers</span>
+                <span className="text-[11px] font-normal">
+                  {web.reduce((acc, w) => acc + w.value, 0)} total
+                </span>
               </div>
               <div className="flex flex-wrap gap-2">
                 {web.length === 0 ? (
-                  <span className="text-sm text-muted-foreground">No web activity</span>
+                  <span className="text-xs text-muted-foreground italic py-1">
+                    No Web tier sales for this date
+                  </span>
                 ) : (
                   web.map((w) => (
                     <span
                       key={w.label}
-                      className="rounded-full border bg-muted px-3 py-1 text-xs font-medium"
+                      className="rounded-lg border bg-muted px-3 py-1 text-xs font-mono font-medium text-foreground"
                     >
-                      {w.label}: {w.value}
+                      {w.label}: <strong>{w.value}</strong>
                     </span>
                   ))
                 )}
