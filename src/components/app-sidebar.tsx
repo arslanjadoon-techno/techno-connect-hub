@@ -388,14 +388,20 @@ export function AppSidebar() {
       const roleStr = (getPortalRole("leave") || user.roleName || user.role || "user")
         .toLowerCase()
         .replace(/[\s_-]/g, "");
-      const isManager = [
-        "admin",
-        "manager",
-        "storemanager",
-        "districtmanager",
-        "statemanager",
-        "marketmanager",
-      ].includes(roleStr);
+
+      const isUserRole = roleStr === "user" || roleStr === "employee";
+      const isManager =
+        !isUserRole &&
+        (roleStr.includes("manager") ||
+          roleStr.includes("admin") ||
+          roleStr.includes("supervisor") ||
+          roleStr.includes("director") ||
+          roleStr.includes("lead") ||
+          roleStr.includes("market") ||
+          roleStr.includes("state") ||
+          roleStr.includes("store") ||
+          roleStr.includes("district") ||
+          roleStr !== "user");
 
       return {
         ...master,

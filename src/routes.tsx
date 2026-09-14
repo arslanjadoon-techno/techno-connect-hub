@@ -97,14 +97,24 @@ function isLeaveManager(): boolean {
         .toLowerCase()
         .replace(/[\s_-]/g, "");
 
-      return [
-        "admin",
-        "manager",
-        "storemanager",
-        "districtmanager",
-        "statemanager",
-        "marketmanager",
-      ].includes(roleStr);
+      // If role is explicitly 'user' or 'employee', they only get Request Leave
+      if (roleStr === "user" || roleStr === "employee") {
+        return false;
+      }
+
+      // Admin or any manager (marketManager, stateManager, storeManager, districtManager, etc.) gets Approve Leave
+      return (
+        roleStr.includes("manager") ||
+        roleStr.includes("admin") ||
+        roleStr.includes("supervisor") ||
+        roleStr.includes("director") ||
+        roleStr.includes("lead") ||
+        roleStr.includes("market") ||
+        roleStr.includes("state") ||
+        roleStr.includes("store") ||
+        roleStr.includes("district") ||
+        roleStr !== "user"
+      );
     }
   } catch {
     /* ignore */
