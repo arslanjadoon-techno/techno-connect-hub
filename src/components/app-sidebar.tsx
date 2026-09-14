@@ -128,7 +128,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
   },
 };
 
-const ALWAYS_PORTAL_KEYS = ["leasing", "scheduling", "leave"];
+// Note: Portals are purely filtered by user.assignedPortals and user.portalAccess. No portals are forced.
 
 const adminGroup: Group = {
   title: "User Manager",
@@ -296,24 +296,37 @@ function CollapsibleGroup({
 }
 
 function getCurrentPortalRole(user: any, pathname: string): string {
-  if (!user || !Array.isArray(user.portalAccess)) return "—";
+  if (!user) return "—";
 
-  const currentPortal = pathname.split("/")[1]?.toLowerCase();
+  const norm = (s: string) =>
+    String(s || "")
+      .toLowerCase()
+      .replace(/[\s_-]/g, "");
+  const currentPortal = norm(pathname.split("/")[1] || "");
 
-  if (currentPortal) {
-    const access = user.portalAccess.find(
-      (p: any) => p.portalName?.toLowerCase() === currentPortal,
-    );
+  if (currentPortal && Array.isArray(user.portalAccess)) {
+    const access = user.portalAccess.find((p: any) => {
+      const pn = norm(p?.portalName || "");
+      return (
+        pn === currentPortal ||
+        (currentPortal === "leave" && (pn.includes("leave") || pn.includes("attendance"))) ||
+        (currentPortal === "commission" && pn.includes("commiss")) ||
+        (currentPortal === "scheduling" && (pn.includes("schedul") || pn.includes("attendance"))) ||
+        (currentPortal === "ticketing" && pn.includes("ticket")) ||
+        (currentPortal === "leasing" && pn.includes("leas")) ||
+        (currentPortal === "ranker" && pn.includes("rank"))
+      );
+    });
     if (access?.roleName) {
       return access.roleName;
     }
   }
 
-  if (user.portalAccess.length > 0) {
+  if (Array.isArray(user.portalAccess) && user.portalAccess.length > 0) {
     return user.portalAccess[0].roleName;
   }
 
-  return "—";
+  return user.roleName || user.role || "—";
 }
 
 function formatRoleName(roleStr: string): string {
@@ -332,7 +345,7 @@ function formatRoleName(roleStr: string): string {
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const { logout } = useAuth();
+  const { user: authUser, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const pathname = useLocation().pathname;
@@ -345,10 +358,16 @@ export function AppSidebar() {
   const isGroupOpen = (g: Group) => (openGroup === null ? groupActive(g) : openGroup === g.title);
   const toggleGroup = (g: Group) => setOpenGroup(isGroupOpen(g) ? "" : g.title);
 
-  const localUserData = localStorage.getItem("user");
-  if (!localUserData) return null;
+  let storedUser: any = null;
+  try {
+    const raw = localStorage.getItem("user");
+    if (raw) storedUser = JSON.parse(raw);
+  } catch {
+    /* ignore */
+  }
 
-  const user = JSON.parse(localUserData);
+  const user = authUser || storedUser;
+  if (!user) return null;
 
   const rawRole = getCurrentPortalRole(user, pathname);
   const formattedRole = formatRoleName(rawRole);
@@ -359,31 +378,91 @@ export function AppSidebar() {
       ? `${nameParts[0]?.[0] || ""}${nameParts[nameParts.length - 1]?.[0] || ""}`
       : `${nameParts[0]?.[0] || ""}${nameParts[0]?.[1] || ""}`;
 
-  // 3. 🌟 Dynamic Portals Matching Logic
-  const allowedPortalsList = Array.isArray(user.assignedPortals) ? user.assignedPortals : [];
-  const portalAccessList: Array<{ portalName: string; roleName: string }> = Array.isArray(
+  // 3. 🌟 Dynamic Portals Matching Logic (Only show portals explicitly granted)
+  const allowedPortalsList: string[] = Array.isArray(user.assignedPortals)
+    ? user.assignedPortals
+    : Array.isArray(storedUser?.assignedPortals)
+      ? storedUser.assignedPortals
+      : [];
+
+  const portalAccessList: Array<{ portalName?: string; roleName?: string }> = Array.isArray(
     user.portalAccess,
   )
     ? user.portalAccess
-    : [];
+    : Array.isArray(storedUser?.portalAccess)
+      ? storedUser.portalAccess
+      : [];
+
+  const norm = (s: string) =>
+    String(s || "")
+      .toLowerCase()
+      .replace(/[\s_-]/g, "");
+
+  const isPortalAllowed = (portalKey: string): boolean => {
+    const target = norm(portalKey);
+
+    // 1. Check assignedPortals list
+    const inAssigned = allowedPortalsList.some((p: string) => {
+      const pNorm = norm(p);
+      return (
+        pNorm === target ||
+        (target === "leave" && (pNorm.includes("leave") || pNorm.includes("attendance"))) ||
+        (target === "scheduling" && (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
+        (target === "ticketing" && pNorm.includes("ticket")) ||
+        (target === "leasing" && pNorm.includes("leas")) ||
+        (target === "commission" && pNorm.includes("commiss")) ||
+        (target === "ranker" && pNorm.includes("rank"))
+      );
+    });
+    if (inAssigned) return true;
+
+    // 2. Check portalAccess list
+    const inAccess = portalAccessList.some((p: any) => {
+      const pNorm = norm(p?.portalName || "");
+      return (
+        pNorm === target ||
+        (target === "leave" && (pNorm.includes("leave") || pNorm.includes("attendance"))) ||
+        (target === "scheduling" && (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
+        (target === "ticketing" && pNorm.includes("ticket")) ||
+        (target === "leasing" && pNorm.includes("leas")) ||
+        (target === "commission" && pNorm.includes("commiss")) ||
+        (target === "ranker" && pNorm.includes("rank"))
+      );
+    });
+    return inAccess;
+  };
 
   const getPortalRole = (portalKey: string): string => {
-    const access = portalAccessList.find(
-      (p) => p.portalName?.toLowerCase() === portalKey.toLowerCase(),
-    );
+    const target = norm(portalKey);
+    const access = portalAccessList.find((p) => {
+      const pNorm = norm(p?.portalName || "");
+      return (
+        pNorm === target ||
+        (target === "leave" && (pNorm.includes("leave") || pNorm.includes("attendance"))) ||
+        (target === "scheduling" && (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
+        (target === "ticketing" && pNorm.includes("ticket")) ||
+        (target === "leasing" && pNorm.includes("leas")) ||
+        (target === "commission" && pNorm.includes("commiss")) ||
+        (target === "ranker" && pNorm.includes("rank"))
+      );
+    });
     return access?.roleName?.toLowerCase() ?? "";
   };
 
   const filterMasterGroup = (key: string, master: Group): Group => {
-    // Commission Dashboard only visible to admin role
-    if (key === "commission" && getPortalRole("commission") !== "admin") {
-      return {
-        ...master,
-        items: master.items.filter((i) => i.url !== "/commission/dashboard"),
-      };
+    // Commission Dashboard only visible to admin role in commission portal
+    if (key === "commission") {
+      const roleInCommission = getPortalRole("commission");
+      const isCommAdmin = roleInCommission.includes("admin");
+      if (!isCommAdmin) {
+        return {
+          ...master,
+          items: master.items.filter((i) => i.url !== "/commission/dashboard"),
+        };
+      }
     }
 
-    // Leave Portal: "Request Leave" for user role, "Approve Leave" for admin/managers
+    // Leave Portal: "Request Leave" for user/employee role, "Approve Leave" for managers/admin
     if (key === "leave") {
       const roleStr = (getPortalRole("leave") || user.roleName || user.role || "user")
         .toLowerCase()
@@ -414,10 +493,7 @@ export function AppSidebar() {
     return master;
   };
 
-  const allowedSet = new Set(allowedPortalsList.map((p: string) => p.toLowerCase().trim()));
-  ALWAYS_PORTAL_KEYS.forEach((k) => allowedSet.add(k.toLowerCase().trim()));
-
-  const dynamicPortalGroups: Group[] = PORTAL_ORDER.filter((key) => allowedSet.has(key))
+  const dynamicPortalGroups: Group[] = PORTAL_ORDER.filter((key) => isPortalAllowed(key))
     .map((key) => {
       const master = MASTER_PORTAL_GROUPS[key];
       if (!master) return undefined;

@@ -139,6 +139,71 @@ function LeaveApproveOnly({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function UserManagementOnly({ children }: { children: ReactNode }) {
+  let isAllowed = false;
+  try {
+    const raw = window.localStorage.getItem("user");
+    if (raw) {
+      const u = JSON.parse(raw);
+      isAllowed = Boolean(u?.allowedUserManagement);
+    }
+  } catch {
+    /* ignore */
+  }
+  if (!isAllowed) return <Navigate to="/ai-chat" replace />;
+  return <>{children}</>;
+}
+
+function PortalRouteGuard({ portalKey, children }: { portalKey: string; children: ReactNode }) {
+  let isAllowed = false;
+  try {
+    const raw = window.localStorage.getItem("user");
+    if (raw) {
+      const u = JSON.parse(raw);
+      const assigned = Array.isArray(u?.assignedPortals) ? u.assignedPortals : [];
+      const access = Array.isArray(u?.portalAccess) ? u.portalAccess : [];
+      const norm = (s: string) =>
+        String(s || "")
+          .toLowerCase()
+          .replace(/[\s_-]/g, "");
+      const target = norm(portalKey);
+
+      isAllowed =
+        assigned.some((p: string) => {
+          const pNorm = norm(p);
+          return (
+            pNorm === target ||
+            (target === "leave" && (pNorm.includes("leave") || pNorm.includes("attendance"))) ||
+            (target === "scheduling" &&
+              (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
+            (target === "ticketing" && pNorm.includes("ticket")) ||
+            (target === "leasing" && pNorm.includes("leas")) ||
+            (target === "commission" && pNorm.includes("commiss")) ||
+            (target === "ranker" && pNorm.includes("rank"))
+          );
+        }) ||
+        access.some((p: any) => {
+          const pNorm = norm(p?.portalName || "");
+          return (
+            pNorm === target ||
+            (target === "leave" && (pNorm.includes("leave") || pNorm.includes("attendance"))) ||
+            (target === "scheduling" &&
+              (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
+            (target === "ticketing" && pNorm.includes("ticket")) ||
+            (target === "leasing" && pNorm.includes("leas")) ||
+            (target === "commission" && pNorm.includes("commiss")) ||
+            (target === "ranker" && pNorm.includes("rank"))
+          );
+        });
+    }
+  } catch {
+    /* ignore */
+  }
+
+  if (!isAllowed) return <Navigate to="/ai-chat" replace />;
+  return <>{children}</>;
+}
+
 function RankerPortalGuard() {
   const auth = useRankerAuth();
   return (
@@ -186,23 +251,73 @@ export function AppRoutes() {
         <Route path="/settings" element={<SettingsPage />} />
         // ---------- Ticketing Portal ---------- //
         {/* <Route path="/ticketing/dashboard" element={<TicketingDashboardPage />} /> */}
-        <Route path="/ticketing/tickets" element={<TicketsPage />} />
-        <Route path="/ticketing/tickets/:id" element={<TicketDetailPage />} />
-        <Route path="/ticketing/external" element={<ExternalPage />} />
+        <Route
+          path="/ticketing/tickets"
+          element={
+            <PortalRouteGuard portalKey="ticketing">
+              <TicketsPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/ticketing/tickets/:id"
+          element={
+            <PortalRouteGuard portalKey="ticketing">
+              <TicketDetailPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/ticketing/external"
+          element={
+            <PortalRouteGuard portalKey="ticketing">
+              <ExternalPage />
+            </PortalRouteGuard>
+          }
+        />
         // ---------- Commission Portal ---------- //
         <Route
           path="/commission/dashboard"
           element={
-            <CommissionAdminOnly>
-              <CommissionDashboardPage />
-            </CommissionAdminOnly>
+            <PortalRouteGuard portalKey="commission">
+              <CommissionAdminOnly>
+                <CommissionDashboardPage />
+              </CommissionAdminOnly>
+            </PortalRouteGuard>
           }
         />
-        <Route path="/commission/my-commission" element={<CommissionPage />} />
-        <Route path="/commission/privacy" element={<Privacy />} />
-        <Route path="/commission/support" element={<Support />} />
+        <Route
+          path="/commission/my-commission"
+          element={
+            <PortalRouteGuard portalKey="commission">
+              <CommissionPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/commission/privacy"
+          element={
+            <PortalRouteGuard portalKey="commission">
+              <Privacy />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/commission/support"
+          element={
+            <PortalRouteGuard portalKey="commission">
+              <Support />
+            </PortalRouteGuard>
+          }
+        />
         // ---------- Ranker Portal ---------- //
-        <Route element={<RankerPortalGuard />}>
+        <Route
+          element={
+            <PortalRouteGuard portalKey="ranker">
+              <RankerPortalGuard />
+            </PortalRouteGuard>
+          }
+        >
           <Route path="/ranker/dashboard" element={<RankerDashboardPage />} />
           <Route path="/ranker/standings" element={<StandingsPage />} />
           <Route path="/ranker/standings/detail" element={<StandingsDetailPage />} />
@@ -215,71 +330,200 @@ export function AppRoutes() {
           <Route path="/ranker/criteria-details" element={<CriteriaDetailsPage />} />
         </Route>
         // ---------- Lease / Scheduling / Ticketing Portals ---------- //
-        <Route path="/lease/dashboard" element={<ComingSoon title="Lease Portal Dashboard" />} />
+        <Route
+          path="/lease/dashboard"
+          element={
+            <PortalRouteGuard portalKey="leasing">
+              <ComingSoon title="Lease Portal Dashboard" />
+            </PortalRouteGuard>
+          }
+        />
         <Route
           path="/leasing/dashboard"
-          element={<ComingSoon title="Leasing Portal Dashboard" />}
+          element={
+            <PortalRouteGuard portalKey="leasing">
+              <ComingSoon title="Leasing Portal Dashboard" />
+            </PortalRouteGuard>
+          }
         />
         <Route
           path="/scheduling/dashboard"
-          element={<ComingSoon title="Scheduling Portal Dashboard" />}
+          element={
+            <PortalRouteGuard portalKey="scheduling">
+              <ComingSoon title="Scheduling Portal Dashboard" />
+            </PortalRouteGuard>
+          }
         />
         <Route
           path="/ticketing/dashboard"
-          element={<ComingSoon title="Ticketing Portal Dashboard" />}
+          element={
+            <PortalRouteGuard portalKey="ticketing">
+              <ComingSoon title="Ticketing Portal Dashboard" />
+            </PortalRouteGuard>
+          }
         />
         // ---------- Leave Portal ---------- //
-        <Route path="/leave" element={<LeaveDashboardRedirect />} />
-        <Route path="/leave/dashboard" element={<LeaveDashboardRedirect />} />
+        <Route
+          path="/leave"
+          element={
+            <PortalRouteGuard portalKey="leave">
+              <LeaveDashboardRedirect />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/leave/dashboard"
+          element={
+            <PortalRouteGuard portalKey="leave">
+              <LeaveDashboardRedirect />
+            </PortalRouteGuard>
+          }
+        />
         <Route
           path="/leave/request"
           element={
-            <LeaveRequestOnly>
-              <RequestLeavePage />
-            </LeaveRequestOnly>
+            <PortalRouteGuard portalKey="leave">
+              <LeaveRequestOnly>
+                <RequestLeavePage />
+              </LeaveRequestOnly>
+            </PortalRouteGuard>
           }
         />
         <Route
           path="/leave/my-leaves"
           element={
-            <LeaveRequestOnly>
-              <RequestLeavePage />
-            </LeaveRequestOnly>
+            <PortalRouteGuard portalKey="leave">
+              <LeaveRequestOnly>
+                <RequestLeavePage />
+              </LeaveRequestOnly>
+            </PortalRouteGuard>
           }
         />
         <Route
           path="/leave/approve"
           element={
-            <LeaveApproveOnly>
-              <ApproveLeavePage />
-            </LeaveApproveOnly>
+            <PortalRouteGuard portalKey="leave">
+              <LeaveApproveOnly>
+                <ApproveLeavePage />
+              </LeaveApproveOnly>
+            </PortalRouteGuard>
           }
         />
         <Route
           path="/leave/approvals"
           element={
-            <LeaveApproveOnly>
-              <ApproveLeavePage />
-            </LeaveApproveOnly>
+            <PortalRouteGuard portalKey="leave">
+              <LeaveApproveOnly>
+                <ApproveLeavePage />
+              </LeaveApproveOnly>
+            </PortalRouteGuard>
           }
         />
-        <Route path="/attendance/dashboard" element={<LeaveDashboardRedirect />} />
+        <Route
+          path="/attendance/dashboard"
+          element={
+            <PortalRouteGuard portalKey="leave">
+              <LeaveDashboardRedirect />
+            </PortalRouteGuard>
+          }
+        />
         // ---------- User Manager ---------- //
-        <Route path="/admin/users" element={<UsersPage />} />
-        <Route path="/admin/users/:id" element={<UserDetailPage />} />
+        <Route
+          path="/admin/users"
+          element={
+            <UserManagementOnly>
+              <UsersPage />
+            </UserManagementOnly>
+          }
+        />
+        <Route
+          path="/admin/users/:id"
+          element={
+            <UserManagementOnly>
+              <UserDetailPage />
+            </UserManagementOnly>
+          }
+        />
         <Route
           path="/admin/permissions"
-          element={<Navigate to="/admin/permissions/create" replace />}
+          element={
+            <UserManagementOnly>
+              <Navigate to="/admin/permissions/create" replace />
+            </UserManagementOnly>
+          }
         />
-        <Route path="/admin/permissions/create" element={<CreatePermissionPage />} />
-        <Route path="/admin/permissions/assign" element={<AssignPermissionsPage />} />
-        <Route path="/admin/departments" element={<DepartmentsPage />} />
-        <Route path="/admin/districts" element={<DistrictsPage />} />
-        <Route path="/admin/states" element={<StatesPage />} />
-        <Route path="/admin/markets" element={<MarketsPage />} />
-        <Route path="/admin/houses" element={<HousesPage />} />
-        <Route path="/admin/stores" element={<StoresPage />} />
-        <Route path="/admin/external" element={<ExternalPage />} />
+        <Route
+          path="/admin/permissions/create"
+          element={
+            <UserManagementOnly>
+              <CreatePermissionPage />
+            </UserManagementOnly>
+          }
+        />
+        <Route
+          path="/admin/permissions/assign"
+          element={
+            <UserManagementOnly>
+              <AssignPermissionsPage />
+            </UserManagementOnly>
+          }
+        />
+        <Route
+          path="/admin/departments"
+          element={
+            <UserManagementOnly>
+              <DepartmentsPage />
+            </UserManagementOnly>
+          }
+        />
+        <Route
+          path="/admin/districts"
+          element={
+            <UserManagementOnly>
+              <DistrictsPage />
+            </UserManagementOnly>
+          }
+        />
+        <Route
+          path="/admin/states"
+          element={
+            <UserManagementOnly>
+              <StatesPage />
+            </UserManagementOnly>
+          }
+        />
+        <Route
+          path="/admin/markets"
+          element={
+            <UserManagementOnly>
+              <MarketsPage />
+            </UserManagementOnly>
+          }
+        />
+        <Route
+          path="/admin/houses"
+          element={
+            <UserManagementOnly>
+              <HousesPage />
+            </UserManagementOnly>
+          }
+        />
+        <Route
+          path="/admin/stores"
+          element={
+            <UserManagementOnly>
+              <StoresPage />
+            </UserManagementOnly>
+          }
+        />
+        <Route
+          path="/admin/external"
+          element={
+            <UserManagementOnly>
+              <ExternalPage />
+            </UserManagementOnly>
+          }
+        />
         {/* Custom 404 page — keeps sidebar + header visible */}
         <Route path="*" element={<NotFoundInApp />} />
       </Route>

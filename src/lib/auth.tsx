@@ -33,9 +33,16 @@ export function mapBackendUser(b: any): User {
   const firstName = parts[0] ?? "";
   const lastName = parts.slice(1).join(" ") || "";
 
-  // 🛠️ Hybrid Extraction: Check if object exists (list API) or direct string exists (Login API)
-  const rawRole = b.role?.name || b.roleName || "user";
-  const normalizedRole = String(rawRole).toLowerCase();
+  // 🛠️ Hybrid Extraction: Check if object exists (list API), direct string exists (Login API), or portalAccess
+  const rawRole =
+    b.role?.name ||
+    b.roleName ||
+    (Array.isArray(b.portalAccess) && b.portalAccess.length > 0
+      ? b.portalAccess[0].roleName
+      : "user");
+  const normalizedRole = String(rawRole)
+    .toLowerCase()
+    .replace(/[\s_-]/g, "");
 
   // Mapping string to match UI Expected Role types ("state_manager", etc.)
   let roleName: Role = "user";
@@ -60,11 +67,20 @@ export function mapBackendUser(b: any): User {
     id: String(b.id),
     firstName,
     lastName,
+    fullName: b.fullName || `${firstName} ${lastName}`.trim(),
     email: b.email,
     phone: b.phone ?? undefined,
     department,
     departmentName: b.department?.name ?? b.departmentName ?? undefined,
     roleName,
+    assignedPortals: Array.isArray(b.assignedPortals) ? b.assignedPortals : [],
+    portalAccess: Array.isArray(b.portalAccess) ? b.portalAccess : [],
+    allowedUserManagement: Boolean(b.allowedUserManagement),
+    states: Array.isArray(b.states) ? b.states : [],
+    districts: Array.isArray(b.districts) ? b.districts : [],
+    markets: Array.isArray(b.markets) ? b.markets : [],
+    stores: Array.isArray(b.stores) ? b.stores : [],
+    houses: Array.isArray(b.houses) ? b.houses : [],
     stateId: b.state?.id ?? (b.stateId != null ? String(b.stateId) : undefined),
     stateName: b.state?.name ?? b.stateName ?? undefined,
     districtId: b.district?.id ?? (b.districtId != null ? String(b.districtId) : undefined),
