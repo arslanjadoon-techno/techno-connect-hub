@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { ShieldCheck, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthThemeReset } from "./useAuthThemeReset";
+import { AuthHeroCarousel } from "./AuthHeroCarousel";
 
 export default function LoginPage() {
   useAuthThemeReset();
@@ -160,18 +161,9 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <div
-          className="relative z-10 max-w-md space-y-4 animate-fade-in"
-          style={{ animationDelay: ".1s" }}
-        >
-          <h1 className="font-display text-4xl font-semibold leading-tight">
-            One platform for every portal, every team, every decision.
-          </h1>
-          <p className="text-white/80">
-            Commission, Leasing, Ranker and more — unified inside a single MIS workspace with
-            role-aware visibility and real-time collaboration.
-          </p>
-        </div>
+        {/* Sliding Center Section: Slide 1 Text / Slide 2 Network Hub Graph (3s interval) */}
+        <AuthHeroCarousel />
+
         <div className="relative z-10 text-xs text-white/60">© Techno Communications LLC</div>
       </div>
 
