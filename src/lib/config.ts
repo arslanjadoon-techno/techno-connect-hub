@@ -99,7 +99,7 @@ export const PORTAL_API_PATHS = {
 } as const;
 
 export const COMMISSION_API_BASE_URL =
-  (import.meta.env.VITE_COMMISSION_API_URL as string) ||
+  (import.meta.env.VITE_COMMISSION_API_PROD_URL as string) ||
   "https://idwhjd4bj2.execute-api.us-west-2.amazonaws.com/Prod";
 
 export const LEASING_COMMISSION_API_BASE_URL =
