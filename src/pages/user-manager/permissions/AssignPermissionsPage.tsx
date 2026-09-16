@@ -4,7 +4,6 @@ import { toast } from "sonner";
 import {
   Search,
   Shield,
-  Copy,
   Users,
   Filter,
   PlusCircle,
@@ -17,6 +16,7 @@ import {
   EyeOff,
   Pencil,
   RefreshCw,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,7 @@ import { PermissionsNavTabs } from "./PermissionsNavTabs";
 import {
   permissionsService,
   type PermissionAccessLevel,
+  type PermissionItem,
   type UserPermissionItem,
   type UserAccessMap,
 } from "@/services/user-manager/permissions.service";
@@ -169,6 +170,18 @@ export default function AssignPermissionsPage() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
 
+  // Available system permissions (for the Assign Dropdown)
+  const [availableSystemPermissions, setAvailableSystemPermissions] = useState<PermissionItem[]>(
+    [],
+  );
+  const [loadingAvailablePermissions, setLoadingAvailablePermissions] = useState<boolean>(false);
+  const [assignSelectedPerm, setAssignSelectedPerm] = useState<PermissionItem | null>(null);
+  const [assignAccessLevel, setAssignAccessLevel] = useState<PermissionAccessLevel>("write");
+  const [assignPermSearch, setAssignPermSearch] = useState<string>("");
+  const [isAssignPermDropdownOpen, setIsAssignPermDropdownOpen] = useState<boolean>(false);
+  const [assigningPerm, setAssigningPerm] = useState<boolean>(false);
+  const assignDropdownRef = useRef<HTMLDivElement>(null);
+
   // Filters for user permissions list
   const [permSearchQuery, setPermSearchQuery] = useState<string>("");
   const [selectedPortalFilter, setSelectedPortalFilter] = useState<string>("all");
@@ -268,6 +281,24 @@ export default function AssignPermissionsPage() {
 
     loadUsersList();
 
+    // 3. Fetch all system permissions for the Assign dropdown
+    async function loadAllSystemPermissions() {
+      try {
+        setLoadingAvailablePermissions(true);
+        const res = await permissionsService.getAll();
+        if (res?.success && Array.isArray(res.data)) {
+          if (!isMounted) return;
+          setAvailableSystemPermissions(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to load available system permissions:", err);
+      } finally {
+        if (isMounted) setLoadingAvailablePermissions(false);
+      }
+    }
+
+    loadAllSystemPermissions();
+
     return () => {
       isMounted = false;
     };
@@ -279,6 +310,57 @@ export default function AssignPermissionsPage() {
     setUserSearchQuery("");
     setIsSearchFocused(false);
     loadUserPermissions(user.id);
+  };
+
+  // Assign single permission to selected user via PUT /api/user-permissions/assign
+  const handleAssignPermission = async () => {
+    if (!selectedUser) {
+      toast.error("Please select a user first");
+      return;
+    }
+    if (!assignSelectedPerm) {
+      toast.error("Please select a permission to assign");
+      return;
+    }
+
+    setAssigningPerm(true);
+    try {
+      const payload = {
+        userId: Number(selectedUser.id),
+        permissions: [
+          {
+            permissionId: Number(assignSelectedPerm.id),
+            accessLevel: assignAccessLevel,
+          },
+        ],
+      };
+
+      const res = await permissionsService.assign(payload);
+      if (res?.success) {
+        toast.success(
+          res.message ||
+            `Permission "${assignSelectedPerm.name}" assigned as ${
+              assignAccessLevel === "write"
+                ? "Read and Write"
+                : assignAccessLevel === "read"
+                  ? "Read Only"
+                  : "Hidden"
+            } successfully.`,
+        );
+        setAssignSelectedPerm(null);
+        setAssignPermSearch("");
+        setIsAssignPermDropdownOpen(false);
+        // Reload user permissions to display newly assigned item immediately below
+        await loadUserPermissions(selectedUser.id);
+      } else {
+        toast.error(res?.message || "Failed to assign permission");
+      }
+    } catch (err: unknown) {
+      console.error("Assign permission error:", err);
+      toast.error((err as Error)?.message || "Failed to assign permission");
+    } finally {
+      setAssigningPerm(false);
+    }
   };
 
   // Set the mutually exclusive access level for a permission
@@ -350,10 +432,26 @@ export default function AssignPermissionsPage() {
       ) {
         setIsSearchFocused(false);
       }
+      if (assignDropdownRef.current && !assignDropdownRef.current.contains(event.target as Node)) {
+        setIsAssignPermDropdownOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Filtered available permissions for the Assign dropdown
+  const filteredAvailablePermissions = useMemo(() => {
+    if (!assignPermSearch.trim()) return availableSystemPermissions;
+    const q = assignPermSearch.toLowerCase().trim();
+    return availableSystemPermissions.filter((p) => {
+      return (
+        p.name?.toLowerCase().includes(q) ||
+        p.portalName?.toLowerCase().includes(q) ||
+        (p.description && p.description.toLowerCase().includes(q))
+      );
+    });
+  }, [availableSystemPermissions, assignPermSearch]);
 
   // Filtered users for search bar dropdown
   const filteredUsers = useMemo(() => {
@@ -616,6 +714,163 @@ export default function AssignPermissionsPage() {
             </div>
           </div>
 
+          {/* Assign Available Permission to User */}
+          <Card className="border-border bg-card shadow-xs">
+            <CardContent className="p-3.5 sm:p-4">
+              <div className="space-y-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                  <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <PlusCircle className="h-4 w-4 text-primary" />
+                    <span>Assign Available Permission</span>
+                  </label>
+                  <span className="text-[11px] text-muted-foreground">
+                    Search and pick a system permission to assign to{" "}
+                    <strong className="text-foreground">{selectedUser.fullName}</strong>.
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 pt-1">
+                  {/* Searchable Combobox / Dropdown for Available Permissions */}
+                  <div ref={assignDropdownRef} className="relative flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                      <Input
+                        type="text"
+                        placeholder={
+                          loadingAvailablePermissions
+                            ? "Loading available permissions..."
+                            : "Search & select available permission... (e.g. Upload Statement, Ticketing...)"
+                        }
+                        value={assignSelectedPerm ? assignSelectedPerm.name : assignPermSearch}
+                        onChange={(e) => {
+                          setAssignSelectedPerm(null);
+                          setAssignPermSearch(e.target.value);
+                          setIsAssignPermDropdownOpen(true);
+                        }}
+                        onFocus={() => setIsAssignPermDropdownOpen(true)}
+                        className="h-9 pl-8 pr-8 text-xs font-medium"
+                      />
+                      {assignSelectedPerm ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAssignSelectedPerm(null);
+                            setAssignPermSearch("");
+                          }}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground text-xs p-0.5 rounded"
+                          title="Clear selection"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      ) : null}
+                    </div>
+
+                    {/* Autocomplete Dropdown */}
+                    {isAssignPermDropdownOpen && (
+                      <div className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-border bg-popover text-popover-foreground shadow-lg text-xs divide-y divide-border/50">
+                        {loadingAvailablePermissions ? (
+                          <div className="p-4 text-center text-muted-foreground flex items-center justify-center gap-2">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                            <span>Loading system permissions...</span>
+                          </div>
+                        ) : filteredAvailablePermissions.length === 0 ? (
+                          <div className="p-3 text-center text-muted-foreground">
+                            No permissions match &quot;{assignPermSearch}&quot;
+                          </div>
+                        ) : (
+                          filteredAvailablePermissions.map((p) => {
+                            const isSelected = assignSelectedPerm?.id === p.id;
+                            const isAlreadyAssigned = userPermissions.some(
+                              (up) => up.permissionId === p.id,
+                            );
+                            return (
+                              <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => {
+                                  setAssignSelectedPerm(p);
+                                  setAssignPermSearch("");
+                                  setIsAssignPermDropdownOpen(false);
+                                }}
+                                className={`w-full text-left p-2.5 hover:bg-muted/70 transition-colors flex items-center justify-between gap-2 ${
+                                  isSelected ? "bg-primary/10 font-medium text-primary" : ""
+                                }`}
+                              >
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-semibold text-foreground text-xs truncate">
+                                      {p.name}
+                                    </span>
+                                    <Badge
+                                      variant="outline"
+                                      className={`text-[9px] px-1.5 py-0 h-4 ${getPortalBadgeClass(p.portalName)}`}
+                                    >
+                                      {p.portalName}
+                                    </Badge>
+                                    {isAlreadyAssigned && (
+                                      <span className="text-[10px] text-muted-foreground font-normal">
+                                        (Already assigned)
+                                      </span>
+                                    )}
+                                  </div>
+                                  {p.description && (
+                                    <p className="text-[11px] text-muted-foreground/80 line-clamp-1 mt-0.5">
+                                      {p.description}
+                                    </p>
+                                  )}
+                                </div>
+                                {isSelected && (
+                                  <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                                )}
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Access Level Dropdown */}
+                  <div className="w-full sm:w-[170px]">
+                    <Select
+                      value={assignAccessLevel}
+                      onValueChange={(val: PermissionAccessLevel) => setAssignAccessLevel(val)}
+                    >
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue placeholder="Access Level" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="write">Read and Write</SelectItem>
+                        <SelectItem value="read">Read Only</SelectItem>
+                        <SelectItem value="hide">Hide</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Assign Button */}
+                  <Button
+                    type="button"
+                    onClick={handleAssignPermission}
+                    disabled={!assignSelectedPerm || assigningPerm}
+                    className="h-9 px-4 text-xs font-medium gap-1.5 shrink-0"
+                  >
+                    {assigningPerm ? (
+                      <>
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <span>Assigning...</span>
+                      </>
+                    ) : (
+                      <>
+                        <PlusCircle className="h-3.5 w-3.5" />
+                        <span>Assign</span>
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Permissions Filter and List Container (Strictly for the Selected User) */}
           <Card className="border-border shadow-xs">
             <CardHeader className="pb-3 border-b border-border/60">
@@ -657,7 +912,7 @@ export default function AssignPermissionsPage() {
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                   <Input
                     type="text"
-                    placeholder="Filter permissions by name, key, or description..."
+                    placeholder="Filter permissions by name, portal, or description..."
                     value={permSearchQuery}
                     onChange={(e) => setPermSearchQuery(e.target.value)}
                     className="h-8 pl-8 text-xs"
@@ -758,30 +1013,7 @@ export default function AssignPermissionsPage() {
                             >
                               {perm.portalName}
                             </Badge>
-                            <span className="text-[10px] text-muted-foreground font-mono">
-                              ID: #{perm.permissionId}
-                            </span>
                           </div>
-
-                          {perm.permissionKey && (
-                            <div className="flex items-center gap-1.5">
-                              <code className="text-[11px] font-mono text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                                {perm.permissionKey}
-                              </code>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-5 w-5 text-muted-foreground hover:text-foreground"
-                                title="Copy Key"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(perm.permissionKey);
-                                  toast.success(`Copied: ${perm.permissionKey}`);
-                                }}
-                              >
-                                <Copy className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          )}
 
                           {perm.permissionDescription && (
                             <p className="text-[11px] text-muted-foreground line-clamp-2">

@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Loader2,
   AlertCircle,
+  Copy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -405,6 +406,18 @@ export default function CreatePermissionPage() {
                             >
                               {item.portalName}
                             </Badge>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                              title="Copy Permission Name"
+                              onClick={() => {
+                                navigator.clipboard.writeText(item.name);
+                                toast.success(`Copied: "${item.name}"`);
+                              }}
+                            >
+                              <Copy className="h-3 w-3" />
+                            </Button>
                           </div>
 
                           {item.description && (
