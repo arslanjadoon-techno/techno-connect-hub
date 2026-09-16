@@ -110,13 +110,12 @@ function UsersPage() {
 
   const navigate = useNavigate();
 
-  // 🌟 Fetching Portals with Authorized Token Header Injection Pattern
+  // Fetching Portals with Authorized Token Header Injection Pattern
   const fetchPortalsMaster = async () => {
     try {
       const token = localStorage.getItem("token");
-      // const response = await fetch("http://localhost:4570/api/portals/get-all", {
       const response = await fetch(
-        "http://technocomm-dev.us-west-2.elasticbeanstalk.com/api/portals/get-all",
+        "https://leasingapi.techno-communications.com/api/portals/get-all",
         {
           method: "GET",
           headers: {
