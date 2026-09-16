@@ -400,7 +400,7 @@ function UsersPage() {
             },
             {
               key: "email",
-              header: "Email",
+              header: "Email / NTID",
               accessor: (u) => u.email || "—",
               searchValue: (u) => u.email || "",
             },
