@@ -218,7 +218,7 @@ export function CrudPage<T>({
               <Plus className="mr-1 h-4 w-4" /> {createLabel}
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg" onCloseAutoFocus={(e) => e.preventDefault()}>
             <DialogHeader>
               <DialogTitle>{editing ? "Edit" : createLabel}</DialogTitle>
             </DialogHeader>

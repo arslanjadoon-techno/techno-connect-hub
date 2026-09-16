@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { usersApi, hierarchyApi } from "@/lib/api/client";
+import { portalsService } from "@/services/user-manager";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -130,15 +131,9 @@ export default function UserDetailPage() {
 
   const fetchLookups = async () => {
     try {
-      const token = localStorage.getItem("token");
       const [rolesRes, portalsRes] = await Promise.all([
         hierarchyApi.getRoles(),
-         fetch("https://leasingapi.techno-communications.com/api/portals/get-all", {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: token ? `Bearer ${token}` : "",
-          },
-        }).then((r) => r.json()),
+        portalsService.getAll(),
       ]);
 
       if (rolesRes.success && Array.isArray(rolesRes.data)) setDynamicRoles(rolesRes.data);

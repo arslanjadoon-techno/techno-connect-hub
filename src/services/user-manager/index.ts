@@ -7,6 +7,7 @@ export { storesService, StoresService } from "./stores.service";
 export { housesService, HousesService } from "./houses.service";
 export { externalTeamService, ExternalTeamService } from "./external-team.service";
 export { hierarchyService, HierarchyService } from "./hierarchy.service";
+export { portalsService, PortalsService } from "../portals/portals.service";
 export { userManagerService, UserManagerService } from "./user-manager.service";
 export {
   permissionsService,

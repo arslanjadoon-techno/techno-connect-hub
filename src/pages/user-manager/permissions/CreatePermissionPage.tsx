@@ -34,7 +34,8 @@ import {
   generatePermissionKey,
   type PermissionItem,
 } from "@/services/user-manager/permissions.service";
-import { PortalApi, type Portal } from "@/lib/api/client";
+import { portalsService } from "@/services/user-manager";
+import type { Portal } from "@/lib/api/client";
 
 const FALLBACK_PORTALS = [
   { id: 1, name: "Leasing" },
@@ -65,42 +66,17 @@ export default function CreatePermissionPage() {
   const [copiedKey, setCopiedKey] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // 1. Fetch Portals using the exact User Management API
+  // 1. Fetch Portals using the centralized Portals service
   useEffect(() => {
     let isMounted = true;
 
     async function loadPortals() {
       try {
         setLoadingPortals(true);
-        const token = localStorage.getItem("token");
-
-        // Primary: Same endpoint used in UsersPage & UserDetailPage
-        const response = await fetch(
-          "http://technocomm-dev.us-west-2.elasticbeanstalk.com/api/portals/get-all",
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: token ? `Bearer ${token}` : "",
-            },
-          },
-        );
-
-        if (response.ok) {
-          const res = await response.json();
-          if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
-            if (isMounted) {
-              setPortals(res.data);
-              return;
-            }
-          }
-        }
-
-        // Fallback: PortalApi client
-        const clientRes = await PortalApi.getAll();
-        if (clientRes?.success && Array.isArray(clientRes.data) && clientRes.data.length > 0) {
+        const res = await portalsService.getAll();
+        if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
           if (isMounted) {
-            setPortals(clientRes.data);
+            setPortals(res.data);
             return;
           }
         }

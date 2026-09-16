@@ -75,7 +75,7 @@ const PORTAL_ORDER = ["commission", "leasing", "ranker", "ticketing", "leave", "
 
 const MASTER_PORTAL_GROUPS: Record<string, Group> = {
   commission: {
-    title: "Commission Portal",
+    title: "Commission",
     icon: DollarSign,
     items: [
       { title: "Dashboard", url: "/commission/dashboard", icon: BarChart3 },
@@ -85,12 +85,12 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     ],
   },
   leasing: {
-    title: "Leasing Portal",
+    title: "Leasing",
     icon: FileText,
     items: [{ title: "Dashboard", url: "/leasing/dashboard", icon: Milestone }],
   },
   ranker: {
-    title: "Ranker Portal",
+    title: "Ranker",
     icon: Award,
     items: [
       { title: "Dashboard", url: "/ranker/dashboard", icon: LayoutDashboard },
@@ -105,7 +105,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     ],
   },
   ticketing: {
-    title: "Ticketing Portal",
+    title: "Ticketing",
     icon: TicketIcon,
     items: [
       { title: "Dashboard", url: "/ticketing/dashboard", icon: LayoutDashboard },
@@ -114,7 +114,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     ],
   },
   leave: {
-    title: "Leave Portal",
+    title: "Leave",
     icon: CalendarCheck,
     items: [
       { title: "Request Leave", url: "/leave/request", icon: CalendarPlus },
@@ -122,7 +122,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     ],
   },
   scheduling: {
-    title: "Scheduling Portal",
+    title: "Scheduling",
     icon: CalendarDays,
     items: [{ title: "Dashboard", url: "/scheduling/dashboard", icon: BarChart3 }],
   },

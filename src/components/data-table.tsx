@@ -288,6 +288,16 @@ export function DataTable<T>({
         <div className="relative w-full sm:w-72 sm:ml-auto">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            id="table-search-query-input"
+            name="table_search_query_input"
+            type="search"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck="false"
+            data-lpignore="true"
+            data-1p-ignore="true"
+            data-form-type="other"
             value={query}
             disabled={isLoading && rows.length === 0}
             onChange={(e) => {

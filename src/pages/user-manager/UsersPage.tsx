@@ -22,6 +22,7 @@ import {
   MarketsApi,
   StoresApi,
 } from "@/lib/api/client";
+import { portalsService } from "@/services/user-manager";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -110,21 +111,10 @@ function UsersPage() {
 
   const navigate = useNavigate();
 
-  // Fetching Portals with Authorized Token Header Injection Pattern
+  // Fetching Portals using centralized service layer
   const fetchPortalsMaster = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(
-        "https://leasingapi.techno-communications.com/api/portals/get-all",
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: token ? `Bearer ${token}` : "", // Token integrated identically to api client
-          },
-        },
-      );
-      const res = await response.json();
+      const res = await portalsService.getAll();
       if (res.success && Array.isArray(res.data)) {
         setPortalsMasterList(res.data);
       }
