@@ -8,10 +8,8 @@ import {
   Filter,
   PlusCircle,
   Loader2,
-  Save,
   Check,
   User as UserIcon,
-  RotateCcw,
   Eye,
   EyeOff,
   Pencil,
@@ -166,9 +164,6 @@ export default function AssignPermissionsPage() {
   const [userPermissions, setUserPermissions] = useState<UserPermissionItem[]>([]);
   const [loadingUserPerms, setLoadingUserPerms] = useState<boolean>(false);
   const [accessMap, setAccessMap] = useState<UserAccessMap>({});
-  const [initialMap, setInitialMap] = useState<UserAccessMap>({});
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
-  const [saving, setSaving] = useState<boolean>(false);
 
   // Available system permissions (for the Assign Dropdown)
   const [availableSystemPermissions, setAvailableSystemPermissions] = useState<PermissionItem[]>(
@@ -206,15 +201,11 @@ export default function AssignPermissionsPage() {
         map[p.permissionId] = p.accessLevel;
       });
       setAccessMap(map);
-      setInitialMap({ ...map });
-      setHasUnsavedChanges(false);
     } catch (err) {
       console.error(`Could not fetch permissions for user #${userId}:`, err);
       toast.error("Failed to load user permissions from server");
       setUserPermissions([]);
       setAccessMap({});
-      setInitialMap({});
-      setHasUnsavedChanges(false);
     } finally {
       setLoadingUserPerms(false);
     }
@@ -363,64 +354,47 @@ export default function AssignPermissionsPage() {
     }
   };
 
-  // Set the mutually exclusive access level for a permission
-  const handleSetPermissionLevel = (permissionId: number, level: PermissionAccessLevel) => {
-    setAccessMap((prev) => {
-      const updated = {
-        ...prev,
-        [permissionId]: level,
-      };
-      const isChanged =
-        Object.keys(updated).some(
-          (key) => updated[Number(key)] !== (initialMap[Number(key)] || "hide"),
-        ) ||
-        Object.keys(initialMap).some(
-          (key) => (updated[Number(key)] || "hide") !== initialMap[Number(key)],
-        );
-      setHasUnsavedChanges(isChanged);
-      return updated;
-    });
-  };
-
-  // Save changes for the selected user via PUT /api/user-permissions/assign
-  const handleSavePermissions = async () => {
+  // Set the mutually exclusive access level for a permission (updates immediately via API)
+  const handleSetPermissionLevel = async (permissionId: number, level: PermissionAccessLevel) => {
     if (!selectedUser) return;
-    setSaving(true);
+    const prevLevel = accessMap[permissionId];
+    if (prevLevel === level) return;
+
+    setAccessMap((prev) => ({
+      ...prev,
+      [permissionId]: level,
+    }));
+
     try {
       const payload = {
         userId: Number(selectedUser.id),
-        permissions: userPermissions.map((p) => ({
-          permissionId: p.permissionId,
-          accessLevel: accessMap[p.permissionId] || p.accessLevel || "hide",
-        })),
+        permissions: [
+          {
+            permissionId,
+            accessLevel: level,
+          },
+        ],
       };
-
       const res = await permissionsService.assign(payload);
       if (res?.success) {
-        setInitialMap({ ...accessMap });
-        setHasUnsavedChanges(false);
-        const activeCount = Object.values(accessMap).filter(
-          (lvl) => lvl === "read" || lvl === "write",
-        ).length;
-        toast.success(res.message || `Permissions updated for ${selectedUser.fullName}`, {
-          description: `${activeCount} active rights (Read / Read & Write) saved.`,
-        });
+        const label =
+          level === "write" ? "Read and Write" : level === "read" ? "Read Only" : "Hidden";
+        toast.success(`Access updated to ${label}`);
       } else {
-        toast.error(res?.message || "Failed to update permissions");
+        toast.error(res?.message || "Failed to update access level");
+        setAccessMap((prev) => ({
+          ...prev,
+          [permissionId]: prevLevel,
+        }));
       }
     } catch (err: unknown) {
-      console.error("Failed to assign permissions:", err);
-      toast.error((err as Error)?.message || "Failed to save permissions");
-    } finally {
-      setSaving(false);
+      console.error("Failed to update permission level:", err);
+      toast.error((err as Error)?.message || "Failed to update access level");
+      setAccessMap((prev) => ({
+        ...prev,
+        [permissionId]: prevLevel,
+      }));
     }
-  };
-
-  // Reset to initial
-  const handleReset = () => {
-    setAccessMap({ ...initialMap });
-    setHasUnsavedChanges(false);
-    toast.info("Changes reverted to previously saved state");
   };
 
   // Close search dropdown when clicking outside
@@ -662,55 +636,22 @@ export default function AssignPermissionsPage() {
               </div>
             </div>
 
-            {/* Assignment Status & Actions */}
-            <div className="flex items-center gap-3 self-end md:self-center flex-wrap">
-              <div className="text-right mr-1">
-                <span className="text-xs font-semibold text-foreground">
-                  {stats.activeCount} of {userPermissions.length} Active
+            {/* Assignment Status */}
+            <div className="text-right self-end md:self-center">
+              <span className="text-xs font-semibold text-foreground">
+                {stats.activeCount} of {userPermissions.length} Active
+              </span>
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground justify-end mt-0.5">
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                  {stats.writeCount} Read and Write
                 </span>
-                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground justify-end mt-0.5">
-                  <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                    {stats.writeCount} Read and Write
-                  </span>
-                  <span>•</span>
-                  <span className="text-sky-600 dark:text-sky-400 font-medium">
-                    {stats.readCount} Read Only
-                  </span>
-                  <span>•</span>
-                  <span>{stats.hideCount} Hide</span>
-                </div>
+                <span>•</span>
+                <span className="text-sky-600 dark:text-sky-400 font-medium">
+                  {stats.readCount} Read Only
+                </span>
+                <span>•</span>
+                <span>{stats.hideCount} Hide</span>
               </div>
-
-              {hasUnsavedChanges && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleReset}
-                  className="h-8 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  <span>Revert</span>
-                </Button>
-              )}
-
-              <Button
-                size="sm"
-                onClick={handleSavePermissions}
-                disabled={saving || !hasUnsavedChanges}
-                className="h-8 text-xs gap-1.5"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    <span>Saving...</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="h-3.5 w-3.5" />
-                    <span>Save Changes</span>
-                  </>
-                )}
-              </Button>
             </div>
           </div>
 
