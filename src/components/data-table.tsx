@@ -180,6 +180,7 @@ export function DataTable<T>({
   loading: loadingProp = false,
 }: Props<T>) {
   const [query, setQuery] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
   const [localPage, setLocalPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(() => getStoredPageSize(pageSizeProp));
 
@@ -285,11 +286,16 @@ export function DataTable<T>({
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-        <div className="relative w-full sm:w-72 sm:ml-auto">
+        <form
+          role="search"
+          onSubmit={(e) => e.preventDefault()}
+          autoComplete="off"
+          className="relative w-full sm:w-72 sm:ml-auto"
+        >
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             id="table-search-query-input"
-            name="table_search_query_input"
+            name="search"
             type="search"
             autoComplete="off"
             autoCorrect="off"
@@ -298,9 +304,14 @@ export function DataTable<T>({
             data-lpignore="true"
             data-1p-ignore="true"
             data-form-type="other"
+            readOnly={!searchFocused}
+            onMouseDown={() => setSearchFocused(true)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
             value={query}
             disabled={isLoading && rows.length === 0}
             onChange={(e) => {
+              if (!searchFocused) return;
               setQuery(e.target.value);
               setLocalPage(1);
             }}
@@ -320,7 +331,7 @@ export function DataTable<T>({
               <X className="h-3.5 w-3.5" />
             </button>
           ) : null}
-        </div>
+        </form>
         {toolbar}
       </div>
 

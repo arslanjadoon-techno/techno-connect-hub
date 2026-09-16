@@ -784,10 +784,30 @@ export function UserForm({
   };
 
   return (
-    <div
+    <form
       ref={formContainerRef}
+      onSubmit={(e) => {
+        e.preventDefault();
+        submit();
+      }}
+      autoComplete="off"
       className="space-y-4 max-h-[82vh] overflow-y-auto px-1 scrollbar-thin"
     >
+      {/* Hidden dummy credentials to trap browser autofill and prevent targeting outer table search bar */}
+      <input
+        type="text"
+        name="fake_user_shield"
+        style={{ display: "none", position: "absolute", opacity: 0, height: 0, width: 0 }}
+        tabIndex={-1}
+        autoComplete="off"
+      />
+      <input
+        type="password"
+        name="fake_password_shield"
+        style={{ display: "none", position: "absolute", opacity: 0, height: 0, width: 0 }}
+        tabIndex={-1}
+        autoComplete="off"
+      />
       {attemptedSubmit && !canSave && (
         <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-xs font-medium text-destructive animate-fade-in">
           <AlertCircle className="h-4 w-4 shrink-0" />
@@ -922,6 +942,7 @@ export function UserForm({
                 onChange={(e) => setPassword(e.target.value)}
                 onBlur={() => markTouched("password")}
                 placeholder="Min 6 characters"
+                autoComplete="new-password"
                 className={`pr-10 ${
                   shouldShowPasswordError
                     ? "border-red-500 focus-visible:ring-red-500 ring-2 ring-red-500/30 bg-red-50/40 dark:bg-red-950/20"
@@ -1016,6 +1037,7 @@ export function UserForm({
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 onBlur={() => markTouched("confirmPassword")}
                 placeholder="Re-enter password"
+                autoComplete="new-password"
                 className={`pr-10 ${
                   shouldShowConfirmError
                     ? "border-red-500 focus-visible:ring-red-500 ring-2 ring-red-500/30 bg-red-50/40 dark:bg-red-950/20"
@@ -1270,7 +1292,7 @@ export function UserForm({
         {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
         {initial ? "Save changes" : "Create user"}
       </Button>
-    </div>
+    </form>
   );
 }
 
