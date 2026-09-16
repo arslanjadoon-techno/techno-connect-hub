@@ -3,17 +3,17 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   ShieldPlus,
-  Lock,
   Copy,
   Check,
-  Sparkles,
+  Lock,
   Layers,
-  ArrowRight,
   Search,
   Filter,
-  Trash2,
-  AlertCircle,
+  ArrowRight,
+  Sparkles,
+  RefreshCw,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,34 +31,23 @@ import {
 import { PermissionsNavTabs } from "./PermissionsNavTabs";
 import {
   permissionsService,
-  generatePermissionKey,
   type PermissionItem,
 } from "@/services/user-manager/permissions.service";
-import { portalsService } from "@/services/user-manager";
-import type { Portal } from "@/lib/api/client";
-
-const FALLBACK_PORTALS = [
-  { id: 1, name: "Leasing" },
-  { id: 2, name: "Commission" },
-  { id: 3, name: "Ticketing" },
-  { id: 4, name: "Leave" },
-  { id: 5, name: "Ranker" },
-  { id: 6, name: "Scheduling" },
-  { id: 7, name: "User Manager" },
-];
+import { portalsService, type PortalItem } from "@/services/portals/portals.service";
 
 export default function CreatePermissionPage() {
   // Portal API list state
-  const [portals, setPortals] = useState<Array<{ id: number | string; name: string }>>([]);
+  const [portals, setPortals] = useState<PortalItem[]>([]);
   const [loadingPortals, setLoadingPortals] = useState<boolean>(true);
 
   // Form states
-  const [selectedPortal, setSelectedPortal] = useState<string>("");
+  const [selectedPortalId, setSelectedPortalId] = useState<string>("");
   const [permissionName, setPermissionName] = useState<string>("");
   const [description, setDescription] = useState<string>("");
 
   // Existing permissions list
   const [permissionsList, setPermissionsList] = useState<PermissionItem[]>([]);
+  const [loadingPermissions, setLoadingPermissions] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [filterPortal, setFilterPortal] = useState<string>("all");
 
@@ -66,7 +55,7 @@ export default function CreatePermissionPage() {
   const [copiedKey, setCopiedKey] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  // 1. Fetch Portals using the centralized Portals service
+  // 1. Fetch Portals dynamically from portalsService
   useEffect(() => {
     let isMounted = true;
 
@@ -74,23 +63,18 @@ export default function CreatePermissionPage() {
       try {
         setLoadingPortals(true);
         const res = await portalsService.getAll();
-        if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
+        if (res?.success && Array.isArray(res.data)) {
           if (isMounted) {
             setPortals(res.data);
-            return;
           }
         }
       } catch (err) {
-        console.warn("Could not fetch portals from API, using default portals list:", err);
+        console.error("Failed to load portals:", err);
+        toast.error("Failed to load portals list");
       } finally {
         if (isMounted) {
           setLoadingPortals(false);
         }
-      }
-
-      // Fallback if API is offline or returns empty
-      if (isMounted) {
-        setPortals(FALLBACK_PORTALS);
       }
     }
 
@@ -100,102 +84,116 @@ export default function CreatePermissionPage() {
     };
   }, []);
 
-  // Load existing permissions
-  const reloadPermissions = () => {
-    setPermissionsList(permissionsService.getAll());
+  // 2. Fetch existing permissions from real API
+  const reloadPermissions = async () => {
+    try {
+      setLoadingPermissions(true);
+      const res = await permissionsService.getAll();
+      if (res?.success && Array.isArray(res.data)) {
+        setPermissionsList(res.data);
+      } else {
+        setPermissionsList([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch permissions:", err);
+      toast.error("Failed to retrieve permissions from server");
+      setPermissionsList([]);
+    } finally {
+      setLoadingPermissions(false);
+    }
   };
 
   useEffect(() => {
     reloadPermissions();
   }, []);
 
-  // 2. Auto-generated Key: combines portal name and permission name in snake_case format
-  // Example: "Leasing" + "Upload Statement Button" -> "leasing_upload_statement_button"
-  const generatedKey = useMemo(() => {
-    if (!selectedPortal && !permissionName) return "";
-    return generatePermissionKey(selectedPortal, permissionName);
-  }, [selectedPortal, permissionName]);
+  // Selected portal object
+  const selectedPortalObj = useMemo(() => {
+    return portals.find((p) => String(p.id) === String(selectedPortalId));
+  }, [portals, selectedPortalId]);
+
+  // Live estimated key preview (backend generates key upon creation)
+  const previewKey = useMemo(() => {
+    if (!selectedPortalObj?.name && !permissionName.trim()) return "";
+    const portalSlug = (selectedPortalObj?.name || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+    const nameSlug = permissionName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+
+    if (!portalSlug && !nameSlug) return "";
+    if (!portalSlug) return nameSlug;
+    if (!nameSlug) return `${portalSlug}.`;
+    return `${portalSlug}.${nameSlug}`;
+  }, [selectedPortalObj, permissionName]);
 
   const handleCopyKey = () => {
-    if (!generatedKey) return;
-    navigator.clipboard.writeText(generatedKey);
+    if (!previewKey) return;
+    navigator.clipboard.writeText(previewKey);
     setCopiedKey(true);
     toast.success("Permission key copied to clipboard");
     setTimeout(() => setCopiedKey(false), 2000);
   };
 
-  // Form submission handler (as requested, currently no backend API needed)
-  const handleSubmit = (e: React.FormEvent) => {
+  // Submit new permission via real API
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedPortal.trim()) {
-      toast.error("Please select a portal from the list");
-      return;
-    }
-    if (!permissionName.trim()) {
-      toast.error("Please enter a permission name");
-      return;
-    }
-    if (!generatedKey.trim()) {
-      toast.error("Invalid key generated");
+    if (!selectedPortalId) {
+      toast.error("Please select a target portal");
       return;
     }
 
-    // Check if key already exists
-    const exists = permissionsList.some((p) => p.key.toLowerCase() === generatedKey.toLowerCase());
-    if (exists) {
-      toast.error(`Permission key "${generatedKey}" already exists`);
+    if (!permissionName.trim()) {
+      toast.error("Please provide a permission name");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const selectedPortalObj = portals.find(
-        (p) => p.name.toLowerCase() === selectedPortal.toLowerCase(),
-      );
-
-      permissionsService.create({
-        portalName: selectedPortal,
-        portalId: selectedPortalObj?.id,
-        name: permissionName,
-        key: generatedKey,
+      const res = await permissionsService.add({
+        portalId: Number(selectedPortalId),
+        name: permissionName.trim(),
         description: description.trim() || undefined,
       });
 
-      toast.success(`Permission "${generatedKey}" created successfully!`, {
-        description: "It is now available to assign to users.",
-      });
-
-      // Clear input fields
-      setPermissionName("");
-      setDescription("");
-      reloadPermissions();
+      if (res?.success) {
+        toast.success(res.message || "Permission created successfully!");
+        setPermissionName("");
+        setDescription("");
+        await reloadPermissions();
+      } else {
+        toast.error(res?.message || "Failed to create permission");
+      }
     } catch (err: unknown) {
+      console.error("Error creating permission:", err);
       toast.error((err as Error)?.message || "Failed to create permission");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDeleteCustom = (id: string, name: string) => {
-    if (confirm(`Are you sure you want to delete the permission "${name}"?`)) {
-      permissionsService.deleteCustom(id);
-      toast.success("Custom permission removed");
-      reloadPermissions();
-    }
-  };
-
-  // Filter existing permissions list
+  // Filtered permissions list
   const filteredPermissions = useMemo(() => {
-    return permissionsList.filter((p) => {
+    return permissionsList.filter((item) => {
       const matchesPortal =
-        filterPortal === "all" || p.portalName.toLowerCase() === filterPortal.toLowerCase();
+        filterPortal === "all" ||
+        String(item.portalId) === String(filterPortal) ||
+        item.portalName.toLowerCase() === filterPortal.toLowerCase();
+
       const q = searchTerm.toLowerCase().trim();
       const matchesSearch =
         !q ||
-        p.name.toLowerCase().includes(q) ||
-        p.key.toLowerCase().includes(q) ||
-        (p.description && p.description.toLowerCase().includes(q));
+        item.name.toLowerCase().includes(q) ||
+        item.key.toLowerCase().includes(q) ||
+        (item.description && item.description.toLowerCase().includes(q)) ||
+        item.portalName.toLowerCase().includes(q);
+
       return matchesPortal && matchesSearch;
     });
   }, [permissionsList, filterPortal, searchTerm]);
@@ -205,52 +203,47 @@ export default function CreatePermissionPage() {
       {/* Top Navigation Tabs */}
       <PermissionsNavTabs totalPermissions={permissionsList.length} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left Column: Create Permission Form */}
-        <div className="lg:col-span-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Create Form */}
+        <div className="lg:col-span-5 space-y-4">
           <Card className="border-border shadow-xs">
             <CardHeader className="pb-4">
-              <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <ShieldPlus className="h-4 w-4" />
-                </div>
-                <div>
-                  <CardTitle className="text-base font-semibold">Create Permission</CardTitle>
-                  <CardDescription className="text-xs">
-                    Define a new feature flag or action entitlement.
-                  </CardDescription>
-                </div>
-              </div>
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <ShieldPlus className="h-4 w-4 text-primary" />
+                New Permission Entry
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Create a granular system or UI permission tied to a specific portal.
+              </CardDescription>
             </CardHeader>
 
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* 1. Portals Dropdown List */}
+                {/* 1. Portal Select Dropdown */}
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="portal-select" className="text-xs font-semibold">
-                      Portal <span className="text-destructive">*</span>
-                    </Label>
-                    {loadingPortals && (
-                      <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                        <Loader2 className="h-3 w-3 animate-spin" /> Loading portals...
-                      </span>
-                    )}
-                  </div>
-                  <Select value={selectedPortal} onValueChange={setSelectedPortal}>
-                    <SelectTrigger id="portal-select" className="h-9 w-full">
-                      <SelectValue placeholder="Select portal..." />
+                  <Label htmlFor="portal-select" className="text-xs font-semibold">
+                    Portal <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={selectedPortalId}
+                    onValueChange={setSelectedPortalId}
+                    disabled={loadingPortals || isSubmitting}
+                  >
+                    <SelectTrigger id="portal-select" className="h-9 w-full text-xs">
+                      <SelectValue
+                        placeholder={loadingPortals ? "Loading portals..." : "Select portal..."}
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {portals.map((p) => (
-                        <SelectItem key={p.id} value={p.name}>
+                        <SelectItem key={p.id} value={String(p.id)}>
                           {p.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <p className="text-[11px] text-muted-foreground">
-                    Fetched dynamically from User Management portal service.
+                    Fetched dynamically from Portals service.
                   </p>
                 </div>
 
@@ -265,15 +258,16 @@ export default function CreatePermissionPage() {
                     placeholder="e.g. Upload Statement Button"
                     value={permissionName}
                     onChange={(e) => setPermissionName(e.target.value)}
-                    className="h-9"
+                    className="h-9 text-xs"
+                    disabled={isSubmitting}
                     required
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Human-readable label shown in authorization screens.
+                    Human-readable label shown in permission assignment screens.
                   </p>
                 </div>
 
-                {/* 3. Key (Auto Generated - Disabled) */}
+                {/* 3. Key Preview */}
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between">
                     <Label
@@ -283,10 +277,10 @@ export default function CreatePermissionPage() {
                       <Lock className="h-3 w-3 text-muted-foreground" />
                       Key{" "}
                       <span className="text-muted-foreground text-[11px] font-normal">
-                        (Auto Generated)
+                        (Auto-generated by server)
                       </span>
                     </Label>
-                    {generatedKey && (
+                    {previewKey && (
                       <Button
                         type="button"
                         variant="ghost"
@@ -311,10 +305,9 @@ export default function CreatePermissionPage() {
                     <Input
                       id="perm-key"
                       type="text"
-                      value={generatedKey}
+                      value={previewKey}
                       readOnly
-                      disabled
-                      placeholder="e.g. leasing_upload_statement_button"
+                      placeholder="e.g. ticketing.test_permission_1"
                       className="h-9 font-mono text-xs bg-muted/60 text-foreground/80 border-dashed cursor-not-allowed pr-8 select-all"
                     />
                     <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground/60">
@@ -323,9 +316,9 @@ export default function CreatePermissionPage() {
                   </div>
 
                   <p className="text-[11px] text-muted-foreground">
-                    Automatically generated format:{" "}
+                    Backend key format:{" "}
                     <code className="rounded bg-muted px-1 py-0.5 font-mono text-[10px] text-primary">
-                      [portal]_[permission_name]
+                      [portal_name].[permission_name]
                     </code>
                   </p>
                 </div>
@@ -344,6 +337,7 @@ export default function CreatePermissionPage() {
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     rows={3}
+                    disabled={isSubmitting}
                     className="text-xs resize-none"
                   />
                 </div>
@@ -352,11 +346,20 @@ export default function CreatePermissionPage() {
                 <div className="pt-2">
                   <Button
                     type="submit"
-                    className="w-full h-9 gap-2 font-medium"
-                    disabled={!selectedPortal || !permissionName.trim() || isSubmitting}
+                    className="w-full h-9 gap-2 font-medium text-xs"
+                    disabled={!selectedPortalId || !permissionName.trim() || isSubmitting}
                   >
-                    <ShieldPlus className="h-4 w-4" />
-                    <span>Create Permission</span>
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Creating Permission...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShieldPlus className="h-4 w-4" />
+                        <span>Create Permission</span>
+                      </>
+                    )}
                   </Button>
                 </div>
               </form>
@@ -367,7 +370,7 @@ export default function CreatePermissionPage() {
           <div className="mt-4 rounded-lg border border-border/70 bg-muted/20 p-3.5 text-xs text-muted-foreground flex items-start gap-2.5">
             <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
             <div>
-              <p className="font-medium text-foreground">Permission Workflow</p>
+              <p className="font-medium text-foreground">Permission Assignment</p>
               <p className="mt-0.5">
                 Once created, navigate to{" "}
                 <Link to="/admin/permissions/assign" className="text-primary underline font-medium">
@@ -390,15 +393,30 @@ export default function CreatePermissionPage() {
                     Available Permissions
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    List of all configured system and custom portal permissions.
+                    Live list of configured permissions retrieved from backend API.
                   </CardDescription>
                 </div>
-                <Link to="/admin/permissions/assign">
-                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
-                    <span>Go to Assign</span>
-                    <ArrowRight className="h-3.5 w-3.5" />
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={reloadPermissions}
+                    disabled={loadingPermissions}
+                    className="h-8 text-xs gap-1.5"
+                    title="Refresh permissions from server"
+                  >
+                    <RefreshCw
+                      className={`h-3.5 w-3.5 ${loadingPermissions ? "animate-spin" : ""}`}
+                    />
+                    <span className="hidden sm:inline">Refresh</span>
                   </Button>
-                </Link>
+                  <Link to="/admin/permissions/assign">
+                    <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                      <span>Go to Assign</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </Link>
+                </div>
               </div>
 
               {/* Filters */}
@@ -414,7 +432,7 @@ export default function CreatePermissionPage() {
                   />
                 </div>
 
-                <div className="w-full sm:w-[170px]">
+                <div className="w-full sm:w-[180px]">
                   <Select value={filterPortal} onValueChange={setFilterPortal}>
                     <SelectTrigger className="h-8 text-xs">
                       <Filter className="h-3 w-3 mr-1.5 text-muted-foreground" />
@@ -423,7 +441,7 @@ export default function CreatePermissionPage() {
                     <SelectContent>
                       <SelectItem value="all">All Portals</SelectItem>
                       {portals.map((p) => (
-                        <SelectItem key={p.id} value={p.name}>
+                        <SelectItem key={p.id} value={String(p.id)}>
                           {p.name}
                         </SelectItem>
                       ))}
@@ -435,10 +453,15 @@ export default function CreatePermissionPage() {
 
             <CardContent className="p-0">
               <div className="divide-y divide-border/60 max-h-[580px] overflow-y-auto">
-                {filteredPermissions.length === 0 ? (
+                {loadingPermissions ? (
+                  <div className="p-12 text-center text-xs text-muted-foreground space-y-2">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+                    <p>Loading permissions from server...</p>
+                  </div>
+                ) : filteredPermissions.length === 0 ? (
                   <div className="p-8 text-center text-xs text-muted-foreground">
                     <AlertCircle className="h-6 w-6 mx-auto mb-2 opacity-50" />
-                    No permissions match your search or filter.
+                    No permissions match your search or filter criteria.
                   </div>
                 ) : (
                   filteredPermissions.map((item) => (
@@ -457,14 +480,9 @@ export default function CreatePermissionPage() {
                           >
                             {item.portalName}
                           </Badge>
-                          {item.isCustom && (
-                            <Badge
-                              variant="secondary"
-                              className="text-[10px] px-1.5 py-0 h-4.5 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
-                            >
-                              Custom
-                            </Badge>
-                          )}
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            ID: #{item.id}
+                          </span>
                         </div>
 
                         <div className="flex items-center gap-1.5">
@@ -476,6 +494,13 @@ export default function CreatePermissionPage() {
                         {item.description && (
                           <p className="text-[11px] text-muted-foreground/80 line-clamp-1">
                             {item.description}
+                          </p>
+                        )}
+
+                        {item.createdDate && (
+                          <p className="text-[10px] text-muted-foreground/60">
+                            Created: {new Date(item.createdDate).toLocaleDateString()}
+                            {item.createdBy && ` by ${item.createdBy}`}
                           </p>
                         )}
                       </div>
@@ -493,18 +518,6 @@ export default function CreatePermissionPage() {
                         >
                           <Copy className="h-3.5 w-3.5" />
                         </Button>
-
-                        {item.isCustom && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            title="Delete custom permission"
-                            onClick={() => handleDeleteCustom(item.id, item.name)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
                       </div>
                     </div>
                   ))

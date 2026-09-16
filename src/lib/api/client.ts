@@ -78,7 +78,10 @@ export async function apiRequest<T>(path: string, opts: RequestOpts = {}): Promi
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (opts.auth !== false) {
     const tok = getToken();
-    if (tok) headers["Authorization"] = `Bearer ${tok}`;
+    if (tok) {
+      headers["Authorization"] = `Bearer ${tok}`;
+      headers["token"] = tok;
+    }
   }
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: opts.method ?? "GET",

@@ -52,7 +52,10 @@ export class HttpClient {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (opts.auth !== false) {
       const tok = this.getToken();
-      if (tok) headers["Authorization"] = `Bearer ${tok}`;
+      if (tok) {
+        headers["Authorization"] = `Bearer ${tok}`;
+        headers["token"] = tok;
+      }
     }
 
     const url = `${this.baseUrl}${path}${buildQuery(opts.query)}`;

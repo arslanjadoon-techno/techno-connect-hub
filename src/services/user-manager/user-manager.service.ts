@@ -8,6 +8,7 @@ import { housesService, HousesService } from "./houses.service";
 import { externalTeamService, ExternalTeamService } from "./external-team.service";
 import { hierarchyService, HierarchyService } from "./hierarchy.service";
 import { portalsService, PortalsService } from "../portals/portals.service";
+import { permissionsService, PermissionsService } from "./permissions.service";
 
 /**
  * Unified User Manager Portal Service
@@ -16,6 +17,7 @@ import { portalsService, PortalsService } from "../portals/portals.service";
 export class UserManagerService {
   public readonly users: UsersService = usersService;
   public readonly portals: PortalsService = portalsService;
+  public readonly permissions: PermissionsService = permissionsService;
   public readonly departments: DepartmentsService = departmentsService;
   public readonly states: StatesService = statesService;
   public readonly markets: MarketsService = marketsService;

@@ -11,8 +11,13 @@ export { portalsService, PortalsService } from "../portals/portals.service";
 export { userManagerService, UserManagerService } from "./user-manager.service";
 export {
   permissionsService,
+  PermissionsService,
   generatePermissionKey,
   type PermissionItem,
   type PermissionAccessLevel,
   type UserAccessMap,
+  type UserPermissionItem,
+  type AddPermissionPayload,
+  type AssignUserPermissionsPayload,
+  type AssignPermissionEntry,
 } from "./permissions.service";

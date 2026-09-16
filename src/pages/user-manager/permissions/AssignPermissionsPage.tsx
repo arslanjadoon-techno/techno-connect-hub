@@ -16,6 +16,7 @@ import {
   Eye,
   EyeOff,
   Pencil,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +36,8 @@ import {
   type PermissionAccessLevel,
   type UserAccessMap,
 } from "@/services/user-manager/permissions.service";
-import { usersApi, type BackendUser } from "@/lib/api/client";
+import { usersService } from "@/services/user-manager/users.service";
+import { type BackendUser } from "@/lib/api/client";
 
 // Color accents based on Portal Name
 function getPortalBadgeClass(portalName: string): string {
@@ -68,6 +70,8 @@ export default function AssignPermissionsPage() {
 
   // Permissions state
   const [permissions, setPermissions] = useState<PermissionItem[]>([]);
+  const [loadingPermissions, setLoadingPermissions] = useState<boolean>(true);
+  const [loadingUserPerms, setLoadingUserPerms] = useState<boolean>(false);
   const [accessMap, setAccessMap] = useState<UserAccessMap>({});
   const [initialMap, setInitialMap] = useState<UserAccessMap>({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState<boolean>(false);
@@ -78,18 +82,36 @@ export default function AssignPermissionsPage() {
   const [selectedPortalFilter, setSelectedPortalFilter] = useState<string>("all");
   const [selectedLevelFilter, setSelectedLevelFilter] = useState<string>("all");
 
-  // Load available permissions
+  // Load available permissions from backend API
+  const loadPermissions = async () => {
+    try {
+      setLoadingPermissions(true);
+      const res = await permissionsService.getAll();
+      if (res?.success && Array.isArray(res.data)) {
+        setPermissions(res.data);
+      } else {
+        setPermissions([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch permissions list:", err);
+      toast.error("Failed to load permissions from server");
+      setPermissions([]);
+    } finally {
+      setLoadingPermissions(false);
+    }
+  };
+
   useEffect(() => {
-    setPermissions(permissionsService.getAll());
+    loadPermissions();
   }, []);
 
-  // Fetch users from users API
+  // Fetch users from User Management service
   useEffect(() => {
     let isMounted = true;
     async function loadUsers() {
       try {
         setLoadingUsers(true);
-        const res = await usersApi.getAll({ page: 0, size: 50 });
+        const res = await usersService.getAll({ page: 0, size: 100 });
         if (res?.success && Array.isArray(res.data) && res.data.length > 0) {
           if (isMounted) {
             setUsers(res.data);
@@ -99,55 +121,13 @@ export default function AssignPermissionsPage() {
               handleSelectUser(firstActive);
             }
           }
+        } else if (isMounted) {
+          setUsers([]);
         }
       } catch (err) {
-        console.warn("Could not fetch users via API, using fallback list:", err);
-        // Fallback user dataset for offline/dev demo
-        const fallbackUsers: BackendUser[] = [
-          {
-            id: 101,
-            fullName: "Arsalan Jadoon",
-            email: "arsalan.jadoon@techno-communications.com",
-            phone: "+1 555-0192",
-            role: { id: 1, name: "Admin" },
-            department: { id: 1, name: "Executive" },
-            state: null,
-            district: null,
-            market: null,
-            store: null,
-            active: true,
-          },
-          {
-            id: 102,
-            fullName: "Sarah Jenkins",
-            email: "s.jenkins@techno-communications.com",
-            phone: "+1 555-0184",
-            role: { id: 2, name: "Store Manager" },
-            department: { id: 2, name: "Retail Operations" },
-            state: null,
-            district: null,
-            market: null,
-            store: null,
-            active: true,
-          },
-          {
-            id: 103,
-            fullName: "Michael Chang",
-            email: "m.chang@techno-communications.com",
-            phone: "+1 555-0143",
-            role: { id: 3, name: "District Manager" },
-            department: { id: 3, name: "Sales" },
-            state: null,
-            district: null,
-            market: null,
-            store: null,
-            active: true,
-          },
-        ];
-        if (isMounted) {
-          setUsers(fallbackUsers);
-          handleSelectUser(fallbackUsers[0]);
-        }
+        console.error("Could not fetch users from server:", err);
+        toast.error("Failed to load users list from server");
+        if (isMounted) setUsers([]);
       } finally {
         if (isMounted) setLoadingUsers(false);
       }
@@ -159,42 +139,83 @@ export default function AssignPermissionsPage() {
     };
   }, []);
 
-  // When a user is selected, load their assigned permission access levels
-  const handleSelectUser = (user: BackendUser) => {
+  // When a user is selected, load their assigned permission access levels via real API
+  const handleSelectUser = async (user: BackendUser) => {
     setSelectedUser(user);
     setUserSearchQuery("");
     setIsSearchFocused(false);
+    setLoadingUserPerms(true);
 
-    const savedLevels = permissionsService.getUserAccessLevels(user.id);
-    setAccessMap(savedLevels);
-    setInitialMap({ ...savedLevels });
-    setHasUnsavedChanges(false);
+    try {
+      const res = await permissionsService.getUserPermissions(user.id);
+      const map: UserAccessMap = {};
+      if (res?.success && Array.isArray(res.data)) {
+        res.data.forEach((item) => {
+          map[item.permissionId] = item.accessLevel;
+        });
+      }
+      setAccessMap(map);
+      setInitialMap({ ...map });
+      setHasUnsavedChanges(false);
+    } catch (err) {
+      console.error(`Could not fetch permissions for user #${user.id}:`, err);
+      toast.error(`Failed to load permissions for ${user.fullName}`);
+      setAccessMap({});
+      setInitialMap({});
+      setHasUnsavedChanges(false);
+    } finally {
+      setLoadingUserPerms(false);
+    }
   };
 
   // Set the mutually exclusive access level for a permission
-  const handleSetPermissionLevel = (key: string, level: PermissionAccessLevel) => {
-    setAccessMap((prev) => ({
-      ...prev,
-      [key]: level,
-    }));
-    setHasUnsavedChanges(true);
+  const handleSetPermissionLevel = (permissionId: number, level: PermissionAccessLevel) => {
+    setAccessMap((prev) => {
+      const updated = {
+        ...prev,
+        [permissionId]: level,
+      };
+      // Check if differs from initialMap
+      const isChanged =
+        Object.keys(updated).some(
+          (key) => updated[Number(key)] !== (initialMap[Number(key)] || "hide"),
+        ) ||
+        Object.keys(initialMap).some(
+          (key) => (updated[Number(key)] || "hide") !== initialMap[Number(key)],
+        );
+      setHasUnsavedChanges(isChanged);
+      return updated;
+    });
   };
 
-  // Save changes for the selected user
-  const handleSavePermissions = () => {
+  // Save changes for the selected user via PUT /api/user-permissions/assign
+  const handleSavePermissions = async () => {
     if (!selectedUser) return;
     setSaving(true);
     try {
-      permissionsService.saveUserAccessLevels(selectedUser.id, accessMap);
-      setInitialMap({ ...accessMap });
-      setHasUnsavedChanges(false);
-      const activeCount = Object.values(accessMap).filter(
-        (lvl) => lvl === "read" || lvl === "write",
-      ).length;
-      toast.success(`Permissions updated for ${selectedUser.fullName}`, {
-        description: `${activeCount} active rights (Read / Read & Write) saved.`,
-      });
+      const payload = {
+        userId: Number(selectedUser.id),
+        permissions: permissions.map((p) => ({
+          permissionId: p.id,
+          accessLevel: accessMap[p.id] || "hide",
+        })),
+      };
+
+      const res = await permissionsService.assign(payload);
+      if (res?.success) {
+        setInitialMap({ ...accessMap });
+        setHasUnsavedChanges(false);
+        const activeCount = Object.values(accessMap).filter(
+          (lvl) => lvl === "read" || lvl === "write",
+        ).length;
+        toast.success(res.message || `Permissions updated for ${selectedUser.fullName}`, {
+          description: `${activeCount} active rights (Read / Read & Write) saved.`,
+        });
+      } else {
+        toast.error(res?.message || "Failed to update permissions");
+      }
     } catch (err: unknown) {
+      console.error("Failed to assign permissions:", err);
       toast.error((err as Error)?.message || "Failed to save permissions");
     } finally {
       setSaving(false);
@@ -224,7 +245,7 @@ export default function AssignPermissionsPage() {
 
   // Filtered users for search bar dropdown
   const filteredUsers = useMemo(() => {
-    if (!userSearchQuery.trim()) return users.slice(0, 8);
+    if (!userSearchQuery.trim()) return users.slice(0, 10);
     const q = userSearchQuery.toLowerCase().trim();
     return users.filter((u) => {
       const nameMatch =
@@ -255,7 +276,7 @@ export default function AssignPermissionsPage() {
     let readCount = 0;
     let hideCount = 0;
     permissions.forEach((p) => {
-      const lvl = accessMap[p.key] || "hide";
+      const lvl = accessMap[p.id] || "hide";
       if (lvl === "write") writeCount++;
       else if (lvl === "read") readCount++;
       else hideCount++;
@@ -275,7 +296,7 @@ export default function AssignPermissionsPage() {
         selectedPortalFilter === "all" ||
         p.portalName.toLowerCase() === selectedPortalFilter.toLowerCase();
 
-      const currentLevel: PermissionAccessLevel = accessMap[p.key] || "hide";
+      const currentLevel: PermissionAccessLevel = accessMap[p.id] || "hide";
       const matchesLevel = selectedLevelFilter === "all" || currentLevel === selectedLevelFilter;
 
       const q = permSearchQuery.toLowerCase().trim();
@@ -283,7 +304,8 @@ export default function AssignPermissionsPage() {
         !q ||
         p.name.toLowerCase().includes(q) ||
         p.key.toLowerCase().includes(q) ||
-        (p.description && p.description.toLowerCase().includes(q));
+        (p.description && p.description.toLowerCase().includes(q)) ||
+        p.portalName.toLowerCase().includes(q);
 
       return matchesPortal && matchesLevel && matchesSearch;
     });
@@ -314,10 +336,10 @@ export default function AssignPermissionsPage() {
                 className="text-xs font-semibold text-foreground flex items-center gap-1.5"
               >
                 <Users className="h-4 w-4 text-primary" />
-                Select User to Assign Permissions
+                Select Employee to Assign Permissions
               </label>
               <span className="text-[11px] text-muted-foreground">
-                Search through active employees to configure their granular access keys.
+                Search through registered users to configure their granular access keys.
               </span>
             </div>
 
@@ -327,10 +349,11 @@ export default function AssignPermissionsPage() {
                 <Input
                   id="user-search-input"
                   type="text"
+                  autoComplete="off"
                   placeholder={
                     selectedUser
                       ? `Searching users... (Currently selected: ${selectedUser.fullName})`
-                      : "Search user by name, email, NTID, department..."
+                      : "Search user by name, email, department, or role..."
                   }
                   value={userSearchQuery}
                   onChange={(e) => {
@@ -353,10 +376,15 @@ export default function AssignPermissionsPage() {
                   <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
                     {userSearchQuery
                       ? `Search Results (${filteredUsers.length})`
-                      : "Employees List"}
+                      : `Registered Employees (${users.length})`}
                   </div>
 
-                  {filteredUsers.length === 0 ? (
+                  {loadingUsers ? (
+                    <div className="p-4 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading employees...
+                    </div>
+                  ) : filteredUsers.length === 0 ? (
                     <div className="p-4 text-center text-xs text-muted-foreground">
                       No matching users found for "{userSearchQuery}"
                     </div>
@@ -428,6 +456,9 @@ export default function AssignPermissionsPage() {
                       {selectedUser.department.name}
                     </Badge>
                   )}
+                  <span className="text-[11px] text-muted-foreground font-mono">
+                    User ID: #{selectedUser.id}
+                  </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {selectedUser.email}
@@ -498,9 +529,30 @@ export default function AssignPermissionsPage() {
                     Granular Portal Permissions
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Configure granular access for each permission. Choose between Hide, Read Only,
-                    or Read and Write.
+                    Configure individual feature access for {selectedUser.fullName}. Choose between
+                    Hide, Read Only, or Read and Write.
                   </CardDescription>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      loadPermissions();
+                      if (selectedUser) handleSelectUser(selectedUser);
+                    }}
+                    disabled={loadingPermissions || loadingUserPerms}
+                    className="h-8 text-xs gap-1.5"
+                    title="Refresh permissions and user access"
+                  >
+                    <RefreshCw
+                      className={`h-3.5 w-3.5 ${
+                        loadingPermissions || loadingUserPerms ? "animate-spin" : ""
+                      }`}
+                    />
+                    <span className="hidden sm:inline">Refresh</span>
+                  </Button>
                 </div>
               </div>
 
@@ -557,7 +609,12 @@ export default function AssignPermissionsPage() {
 
             <CardContent className="p-0">
               <div className="divide-y divide-border/60">
-                {filteredPermissions.length === 0 ? (
+                {loadingPermissions || loadingUserPerms ? (
+                  <div className="p-12 text-center text-xs text-muted-foreground space-y-2">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+                    <p>Loading permissions and user access rights...</p>
+                  </div>
+                ) : filteredPermissions.length === 0 ? (
                   <div className="p-10 text-center space-y-2">
                     <Shield className="h-8 w-8 mx-auto text-muted-foreground/50" />
                     <p className="text-sm font-medium text-foreground">No permissions found</p>
@@ -573,7 +630,7 @@ export default function AssignPermissionsPage() {
                   </div>
                 ) : (
                   filteredPermissions.map((perm) => {
-                    const currentLevel: PermissionAccessLevel = accessMap[perm.key] || "hide";
+                    const currentLevel: PermissionAccessLevel = accessMap[perm.id] || "hide";
 
                     return (
                       <div
@@ -599,14 +656,9 @@ export default function AssignPermissionsPage() {
                             >
                               {perm.portalName}
                             </Badge>
-                            {perm.isCustom && (
-                              <Badge
-                                variant="secondary"
-                                className="text-[10px] px-1.5 py-0 h-4.5 bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
-                              >
-                                Custom
-                              </Badge>
-                            )}
+                            <span className="text-[10px] text-muted-foreground font-mono">
+                              ID: #{perm.id}
+                            </span>
                           </div>
 
                           <div className="flex items-center gap-1.5">
@@ -643,7 +695,7 @@ export default function AssignPermissionsPage() {
                           {/* 1. Hide */}
                           <button
                             type="button"
-                            onClick={() => handleSetPermissionLevel(perm.key, "hide")}
+                            onClick={() => handleSetPermissionLevel(perm.id, "hide")}
                             title="Hide: No access to this feature"
                             className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md transition-all font-medium ${
                               currentLevel === "hide"
@@ -658,7 +710,7 @@ export default function AssignPermissionsPage() {
                           {/* 2. Read Only */}
                           <button
                             type="button"
-                            onClick={() => handleSetPermissionLevel(perm.key, "read")}
+                            onClick={() => handleSetPermissionLevel(perm.id, "read")}
                             title="Read Only: View only access"
                             className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md transition-all font-medium ${
                               currentLevel === "read"
@@ -673,7 +725,7 @@ export default function AssignPermissionsPage() {
                           {/* 3. Read and Write */}
                           <button
                             type="button"
-                            onClick={() => handleSetPermissionLevel(perm.key, "write")}
+                            onClick={() => handleSetPermissionLevel(perm.id, "write")}
                             title="Read and Write: Full operational access"
                             className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md transition-all font-medium ${
                               currentLevel === "write"
@@ -698,9 +750,9 @@ export default function AssignPermissionsPage() {
         <Card className="border-dashed p-10 text-center space-y-3">
           <UserIcon className="h-10 w-10 mx-auto text-muted-foreground/60" />
           <div>
-            <h3 className="text-sm font-semibold text-foreground">No User Selected</h3>
+            <h3 className="text-sm font-semibold text-foreground">No Employee Selected</h3>
             <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-              Please use the search bar above to select an employee to view and assign portal
+              Please use the search bar above to select a user to view and configure their portal
               permissions.
             </p>
           </div>

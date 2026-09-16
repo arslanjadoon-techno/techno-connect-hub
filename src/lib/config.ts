@@ -98,6 +98,16 @@ export const PORTAL_API_PATHS = {
   getAll: "/api/portals/get-all",
 } as const;
 
+export const PERMISSION_API_PATHS = {
+  getAll: "/api/permissions/get-all",
+  add: "/api/permissions/add",
+} as const;
+
+export const USER_PERMISSION_API_PATHS = {
+  assign: "/api/user-permissions/assign",
+  getByUserId: (userId: string | number) => `/api/user-permissions/${userId}`,
+} as const;
+
 export const COMMISSION_API_BASE_URL =
   (import.meta.env.VITE_COMMISSION_API_PROD_URL as string) ||
   "https://idwhjd4bj2.execute-api.us-west-2.amazonaws.com/Prod";
