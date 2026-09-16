@@ -501,7 +501,7 @@ export function UserForm({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const formContainerRef = useRef<HTMLDivElement>(null);
+  const formContainerRef = useRef<HTMLFormElement>(null);
 
   const markTouched = (field: string) => {
     setTouched((prev) => ({ ...prev, [field]: true }));
