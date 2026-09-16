@@ -556,23 +556,7 @@ export default function AssignPermissionsPage() {
                 {getUserInitials(selectedUser.fullName)}
               </div>
               <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-base font-bold text-foreground">{selectedUser.fullName}</h2>
-                  <Badge
-                    variant="outline"
-                    className="text-xs px-2 py-0.5 bg-primary/5 text-primary border-primary/20"
-                  >
-                    {selectedUser.role?.name || "Employee"}
-                  </Badge>
-                  {selectedUser.department?.name && (
-                    <Badge variant="secondary" className="text-xs px-2 py-0.5">
-                      {selectedUser.department.name}
-                    </Badge>
-                  )}
-                  <span className="text-[11px] text-muted-foreground font-mono">
-                    User ID: #{selectedUser.id}
-                  </span>
-                </div>
+                <h2 className="text-base font-bold text-foreground">{selectedUser.fullName}</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {selectedUser.email}
                   {selectedUser.phone && ` • ${selectedUser.phone}`}

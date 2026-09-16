@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import {
   ShieldPlus,
-  Copy,
   Layers,
   Search,
   Filter,
@@ -406,15 +405,6 @@ export default function CreatePermissionPage() {
                             >
                               {item.portalName}
                             </Badge>
-                            <span className="text-[10px] text-muted-foreground font-mono">
-                              ID: #{item.id}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-1.5">
-                            <code className="text-[11px] font-mono text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded">
-                              {item.key}
-                            </code>
                           </div>
 
                           {item.description && (
@@ -431,7 +421,7 @@ export default function CreatePermissionPage() {
                           )}
                         </div>
 
-                        {/* Actions: Enable/Disable Toggle button & Copy Key */}
+                        {/* Actions: Enable/Disable Toggle button */}
                         <div className="flex items-center gap-2 shrink-0 pt-0.5">
                           {/* Toggle Button for Enable/Disable */}
                           <div
@@ -451,19 +441,6 @@ export default function CreatePermissionPage() {
                               className="scale-75 origin-right"
                             />
                           </div>
-
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                            title="Copy Key"
-                            onClick={() => {
-                              navigator.clipboard.writeText(item.key);
-                              toast.success(`Copied: ${item.key}`);
-                            }}
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                          </Button>
                         </div>
                       </div>
                     );
