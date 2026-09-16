@@ -781,24 +781,38 @@ export default function AssignPermissionsPage() {
                           filteredAvailablePermissions.map((p) => {
                             const isSelected = assignSelectedPerm?.id === p.id;
                             const isAlreadyAssigned = userPermissions.some(
-                              (up) => up.permissionId === p.id,
+                              (up) =>
+                                Number(up.permissionId) === Number(p.id) ||
+                                (Boolean(p.name) &&
+                                  Boolean(up.permissionName) &&
+                                  up.permissionName.toLowerCase() === p.name.toLowerCase()),
                             );
                             return (
                               <button
                                 key={p.id}
                                 type="button"
+                                disabled={isAlreadyAssigned}
                                 onClick={() => {
+                                  if (isAlreadyAssigned) return;
                                   setAssignSelectedPerm(p);
                                   setAssignPermSearch("");
                                   setIsAssignPermDropdownOpen(false);
                                 }}
-                                className={`w-full text-left p-2.5 hover:bg-muted/70 transition-colors flex items-center justify-between gap-2 ${
-                                  isSelected ? "bg-primary/10 font-medium text-primary" : ""
-                                }`}
+                                className={`w-full text-left p-2.5 transition-colors flex items-center justify-between gap-2 ${
+                                  isAlreadyAssigned
+                                    ? "opacity-50 cursor-not-allowed bg-muted/30 select-none"
+                                    : "hover:bg-muted/70 cursor-pointer"
+                                } ${isSelected ? "bg-primary/10 font-medium text-primary" : ""}`}
                               >
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="font-semibold text-foreground text-xs truncate">
+                                    <span
+                                      className={`font-semibold text-xs truncate ${
+                                        isAlreadyAssigned
+                                          ? "text-muted-foreground"
+                                          : "text-foreground"
+                                      }`}
+                                    >
                                       {p.name}
                                     </span>
                                     <Badge
@@ -808,9 +822,12 @@ export default function AssignPermissionsPage() {
                                       {p.portalName}
                                     </Badge>
                                     {isAlreadyAssigned && (
-                                      <span className="text-[10px] text-muted-foreground font-normal">
-                                        (Already assigned)
-                                      </span>
+                                      <Badge
+                                        variant="secondary"
+                                        className="text-[9px] px-1.5 py-0 h-4 bg-muted text-muted-foreground font-normal border border-border/50"
+                                      >
+                                        Already Assigned
+                                      </Badge>
                                     )}
                                   </div>
                                   {p.description && (
@@ -851,7 +868,18 @@ export default function AssignPermissionsPage() {
                   <Button
                     type="button"
                     onClick={handleAssignPermission}
-                    disabled={!assignSelectedPerm || assigningPerm}
+                    disabled={
+                      !assignSelectedPerm ||
+                      assigningPerm ||
+                      userPermissions.some(
+                        (up) =>
+                          Number(up.permissionId) === Number(assignSelectedPerm.id) ||
+                          (Boolean(assignSelectedPerm.name) &&
+                            Boolean(up.permissionName) &&
+                            up.permissionName.toLowerCase() ===
+                              assignSelectedPerm.name.toLowerCase()),
+                      )
+                    }
                     className="h-9 px-4 text-xs font-medium gap-1.5 shrink-0"
                   >
                     {assigningPerm ? (
