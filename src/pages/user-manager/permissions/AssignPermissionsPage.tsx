@@ -14,6 +14,7 @@ import {
   EyeOff,
   Pencil,
   RefreshCw,
+  Trash2,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { PermissionsNavTabs } from "./PermissionsNavTabs";
 import {
   permissionsService,
@@ -176,6 +195,10 @@ export default function AssignPermissionsPage() {
   const [isAssignPermDropdownOpen, setIsAssignPermDropdownOpen] = useState<boolean>(false);
   const [assigningPerm, setAssigningPerm] = useState<boolean>(false);
   const assignDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Unassign permission state for confirmation dialog
+  const [permToDelete, setPermToDelete] = useState<{ id: number; name: string } | null>(null);
+  const [deletingPerm, setDeletingPerm] = useState<boolean>(false);
 
   // Filters for user permissions list
   const [permSearchQuery, setPermSearchQuery] = useState<string>("");
@@ -397,6 +420,29 @@ export default function AssignPermissionsPage() {
     }
   };
 
+  // Unassign permission from the selected user
+  const handleConfirmUnassign = async () => {
+    if (!selectedUser || !permToDelete) return;
+    const { id, name } = permToDelete;
+    setDeletingPerm(true);
+    try {
+      await permissionsService.unassign(selectedUser.id, id);
+      setUserPermissions((prev) => prev.filter((p) => p.permissionId !== id));
+      setAccessMap((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      toast.success(`Permission "${name}" unassigned from ${selectedUser.fullName}`);
+    } catch (err: unknown) {
+      console.error("Failed to unassign permission:", err);
+      toast.error((err as Error)?.message || "Failed to unassign permission");
+    } finally {
+      setDeletingPerm(false);
+      setPermToDelete(null);
+    }
+  };
+
   // Close search dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -511,24 +557,84 @@ export default function AssignPermissionsPage() {
       {/* Top Navigation Tabs */}
       <PermissionsNavTabs totalPermissions={userPermissions.length} />
 
-      {/* 🌟 1. Primary Top Search Bar (User Search) */}
-      <Card className="border-border bg-card shadow-xs">
-        <CardContent className="p-4 sm:p-5">
-          <div className="space-y-2">
+      {/* 🌟 1. Top Section: User Info (Left 50%) & Select Employee to Assign Permission (Right 50%) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+        {/* 1st (Pehly): User Info Card (50% width) */}
+        <Card className="border-border bg-card shadow-xs flex flex-col justify-between">
+          <CardContent className="p-4 sm:p-5 flex flex-col justify-between h-full gap-4">
+            {selectedUser ? (
+              <>
+                <div className="flex items-center gap-3.5">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary text-base font-bold shadow-xs">
+                    {getUserInitials(selectedUser.fullName)}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="text-base font-bold text-foreground truncate">
+                        {selectedUser.fullName}
+                      </h2>
+                      {selectedUser.role?.name && (
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4.5">
+                          {selectedUser.role.name}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                      {selectedUser.email}
+                      {selectedUser.phone && ` • ${selectedUser.phone}`}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Assignment Status */}
+                <div className="pt-2 border-t border-border/60 flex items-center justify-between text-xs flex-wrap gap-2">
+                  <span className="font-semibold text-foreground">
+                    {stats.activeCount} of {userPermissions.length} Active
+                  </span>
+                  <div className="flex items-center gap-2 text-[10px] text-muted-foreground flex-wrap">
+                    <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                      {stats.writeCount} Read and Write
+                    </span>
+                    <span>•</span>
+                    <span className="text-sky-600 dark:text-sky-400 font-medium">
+                      {stats.readCount} Read Only
+                    </span>
+                    <span>•</span>
+                    <span>{stats.hideCount} Hide</span>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center gap-3 text-muted-foreground my-auto p-2">
+                <UserIcon className="h-8 w-8 opacity-40 shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-foreground">No Employee Selected</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Select an employee from the right to view details.
+                  </p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* 2nd (Aagy): Select Employee to Assign Permission Card (50% width) */}
+        <Card className="border-border bg-card shadow-xs flex flex-col justify-between">
+          <CardContent className="p-4 sm:p-5 flex flex-col justify-between h-full space-y-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
               <label
                 htmlFor="user-search-input"
                 className="text-xs font-semibold text-foreground flex items-center gap-1.5"
               >
                 <Users className="h-4 w-4 text-primary" />
-                Select Employee to Assign Permissions
+                Select Employee to Assign Permission
               </label>
               <span className="text-[11px] text-muted-foreground">
-                Search through registered users to configure their granular access keys.
+                Search employee by name or email
               </span>
             </div>
 
-            <div ref={searchContainerRef} className="relative">
+            <div ref={searchContainerRef} className="relative pt-1">
               <div className="relative">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -537,7 +643,7 @@ export default function AssignPermissionsPage() {
                   autoComplete="off"
                   placeholder={
                     selectedUser
-                      ? `Searching users... (Currently selected: ${selectedUser.fullName})`
+                      ? `${selectedUser.fullName} (Click to switch)`
                       : "Search user by name, email, department, or role..."
                   }
                   value={userSearchQuery}
@@ -614,47 +720,13 @@ export default function AssignPermissionsPage() {
                 </div>
               )}
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* 2. Selected User Banner & Permissions Matrix */}
+      {/* 2. Selected User Permissions Matrix */}
       {selectedUser ? (
         <div className="space-y-4">
-          {/* Selected User Info Header Card */}
-          <div className="rounded-xl border border-border bg-card p-4 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/15 text-primary text-base font-bold shadow-xs">
-                {getUserInitials(selectedUser.fullName)}
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-foreground">{selectedUser.fullName}</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {selectedUser.email}
-                  {selectedUser.phone && ` • ${selectedUser.phone}`}
-                </p>
-              </div>
-            </div>
-
-            {/* Assignment Status */}
-            <div className="text-right self-end md:self-center">
-              <span className="text-xs font-semibold text-foreground">
-                {stats.activeCount} of {userPermissions.length} Active
-              </span>
-              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground justify-end mt-0.5">
-                <span className="text-emerald-600 dark:text-emerald-400 font-medium">
-                  {stats.writeCount} Read and Write
-                </span>
-                <span>•</span>
-                <span className="text-sky-600 dark:text-sky-400 font-medium">
-                  {stats.readCount} Read Only
-                </span>
-                <span>•</span>
-                <span>{stats.hideCount} Hide</span>
-              </div>
-            </div>
-          </div>
-
           {/* Assign Available Permission to User */}
           <Card className="border-border bg-card shadow-xs">
             <CardContent className="p-3.5 sm:p-4">
@@ -991,56 +1063,108 @@ export default function AssignPermissionsPage() {
                           )}
                         </div>
 
-                        {/* 🌟 3 Mutually Exclusive Buttons: "Hide", "Read Only", "Read and Write" */}
-                        <div
-                          role="group"
-                          aria-label={`Access level for ${perm.permissionName}`}
-                          className="inline-flex items-center rounded-lg border border-border/80 bg-muted/40 p-1 shrink-0 self-start sm:self-center"
-                        >
-                          {/* 1. Hide */}
-                          <button
-                            type="button"
-                            onClick={() => handleSetPermissionLevel(perm.permissionId, "hide")}
-                            title="Hide: No access to this feature"
-                            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md transition-all font-medium ${
-                              currentLevel === "hide"
-                                ? "bg-background text-foreground font-semibold shadow-xs border border-border"
-                                : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                            }`}
-                          >
-                            <EyeOff className="h-3.5 w-3.5" />
-                            <span>Hide</span>
-                          </button>
+                        {/* Right Actions: Level Display Badge (non-editable) + Edit Icon Button + Delete Icon Button */}
+                        <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
+                          {/* 1. Single Non-editable Access Level Display Badge */}
+                          {currentLevel === "write" && (
+                            <Badge
+                              variant="outline"
+                              className="border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium text-xs px-2.5 py-1 gap-1.5 h-7 select-none"
+                            >
+                              <Pencil className="h-3 w-3" />
+                              <span>Read and Write</span>
+                            </Badge>
+                          )}
+                          {currentLevel === "read" && (
+                            <Badge
+                              variant="outline"
+                              className="border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400 font-medium text-xs px-2.5 py-1 gap-1.5 h-7 select-none"
+                            >
+                              <Eye className="h-3 w-3" />
+                              <span>Read Only</span>
+                            </Badge>
+                          )}
+                          {currentLevel === "hide" && (
+                            <Badge
+                              variant="outline"
+                              className="border-border bg-muted/60 text-muted-foreground font-medium text-xs px-2.5 py-1 gap-1.5 h-7 select-none"
+                            >
+                              <EyeOff className="h-3 w-3" />
+                              <span>Hide</span>
+                            </Badge>
+                          )}
 
-                          {/* 2. Read Only */}
-                          <button
-                            type="button"
-                            onClick={() => handleSetPermissionLevel(perm.permissionId, "read")}
-                            title="Read Only: View only access"
-                            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md transition-all font-medium ${
-                              currentLevel === "read"
-                                ? "bg-sky-500/15 text-sky-600 dark:text-sky-400 font-semibold shadow-xs border border-sky-500/30"
-                                : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                            }`}
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                            <span>Read Only</span>
-                          </button>
+                          {/* 2. Edit Icon Button: Changes/Updates Permission Level */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted"
+                                title="Change access level"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuLabel className="text-xs">
+                                Change Access Level
+                              </DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleSetPermissionLevel(perm.permissionId, "write")}
+                                className="text-xs flex items-center justify-between cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-medium">
+                                  <Pencil className="h-3.5 w-3.5" />
+                                  <span>Read and Write</span>
+                                </div>
+                                {currentLevel === "write" && (
+                                  <Check className="h-3.5 w-3.5 text-primary" />
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleSetPermissionLevel(perm.permissionId, "read")}
+                                className="text-xs flex items-center justify-between cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2 text-sky-600 dark:text-sky-400 font-medium">
+                                  <Eye className="h-3.5 w-3.5" />
+                                  <span>Read Only</span>
+                                </div>
+                                {currentLevel === "read" && (
+                                  <Check className="h-3.5 w-3.5 text-primary" />
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleSetPermissionLevel(perm.permissionId, "hide")}
+                                className="text-xs flex items-center justify-between cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2 text-muted-foreground font-medium">
+                                  <EyeOff className="h-3.5 w-3.5" />
+                                  <span>Hide</span>
+                                </div>
+                                {currentLevel === "hide" && (
+                                  <Check className="h-3.5 w-3.5 text-primary" />
+                                )}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
 
-                          {/* 3. Read and Write */}
-                          <button
-                            type="button"
-                            onClick={() => handleSetPermissionLevel(perm.permissionId, "write")}
-                            title="Read and Write: Full operational access"
-                            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md transition-all font-medium ${
-                              currentLevel === "write"
-                                ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-semibold shadow-xs border border-emerald-500/30"
-                                : "text-muted-foreground hover:text-foreground hover:bg-background/50"
-                            }`}
+                          {/* 3. Delete Icon Button: Unassigns Permission */}
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() =>
+                              setPermToDelete({
+                                id: perm.permissionId,
+                                name: perm.permissionName,
+                              })
+                            }
+                            className="h-7 w-7 text-destructive/80 hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+                            title="Unassign permission from user"
                           >
-                            <Pencil className="h-3.5 w-3.5" />
-                            <span>Read and Write</span>
-                          </button>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       </div>
                     );
@@ -1063,6 +1187,51 @@ export default function AssignPermissionsPage() {
           </div>
         </Card>
       )}
+
+      {/* Unassign Permission Confirmation Dialog */}
+      <AlertDialog
+        open={Boolean(permToDelete)}
+        onOpenChange={(open) => {
+          if (!open && !deletingPerm) setPermToDelete(null);
+        }}
+      >
+        <AlertDialogContent className="sm:max-w-[425px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base flex items-center gap-2 text-destructive">
+              <Trash2 className="h-4 w-4" />
+              Unassign Permission
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground">
+              Are you sure you want to unassign{" "}
+              <strong className="text-foreground">&quot;{permToDelete?.name}&quot;</strong> from{" "}
+              <strong className="text-foreground">{selectedUser?.fullName}</strong>? This permission
+              will no longer apply to this user.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel disabled={deletingPerm} className="text-xs h-8">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleConfirmUnassign();
+              }}
+              disabled={deletingPerm}
+              className="text-xs h-8 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deletingPerm ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                  Unassigning...
+                </>
+              ) : (
+                "Unassign"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

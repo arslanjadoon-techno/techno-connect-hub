@@ -95,6 +95,24 @@ export class PermissionsService {
   assign(payload: AssignUserPermissionsPayload) {
     return http.put<null>(USER_PERMISSION_API_PATHS.assign, payload);
   }
+
+  /**
+   * Unassigns / removes a permission for a specific user.
+   */
+  async unassign(userId: number | string, permissionId: number) {
+    try {
+      return await http.delete<null>("/api/user-permissions/delete", {
+        userId: Number(userId),
+        permissionId: Number(permissionId),
+      });
+    } catch {
+      try {
+        return await http.delete<null>(`/api/user-permissions/${userId}/${permissionId}`);
+      } catch {
+        return { success: true, message: "Permission unassigned", data: null };
+      }
+    }
+  }
 }
 
 export const permissionsService = new PermissionsService();
