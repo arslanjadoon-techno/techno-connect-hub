@@ -36,13 +36,13 @@ export function PermissionsNavTabs({ totalPermissions }: PermissionsNavTabsProps
         </div>
 
         {/* Navigation Tabs */}
-        <div className="inline-flex items-center rounded-lg border border-border bg-muted/40 p-1">
+        <div className="inline-flex items-center rounded-lg border border-border bg-muted/50 p-1 shadow-2xs">
           <Link
             to="/admin/permissions/create"
-            className={`flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-medium transition-all ${
+            className={`flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs transition-all ${
               isCreate
-                ? "bg-background text-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-background/60 font-medium"
             }`}
           >
             <PlusCircle className="h-3.5 w-3.5" />
@@ -50,10 +50,10 @@ export function PermissionsNavTabs({ totalPermissions }: PermissionsNavTabsProps
           </Link>
           <Link
             to="/admin/permissions/assign"
-            className={`flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs font-medium transition-all ${
+            className={`flex items-center gap-2 rounded-md px-3.5 py-1.5 text-xs transition-all ${
               isAssign
-                ? "bg-background text-foreground shadow-xs"
-                : "text-muted-foreground hover:text-foreground"
+                ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+                : "text-muted-foreground hover:text-foreground hover:bg-background/60 font-medium"
             }`}
           >
             <UserCheck className="h-3.5 w-3.5" />

@@ -43,6 +43,15 @@ import {
 } from "@/services/user-manager/permissions.service";
 import { portalsService, type PortalItem } from "@/services/portals/portals.service";
 
+// Helper to format portal names cleanly (e.g. "ranker" -> "Ranker", "ticketing" -> "Ticketing", "commission" -> "Commission")
+function formatPortalName(name?: string): string {
+  if (!name) return "";
+  return name
+    .split(/[\s_-]+/)
+    .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : ""))
+    .join(" ");
+}
+
 export default function CreatePermissionPage() {
   // Modal state for creating new permission
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
@@ -234,13 +243,6 @@ export default function CreatePermissionPage() {
                   <Plus className="h-3.5 w-3.5" />
                   <span>Create Permission</span>
                 </Button>
-
-                <Link to="/admin/permissions/assign">
-                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
-                    <span>Go to Assign</span>
-                    <ArrowRight className="h-3.5 w-3.5" />
-                  </Button>
-                </Link>
               </div>
             </div>
 
@@ -268,11 +270,12 @@ export default function CreatePermissionPage() {
                     {portals.map((p) => {
                       const count = permissionsList.filter(
                         (item) =>
-                          String(item.portalId) === String(p.id) || item.portalName === p.name,
+                          String(item.portalId) === String(p.id) ||
+                          item.portalName?.toLowerCase() === p.name.toLowerCase(),
                       ).length;
                       return (
                         <SelectItem key={p.id} value={String(p.id)}>
-                          {p.name} ({count})
+                          {formatPortalName(p.name)} ({count})
                         </SelectItem>
                       );
                     })}
@@ -329,7 +332,7 @@ export default function CreatePermissionPage() {
                             variant="outline"
                             className="text-[10px] px-1.5 py-0 h-4.5 bg-primary/5 text-primary border-primary/20"
                           >
-                            {item.portalName}
+                            {formatPortalName(item.portalName)}
                           </Badge>
                           <Button
                             variant="ghost"
@@ -444,7 +447,7 @@ export default function CreatePermissionPage() {
                 <SelectContent>
                   {portals.map((p) => (
                     <SelectItem key={p.id} value={String(p.id)}>
-                      {p.name}
+                      {formatPortalName(p.name)}
                     </SelectItem>
                   ))}
                 </SelectContent>

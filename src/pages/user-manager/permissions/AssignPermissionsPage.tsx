@@ -89,6 +89,14 @@ function normalizeAccessLevel(val: unknown): PermissionAccessLevel {
   return "hide";
 }
 
+function formatPortalName(name?: string): string {
+  if (!name) return "";
+  return name
+    .split(/[\s_-]+/)
+    .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : ""))
+    .join(" ");
+}
+
 function parseUserPermissionsResponse(data: unknown): UserPermissionItem[] {
   let list: any[] = [];
   if (Array.isArray(data)) {
@@ -973,7 +981,7 @@ export default function AssignPermissionsPage() {
                         const count = userPermissions.filter((p) => p.portalName === portal).length;
                         return (
                           <SelectItem key={portal} value={portal}>
-                            {portal} ({count})
+                            {formatPortalName(portal)} ({count})
                           </SelectItem>
                         );
                       })}
@@ -1052,7 +1060,7 @@ export default function AssignPermissionsPage() {
                                 perm.portalName,
                               )}`}
                             >
-                              {perm.portalName}
+                              {formatPortalName(perm.portalName)}
                             </Badge>
                           </div>
 
