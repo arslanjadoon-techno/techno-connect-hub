@@ -12,6 +12,7 @@ import {
   Loader2,
   AlertCircle,
   Copy,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { PermissionsNavTabs } from "./PermissionsNavTabs";
 import {
   permissionsService,
@@ -35,6 +44,9 @@ import {
 import { portalsService, type PortalItem } from "@/services/portals/portals.service";
 
 export default function CreatePermissionPage() {
+  // Modal state for creating new permission
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
+
   // Portal API list state
   const [portals, setPortals] = useState<PortalItem[]>([]);
   const [loadingPortals, setLoadingPortals] = useState<boolean>(true);
@@ -132,6 +144,7 @@ export default function CreatePermissionPage() {
         toast.success(res.message || "Permission created successfully!");
         setPermissionName("");
         setDescription("");
+        setIsCreateModalOpen(false);
         await reloadPermissions();
       } else {
         toast.error(res?.message || "Failed to create permission");
@@ -182,288 +195,333 @@ export default function CreatePermissionPage() {
       {/* Top Navigation Tabs */}
       <PermissionsNavTabs totalPermissions={permissionsList.length} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Create Form (Portal Selection, Permission Name, Description) */}
-        <div className="lg:col-span-5 space-y-4">
-          <Card className="border-border shadow-xs">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <ShieldPlus className="h-4 w-4 text-primary" />
-                New Permission Entry
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Create a granular system or UI permission tied to a specific portal.
-              </CardDescription>
-            </CardHeader>
+      {/* Available Permissions Section (Full Width) */}
+      <div className="w-full space-y-4">
+        <Card className="border-border shadow-xs w-full">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-primary" />
+                  Available Permissions
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Live list of configured permissions retrieved from backend API.
+                </CardDescription>
+              </div>
 
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* 1. Portal Select Dropdown */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="portal-select" className="text-xs font-semibold">
-                    Portal <span className="text-destructive">*</span>
-                  </Label>
-                  <Select
-                    value={selectedPortalId}
-                    onValueChange={setSelectedPortalId}
-                    disabled={loadingPortals || isSubmitting}
-                  >
-                    <SelectTrigger id="portal-select" className="h-9 w-full text-xs">
-                      <SelectValue
-                        placeholder={loadingPortals ? "Loading portals..." : "Select portal..."}
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {portals.map((p) => (
-                        <SelectItem key={p.id} value={String(p.id)}>
-                          {p.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-[11px] text-muted-foreground">
-                    Fetched dynamically from Portals service.
-                  </p>
-                </div>
-
-                {/* 2. Permission Name Textbox */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="perm-name" className="text-xs font-semibold">
-                    Permission Name <span className="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="perm-name"
-                    type="text"
-                    placeholder="e.g. Upload Statement Button"
-                    value={permissionName}
-                    onChange={(e) => setPermissionName(e.target.value)}
-                    className="h-9 text-xs"
-                    disabled={isSubmitting}
-                    required
+              {/* Top Right Actions: Refresh, Create Permission Button, Go to Assign */}
+              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={reloadPermissions}
+                  disabled={loadingPermissions}
+                  className="h-8 text-xs gap-1.5"
+                  title="Refresh permissions from server"
+                >
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 ${loadingPermissions ? "animate-spin" : ""}`}
                   />
-                  <p className="text-[11px] text-muted-foreground">
-                    Human-readable label shown in permission assignment screens.
-                  </p>
-                </div>
+                  <span className="hidden sm:inline">Refresh</span>
+                </Button>
 
-                {/* 3. Description (Optional) */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="perm-desc" className="text-xs font-semibold">
-                    Description{" "}
-                    <span className="text-muted-foreground text-[11px] font-normal">
-                      (Optional)
-                    </span>
-                  </Label>
-                  <Textarea
-                    id="perm-desc"
-                    placeholder="Provide additional details regarding what action this permission controls..."
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={3}
-                    disabled={isSubmitting}
-                    className="text-xs resize-none"
-                  />
-                </div>
+                <Button
+                  size="sm"
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="h-8 gap-1.5 text-xs font-semibold shadow-xs"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span>Create Permission</span>
+                </Button>
 
-                {/* Submission Button */}
-                <div className="pt-2">
-                  <Button
-                    type="submit"
-                    className="w-full h-9 gap-2 font-medium text-xs"
-                    disabled={!selectedPortalId || !permissionName.trim() || isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Creating Permission...</span>
-                      </>
-                    ) : (
-                      <>
-                        <ShieldPlus className="h-4 w-4" />
-                        <span>Create Permission</span>
-                      </>
-                    )}
+                <Link to="/admin/permissions/assign">
+                  <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
+                    <span>Go to Assign</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-
-          {/* Quick Info Box */}
-          <div className="mt-4 rounded-lg border border-border/70 bg-muted/20 p-3.5 text-xs text-muted-foreground flex items-start gap-2.5">
-            <Sparkles className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-            <div>
-              <p className="font-medium text-foreground">Permission Assignment</p>
-              <p className="mt-0.5">
-                Once created, navigate to{" "}
-                <Link to="/admin/permissions/assign" className="text-primary underline font-medium">
-                  Assign Permissions
-                </Link>{" "}
-                to grant or revoke this privilege for specific employees across the organization.
-              </p>
+                </Link>
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Right Column: Existing Permissions Table & Overview */}
-        <div className="lg:col-span-7 space-y-4">
-          <Card className="border-border shadow-xs">
-            <CardHeader className="pb-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Layers className="h-4 w-4 text-primary" />
-                    Available Permissions
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Live list of configured permissions retrieved from backend API.
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={reloadPermissions}
-                    disabled={loadingPermissions}
-                    className="h-8 text-xs gap-1.5"
-                    title="Refresh permissions from server"
-                  >
-                    <RefreshCw
-                      className={`h-3.5 w-3.5 ${loadingPermissions ? "animate-spin" : ""}`}
-                    />
-                    <span className="hidden sm:inline">Refresh</span>
-                  </Button>
-                  <Link to="/admin/permissions/assign">
-                    <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs">
-                      <span>Go to Assign</span>
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Button>
-                  </Link>
-                </div>
+            {/* Filters */}
+            <div className="mt-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-2 border-t border-border/50">
+              <div className="relative flex-1">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Search by name, key, description..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="h-8 pl-8 text-xs"
+                />
               </div>
 
-              {/* Filters */}
-              <div className="mt-3 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-2 border-t border-border/50">
-                <div className="relative flex-1">
-                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="Search by name, key, description..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-8 pl-8 text-xs"
-                  />
-                </div>
-
-                <div className="w-full sm:w-[180px]">
-                  <Select value={filterPortal} onValueChange={setFilterPortal}>
-                    <SelectTrigger className="h-8 text-xs">
-                      <Filter className="h-3 w-3 mr-1.5 text-muted-foreground" />
-                      <SelectValue placeholder="All Portals" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Portals</SelectItem>
-                      {portals.map((p) => (
+              <div className="w-full sm:w-[220px]">
+                <Select value={filterPortal} onValueChange={setFilterPortal}>
+                  <SelectTrigger className="h-8 text-xs">
+                    <Filter className="h-3 w-3 mr-1.5 text-muted-foreground" />
+                    <SelectValue placeholder="All Portals" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Portals ({permissionsList.length})</SelectItem>
+                    {portals.map((p) => {
+                      const count = permissionsList.filter(
+                        (item) =>
+                          String(item.portalId) === String(p.id) || item.portalName === p.name,
+                      ).length;
+                      return (
                         <SelectItem key={p.id} value={String(p.id)}>
-                          {p.name}
+                          {p.name} ({count})
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
               </div>
-            </CardHeader>
+            </div>
+          </CardHeader>
 
-            <CardContent className="p-0">
-              <div className="divide-y divide-border/60 max-h-[580px] overflow-y-auto">
-                {loadingPermissions ? (
-                  <div className="p-12 text-center text-xs text-muted-foreground space-y-2">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
-                    <p>Loading permissions from server...</p>
+          <CardContent className="p-0">
+            <div className="divide-y divide-border/60 max-h-[640px] overflow-y-auto">
+              {loadingPermissions ? (
+                <div className="p-12 text-center text-xs text-muted-foreground space-y-2">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
+                  <p>Loading permissions from server...</p>
+                </div>
+              ) : filteredPermissions.length === 0 ? (
+                <div className="p-10 text-center space-y-3">
+                  <AlertCircle className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {permissionsList.length === 0
+                        ? "No permissions created yet"
+                        : "No permissions match your search or filter criteria"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {permissionsList.length === 0
+                        ? "Click the 'Create Permission' button to define your first permission."
+                        : "Try adjusting your search terms or clearing your portal filter."}
+                    </p>
                   </div>
-                ) : filteredPermissions.length === 0 ? (
-                  <div className="p-8 text-center text-xs text-muted-foreground">
-                    <AlertCircle className="h-6 w-6 mx-auto mb-2 opacity-50" />
-                    No permissions match your search or filter criteria.
-                  </div>
-                ) : (
-                  filteredPermissions.map((item) => {
-                    const isEnabled = permissionStatusMap[item.id] ?? true;
+                  <Button
+                    size="sm"
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="h-8 gap-1.5 text-xs font-semibold"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Create Permission</span>
+                  </Button>
+                </div>
+              ) : (
+                filteredPermissions.map((item) => {
+                  const isEnabled = permissionStatusMap[item.id] ?? true;
 
-                    return (
-                      <div
-                        key={item.id}
-                        className="p-3.5 hover:bg-muted/40 transition-colors flex items-start justify-between gap-3"
-                      >
-                        <div className="space-y-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-semibold text-xs text-foreground truncate">
-                              {item.name}
-                            </span>
-                            <Badge
-                              variant="outline"
-                              className="text-[10px] px-1.5 py-0 h-4.5 bg-primary/5 text-primary border-primary/20"
-                            >
-                              {item.portalName}
-                            </Badge>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-5 w-5 text-muted-foreground hover:text-foreground"
-                              title="Copy Permission Name"
-                              onClick={() => {
-                                navigator.clipboard.writeText(item.name);
-                                toast.success(`Copied: "${item.name}"`);
-                              }}
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                          </div>
-
-                          {item.description && (
-                            <p className="text-[11px] text-muted-foreground/80 line-clamp-1">
-                              {item.description}
-                            </p>
-                          )}
-
-                          {item.createdDate && (
-                            <p className="text-[10px] text-muted-foreground/60">
-                              Created: {new Date(item.createdDate).toLocaleDateString()}
-                              {item.createdBy && ` by ${item.createdBy}`}
-                            </p>
-                          )}
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-4 hover:bg-muted/40 transition-colors flex items-start justify-between gap-4"
+                    >
+                      <div className="space-y-1.5 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-xs text-foreground">{item.name}</span>
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] px-1.5 py-0 h-4.5 bg-primary/5 text-primary border-primary/20"
+                          >
+                            {item.portalName}
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 text-muted-foreground hover:text-foreground"
+                            title="Copy Permission Name"
+                            onClick={() => {
+                              navigator.clipboard.writeText(item.name);
+                              toast.success(`Copied: "${item.name}"`);
+                            }}
+                          >
+                            <Copy className="h-3 w-3" />
+                          </Button>
                         </div>
 
-                        {/* Actions: Enable/Disable Toggle button */}
-                        <div className="flex items-center gap-2 shrink-0 pt-0.5">
-                          {/* Toggle Button for Enable/Disable */}
-                          <div
-                            className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs transition-colors ${
-                              isEnabled
-                                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
-                                : "bg-muted/60 border-border text-muted-foreground"
-                            }`}
-                          >
-                            <span className="text-[11px] font-medium select-none">
-                              {isEnabled ? "Enabled" : "Disabled"}
-                            </span>
-                            <Switch
-                              checked={isEnabled}
-                              onCheckedChange={() => handleToggleStatus(item)}
-                              aria-label={`Toggle status for ${item.name}`}
-                              className="scale-75 origin-right"
-                            />
-                          </div>
+                        {item.description && (
+                          <p className="text-[11px] text-muted-foreground line-clamp-2 max-w-3xl">
+                            {item.description}
+                          </p>
+                        )}
+
+                        {item.createdDate && (
+                          <p className="text-[10px] text-muted-foreground/70">
+                            Created: {new Date(item.createdDate).toLocaleDateString()}
+                            {item.createdBy && ` by ${item.createdBy}`}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Actions: Enable/Disable Toggle button */}
+                      <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                        <div
+                          className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs transition-colors ${
+                            isEnabled
+                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
+                              : "bg-muted/60 border-border text-muted-foreground"
+                          }`}
+                        >
+                          <span className="text-[11px] font-medium select-none">
+                            {isEnabled ? "Enabled" : "Disabled"}
+                          </span>
+                          <Switch
+                            checked={isEnabled}
+                            onCheckedChange={() => handleToggleStatus(item)}
+                            aria-label={`Toggle status for ${item.name}`}
+                            className="scale-75 origin-right"
+                          />
                         </div>
                       </div>
-                    );
-                  })
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Info Box */}
+        <div className="rounded-lg border border-border/70 bg-muted/20 p-3.5 text-xs text-muted-foreground flex items-center justify-between gap-3 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Sparkles className="h-4 w-4 text-primary shrink-0" />
+            <span>
+              Once permissions are created here, head over to{" "}
+              <Link to="/admin/permissions/assign" className="text-primary underline font-medium">
+                Assign Permissions
+              </Link>{" "}
+              to grant or configure access levels for specific employees.
+            </span>
+          </div>
+          <Link to="/admin/permissions/assign" className="shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs gap-1 text-primary hover:text-primary"
+            >
+              <span>Assign Rights</span>
+              <ArrowRight className="h-3 w-3" />
+            </Button>
+          </Link>
         </div>
       </div>
+
+      {/* 🌟 Create New Permission Modal Dialog */}
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold flex items-center gap-2">
+              <ShieldPlus className="h-5 w-5 text-primary" />
+              New Permission Entry
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Create a granular system or UI permission tied to a specific portal.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+            {/* 1. Portal Select Dropdown */}
+            <div className="space-y-1.5">
+              <Label htmlFor="modal-portal-select" className="text-xs font-semibold">
+                Portal <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={selectedPortalId}
+                onValueChange={setSelectedPortalId}
+                disabled={loadingPortals || isSubmitting}
+              >
+                <SelectTrigger id="modal-portal-select" className="h-9 w-full text-xs">
+                  <SelectValue
+                    placeholder={loadingPortals ? "Loading portals..." : "Select portal..."}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {portals.map((p) => (
+                    <SelectItem key={p.id} value={String(p.id)}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">
+                Fetched dynamically from Portals service.
+              </p>
+            </div>
+
+            {/* 2. Permission Name Textbox */}
+            <div className="space-y-1.5">
+              <Label htmlFor="modal-perm-name" className="text-xs font-semibold">
+                Permission Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="modal-perm-name"
+                type="text"
+                placeholder="e.g. Upload Statement Button"
+                value={permissionName}
+                onChange={(e) => setPermissionName(e.target.value)}
+                className="h-9 text-xs"
+                disabled={isSubmitting}
+                required
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Human-readable label shown in permission assignment screens.
+              </p>
+            </div>
+
+            {/* 3. Description (Optional) */}
+            <div className="space-y-1.5">
+              <Label htmlFor="modal-perm-desc" className="text-xs font-semibold">
+                Description{" "}
+                <span className="text-muted-foreground text-[11px] font-normal">(Optional)</span>
+              </Label>
+              <Textarea
+                id="modal-perm-desc"
+                placeholder="Provide additional details regarding what action this permission controls..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                disabled={isSubmitting}
+                className="text-xs resize-none"
+              />
+            </div>
+
+            <DialogFooter className="pt-3 gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsCreateModalOpen(false)}
+                disabled={isSubmitting}
+                className="h-9 text-xs"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="h-9 gap-2 font-medium text-xs"
+                disabled={!selectedPortalId || !permissionName.trim() || isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Creating Permission...</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldPlus className="h-4 w-4" />
+                    <span>Create Permission</span>
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
