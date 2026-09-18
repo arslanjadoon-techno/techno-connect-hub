@@ -178,11 +178,10 @@ function CollapsibleGroupItem({
           <button
             type="button"
             onClick={() => setSubOpen((prev) => !prev)}
-            className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs font-medium transition hover:bg-sidebar-accent ${
-              isChildActive
+            className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs font-medium transition hover:bg-sidebar-accent ${isChildActive
                 ? "text-sidebar-accent-foreground font-semibold bg-sidebar-accent/50"
                 : "text-sidebar-foreground"
-            }`}
+              }`}
           >
             <div className="flex items-center gap-2">
               <item.icon className="h-4 w-4" />
@@ -586,16 +585,15 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t border-sidebar-border/60 py-2.5 px-3">
         <div
-          className={`flex items-center ${
-            collapsed ? "justify-center" : "justify-start"
-          } text-[11px] font-medium text-sidebar-foreground/60 select-none tracking-tight`}
-        >
+          className="flex items-center justify-center select-none tracking-tight">
           {collapsed ? (
             <span title="Version 1.1.3" className="text-[10px]">
               v1.1.3
             </span>
           ) : (
-            <span>Version 1.1.3</span>
+            <span className="text-[14px] text-white font-medium">
+              Version - 1.1.3
+            </span>
           )}
         </div>
       </SidebarFooter>

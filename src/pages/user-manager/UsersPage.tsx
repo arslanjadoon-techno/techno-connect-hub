@@ -828,7 +828,7 @@ export function UserForm({
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             onBlur={() => markTouched("fullName")}
-            placeholder="e.g. Arslan Khan"
+            placeholder="e.g. John Doe"
             autoComplete="off"
             className={
               shouldShowFullNameError
@@ -879,7 +879,7 @@ export function UserForm({
           <Input
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="e.g. +923001234567"
+            placeholder="e.g. +1 (123) 456-7890"
           />
         </div>
         <div className="space-y-1.5">
