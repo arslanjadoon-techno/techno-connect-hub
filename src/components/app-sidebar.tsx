@@ -583,6 +583,22 @@ export function AppSidebar() {
           </SidebarGroup>
         )}
       </SidebarContent>
+
+      <SidebarFooter className="border-t border-sidebar-border/60 py-2.5 px-3">
+        <div
+          className={`flex items-center ${
+            collapsed ? "justify-center" : "justify-start"
+          } text-[11px] font-medium text-sidebar-foreground/60 select-none tracking-tight`}
+        >
+          {collapsed ? (
+            <span title="Version 1.1.3" className="text-[10px]">
+              v1.1.3
+            </span>
+          ) : (
+            <span>Version 1.1.3</span>
+          )}
+        </div>
+      </SidebarFooter>
     </Sidebar>
   );
 }
