@@ -34,7 +34,7 @@ export interface Palette {
   swatches: string[];
 }
 
-export const DEFAULT_PALETTE_ID = "violet";
+export const DEFAULT_PALETTE_ID = "indigo";
 
 // Curated palette set — each entry uses harmonious accent + sidebar tones.
 export const PALETTES: Palette[] = [
