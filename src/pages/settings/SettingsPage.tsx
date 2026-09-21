@@ -15,9 +15,16 @@ import {
   Loader2,
   Clock,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { PALETTES, useTheme } from "@/lib/theme";
-import { usersApi } from "@/lib/api/client";
+import { hierarchyApi, usersApi } from "@/lib/api/client";
 
 interface StoredUser {
   id: number;
@@ -56,12 +63,60 @@ export default function SettingsPage() {
   const [fullName, setFullName] = useState(storedUser?.fullName ?? "");
   const [email, setEmail] = useState(storedUser?.email ?? "");
   const [phone, setPhone] = useState(storedUser?.phone ?? "");
-  const [departmentName, setDepartmentName] = useState(
-    storedUser?.department?.name ?? storedUser?.departmentName ?? "",
-  );
   const [avatarUrl, setAvatarUrl] = useState<string>(storedUser?.profileImage ?? "");
 
+  const [departments, setDepartments] = useState<{ id: number; name: string }[]>([]);
+  const [loadingDepts, setLoadingDepts] = useState<boolean>(true);
+  const [selectedDeptId, setSelectedDeptId] = useState<string>(() => {
+    if (storedUser?.department?.id) return String(storedUser.department.id);
+    return "placeholder";
+  });
+
   const [savingProfile, setSavingProfile] = useState(false);
+
+  // Fetch departments from /api/departments/get-all
+  useEffect(() => {
+    let isMounted = true;
+    async function loadDepartments() {
+      try {
+        setLoadingDepts(true);
+        const res = await hierarchyApi.getDepartments();
+        if (isMounted) {
+          const list: { id: number; name: string }[] = Array.isArray(res?.data)
+            ? res.data
+            : Array.isArray(res)
+              ? (res as any)
+              : [];
+          setDepartments(list);
+
+          // Auto-match user's existing department by ID or name
+          setSelectedDeptId((prev) => {
+            if (prev && prev !== "placeholder") return prev;
+            if (storedUser?.department?.id) {
+              const matchId = list.find((d) => d.id === storedUser.department?.id);
+              if (matchId) return String(matchId.id);
+            }
+            const rawName = (storedUser?.department?.name ?? storedUser?.departmentName ?? "")
+              .toLowerCase()
+              .trim();
+            if (rawName) {
+              const matchName = list.find((d) => d.name?.toLowerCase().trim() === rawName);
+              if (matchName) return String(matchName.id);
+            }
+            return "placeholder";
+          });
+        }
+      } catch (err: any) {
+        console.error("Failed to load departments in settings:", err);
+      } finally {
+        if (isMounted) setLoadingDepts(false);
+      }
+    }
+    loadDepartments();
+    return () => {
+      isMounted = false;
+    };
+  }, [storedUser]);
 
   // Password change state
   const [currentPwd, setCurrentPwd] = useState("");
@@ -107,12 +162,15 @@ export default function SettingsPage() {
     }
     try {
       setSavingProfile(true);
+      const selectedDeptObj = departments.find((d) => String(d.id) === selectedDeptId);
       const res = await usersApi.update({
         id: storedUser.id,
         fullName: fullName.trim(),
         email: email.trim(),
         phone: phone?.trim() || null,
-        departmentName: departmentName?.trim() || null,
+        department: selectedDeptObj ? { id: selectedDeptObj.id, name: selectedDeptObj.name } : null,
+        departmentName: selectedDeptObj ? selectedDeptObj.name : null,
+        departmentId: selectedDeptObj ? selectedDeptObj.id : null,
         // profileImage isn't part of AddUserPayload typings yet — send via cast
         ...(avatarUrl ? ({ profileImage: avatarUrl } as any) : {}),
       } as any);
@@ -122,6 +180,13 @@ export default function SettingsPage() {
       merged.fullName = fullName.trim();
       merged.email = email.trim();
       merged.phone = phone?.trim() || null;
+      if (selectedDeptObj) {
+        merged.department = { id: selectedDeptObj.id, name: selectedDeptObj.name };
+        merged.departmentName = selectedDeptObj.name;
+      } else if (selectedDeptId === "none") {
+        merged.department = null;
+        merged.departmentName = null;
+      }
       if (avatarUrl) merged.profileImage = avatarUrl;
       writeStoredUser(merged);
       setStoredUser(merged);
@@ -258,11 +323,29 @@ export default function SettingsPage() {
           </div>
           <div className="space-y-1.5 sm:col-span-2">
             <Label>Department</Label>
-            <Input
-              value={departmentName ?? ""}
-              onChange={(e) => setDepartmentName(e.target.value)}
-              placeholder="e.g. Operations"
-            />
+            {loadingDepts ? (
+              <div className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm text-muted-foreground shadow-sm">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span>Loading departments...</span>
+              </div>
+            ) : (
+              <Select value={selectedDeptId} onValueChange={(val) => setSelectedDeptId(val)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="placeholder" disabled>
+                    Select department
+                  </SelectItem>
+                  <SelectItem value="none">None / Unassigned</SelectItem>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept.id} value={String(dept.id)}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </div>
 
