@@ -157,7 +157,7 @@ export default function SettingsPage() {
 
   const saveProfile = async () => {
     if (!fullName.trim() || !email.trim()) {
-      toast.error("Full name aur email zaroori hain");
+      toast.error("Full name and email are required");
       return;
     }
     try {

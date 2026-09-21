@@ -12,7 +12,7 @@ interface PortalNode {
 
 const PORTAL_NODES: PortalNode[] = [
   { id: "commission", name: "Commission", angleDeg: 270, isLive: true, statusLabel: "Active" }, // Top (Live)
-  { id: "leasing", name: "Leasing", angleDeg: 321.4, isLive: false, statusLabel: "Upcoming" }, // Top-Right
+  { id: "leasing", name: "Leasing", angleDeg: 321.4, isLive: true, statusLabel: "Active" }, // Top-Right (Live)
   { id: "ranker", name: "Ranker", angleDeg: 12.9, isLive: true, statusLabel: "Active" }, // Mid-Right (Live)
   { id: "reporting", name: "Reporting", angleDeg: 64.3, isLive: false, statusLabel: "Upcoming" }, // Bottom-Right
   { id: "scheduling", name: "Scheduling", angleDeg: 115.7, isLive: false, statusLabel: "Upcoming" }, // Bottom-Left

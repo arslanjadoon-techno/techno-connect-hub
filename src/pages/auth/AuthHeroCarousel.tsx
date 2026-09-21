@@ -1,20 +1,36 @@
 import React, { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { HeroHubGraph } from "./HeroHubGraph";
-import { Sparkles, Layers } from "lucide-react";
+import { Sparkles, ChevronLeft, ChevronRight } from "lucide-react";
 
 export function AuthHeroCarousel() {
   const [currentSlide, setCurrentSlide] = useState<number>(0);
+  const [timerKey, setTimerKey] = useState<number>(0);
   const totalSlides = 2;
-  const slideIntervalMs = 9000; // 9 seconds per user requirement
+  const slideIntervalMs = 10000; // 10 seconds per user requirement
 
+  // Handler for manual slide selection that resets timer immediately
+  const handleSelectSlide = (idx: number) => {
+    setCurrentSlide(idx);
+    setTimerKey((k) => k + 1);
+  };
+
+  const handlePrev = () => {
+    handleSelectSlide((currentSlide - 1 + totalSlides) % totalSlides);
+  };
+
+  const handleNext = () => {
+    handleSelectSlide((currentSlide + 1) % totalSlides);
+  };
+
+  // Timer auto-rotates every 10 seconds and cleanly restarts on manual navigation
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % totalSlides);
     }, slideIntervalMs);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [currentSlide, timerKey]);
 
   return (
     <div className="relative z-10 w-full max-w-lg flex flex-col justify-center my-auto min-h-[440px]">
@@ -56,24 +72,49 @@ export function AuthHeroCarousel() {
         )}
       </AnimatePresence>
 
-      {/* Pagination & Slide Indicator */}
-      <div className="mt-8 flex items-center gap-2">
-        {Array.from({ length: totalSlides }).map((_, idx) => (
+      {/* Pagination & Manual Slide Controls */}
+      <div className="mt-8 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {Array.from({ length: totalSlides }).map((_, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => handleSelectSlide(idx)}
+              className={`h-2 rounded-full transition-all duration-300 focus:outline-none cursor-pointer ${
+                currentSlide === idx
+                  ? "w-8 bg-white shadow-[0_0_10px_rgba(255,255,255,0.7)]"
+                  : "w-2 bg-white/40 hover:bg-white/70"
+              }`}
+              aria-label={`Go to slide ${idx + 1}`}
+            />
+          ))}
+          <span className="text-[11px] text-white/70 ml-2 font-medium tracking-wide">
+            {currentSlide === 0 ? "Overview" : "Live Portals Network"}
+          </span>
+        </div>
+
+        {/* Prev / Next Manual Navigation */}
+        <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-sm rounded-full p-1 border border-white/15">
           <button
-            key={idx}
             type="button"
-            onClick={() => setCurrentSlide(idx)}
-            className={`h-2 rounded-full transition-all duration-300 focus:outline-none ${
-              currentSlide === idx
-                ? "w-8 bg-white shadow-[0_0_10px_rgba(255,255,255,0.7)]"
-                : "w-2 bg-white/40 hover:bg-white/60"
-            }`}
-            aria-label={`Go to slide ${idx + 1}`}
-          />
-        ))}
-        <span className="text-[11px] text-white/60 ml-2 font-medium tracking-wide">
-          {currentSlide === 0 ? "Overview" : "Live Portals Network"}
-        </span>
+            onClick={handlePrev}
+            className="p-1 rounded-full text-white/80 hover:text-white hover:bg-white/20 transition focus:outline-none cursor-pointer"
+            aria-label="Previous slide"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </button>
+          <span className="text-[11px] text-white/75 font-semibold px-1 select-none">
+            {currentSlide + 1}/{totalSlides}
+          </span>
+          <button
+            type="button"
+            onClick={handleNext}
+            className="p-1 rounded-full text-white/80 hover:text-white hover:bg-white/20 transition focus:outline-none cursor-pointer"
+            aria-label="Next slide"
+          >
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
     </div>
   );
