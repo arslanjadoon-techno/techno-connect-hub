@@ -20,7 +20,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -71,9 +70,8 @@ export default function CreatePermissionPage() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [filterPortal, setFilterPortal] = useState<string>("all");
 
-  // UI state for submission & enable/disable toggle (API pending backend readiness)
+  // UI state for submission
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [permissionStatusMap, setPermissionStatusMap] = useState<Record<number, boolean>>({});
 
   // 1. Fetch Portals dynamically from portalsService
   useEffect(() => {
@@ -164,19 +162,6 @@ export default function CreatePermissionPage() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  // Toggle permission enable/disable status (UI ready; API to be connected once endpoint is available)
-  const handleToggleStatus = (item: PermissionItem) => {
-    const isCurrentlyEnabled = permissionStatusMap[item.id] ?? true;
-    const nextStatus = !isCurrentlyEnabled;
-
-    setPermissionStatusMap((prev) => ({
-      ...prev,
-      [item.id]: nextStatus,
-    }));
-
-    toast.info(`Permission "${item.name}" ${nextStatus ? "enabled" : "disabled"}`);
   };
 
   // Filtered permissions list
@@ -318,8 +303,6 @@ export default function CreatePermissionPage() {
                 </div>
               ) : (
                 filteredPermissions.map((item) => {
-                  const isEnabled = permissionStatusMap[item.id] ?? true;
-
                   return (
                     <div
                       key={item.id}
@@ -360,27 +343,6 @@ export default function CreatePermissionPage() {
                             {item.createdBy && ` by ${item.createdBy}`}
                           </p>
                         )}
-                      </div>
-
-                      {/* Actions: Enable/Disable Toggle button */}
-                      <div className="flex items-center gap-2 shrink-0 pt-0.5">
-                        <div
-                          className={`flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs transition-colors ${
-                            isEnabled
-                              ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
-                              : "bg-muted/60 border-border text-muted-foreground"
-                          }`}
-                        >
-                          <span className="text-[11px] font-medium select-none">
-                            {isEnabled ? "Enabled" : "Disabled"}
-                          </span>
-                          <Switch
-                            checked={isEnabled}
-                            onCheckedChange={() => handleToggleStatus(item)}
-                            aria-label={`Toggle status for ${item.name}`}
-                            className="scale-75 origin-right"
-                          />
-                        </div>
                       </div>
                     </div>
                   );

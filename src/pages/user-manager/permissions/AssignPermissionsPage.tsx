@@ -14,7 +14,6 @@ import {
   EyeOff,
   Pencil,
   RefreshCw,
-  Trash2,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,16 +35,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { PermissionsNavTabs } from "./PermissionsNavTabs";
 import {
   permissionsService,
@@ -203,10 +192,6 @@ export default function AssignPermissionsPage() {
   const [isAssignPermDropdownOpen, setIsAssignPermDropdownOpen] = useState<boolean>(false);
   const [assigningPerm, setAssigningPerm] = useState<boolean>(false);
   const assignDropdownRef = useRef<HTMLDivElement>(null);
-
-  // Unassign permission state for confirmation dialog
-  const [permToDelete, setPermToDelete] = useState<{ id: number; name: string } | null>(null);
-  const [deletingPerm, setDeletingPerm] = useState<boolean>(false);
 
   // Filters for user permissions list
   const [permSearchQuery, setPermSearchQuery] = useState<string>("");
@@ -425,29 +410,6 @@ export default function AssignPermissionsPage() {
         ...prev,
         [permissionId]: prevLevel,
       }));
-    }
-  };
-
-  // Unassign permission from the selected user
-  const handleConfirmUnassign = async () => {
-    if (!selectedUser || !permToDelete) return;
-    const { id, name } = permToDelete;
-    setDeletingPerm(true);
-    try {
-      await permissionsService.unassign(selectedUser.id, id);
-      setUserPermissions((prev) => prev.filter((p) => p.permissionId !== id));
-      setAccessMap((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
-      toast.success(`Permission "${name}" unassigned from ${selectedUser.fullName}`);
-    } catch (err: unknown) {
-      console.error("Failed to unassign permission:", err);
-      toast.error((err as Error)?.message || "Failed to unassign permission");
-    } finally {
-      setDeletingPerm(false);
-      setPermToDelete(null);
     }
   };
 
@@ -1071,7 +1033,7 @@ export default function AssignPermissionsPage() {
                           )}
                         </div>
 
-                        {/* Right Actions: Level Display Badge (non-editable) + Edit Icon Button + Delete Icon Button */}
+                        {/* Right Actions: Level Display Badge (non-editable) + Edit Icon Button */}
                         <div className="flex items-center gap-2 shrink-0 self-start sm:self-center">
                           {/* 1. Single Non-editable Access Level Display Badge */}
                           {currentLevel === "write" && (
@@ -1157,22 +1119,6 @@ export default function AssignPermissionsPage() {
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
-
-                          {/* 3. Delete Icon Button: Unassigns Permission */}
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() =>
-                              setPermToDelete({
-                                id: perm.permissionId,
-                                name: perm.permissionName,
-                              })
-                            }
-                            className="h-7 w-7 text-destructive/80 hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
-                            title="Unassign permission from user"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
                         </div>
                       </div>
                     );
@@ -1195,51 +1141,6 @@ export default function AssignPermissionsPage() {
           </div>
         </Card>
       )}
-
-      {/* Unassign Permission Confirmation Dialog */}
-      <AlertDialog
-        open={Boolean(permToDelete)}
-        onOpenChange={(open) => {
-          if (!open && !deletingPerm) setPermToDelete(null);
-        }}
-      >
-        <AlertDialogContent className="sm:max-w-[425px]">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="text-base flex items-center gap-2 text-destructive">
-              <Trash2 className="h-4 w-4" />
-              Unassign Permission
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-muted-foreground">
-              Are you sure you want to unassign{" "}
-              <strong className="text-foreground">&quot;{permToDelete?.name}&quot;</strong> from{" "}
-              <strong className="text-foreground">{selectedUser?.fullName}</strong>? This permission
-              will no longer apply to this user.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter className="gap-2 sm:gap-0">
-            <AlertDialogCancel disabled={deletingPerm} className="text-xs h-8">
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                handleConfirmUnassign();
-              }}
-              disabled={deletingPerm}
-              className="text-xs h-8 bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deletingPerm ? (
-                <>
-                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
-                  Unassigning...
-                </>
-              ) : (
-                "Unassign"
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
