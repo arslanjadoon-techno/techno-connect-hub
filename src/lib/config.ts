@@ -141,6 +141,45 @@ export const LEAVE_API_PATHS = {
   leaveById: (id: string | number) => `/api/leave/${id}`,
 } as const;
 
+/**
+ * Leasing portal endpoints - same TechnoCommAPIs backend as everything else
+ * (LeasingController), so no separate base URL like Commission/Ranker need.
+ * Flat, PascalCase routes with no `/api` prefix, matching the controller's
+ * actual [Route(...)] attributes exactly.
+ */
+export const LEASING_API_PATHS = {
+  getLeasingInfo: "/GetLeasingInfo",
+  postLeasingInfo: "/PostLeasingInfo",
+  postLeasingDocs: "/PostLeasingDocs",
+  getLeasingDocs: "/GetLeasingDocs",
+  deleteLeaseDocs: "/DeleteLeaseDocs",
+  renameLeaseDocs: "/RenameLeaseDocs",
+  reorderLeaseDocs: "/UpdateDocSortOrder",
+  missingDocsList: "/MissingDocsList",
+  addMissingDocsList: "/AddMissingDocsList",
+  getMonthlyRentFigure: "/GetMonthlyRentFigure",
+  getMonthlyRentFigureByTechId: "/GetMonthlyRentFigureByTechID",
+  insertLeaseRentAgreement: "/InsertLeaseRentAgreement",
+  getLeaseRentAgreement: "/GetLeaseRentAgreement",
+  updateLeaseRentAgreement: "/UpdateLeaseRentAgreement",
+  deleteLeaseRentAgreement: "/DeleteLeaseRentAgreement",
+  getLeaseExpirationRemarks: "/GetLeaseExpirationRemarks",
+  saveLeaseExpirationRemarks: "/SaveLeaseExpirationRemarks",
+  populateRentInMonthlyTable: "/PopulateRentInMonthlyTable",
+  getRentalPaymentDetails: "/GetRentalPaymentDetails",
+  updateFinancialMonthlyFigures: "/UpdateFinancialMonthlyFigures",
+  updateFinancialMonthlyFiguresRowWise: "/UpdateFinancialMonthlyFiguresRowWise",
+  getUpcomingRentChanges: "/GetUpcomingRentChanges",
+  getReportTemplates: "/ReportTemplates/GetReportTemplates",
+  saveReportTemplate: "/ReportTemplates/SaveReportTemplate",
+  deleteReportTemplate: "/ReportTemplates/DeleteReportTemplate",
+  getBankingInfo: "/GetBankingInfo",
+  postBankingInfo: "/PostBankingInfo",
+  bulkUploadRent: "/BulkUpload",
+  bulkUploadAccounting: "/BulkUploadAccounting",
+  bulkUploadLeaseDetails: "/BulkUploadLeaseDetails",
+} as const;
+
 export const RANKER_API_BASE_URL =
   (import.meta.env.VITE_RANKER_API_URL as string) ||
   "https://cz4cn4y5ul.execute-api.us-east-2.amazonaws.com/Prod/Ranker";
