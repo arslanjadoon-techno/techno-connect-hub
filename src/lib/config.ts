@@ -21,6 +21,7 @@ export const AUTH_PATHS = {
 /** Resource endpoints (under `/api`). */
 export const USER_API_PATHS = {
   getAll: "/api/users/get-all",
+  search: "/api/users/search",
   user: (id: string | number) => `/api/users/${id}`,
   addUser: "/api/users/add",
   updateUser: "/api/users/update",

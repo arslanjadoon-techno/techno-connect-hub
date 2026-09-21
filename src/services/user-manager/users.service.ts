@@ -6,6 +6,9 @@ export class UsersService {
   getAll(params?: { page?: number; size?: number; department?: string; portal?: string }) {
     return http.get<BackendUser[]>(USER_API_PATHS.getAll, params);
   }
+  search(search: string) {
+    return http.get<BackendUser[]>(USER_API_PATHS.search, { search });
+  }
   get(id: string | number) {
     return http.get<BackendUser>(USER_API_PATHS.user(id));
   }

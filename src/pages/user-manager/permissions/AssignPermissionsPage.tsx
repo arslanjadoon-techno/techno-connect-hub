@@ -170,7 +170,9 @@ function getStoredLoggedInUser(): {
 export default function AssignPermissionsPage() {
   // Users state
   const [users, setUsers] = useState<BackendUser[]>([]);
+  const [searchResults, setSearchResults] = useState<BackendUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState<boolean>(true);
+  const [isSearchingUsers, setIsSearchingUsers] = useState<boolean>(false);
   const [userSearchQuery, setUserSearchQuery] = useState<string>("");
   const [selectedUser, setSelectedUser] = useState<BackendUser | null>(null);
   const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
@@ -311,10 +313,49 @@ export default function AssignPermissionsPage() {
     };
   }, []);
 
+  // Debounced whole-database search: GET /api/users/search?search={query}
+  useEffect(() => {
+    const trimmed = userSearchQuery.trim();
+    if (!trimmed) {
+      setSearchResults([]);
+      setIsSearchingUsers(false);
+      return;
+    }
+
+    setIsSearchingUsers(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await usersService.search(trimmed);
+        if (res?.success && Array.isArray(res.data)) {
+          setSearchResults(res.data);
+        } else if (Array.isArray(res)) {
+          setSearchResults(res);
+        } else {
+          setSearchResults([]);
+        }
+      } catch (err) {
+        console.error("Failed to search users via API:", err);
+        // Fallback: search locally in loaded users
+        const q = trimmed.toLowerCase();
+        const fallback = users.filter((u) => {
+          const name = u.fullName?.toLowerCase() || "";
+          const email = u.email?.toLowerCase() || "";
+          return name.includes(q) || email.includes(q);
+        });
+        setSearchResults(fallback);
+      } finally {
+        setIsSearchingUsers(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [userSearchQuery, users]);
+
   // When a user is picked from search bar
   const handleSelectUser = (user: BackendUser) => {
     setSelectedUser(user);
     setUserSearchQuery("");
+    setSearchResults([]);
     setIsSearchFocused(false);
     loadUserPermissions(user.id);
   };
@@ -443,23 +484,15 @@ export default function AssignPermissionsPage() {
     });
   }, [availableSystemPermissions, assignPermSearch]);
 
-  // Filtered users for search bar dropdown
+  // Filtered users for search bar dropdown:
+  // When user enters a search query, uses the whole-db API results (searchResults);
+  // Otherwise displays initial registered employees
   const filteredUsers = useMemo(() => {
-    if (!userSearchQuery.trim()) return users.slice(0, 10);
-    const q = userSearchQuery.toLowerCase().trim();
-    return users.filter((u) => {
-      const nameMatch =
-        u.fullName?.toLowerCase().includes(q) ||
-        `${u.firstName || ""} ${u.lastName || ""}`.toLowerCase().includes(q);
-      const emailMatch = u.email?.toLowerCase().includes(q);
-      const phoneMatch = u.phone?.toLowerCase().includes(q);
-      const roleStr = typeof u.role === "string" ? u.role : u.role?.name;
-      const roleMatch = roleStr?.toLowerCase().includes(q);
-      const deptStr = typeof u.department === "string" ? u.department : u.department?.name;
-      const deptMatch = deptStr?.toLowerCase().includes(q);
-      return nameMatch || emailMatch || phoneMatch || roleMatch || deptMatch;
-    });
-  }, [users, userSearchQuery]);
+    if (userSearchQuery.trim()) {
+      return searchResults;
+    }
+    return users.slice(0, 15);
+  }, [userSearchQuery, searchResults, users]);
 
   // Unique portals for filter pills based on this user's permissions
   const availablePortals = useMemo(() => {
@@ -543,14 +576,26 @@ export default function AssignPermissionsPage() {
                       <h2 className="text-base font-bold text-foreground truncate">
                         {selectedUser.fullName}
                       </h2>
-                      {selectedUser.role?.name && (
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4.5">
-                          {selectedUser.role.name}
+                      {((typeof selectedUser.role === "string"
+                        ? selectedUser.role
+                        : selectedUser.role?.name) ||
+                        (selectedUser as any).portalAccess?.[0]?.roleName ||
+                        selectedUser.department?.name) && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1.5 py-0 h-4.5 capitalize"
+                        >
+                          {(typeof selectedUser.role === "string"
+                            ? selectedUser.role
+                            : selectedUser.role?.name) ||
+                            (selectedUser as any).portalAccess?.[0]?.roleName ||
+                            selectedUser.department?.name}
                         </Badge>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-0.5 truncate">
                       {selectedUser.email}
+                      {selectedUser.department?.name && ` • ${selectedUser.department.name}`}
                       {selectedUser.phone && ` • ${selectedUser.phone}`}
                     </p>
                   </div>
@@ -600,7 +645,7 @@ export default function AssignPermissionsPage() {
                 Select Employee to Assign Permission
               </label>
               <span className="text-[11px] text-muted-foreground">
-                Search employee by name or email
+                Search employee across whole database
               </span>
             </div>
 
@@ -613,8 +658,8 @@ export default function AssignPermissionsPage() {
                   autoComplete="off"
                   placeholder={
                     selectedUser
-                      ? `${selectedUser.fullName} (Click to switch)`
-                      : "Search user by name, email, department, or role..."
+                      ? `${selectedUser.fullName} (Click to switch or type to search all)`
+                      : "Search user across database by name or email..."
                   }
                   value={userSearchQuery}
                   onChange={(e) => {
@@ -624,34 +669,60 @@ export default function AssignPermissionsPage() {
                   onFocus={() => setIsSearchFocused(true)}
                   className="h-11 pl-10 pr-10 text-sm bg-background/80 shadow-2xs"
                 />
-                {loadingUsers && (
-                  <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
+                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  {isSearchingUsers ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  ) : userSearchQuery ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setUserSearchQuery("");
+                        setSearchResults([]);
+                      }}
+                      className="text-muted-foreground hover:text-foreground p-0.5 rounded-sm"
+                      title="Clear search"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : loadingUsers ? (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  </div>
-                )}
+                  ) : null}
+                </div>
               </div>
 
               {/* Autocomplete Dropdown */}
               {isSearchFocused && (
                 <div className="absolute top-full left-0 right-0 z-50 mt-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-popover p-1 shadow-lg animate-fade-in">
-                  <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    {userSearchQuery
-                      ? `Search Results (${filteredUsers.length})`
-                      : `Registered Employees (${users.length})`}
+                  <div className="px-2 py-1.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between border-b border-border/40 pb-1 mb-1">
+                    <span>
+                      {userSearchQuery.trim()
+                        ? `Search Results (${filteredUsers.length})`
+                        : `Registered Employees (${users.length})`}
+                    </span>
+                    {isSearchingUsers && (
+                      <span className="flex items-center gap-1 text-primary text-[10px] font-normal normal-case">
+                        <Loader2 className="h-2.5 w-2.5 animate-spin" /> searching db...
+                      </span>
+                    )}
                   </div>
 
-                  {loadingUsers ? (
+                  {isSearchingUsers && filteredUsers.length === 0 ? (
                     <div className="p-4 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading employees...
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      Searching employees across database...
                     </div>
                   ) : filteredUsers.length === 0 ? (
                     <div className="p-4 text-center text-xs text-muted-foreground">
-                      No matching users found for "{userSearchQuery}"
+                      No matching users found for &quot;{userSearchQuery}&quot;
                     </div>
                   ) : (
                     filteredUsers.map((u) => {
                       const isSelected = selectedUser?.id === u.id;
+                      const roleDisplay =
+                        (typeof u.role === "string" ? u.role : u.role?.name) ||
+                        (u as any).portalAccess?.[0]?.roleName ||
+                        u.department?.name;
+
                       return (
                         <button
                           key={u.id}
@@ -671,14 +742,18 @@ export default function AssignPermissionsPage() {
                               <p className="font-medium text-foreground truncate">{u.fullName}</p>
                               <p className="text-[10px] text-muted-foreground truncate">
                                 {u.email}
+                                {u.department?.name && ` • ${u.department.name}`}
                               </p>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-1.5 shrink-0">
-                            {u.role?.name && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4.5">
-                                {u.role.name}
+                            {roleDisplay && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px] px-1.5 py-0 h-4.5 capitalize"
+                              >
+                                {roleDisplay}
                               </Badge>
                             )}
                             {isSelected && <Check className="h-4 w-4 text-primary shrink-0" />}
