@@ -41,6 +41,21 @@ import HappeningBoardPage from "@/pages/portals/ranker/HappeningBoardPage";
 import RulesPage from "@/pages/portals/ranker/RulesPage";
 import CriteriaDetailsPage from "@/pages/portals/ranker/CriteriaDetailsPage";
 
+// ---------- Leasing Portal ---------- //
+import LeasingDashboardPage from "@/pages/portals/leasing/DashboardPage";
+import LeasingViewPage from "@/pages/portals/leasing/LeasingViewPage";
+import ManageRentPaymentListPage from "@/pages/portals/leasing/ManageRentPaymentListPage";
+import ManageRentPaymentAgreementPage from "@/pages/portals/leasing/ManageRentPaymentAgreementPage";
+import RentAgreement2MonthlyRentPage from "@/pages/portals/leasing/RentAgreement2MonthlyRentPage";
+import UpcomingRentChangesPage from "@/pages/portals/leasing/UpcomingRentChangesPage";
+import LeaseExpiryBreakdownPage from "@/pages/portals/leasing/LeaseExpiryBreakdownPage";
+import LeasingReportsPage from "@/pages/portals/leasing/ReportsPage";
+import BulkUploadRentPage from "@/pages/portals/leasing/BulkUploadRentPage";
+import BulkUploadAccountingPage from "@/pages/portals/leasing/BulkUploadAccountingPage";
+import BulkUploadLeaseDetailsPage from "@/pages/portals/leasing/BulkUploadLeaseDetailsPage";
+import ManageLeasingPage from "@/pages/portals/leasing/ManageLeasingPage";
+import LeasingDetailedPage from "@/pages/portals/leasing/LeasingDetailedPage";
+
 // ---------- Leave Portal ---------- //
 import RequestLeavePage from "@/pages/portals/leave-management/RequestLeave";
 import ApproveLeavePage from "@/pages/portals/leave-management/ApproveLeave";
@@ -334,7 +349,7 @@ export function AppRoutes() {
           path="/lease/dashboard"
           element={
             <PortalRouteGuard portalKey="leasing">
-              <ComingSoon title="Lease Portal Dashboard" />
+              <LeasingDashboardPage />
             </PortalRouteGuard>
           }
         />
@@ -342,7 +357,103 @@ export function AppRoutes() {
           path="/leasing/dashboard"
           element={
             <PortalRouteGuard portalKey="leasing">
-              <ComingSoon title="Leasing Portal Dashboard" />
+              <LeasingDashboardPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/leasing/leasing-view"
+          element={
+            <PortalRouteGuard portalKey="leasing">
+              <LeasingViewPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/leasing/manage-rent-payment-list"
+          element={
+            <PortalRouteGuard portalKey="leasing">
+              <ManageRentPaymentListPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/leasing/manage-rent-payment-agreement"
+          element={
+            <PortalRouteGuard portalKey="leasing">
+              <ManageRentPaymentAgreementPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/leasing/rent-agreement-to-monthly-rent"
+          element={
+            <PortalRouteGuard portalKey="leasing">
+              <RentAgreement2MonthlyRentPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/leasing/lease-monitor/next-month-rent-change"
+          element={
+            <PortalRouteGuard portalKey="leasing">
+              <UpcomingRentChangesPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/leasing/lease-monitor/lease-expiry-breakdown"
+          element={
+            <PortalRouteGuard portalKey="leasing">
+              <LeaseExpiryBreakdownPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/leasing/reports"
+          element={
+            <PortalRouteGuard portalKey="leasing">
+              <LeasingReportsPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/leasing/bulk-upload/rent"
+          element={
+            <PortalRouteGuard portalKey="leasing">
+              <BulkUploadRentPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/leasing/bulk-upload/accounting"
+          element={
+            <PortalRouteGuard portalKey="leasing">
+              <BulkUploadAccountingPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/leasing/bulk-upload/lease-details"
+          element={
+            <PortalRouteGuard portalKey="leasing">
+              <BulkUploadLeaseDetailsPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/leasing/manage-leasing"
+          element={
+            <PortalRouteGuard portalKey="leasing">
+              <ManageLeasingPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/leasing/leasing-detail/:techId"
+          element={
+            <PortalRouteGuard portalKey="leasing">
+              <LeasingDetailedPage />
             </PortalRouteGuard>
           }
         />

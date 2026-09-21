@@ -324,7 +324,7 @@ export const DistrictsApi = {
 
 // ---------- Markets ---------- //
 
-interface Market {
+export interface Market {
   id: number;
   name: string;
   state: {
@@ -403,6 +403,8 @@ export interface Store {
   };
   createdAt?: string;
   updatedAt?: string;
+  techId?: string | null;
+  isOperating?: boolean | null;
 }
 
 export const StoresApi = {
