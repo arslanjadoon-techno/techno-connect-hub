@@ -66,6 +66,12 @@ interface CrudPageProps<T> {
   page?: number;
   onPageChange?: (newPage: number) => void;
   onPageSizeChange?: (newSize: number) => void;
+
+  // Controlled / server search
+  searchValue?: string;
+  onSearchChange?: (val: string) => void;
+  serverSearch?: boolean;
+  isSearching?: boolean;
 }
 
 export function CrudPage<T>({
@@ -94,6 +100,10 @@ export function CrudPage<T>({
   page,
   onPageChange,
   onPageSizeChange,
+  searchValue,
+  onSearchChange,
+  serverSearch,
+  isSearching,
 }: CrudPageProps<T>) {
   const [editing, setEditing] = useState<T | null>(null);
   const [open, setOpen] = useState(false);
@@ -244,6 +254,10 @@ export function CrudPage<T>({
         rowClassName={rowClassName}
         subHeaderRow={subHeaderRow}
         footerRow={footerRow}
+        searchValue={searchValue}
+        onSearchChange={onSearchChange}
+        serverSearch={serverSearch}
+        isSearching={isSearching}
 
         {...(rowCount !== undefined && {
           rowCount,

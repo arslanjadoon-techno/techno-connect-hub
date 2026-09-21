@@ -101,6 +101,9 @@ function UsersPage() {
 
   const [loadingUserId, setLoadingUserId] = useState<string | null>(null);
 
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [isSearchingUsers, setIsSearchingUsers] = useState<boolean>(false);
+
   const [page, setPage] = useState<number>(0);
   const [size, setSize] = useState<number>(15);
   const [totalRecords, setTotalRecords] = useState<number>(0);
@@ -147,6 +150,7 @@ function UsersPage() {
     targetDept: string,
     targetPortal: string,
   ) => {
+    if (searchQuery.trim()) return;
     const currentRequestKey = `${targetPage}-${targetSize}-${targetDept}-${targetPortal}`;
     if (lastFetchedKey.current === currentRequestKey || isFetchingRef.current) return;
 
@@ -178,9 +182,49 @@ function UsersPage() {
     fetchInitialLookups();
   }, []);
 
+  // Debounced search across entire database: GET /api/users/search?search={query}&department={dept}
   useEffect(() => {
-    fetchUsers(page, size, deptFilter, portalFilter);
-  }, [page, size, deptFilter, portalFilter]);
+    const trimmed = searchQuery.trim();
+    if (!trimmed) {
+      setIsSearchingUsers(false);
+      return;
+    }
+
+    setIsSearchingUsers(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await usersApi.search({
+          search: trimmed,
+          department: deptFilter !== "all" ? deptFilter : undefined,
+        });
+        if (res?.success && Array.isArray(res.data)) {
+          setUsers(res.data.map(mapBackendToFrontendUser));
+          setTotalRecords(res.data.length);
+        } else if (Array.isArray(res)) {
+          setUsers((res as any).map(mapBackendToFrontendUser));
+          setTotalRecords((res as any).length);
+        } else {
+          setUsers([]);
+          setTotalRecords(0);
+        }
+      } catch (err: any) {
+        console.error("Failed to search users via API:", err);
+        toast.error(err?.message || "Failed to search users");
+        setUsers([]);
+        setTotalRecords(0);
+      } finally {
+        setIsSearchingUsers(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, deptFilter]);
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      fetchUsers(page, size, deptFilter, portalFilter);
+    }
+  }, [page, size, deptFilter, portalFilter, searchQuery]);
 
   const handleDelete = async (u: any) => {
     try {
@@ -189,7 +233,12 @@ function UsersPage() {
       if (res.success) {
         toast.success("User record safely removed");
         lastFetchedKey.current = "";
-        fetchUsers(page, size, deptFilter, portalFilter);
+        if (searchQuery.trim()) {
+          setUsers((prev) => prev.filter((x) => x.id !== String(u.id)));
+          setTotalRecords((prev) => Math.max(0, prev - 1));
+        } else {
+          fetchUsers(page, size, deptFilter, portalFilter);
+        }
       }
     } catch (err: any) {
       toast.error(err?.message || "Deletion framework error encountered");
@@ -287,6 +336,16 @@ function UsersPage() {
           pageSize={size}
           onPageChange={setPage}
           onPageSizeChange={setSize}
+          searchPlaceholder="Search users across all records..."
+          searchValue={searchQuery}
+          onSearchChange={(val) => {
+            setSearchQuery(val);
+            if (!val.trim()) {
+              lastFetchedKey.current = "";
+            }
+          }}
+          serverSearch={Boolean(searchQuery.trim())}
+          isSearching={isSearchingUsers}
           createLabel="Add user"
           extraToolbar={
             <div className="flex items-end gap-3 pb-0.5">
@@ -356,12 +415,13 @@ function UsersPage() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                disabled={deptFilter === "all" && portalFilter === "all"}
+                disabled={deptFilter === "all" && portalFilter === "all" && !searchQuery}
                 onClick={() => {
                   lastFetchedKey.current = "";
                   setPage(0);
                   setDeptFilter("all");
                   setPortalFilter("all");
+                  setSearchQuery("");
                 }}
                 className="h-9 px-3 text-xs border border-dashed border-muted-foreground/30"
               >

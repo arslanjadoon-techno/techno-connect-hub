@@ -221,6 +221,16 @@ export const usersApi = {
     return apiRequest<BackendUser[]>(`${USER_API_PATHS.getAll}${queryString}`);
   },
 
+  search: (params: string | { search: string; department?: string }) => {
+    const searchVal = typeof params === "string" ? params : params.search;
+    const deptVal = typeof params === "object" ? params.department : undefined;
+    const queryParts: string[] = [`search=${encodeURIComponent(searchVal)}`];
+    if (deptVal && deptVal !== "all") {
+      queryParts.push(`department=${encodeURIComponent(deptVal)}`);
+    }
+    return apiRequest<BackendUser[]>(`${USER_API_PATHS.search}?${queryParts.join("&")}`);
+  },
+
   get: (id: string | number) => apiRequest<BackendUser>(USER_API_PATHS.user(id)),
   add: (payload: AddUserPayload) =>
     apiRequest<BackendUser>(USER_API_PATHS.addUser, { method: "POST", body: payload }),

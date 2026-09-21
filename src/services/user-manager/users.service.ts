@@ -6,8 +6,15 @@ export class UsersService {
   getAll(params?: { page?: number; size?: number; department?: string; portal?: string }) {
     return http.get<BackendUser[]>(USER_API_PATHS.getAll, params);
   }
-  search(search: string) {
-    return http.get<BackendUser[]>(USER_API_PATHS.search, { search });
+  search(params: string | { search: string; department?: string }) {
+    if (typeof params === "string") {
+      return http.get<BackendUser[]>(USER_API_PATHS.search, { search: params });
+    }
+    const queryParams: Record<string, string> = { search: params.search };
+    if (params.department && params.department !== "all") {
+      queryParams.department = params.department;
+    }
+    return http.get<BackendUser[]>(USER_API_PATHS.search, queryParams);
   }
   get(id: string | number) {
     return http.get<BackendUser>(USER_API_PATHS.user(id));

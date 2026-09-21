@@ -51,6 +51,12 @@ interface Props<T> {
   onPageSizeChange?: (size: number) => void;
   isLoading?: boolean;
   loading?: boolean;
+
+  // Controlled / server-side search
+  searchValue?: string;
+  onSearchChange?: (val: string) => void;
+  serverSearch?: boolean;
+  isSearching?: boolean;
 }
 
 const PAGE_SIZE_KEY = "app-table-page-size";
@@ -178,11 +184,18 @@ export function DataTable<T>({
   onPageSizeChange,
   isLoading: isLoadingProp = false,
   loading: loadingProp = false,
+  searchValue: searchValueProp,
+  onSearchChange,
+  serverSearch = false,
+  isSearching: isSearchingProp = false,
 }: Props<T>) {
   const [query, setQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [localPage, setLocalPage] = useState(1);
   const [pageSize, setPageSize] = useState<number>(() => getStoredPageSize(pageSizeProp));
+
+  const isControlledSearch = searchValueProp !== undefined && onSearchChange !== undefined;
+  const currentQuery = isControlledSearch ? searchValueProp : query;
 
   const rawRows = rowsProp ?? dataProp;
   const rows = useMemo(() => (Array.isArray(rawRows) ? rawRows : []), [rawRows]);
@@ -250,15 +263,22 @@ export function DataTable<T>({
   const isServerPagination =
     rowCount !== undefined && serverPage !== undefined && onPageChange !== undefined;
 
-  const isSearching = query.trim().length > 0;
+  const isSearching = Boolean(currentQuery.trim());
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    if (serverSearch) return rows;
+    const q = currentQuery.trim().toLowerCase();
     if (!q) return rows;
     return rows.filter((row) => rowMatchesQuery(row, columns, q));
-  }, [rows, query, columns]);
+  }, [rows, currentQuery, columns, serverSearch]);
 
-  const totalRecords = isSearching ? filtered.length : isServerPagination ? rowCount! : rows.length;
+  const totalRecords = isSearching
+    ? serverSearch
+      ? (rowCount ?? rows.length)
+      : filtered.length
+    : isServerPagination
+      ? rowCount!
+      : rows.length;
 
   const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
 
@@ -269,7 +289,7 @@ export function DataTable<T>({
       : localPage;
 
   const tableDataSlice = isSearching
-    ? filtered.slice((localPage - 1) * pageSize, localPage * pageSize)
+    ? (serverSearch ? rows : filtered).slice((localPage - 1) * pageSize, localPage * pageSize)
     : isServerPagination
       ? rows
       : rows.slice((localPage - 1) * pageSize, localPage * pageSize);
@@ -308,29 +328,42 @@ export function DataTable<T>({
             onMouseDown={() => setSearchFocused(true)}
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
-            value={query}
-            disabled={isLoading && rows.length === 0}
+            value={currentQuery}
+            disabled={(isLoading || isSearchingProp) && rows.length === 0}
             onChange={(e) => {
               if (!searchFocused) return;
-              setQuery(e.target.value);
+              const next = e.target.value;
+              if (isControlledSearch) {
+                onSearchChange(next);
+              } else {
+                setQuery(next);
+              }
               setLocalPage(1);
             }}
             placeholder={searchPlaceholder}
             className="pl-8 pr-8"
           />
-          {query ? (
-            <button
-              type="button"
-              onClick={() => {
-                setQuery("");
-                setLocalPage(1);
-              }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded-sm"
-              title="Clear search"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          ) : null}
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            {isSearchingProp ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+            ) : currentQuery ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (isControlledSearch) {
+                    onSearchChange("");
+                  } else {
+                    setQuery("");
+                  }
+                  setLocalPage(1);
+                }}
+                className="text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded-sm"
+                title="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+          </div>
         </form>
         {toolbar}
       </div>
