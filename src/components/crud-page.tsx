@@ -59,6 +59,10 @@ interface CrudPageProps<T> {
   extraRowActions?: (row: T) => ReactNode;
   hideEdit?: boolean;
   hideDelete?: boolean;
+  /** Function to dynamically check if delete is disabled for a row, and provide an optional tooltip message */
+  isDeleteDisabled?: (
+    row: T,
+  ) => boolean | { disabled: boolean; tooltip?: string } | string | undefined;
   searchPlaceholder?: string;
 
   // Backend sync parameters
@@ -95,6 +99,7 @@ export function CrudPage<T>({
   extraRowActions,
   hideEdit = false,
   hideDelete = false,
+  isDeleteDisabled,
   searchPlaceholder,
   rowCount,
   page,
@@ -129,6 +134,25 @@ export function CrudPage<T>({
             const currentKey = rowKey(row);
             const isThisDeleting = isSaving && activeDeleteKey === currentKey;
 
+            const deleteCheck = isDeleteDisabled?.(row);
+            let isRowDeleteDisabled = isSaving;
+            let rowDeleteTooltip = "Delete";
+
+            if (typeof deleteCheck === "boolean") {
+              if (deleteCheck) {
+                isRowDeleteDisabled = true;
+                rowDeleteTooltip = "Delete disabled";
+              }
+            } else if (typeof deleteCheck === "string" && deleteCheck) {
+              isRowDeleteDisabled = true;
+              rowDeleteTooltip = deleteCheck;
+            } else if (deleteCheck && typeof deleteCheck === "object") {
+              if (deleteCheck.disabled) {
+                isRowDeleteDisabled = true;
+                rowDeleteTooltip = deleteCheck.tooltip || "Delete disabled";
+              }
+            }
+
             return (
               <div className="flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
                 {extraRowActions?.(row)}
@@ -153,23 +177,42 @@ export function CrudPage<T>({
 
                 {!hideDelete && (
                   <AlertDialog
-                    open={activeDeleteKey === currentKey}
+                    open={isRowDeleteDisabled ? false : activeDeleteKey === currentKey}
                     onOpenChange={(isOpen) => {
-                      if (isSaving) return;
+                      if (isRowDeleteDisabled || isSaving) return;
                       setActiveDeleteKey(isOpen ? currentKey : null);
                     }}
                   >
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        title="Delete"
-                        disabled={isSaving}
-                        onClick={() => setActiveDeleteKey(currentKey)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </AlertDialogTrigger>
+                    <div
+                      title={rowDeleteTooltip}
+                      className={
+                        isRowDeleteDisabled ? "inline-flex cursor-not-allowed" : "inline-flex"
+                      }
+                    >
+                      <AlertDialogTrigger asChild disabled={isRowDeleteDisabled}>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          title={rowDeleteTooltip}
+                          disabled={isRowDeleteDisabled}
+                          onClick={(e) => {
+                            if (isRowDeleteDisabled) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              return;
+                            }
+                            setActiveDeleteKey(currentKey);
+                          }}
+                          className={
+                            isRowDeleteDisabled
+                              ? "pointer-events-none opacity-40 hover:bg-transparent"
+                              : ""
+                          }
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </AlertDialogTrigger>
+                    </div>
 
                     <AlertDialogContent>
                       <AlertDialogHeader>

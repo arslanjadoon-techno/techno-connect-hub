@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { usersApi, hierarchyApi } from "@/lib/api/client";
 import { portalsService } from "@/services/user-manager";
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -89,6 +90,7 @@ function portalTone(name: string, idx: number) {
 export default function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user: currentAuthUser } = useAuth();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
@@ -111,6 +113,9 @@ export default function UserDetailPage() {
   };
 
   const currentLoggedInUserEmail = useMemo(() => {
+    if (currentAuthUser?.email) {
+      return String(currentAuthUser.email).toLowerCase().trim();
+    }
     try {
       const userStr = localStorage.getItem("user");
       if (userStr) {
@@ -121,10 +126,15 @@ export default function UserDetailPage() {
       // Ignore JSON parse error
     }
     return null;
-  }, []);
+  }, [currentAuthUser]);
 
   const currentUserEmail = user?.email ? String(user.email).toLowerCase().trim() : "";
-  const isSelfAccount = currentUserEmail === currentLoggedInUserEmail;
+  const isSelfAccount = Boolean(
+    (currentUserEmail &&
+      currentLoggedInUserEmail &&
+      currentUserEmail === currentLoggedInUserEmail) ||
+    (currentAuthUser?.id && user?.id && String(user.id) === String(currentAuthUser.id)),
+  );
   const isDefaultAdmin = currentUserEmail === "admin@techno.com";
 
   const isActionBlocked = isSelfAccount || isDefaultAdmin;
@@ -152,6 +162,14 @@ export default function UserDetailPage() {
 
   const handleDelete = async () => {
     if (!user) return;
+    if (isSelfAccount) {
+      toast.error("You cannot delete your own account");
+      return;
+    }
+    if (isDefaultAdmin) {
+      toast.error("Default Admin cannot be deleted");
+      return;
+    }
     try {
       setDeleting(true);
       const res = await usersApi.delete(Number(user.id));
@@ -168,6 +186,14 @@ export default function UserDetailPage() {
 
   const handleToggleActive = async (next: boolean) => {
     if (!user) return;
+    if (!next && isSelfAccount) {
+      toast.error("You cannot disable your own account");
+      return;
+    }
+    if (!next && isDefaultAdmin) {
+      toast.error("Default Admin account cannot be deactivated");
+      return;
+    }
     try {
       setTogglingActive(true);
       const payload: any = {
@@ -254,27 +280,31 @@ export default function UserDetailPage() {
 
           {/* Activate / Deactivate with confirmation */}
           <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant={user.active ? "outline" : "default"}
-                className="gap-2"
-                disabled={togglingActive || isActionBlocked}
-                title={
-                  isSelfAccount
-                    ? "You cannot deactivate your own account"
-                    : isDefaultAdmin
-                      ? "Default Admin cannot be deactivated"
-                      : ""
-                }
-              >
-                {togglingActive ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Power className="h-4 w-4" />
-                )}
-                {user.active ? "Deactivate" : "Activate"}
-              </Button>
-            </AlertDialogTrigger>
+            <div
+              title={
+                isSelfAccount
+                  ? "You cannot disable your own account"
+                  : isDefaultAdmin
+                    ? "Default Admin account cannot be deactivated"
+                    : ""
+              }
+              className={isActionBlocked ? "cursor-not-allowed inline-flex" : "inline-flex"}
+            >
+              <AlertDialogTrigger asChild disabled={isActionBlocked}>
+                <Button
+                  variant={user.active ? "outline" : "default"}
+                  className={`gap-2 ${isActionBlocked ? "pointer-events-none opacity-50" : ""}`}
+                  disabled={togglingActive || isActionBlocked}
+                >
+                  {togglingActive ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Power className="h-4 w-4" />
+                  )}
+                  {user.active ? "Deactivate" : "Activate"}
+                </Button>
+              </AlertDialogTrigger>
+            </div>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>
@@ -296,27 +326,31 @@ export default function UserDetailPage() {
           </AlertDialog>
 
           <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="destructive"
-                className="gap-2"
-                disabled={deleting || isActionBlocked}
-                title={
-                  isSelfAccount
-                    ? "You cannot delete your own account"
-                    : isDefaultAdmin
-                      ? "Default Admin cannot be deleted"
-                      : ""
-                }
-              >
-                {deleting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Trash2 className="h-4 w-4" />
-                )}
-                Delete user
-              </Button>
-            </AlertDialogTrigger>
+            <div
+              title={
+                isSelfAccount
+                  ? "You cannot delete your own account"
+                  : isDefaultAdmin
+                    ? "Default Admin cannot be deleted"
+                    : ""
+              }
+              className={isActionBlocked ? "cursor-not-allowed inline-flex" : "inline-flex"}
+            >
+              <AlertDialogTrigger asChild disabled={isActionBlocked}>
+                <Button
+                  variant="destructive"
+                  className={`gap-2 ${isActionBlocked ? "pointer-events-none opacity-50" : ""}`}
+                  disabled={deleting || isActionBlocked}
+                >
+                  {deleting ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  Delete user
+                </Button>
+              </AlertDialogTrigger>
+            </div>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete this user?</AlertDialogTitle>

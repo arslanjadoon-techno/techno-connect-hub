@@ -23,6 +23,7 @@ import {
   StoresApi,
 } from "@/lib/api/client";
 import { portalsService } from "@/services/user-manager";
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import {
   Loader2,
@@ -81,6 +82,7 @@ function mapBackendToFrontendUser(bu: any): any {
 // MAIN USERS PAGE COMPONENT
 // ==========================================
 function UsersPage() {
+  const { user: currentAuthUser } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [deptFilter, setDeptFilter] = useState<string>("all");
 
@@ -227,6 +229,19 @@ function UsersPage() {
   }, [page, size, deptFilter, portalFilter, searchQuery]);
 
   const handleDelete = async (u: any) => {
+    const rowEmail = u.email ? String(u.email).toLowerCase().trim() : "";
+    const isSelf = Boolean(
+      (rowEmail && currentLoggedInUserEmail && rowEmail === currentLoggedInUserEmail) ||
+      (currentAuthUser?.id && String(u.id) === String(currentAuthUser.id)),
+    );
+    if (isSelf) {
+      toast.error("You cannot delete your own account");
+      return;
+    }
+    if (rowEmail === "admin@techno.com") {
+      toast.error("Default Admin cannot be deleted");
+      return;
+    }
     try {
       setActionLoading(true);
       const res = await usersApi.delete(Number(u.id));
@@ -274,6 +289,9 @@ function UsersPage() {
   };
 
   const currentLoggedInUserEmail = useMemo(() => {
+    if (currentAuthUser?.email) {
+      return String(currentAuthUser.email).toLowerCase().trim();
+    }
     try {
       const userStr = localStorage.getItem("user");
       if (userStr) {
@@ -284,7 +302,7 @@ function UsersPage() {
       console.error("Error parsing logged-in user email:", e);
     }
     return null;
-  }, []);
+  }, [currentAuthUser]);
 
   const filteredMainDeptsOptions = useMemo(() => {
     return dynamicDepts.filter((d) =>
@@ -486,7 +504,10 @@ function UsersPage() {
 
                 const rowEmail = u.email ? String(u.email).toLowerCase().trim() : "";
 
-                const isSelfDeactivation = rowEmail === currentLoggedInUserEmail;
+                const isSelfDeactivation = Boolean(
+                  (rowEmail && currentLoggedInUserEmail && rowEmail === currentLoggedInUserEmail) ||
+                  (currentAuthUser?.id && String(u.id) === String(currentAuthUser.id)),
+                );
 
                 //  Default admin email
                 const isDefaultAdmin = rowEmail === "admin@techno.com";
@@ -494,7 +515,7 @@ function UsersPage() {
                 const isDisabled = isCurrentRowLoading || isSelfDeactivation || isDefaultAdmin;
 
                 const tooltipMessage = isSelfDeactivation
-                  ? "You cannot deactivate your own account"
+                  ? "You cannot disable your own account"
                   : isDefaultAdmin
                     ? "Default Admin account cannot be deactivated"
                     : "";
@@ -518,7 +539,26 @@ function UsersPage() {
               },
             },
           ]}
-
+          isDeleteDisabled={(u) => {
+            const rowEmail = u.email ? String(u.email).toLowerCase().trim() : "";
+            const isSelf = Boolean(
+              (rowEmail && currentLoggedInUserEmail && rowEmail === currentLoggedInUserEmail) ||
+              (currentAuthUser?.id && String(u.id) === String(currentAuthUser.id)),
+            );
+            if (isSelf) {
+              return {
+                disabled: true,
+                tooltip: "You cannot delete your own account",
+              };
+            }
+            if (rowEmail === "admin@techno.com") {
+              return {
+                disabled: true,
+                tooltip: "Default Admin cannot be deleted",
+              };
+            }
+            return false;
+          }}
           onDelete={handleDelete}
           renderForm={(initial, close) => (
             <UserForm
