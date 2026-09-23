@@ -526,7 +526,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="no-scrollbar gap-1">
         {/* Workspace Group */}
         <SidebarGroup>
           {!collapsed && <SidebarGroupLabel>Workspace</SidebarGroupLabel>}
@@ -587,11 +587,11 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border/60 py-2.5 px-3">
         <div className="flex items-center justify-center select-none tracking-tight">
           {collapsed ? (
-            <span title="Version 2.0.1" className="text-[10px]">
-              v2.0.1
+            <span title="Version 2.0.6" className="text-[10px]">
+              v2.0.6
             </span>
           ) : (
-            <span className="text-[14px] text-white font-medium">Version - 2.0.1</span>
+            <span className="text-[14px] text-white font-medium">Version - 2.0.6</span>
           )}
         </div>
       </SidebarFooter>
