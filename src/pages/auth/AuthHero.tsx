@@ -24,42 +24,38 @@ export default function AuthHero({
       className="relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex clip-wave-right -mr-16 z-10"
       style={{ backgroundImage: "var(--gradient-hero)" }}
     >
-      {/* Big floating blobs */}
-      <div className="pointer-events-none absolute -top-24 -left-24 h-80 w-80 rounded-full bg-white/10 blur-3xl animate-float-blob" />
+      {/* Big floating blobs pinned to outer corners */}
+      <div className="pointer-events-none absolute -top-36 -left-36 h-96 w-96 rounded-full bg-white/10 blur-3xl animate-float-blob" />
       <div
-        className="pointer-events-none absolute bottom-0 right-0 h-96 w-96 rounded-full bg-white/10 blur-3xl animate-float-blob"
+        className="pointer-events-none absolute -bottom-20 -right-10 h-96 w-96 rounded-full bg-white/10 blur-3xl animate-float-blob"
         style={{ animationDelay: "2s" }}
       />
-      <div
-        className="pointer-events-none absolute top-1/3 right-1/4 h-48 w-48 rounded-full bg-white/15 blur-2xl animate-float-blob"
-        style={{ animationDelay: "4s" }}
-      />
 
-      {/* Small bubbles */}
-      <span className="pointer-events-none absolute left-[12%] top-[18%] h-3 w-3 rounded-full bg-white/40 animate-float-blob" />
+      {/* Decorative bubbles placed strictly in empty margin zones */}
+      <span className="pointer-events-none absolute right-[7%] top-[8%] h-7 w-7 rounded-full bg-white/30 animate-float-blob" />
       <span
-        className="pointer-events-none absolute left-[28%] top-[60%] h-2 w-2 rounded-full bg-white/30 animate-float-blob"
-        style={{ animationDelay: "1.5s" }}
+        className="pointer-events-none absolute right-[15%] top-[15%] h-12 w-12 rounded-full border border-white/20 animate-float-blob"
+        style={{ animationDelay: "3s" }}
       />
       <span
-        className="pointer-events-none absolute right-[18%] top-[22%] h-4 w-4 rounded-full bg-white/30 animate-float-blob"
-        style={{ animationDelay: "2.5s" }}
+        className="pointer-events-none absolute left-[44%] top-[4%] h-5 w-5 rounded-full bg-white/25 animate-float-blob"
+        style={{ animationDelay: "1.2s" }}
       />
       <span
-        className="pointer-events-none absolute right-[30%] bottom-[18%] h-2.5 w-2.5 rounded-full bg-white/40 animate-float-blob"
-        style={{ animationDelay: "3.2s" }}
+        className="pointer-events-none absolute right-[5%] top-[38%] h-6 w-6 rounded-full bg-white/25 animate-float-blob"
+        style={{ animationDelay: "2s" }}
       />
       <span
-        className="pointer-events-none absolute left-[45%] bottom-[30%] h-6 w-6 rounded-full border border-white/30 animate-float-blob"
-        style={{ animationDelay: "1s" }}
+        className="pointer-events-none absolute right-[8%] bottom-[30%] h-8 w-8 rounded-full bg-white/30 animate-float-blob"
+        style={{ animationDelay: "4.2s" }}
       />
       <span
-        className="pointer-events-none absolute left-[55%] top-[14%] h-8 w-8 rounded-full border border-white/20 animate-float-blob"
-        style={{ animationDelay: "4.5s" }}
+        className="pointer-events-none absolute right-[14%] bottom-[12%] h-14 w-14 rounded-full border border-white/25 animate-float-blob"
+        style={{ animationDelay: "1.8s" }}
       />
       <span
-        className="pointer-events-none absolute right-[10%] bottom-[40%] h-3 w-3 rounded-full bg-white/50 animate-float-blob"
-        style={{ animationDelay: "0.8s" }}
+        className="pointer-events-none absolute left-[30%] bottom-[4%] h-5 w-5 rounded-full bg-white/20 animate-float-blob"
+        style={{ animationDelay: "2.8s" }}
       />
 
       <div className="relative z-10 flex items-center gap-3 animate-fade-in">

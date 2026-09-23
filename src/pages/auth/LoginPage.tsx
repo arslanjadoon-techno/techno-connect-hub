@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { ShieldCheck, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react";
+import { ShieldCheck, Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthThemeReset } from "./useAuthThemeReset";
 import { AuthHeroCarousel } from "./AuthHeroCarousel";
@@ -113,90 +113,202 @@ export default function LoginPage() {
         className="relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex clip-wave-right lg:-mr-16 lg:z-10"
         style={{ backgroundImage: "var(--gradient-hero)" }}
       >
-        {/* Floating big blobs */}
-        <div className="pointer-events-none absolute -top-32 -left-32 h-[28rem] w-[28rem] rounded-full bg-white/10 blur-3xl animate-float-blob" />
+        {/* Ambient background corner glow - pinned to outer edges, never covering text */}
+        <div className="pointer-events-none absolute -top-36 -left-36 h-[30rem] w-[30rem] rounded-full bg-white/10 blur-3xl animate-float-blob" />
         <div
-          className="pointer-events-none absolute -bottom-10 right-0 h-[32rem] w-[32rem] rounded-full bg-white/10 blur-3xl animate-float-blob"
+          className="pointer-events-none absolute -bottom-24 -right-12 h-[34rem] w-[34rem] rounded-full bg-white/10 blur-3xl animate-float-blob"
           style={{ animationDelay: "2s" }}
         />
-        <div
-          className="pointer-events-none absolute top-1/3 right-1/4 h-72 w-72 rounded-full bg-white/15 blur-2xl animate-float-blob"
-          style={{ animationDelay: "4s" }}
+
+        {/* Decorative bubbles placed exclusively in empty negative space (margins & outer curve) */}
+        {/* 1. Far Top-Right empty zone */}
+        <span className="pointer-events-none absolute right-[7%] top-[8%] h-9 w-9 rounded-full bg-white/30 animate-float-blob" />
+        <span
+          className="pointer-events-none absolute right-[15%] top-[15%] h-14 w-14 rounded-full border-2 border-white/20 animate-float-blob"
+          style={{ animationDelay: "3s" }}
         />
 
-        {/* Decorative bubbles (crisp circles) */}
-        <span className="pointer-events-none absolute left-[12%] top-[18%] h-8 w-8 rounded-full bg-white/40 animate-float-blob" />
+        {/* 2. Top-Center margin (well above main text) */}
         <span
-          className="pointer-events-none absolute left-[28%] top-[60%] h-6 w-6 rounded-full bg-white/30 animate-float-blob"
-          style={{ animationDelay: "1.5s" }}
+          className="pointer-events-none absolute left-[44%] top-[4%] h-6 w-6 rounded-full bg-white/25 animate-float-blob"
+          style={{ animationDelay: "1.2s" }}
+        />
+
+        {/* 3. Outer Curve boundary (middle-right empty zone) */}
+        <span
+          className="pointer-events-none absolute right-[5%] top-[38%] h-7 w-7 rounded-full bg-white/25 animate-float-blob"
+          style={{ animationDelay: "2s" }}
         />
         <span
-          className="pointer-events-none absolute right-[18%] top-[22%] h-12 w-12 rounded-full bg-white/25 animate-float-blob"
-          style={{ animationDelay: "2.5s" }}
+          className="pointer-events-none absolute right-[8%] bottom-[30%] h-11 w-11 rounded-full bg-white/30 animate-float-blob"
+          style={{ animationDelay: "4.2s" }}
+        />
+
+        {/* 4. Lower-Right empty sweep */}
+        <span
+          className="pointer-events-none absolute right-[14%] bottom-[12%] h-16 w-16 rounded-full border-2 border-white/25 animate-float-blob"
+          style={{ animationDelay: "1.8s" }}
         />
         <span
-          className="pointer-events-none absolute right-[30%] bottom-[18%] h-9 w-9 rounded-full bg-white/35 animate-float-blob"
-          style={{ animationDelay: "3.2s" }}
-        />
-        <span
-          className="pointer-events-none absolute left-[45%] bottom-[30%] h-20 w-20 rounded-full border-2 border-white/30 animate-float-blob"
-          style={{ animationDelay: "1s" }}
-        />
-        <span
-          className="pointer-events-none absolute left-[55%] top-[14%] h-24 w-24 rounded-full border-2 border-white/20 animate-float-blob"
-          style={{ animationDelay: "4.5s" }}
-        />
-        <span
-          className="pointer-events-none absolute right-[10%] bottom-[40%] h-10 w-10 rounded-full bg-white/45 animate-float-blob"
+          className="pointer-events-none absolute right-[4%] bottom-[20%] h-8 w-8 rounded-full bg-white/35 animate-float-blob"
           style={{ animationDelay: "0.8s" }}
         />
 
-        <div className="relative z-10 flex items-center gap-3 animate-fade-in">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 backdrop-blur">
+        {/* 5. Bottom margin (next to copyright, far below carousel) */}
+        <span
+          className="pointer-events-none absolute left-[30%] bottom-[4%] h-6 w-6 rounded-full bg-white/20 animate-float-blob"
+          style={{ animationDelay: "2.8s" }}
+        />
+
+        {/* Top Branding */}
+        <div className="relative z-20 flex items-center gap-3 animate-fade-in">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 backdrop-blur shadow-sm">
             <ShieldCheck className="h-6 w-6 text-white" />
           </div>
           <div>
-            <div className="font-display text-lg font-semibold">MIS</div>
+            <div className="font-display text-lg font-semibold tracking-tight">MIS</div>
             <div className="text-xs text-white/70">Management Information System</div>
           </div>
         </div>
 
-        {/* Sliding Center Section: Slide 1 Text / Slide 2 Network Hub Graph (3s interval) */}
-        <AuthHeroCarousel />
+        {/* Sliding Center Section: Slide 1 Text / Slide 2 Network Hub Graph (elevated z-20 so text is always crystal clear) */}
+        <div className="relative z-20">
+          <AuthHeroCarousel />
+        </div>
 
-        <div className="relative z-10 text-xs text-white/60">© Techno Communications LLC</div>
+        {/* Bottom Footer */}
+        <div className="relative z-20 text-xs text-white/60">© Techno Communications LLC</div>
       </div>
 
-      {/* Form side — soft grey backdrop with crisp white card on top */}
-      <div className="relative flex items-center justify-center overflow-hidden bg-muted/40 p-6 lg:pl-16">
-        {/* Fixed decorative bubble on the top-right of the form side */}
-        <div
-          className="pointer-events-none absolute -right-24 -top-24 h-[26rem] w-[26rem] rounded-full opacity-20 blur-2xl"
-          style={{ backgroundImage: "var(--gradient-primary)" }}
-        />
-        <div className="pointer-events-none absolute right-16 top-16 h-40 w-40 rounded-full border border-primary/20" />
-        <Card className="relative z-10 w-full max-w-md rounded-2xl border bg-card p-8 shadow-2xl animate-scale-in">
-          <h2 className="font-display text-2xl font-semibold">Welcome back</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Sign in to your account.</p>
+      {/* Form side — clean backdrop with ambient glow, dot grid, corner swoosh & refined card */}
+      <div className="relative flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#f8fafc] via-[#f1f5fb] to-[#e8effc] p-6 lg:pl-16">
+        {/* Ambient soft glow on top-right of form side */}
+        <div className="pointer-events-none absolute -right-20 -top-20 h-96 w-96 rounded-full bg-gradient-to-br from-blue-300/25 via-indigo-200/20 to-transparent blur-3xl" />
+
+        {/* Subtle decorative concentric ring at top right */}
+        <div className="pointer-events-none absolute right-14 top-10 h-52 w-52 rounded-full border border-blue-400/15" />
+
+        {/* Decorative Dot Grid Matrix (Top-Right of screen) */}
+        <div className="pointer-events-none absolute right-8 top-8 grid grid-cols-6 gap-2.5 opacity-40">
+          {Array.from({ length: 24 }).map((_, i) => (
+            <span key={i} className="h-1.5 w-1.5 rounded-full bg-blue-500/50" />
+          ))}
+        </div>
+
+        {/* Bottom-right decorative corner layered swoosh */}
+        <div className="pointer-events-none absolute bottom-0 right-0 w-64 h-64 sm:w-80 sm:h-80 overflow-hidden z-0">
+          <svg
+            viewBox="0 0 320 320"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="absolute bottom-0 right-0 w-full h-full"
+            preserveAspectRatio="none"
+          >
+            <defs>
+              <linearGradient id="br-wave-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#93c5fd" stopOpacity="0.45" />
+                <stop offset="60%" stopColor="#a78bfa" stopOpacity="0.5" />
+                <stop offset="100%" stopColor="#7028e4" stopOpacity="0.3" />
+              </linearGradient>
+              <linearGradient id="br-wave-fg" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#1656f0" stopOpacity="0.95" />
+                <stop offset="55%" stopColor="#4f46e5" stopOpacity="0.95" />
+                <stop offset="100%" stopColor="#7028e4" stopOpacity="1" />
+              </linearGradient>
+            </defs>
+            {/* Soft background wave */}
+            <path
+              d="M320 110 C230 135 160 210 120 320 L320 320 Z"
+              fill="url(#br-wave-bg)"
+            />
+            {/* Vibrant primary foreground wave */}
+            <path
+              d="M320 165 C240 185 185 245 155 320 L320 320 Z"
+              fill="url(#br-wave-fg)"
+            />
+          </svg>
+        </div>
+
+        {/* Login Card with refined elevation & top-right corner theme layers */}
+        <Card className="relative z-10 w-full max-w-[440px] rounded-[28px] border border-white/80 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 p-8 sm:p-9 shadow-[0_20px_60px_-15px_rgba(22,86,240,0.14),0_10px_25px_-5px_rgba(0,0,0,0.05)] backdrop-blur-sm overflow-hidden animate-scale-in">
+          {/* Top-right card decorative corner swoosh layers (matching image design) */}
+          <div className="pointer-events-none absolute top-0 right-0 w-36 h-36 sm:w-44 sm:h-44 overflow-hidden rounded-tr-[28px]">
+            <svg
+              viewBox="0 0 180 180"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="absolute top-0 right-0 w-full h-full"
+            >
+              <defs>
+                <linearGradient id="card-corner-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#93c5fd" stopOpacity="0.3" />
+                  <stop offset="60%" stopColor="#a78bfa" stopOpacity="0.35" />
+                  <stop offset="100%" stopColor="#c084fc" stopOpacity="0.2" />
+                </linearGradient>
+                <linearGradient id="card-corner-fg" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.45" />
+                  <stop offset="50%" stopColor="#6366f1" stopOpacity="0.55" />
+                  <stop offset="100%" stopColor="#7028e4" stopOpacity="0.65" />
+                </linearGradient>
+              </defs>
+              {/* Back layered curve */}
+              <path
+                d="M180 0 L70 0 C78 50 115 88 180 110 Z"
+                fill="url(#card-corner-bg)"
+              />
+              {/* Front layered curve */}
+              <path
+                d="M180 0 L105 0 C112 40 138 68 180 82 Z"
+                fill="url(#card-corner-fg)"
+              />
+            </svg>
+          </div>
+
+          {/* MIS Brand Header inside Card */}
+          <div className="relative z-10 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-[#1656f0] to-[#2563eb] text-white shadow-md shadow-blue-500/25">
+              <ShieldCheck className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <div className="font-display text-base font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
+                MIS
+              </div>
+              <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                Management Information System
+              </div>
+            </div>
+          </div>
+
+          {/* Welcome Title & Subtitle */}
+          <div className="relative z-10 mt-5">
+            <h2 className="font-display text-2xl sm:text-[26px] font-bold tracking-tight text-slate-900 dark:text-white">
+              Welcome back
+            </h2>
+            <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+              Sign in to your account to continue.
+            </p>
+          </div>
 
           {/* Inline Red Error Alert if backend returns failure */}
           {errorMessage && (
-            <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50/90 p-3.5 text-xs text-rose-700 animate-fade-in shadow-xs">
+            <div className="relative z-10 mt-4 flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50/90 p-3.5 text-xs text-rose-700 animate-fade-in shadow-xs">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
               <div className="flex-1 font-medium">{errorMessage}</div>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <form onSubmit={handleSubmit} className="relative z-10 mt-6 space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email or NTID</Label>
+              <Label htmlFor="email" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Email or NTID
+              </Label>
               <div className="relative">
-                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   id="email"
                   type="text"
-                  placeholder="you@techno.com or NTID"
-                  className="h-11 pl-9"
+                  placeholder="admin@techno.com"
+                  className="h-11 rounded-xl bg-[#f0f4fc]/80 dark:bg-slate-800/80 border-[#dce5f5] dark:border-slate-700 pl-10 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:bg-white focus:border-[#1656f0] focus:ring-4 focus:ring-[#1656f0]/15 transition-all"
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
@@ -208,14 +320,16 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Password
+              </Label>
               <div className="relative">
-                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   id="password"
                   type={showPwd ? "text" : "password"}
                   placeholder="••••••••"
-                  className="h-11 pl-9 pr-10"
+                  className="h-11 rounded-xl bg-[#f0f4fc]/80 dark:bg-slate-800/80 border-[#dce5f5] dark:border-slate-700 pl-10 pr-10 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:bg-white focus:border-[#1656f0] focus:ring-4 focus:ring-[#1656f0]/15 transition-all"
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
@@ -226,25 +340,38 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPwd((v) => !v)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
                   aria-label={showPwd ? "Hide password" : "Show password"}
                 >
                   {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <div className="flex justify-end pt-1">
+              <div className="flex justify-end pt-0.5">
                 <Link
                   to="/forgot-password"
-                  className="text-xs font-medium text-primary hover:underline"
+                  className="text-xs font-medium text-[#1656f0] hover:text-[#0062ff] hover:underline"
                 >
                   Forgot password?
                 </Link>
               </div>
             </div>
 
-            <Button type="submit" className="h-11 w-full text-base" disabled={loading}>
-              {loading ? "Signing in..." : "Sign in"}
+            <Button
+              type="submit"
+              className="mt-2 h-11 sm:h-12 w-full rounded-xl text-sm sm:text-base font-semibold text-white cursor-pointer shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/35 transition-all flex items-center justify-center gap-2"
+              style={{ backgroundImage: "linear-gradient(90deg, #0062ff 0%, #7028e4 100%)" }}
+              disabled={loading}
+            >
+              <span>{loading ? "Signing in..." : "Sign in"}</span>
+              {!loading && <ArrowRight className="h-4 w-4" />}
             </Button>
+
+            {/* Bottom Trust Badge Divider */}
+            <div className="pt-3 flex items-center gap-3 text-[11px] text-slate-400 font-medium">
+              <span className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+              <span>Secure &bull; Reliable &bull; Built for You</span>
+              <span className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+            </div>
           </form>
         </Card>
       </div>
