@@ -253,22 +253,6 @@
   box-shadow: var(--shadow-elegant);
 }
 
-/* Hide scrollbars across all modern and legacy browsers for sidebars */
-[data-sidebar="content"],
-[data-sidebar="sidebar"],
-.no-scrollbar {
-  -ms-overflow-style: none !important;
-  scrollbar-width: none !important;
-}
-
-[data-sidebar="content"]::-webkit-scrollbar,
-[data-sidebar="sidebar"]::-webkit-scrollbar,
-.no-scrollbar::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
-}
-
 /* Modern table polish + global zebra striping (clearly visible) */
 table thead,
 table thead tr,
