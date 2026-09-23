@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { useTheme } from "@/lib/theme";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,7 @@ import { AuthHeroCarousel } from "./AuthHeroCarousel";
 export default function LoginPage() {
   useAuthThemeReset();
   const { user, setSession } = useAuth();
+  const { palette } = useTheme();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -180,18 +182,35 @@ export default function LoginPage() {
         <div className="relative z-20 text-xs text-white/60">© Techno Communications LLC</div>
       </div>
 
-      {/* Form side — clean backdrop with ambient glow, dot grid, corner swoosh & refined card */}
+      {/* Form side — clean backdrop with ambient glow, dot grid, corner swoosh & refined card (dynamically styled per active palette) */}
       <div className="relative flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#f8fafc] via-[#f1f5fb] to-[#e8effc] p-6 lg:pl-16">
         {/* Ambient soft glow on top-right of form side */}
-        <div className="pointer-events-none absolute -right-20 -top-20 h-96 w-96 rounded-full bg-gradient-to-br from-blue-300/25 via-indigo-200/20 to-transparent blur-3xl" />
+        <div
+          className="pointer-events-none absolute -right-20 -top-20 h-96 w-96 rounded-full blur-3xl opacity-30 transition-all duration-500"
+          style={{
+            background: `radial-gradient(circle, color-mix(in srgb, ${palette.primaryGlow} 40%, transparent) 0%, color-mix(in srgb, ${palette.primary} 25%, transparent) 50%, transparent 75%)`,
+          }}
+        />
 
         {/* Subtle decorative concentric ring at top right */}
-        <div className="pointer-events-none absolute right-14 top-10 h-52 w-52 rounded-full border border-blue-400/15" />
+        <div
+          className="pointer-events-none absolute right-14 top-10 h-52 w-52 rounded-full transition-all duration-500"
+          style={{
+            borderColor: `color-mix(in srgb, ${palette.primary} 18%, transparent)`,
+            borderWidth: 1,
+          }}
+        />
 
         {/* Decorative Dot Grid Matrix (Top-Right of screen) */}
         <div className="pointer-events-none absolute right-8 top-8 grid grid-cols-6 gap-2.5 opacity-40">
           {Array.from({ length: 24 }).map((_, i) => (
-            <span key={i} className="h-1.5 w-1.5 rounded-full bg-blue-500/50" />
+            <span
+              key={i}
+              className="h-1.5 w-1.5 rounded-full transition-colors duration-500"
+              style={{
+                backgroundColor: `color-mix(in srgb, ${palette.primary} 60%, transparent)`,
+              }}
+            />
           ))}
         </div>
 
@@ -201,19 +220,19 @@ export default function LoginPage() {
             viewBox="0 0 320 320"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            className="absolute bottom-0 right-0 w-full h-full"
+            className="absolute bottom-0 right-0 w-full h-full transition-all duration-500"
             preserveAspectRatio="none"
           >
             <defs>
               <linearGradient id="br-wave-bg" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#93c5fd" stopOpacity="0.45" />
-                <stop offset="60%" stopColor="#a78bfa" stopOpacity="0.5" />
-                <stop offset="100%" stopColor="#7028e4" stopOpacity="0.3" />
+                <stop offset="0%" stopColor={palette.primary} stopOpacity={0.35} />
+                <stop offset="60%" stopColor={palette.primaryGlow} stopOpacity={0.45} />
+                <stop offset="100%" stopColor={palette.primaryGlow} stopOpacity={0.25} />
               </linearGradient>
               <linearGradient id="br-wave-fg" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#1656f0" stopOpacity="0.95" />
-                <stop offset="55%" stopColor="#4f46e5" stopOpacity="0.95" />
-                <stop offset="100%" stopColor="#7028e4" stopOpacity="1" />
+                <stop offset="0%" stopColor={palette.primary} stopOpacity={0.95} />
+                <stop offset="55%" stopColor={palette.primary} stopOpacity={0.9} />
+                <stop offset="100%" stopColor={palette.primaryGlow} stopOpacity={1} />
               </linearGradient>
             </defs>
             {/* Soft background wave */}
@@ -230,25 +249,30 @@ export default function LoginPage() {
         </div>
 
         {/* Login Card with refined elevation & top-right corner theme layers */}
-        <Card className="relative z-10 w-full max-w-[440px] rounded-[28px] border border-white/80 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 p-8 sm:p-9 shadow-[0_20px_60px_-15px_rgba(22,86,240,0.14),0_10px_25px_-5px_rgba(0,0,0,0.05)] backdrop-blur-sm overflow-hidden animate-scale-in">
-          {/* Top-right card decorative corner swoosh layers (matching image design) */}
+        <Card
+          className="relative z-10 w-full max-w-[440px] rounded-[28px] border border-white/80 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 p-8 sm:p-9 backdrop-blur-sm overflow-hidden animate-scale-in transition-shadow duration-500"
+          style={{
+            boxShadow: `0 20px 60px -15px color-mix(in srgb, ${palette.primary} 18%, transparent), 0 10px 25px -5px rgba(0,0,0,0.05)`,
+          }}
+        >
+          {/* Top-right card decorative corner swoosh layers (matching image design, dynamically themed) */}
           <div className="pointer-events-none absolute top-0 right-0 w-36 h-36 sm:w-44 sm:h-44 overflow-hidden rounded-tr-[28px]">
             <svg
               viewBox="0 0 180 180"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
-              className="absolute top-0 right-0 w-full h-full"
+              className="absolute top-0 right-0 w-full h-full transition-all duration-500"
             >
               <defs>
                 <linearGradient id="card-corner-bg" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#93c5fd" stopOpacity="0.3" />
-                  <stop offset="60%" stopColor="#a78bfa" stopOpacity="0.35" />
-                  <stop offset="100%" stopColor="#c084fc" stopOpacity="0.2" />
+                  <stop offset="0%" stopColor={palette.primary} stopOpacity={0.25} />
+                  <stop offset="60%" stopColor={palette.primaryGlow} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={palette.primaryGlow} stopOpacity={0.15} />
                 </linearGradient>
                 <linearGradient id="card-corner-fg" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.45" />
-                  <stop offset="50%" stopColor="#6366f1" stopOpacity="0.55" />
-                  <stop offset="100%" stopColor="#7028e4" stopOpacity="0.65" />
+                  <stop offset="0%" stopColor={palette.primary} stopOpacity={0.5} />
+                  <stop offset="50%" stopColor={palette.primaryGlow} stopOpacity={0.6} />
+                  <stop offset="100%" stopColor={palette.primaryGlow} stopOpacity={0.75} />
                 </linearGradient>
               </defs>
               {/* Back layered curve */}
@@ -266,7 +290,15 @@ export default function LoginPage() {
 
           {/* MIS Brand Header inside Card */}
           <div className="relative z-10 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-[#1656f0] to-[#2563eb] text-white shadow-md shadow-blue-500/25">
+            <div
+              className="flex h-11 w-11 items-center justify-center rounded-xl text-white shadow-md transition-all duration-500"
+              style={{
+                background:
+                  palette.primaryGradient ||
+                  `linear-gradient(135deg, ${palette.primary}, ${palette.primaryGlow})`,
+                boxShadow: `0 4px 14px color-mix(in srgb, ${palette.primary} 30%, transparent)`,
+              }}
+            >
               <ShieldCheck className="h-6 w-6 text-white" />
             </div>
             <div>
@@ -308,7 +340,7 @@ export default function LoginPage() {
                   id="email"
                   type="text"
                   placeholder="admin@techno.com"
-                  className="h-11 rounded-xl bg-[#f0f4fc]/80 dark:bg-slate-800/80 border-[#dce5f5] dark:border-slate-700 pl-10 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:bg-white focus:border-[#1656f0] focus:ring-4 focus:ring-[#1656f0]/15 transition-all"
+                  className="h-11 rounded-xl bg-[#f0f4fc]/80 dark:bg-slate-800/80 border-[#dce5f5] dark:border-slate-700 pl-10 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:bg-white focus:ring-4 transition-all"
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
@@ -329,7 +361,7 @@ export default function LoginPage() {
                   id="password"
                   type={showPwd ? "text" : "password"}
                   placeholder="••••••••"
-                  className="h-11 rounded-xl bg-[#f0f4fc]/80 dark:bg-slate-800/80 border-[#dce5f5] dark:border-slate-700 pl-10 pr-10 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:bg-white focus:border-[#1656f0] focus:ring-4 focus:ring-[#1656f0]/15 transition-all"
+                  className="h-11 rounded-xl bg-[#f0f4fc]/80 dark:bg-slate-800/80 border-[#dce5f5] dark:border-slate-700 pl-10 pr-10 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:bg-white focus:ring-4 transition-all"
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
@@ -349,7 +381,8 @@ export default function LoginPage() {
               <div className="flex justify-end pt-0.5">
                 <Link
                   to="/forgot-password"
-                  className="text-xs font-medium text-[#1656f0] hover:text-[#0062ff] hover:underline"
+                  className="text-xs font-medium hover:underline transition-colors"
+                  style={{ color: palette.primary }}
                 >
                   Forgot password?
                 </Link>
@@ -358,8 +391,13 @@ export default function LoginPage() {
 
             <Button
               type="submit"
-              className="mt-2 h-11 sm:h-12 w-full rounded-xl text-sm sm:text-base font-semibold text-white cursor-pointer shadow-lg shadow-blue-600/25 hover:shadow-xl hover:shadow-blue-600/35 transition-all flex items-center justify-center gap-2"
-              style={{ backgroundImage: "linear-gradient(90deg, #0062ff 0%, #7028e4 100%)" }}
+              className="mt-2 h-11 sm:h-12 w-full rounded-xl text-sm sm:text-base font-semibold text-white cursor-pointer transition-all flex items-center justify-center gap-2"
+              style={{
+                backgroundImage:
+                  palette.primaryGradient ||
+                  `linear-gradient(90deg, ${palette.primary} 0%, ${palette.primaryGlow} 100%)`,
+                boxShadow: `0 8px 24px -4px color-mix(in srgb, ${palette.primary} 35%, transparent)`,
+              }}
               disabled={loading}
             >
               <span>{loading ? "Signing in..." : "Sign in"}</span>
