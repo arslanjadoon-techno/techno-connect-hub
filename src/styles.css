@@ -1,13 +1,13 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Auth screens always use the default violet palette regardless of in-app theme. */
+/* Auth screens default palette (Royal Blue & Violet) */
 .auth-standard {
-  --primary: #7f5ad6;
-  --primary-glow: #8b6ef0;
-  --ring: #7f5ad6;
-  --gradient-primary: linear-gradient(135deg, #8b6ef0, #5b3fa8);
-  --gradient-hero: linear-gradient(160deg, #3c2e86 0%, #5b3fa8 45%, #7f5ad6 100%);
+  --primary: #1656f0;
+  --primary-glow: #7028e4;
+  --ring: #1656f0;
+  --gradient-primary: linear-gradient(90deg, #0062ff 0%, #7028e4 100%);
+  --gradient-hero: linear-gradient(135deg, #0738a8 0%, #0d4fe6 58%, #6a2ce6 82%, #8b5cf6 100%);
 }
 
 @custom-variant dark (&:is(.dark *));

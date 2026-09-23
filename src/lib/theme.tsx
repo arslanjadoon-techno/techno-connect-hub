@@ -34,10 +34,27 @@ export interface Palette {
   swatches: string[];
 }
 
-export const DEFAULT_PALETTE_ID = "indigo";
+export const DEFAULT_PALETTE_ID = "royal-blue-violet";
 
 // Curated palette set — each entry uses harmonious accent + sidebar tones.
 export const PALETTES: Palette[] = [
+  {
+    id: "royal-blue-violet",
+    name: "Royal Blue & Violet",
+    // Electric Royal Blue primary accent with vibrant Violet glow (from official MIS brand palette)
+    primary: "#1656f0",
+    primaryGlow: "#7028e4",
+    ring: "#1656f0",
+    primaryGradient: "linear-gradient(90deg, #0062ff 0%, #7028e4 100%)",
+    sidebar: "#0d1f4d",
+    sidebarForeground: "#FFFFFF",
+    sidebarAccent: "rgba(255, 255, 255, 0.18)",
+    sidebarBorder: "rgba(255, 255, 255, 0.16)",
+    sidebarGradient: "linear-gradient(170deg, #09173b 0%, #0d266e 40%, #1656f0 75%, #7028e4 100%)",
+    previewGradient: "linear-gradient(135deg, #0062ff 0%, #1656f0 55%, #7028e4 100%)",
+    heroGradient: "linear-gradient(135deg, #0738a8 0%, #0d4fe6 58%, #6a2ce6 82%, #8b5cf6 100%)",
+    swatches: ["#0062ff", "#1656f0", "#7028e4"],
+  },
   {
     id: "violet",
     name: "Violet",
