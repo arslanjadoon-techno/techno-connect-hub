@@ -47,7 +47,7 @@ export default function AppLayout() {
       <div className="flex min-h-screen w-full bg-background">
         <AppSidebar />
         <div className="flex flex-1 flex-col min-w-0">
-          <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border bg-card/95 px-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/80">
+          <header className="sticky top-0 z-30 flex h-12 items-center gap-2 border-b border-border bg-card/95 px-3.5 shadow-xs backdrop-blur supports-[backdrop-filter]:bg-card/80">
             <SidebarTrigger />
             <div className="ml-2 flex-1" />
 
@@ -109,7 +109,7 @@ export default function AppLayout() {
               <UserMenu />
             </div>
           </header>
-          <main className="flex-1 overflow-x-hidden p-4 sm:p-6 lg:p-8">
+          <main className="flex-1 overflow-x-hidden p-3 sm:p-4 lg:p-6">
             <Outlet />
           </main>
         </div>

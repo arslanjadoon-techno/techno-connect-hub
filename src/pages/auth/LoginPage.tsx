@@ -14,13 +14,19 @@ import { AuthHeroCarousel } from "./AuthHeroCarousel";
 export default function LoginPage() {
   useAuthThemeReset();
   const { user, setSession } = useAuth();
-  const { palette } = useTheme();
+  const { palette, theme } = useTheme();
+  const isDark = theme === "dark";
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Harmonious canvas background for form side & parent grid — perfectly eliminates any seam or black line
+  const bgCanvas = isDark
+    ? `linear-gradient(135deg, #090e1a 0%, color-mix(in srgb, ${palette.primary} 9%, #0d1527) 50%, #060a14 100%)`
+    : `linear-gradient(135deg, #f8fafc 0%, color-mix(in srgb, ${palette.primary} 4%, #f1f5fb) 50%, #e8effc 100%)`;
 
   useEffect(() => {
     if (user) navigate("/ai-chat");
@@ -109,7 +115,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative grid min-h-screen lg:h-screen lg:max-h-screen lg:overflow-hidden lg:grid-cols-[1.05fr_1fr] bg-slate-50 dark:bg-slate-950">
+    <div
+      className="relative grid min-h-screen lg:h-screen lg:max-h-screen lg:overflow-hidden lg:grid-cols-[1.05fr_1fr] transition-colors duration-500"
+      style={{ background: bgCanvas }}
+    >
       {/* Hero side with curved right edge — perfectly fits 100vh on desktop */}
       <div
         className="relative hidden flex-col justify-between overflow-hidden p-6 lg:p-8 xl:p-12 text-white lg:flex clip-wave-right lg:-mr-16 lg:z-10 h-full"
@@ -162,8 +171,12 @@ export default function LoginPage() {
             <ShieldCheck className="h-5 w-5 text-white" />
           </div>
           <div>
-            <div className="font-display text-base sm:text-lg font-semibold tracking-tight">MIS</div>
-            <div className="text-[11px] sm:text-xs text-white/70">Management Information System</div>
+            <div className="font-display text-base sm:text-lg font-semibold tracking-tight">
+              MIS
+            </div>
+            <div className="text-[11px] sm:text-xs text-white/70">
+              Management Information System
+            </div>
           </div>
         </div>
 
@@ -179,12 +192,16 @@ export default function LoginPage() {
       </div>
 
       {/* Form side — clean backdrop with ambient glow, dot grid, corner swoosh & refined card (dynamically styled per active palette) */}
-      <div className="relative flex min-h-screen lg:min-h-0 h-full w-full items-center justify-center overflow-y-auto lg:overflow-hidden bg-gradient-to-br from-[#f8fafc] via-[#f1f5fb] to-[#e8effc] p-4 sm:p-6 lg:p-8 xl:pl-16">
+      <div
+        className="relative flex min-h-screen lg:min-h-0 h-full w-full items-center justify-center overflow-y-auto lg:overflow-hidden p-4 sm:p-6 lg:p-8 xl:pl-16 transition-colors duration-500"
+        style={{ background: bgCanvas }}
+      >
         {/* Ambient soft glow on top-right of form side */}
         <div
-          className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 sm:h-80 sm:w-80 rounded-full blur-3xl opacity-30 transition-all duration-500"
+          className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 sm:h-80 sm:w-80 rounded-full blur-3xl transition-all duration-500"
           style={{
-            background: `radial-gradient(circle, color-mix(in srgb, ${palette.primaryGlow} 40%, transparent) 0%, color-mix(in srgb, ${palette.primary} 25%, transparent) 50%, transparent 75%)`,
+            opacity: isDark ? 0.45 : 0.3,
+            background: `radial-gradient(circle, color-mix(in srgb, ${palette.primaryGlow} ${isDark ? "45%" : "40%"}, transparent) 0%, color-mix(in srgb, ${palette.primary} ${isDark ? "25%" : "25%"}, transparent) 50%, transparent 75%)`,
           }}
         />
 
@@ -192,19 +209,22 @@ export default function LoginPage() {
         <div
           className="pointer-events-none absolute right-8 sm:right-12 top-6 sm:top-8 h-40 w-40 sm:h-48 sm:w-48 rounded-full transition-all duration-500"
           style={{
-            borderColor: `color-mix(in srgb, ${palette.primary} 18%, transparent)`,
+            borderColor: `color-mix(in srgb, ${palette.primary} ${isDark ? "25%" : "18%"}, transparent)`,
             borderWidth: 1,
           }}
         />
 
         {/* Decorative Dot Grid Matrix (Top-Right of screen) */}
-        <div className="pointer-events-none absolute right-4 sm:right-7 top-4 sm:top-7 grid grid-cols-6 gap-2 sm:gap-2.5 opacity-35">
+        <div
+          className="pointer-events-none absolute right-4 sm:right-7 top-4 sm:top-7 grid grid-cols-6 gap-2 sm:gap-2.5 transition-opacity duration-500"
+          style={{ opacity: isDark ? 0.45 : 0.35 }}
+        >
           {Array.from({ length: 24 }).map((_, i) => (
             <span
               key={i}
               className="h-1.5 w-1.5 rounded-full transition-colors duration-500"
               style={{
-                backgroundColor: `color-mix(in srgb, ${palette.primary} 60%, transparent)`,
+                backgroundColor: `color-mix(in srgb, ${palette.primary} ${isDark ? "70%" : "60%"}, transparent)`,
               }}
             />
           ))}
@@ -221,34 +241,38 @@ export default function LoginPage() {
           >
             <defs>
               <linearGradient id="br-wave-bg" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor={palette.primary} stopOpacity={0.35} />
-                <stop offset="60%" stopColor={palette.primaryGlow} stopOpacity={0.45} />
-                <stop offset="100%" stopColor={palette.primaryGlow} stopOpacity={0.25} />
+                <stop offset="0%" stopColor={palette.primary} stopOpacity={isDark ? 0.5 : 0.35} />
+                <stop
+                  offset="60%"
+                  stopColor={palette.primaryGlow}
+                  stopOpacity={isDark ? 0.6 : 0.45}
+                />
+                <stop
+                  offset="100%"
+                  stopColor={palette.primaryGlow}
+                  stopOpacity={isDark ? 0.35 : 0.25}
+                />
               </linearGradient>
               <linearGradient id="br-wave-fg" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor={palette.primary} stopOpacity={0.95} />
-                <stop offset="55%" stopColor={palette.primary} stopOpacity={0.9} />
+                <stop offset="0%" stopColor={palette.primary} stopOpacity={isDark ? 0.95 : 0.95} />
+                <stop offset="55%" stopColor={palette.primary} stopOpacity={isDark ? 0.9 : 0.9} />
                 <stop offset="100%" stopColor={palette.primaryGlow} stopOpacity={1} />
               </linearGradient>
             </defs>
             {/* Soft background wave */}
-            <path
-              d="M320 110 C230 135 160 210 120 320 L320 320 Z"
-              fill="url(#br-wave-bg)"
-            />
+            <path d="M320 110 C230 135 160 210 120 320 L320 320 Z" fill="url(#br-wave-bg)" />
             {/* Vibrant primary foreground wave */}
-            <path
-              d="M320 165 C240 185 185 245 155 320 L320 320 Z"
-              fill="url(#br-wave-fg)"
-            />
+            <path d="M320 165 C240 185 185 245 155 320 L320 320 Z" fill="url(#br-wave-fg)" />
           </svg>
         </div>
 
         {/* Login Card with refined elevation & top-right corner theme layers */}
         <Card
-          className="relative z-10 w-full max-w-[380px] sm:max-w-[400px] xl:max-w-[420px] rounded-[24px] sm:rounded-[28px] border border-white/80 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 p-6 sm:p-7 xl:p-8 backdrop-blur-sm overflow-hidden animate-scale-in transition-shadow duration-500"
+          className="relative z-10 w-full max-w-[380px] sm:max-w-[400px] xl:max-w-[420px] rounded-[24px] sm:rounded-[28px] border border-white/80 dark:border-slate-800/80 bg-white/95 dark:bg-[#0f172a]/95 p-6 sm:p-7 xl:p-8 backdrop-blur-md overflow-hidden animate-scale-in transition-all duration-500"
           style={{
-            boxShadow: `0 18px 50px -12px color-mix(in srgb, ${palette.primary} 18%, transparent), 0 8px 20px -4px rgba(0,0,0,0.05)`,
+            boxShadow: isDark
+              ? `0 20px 50px -10px rgba(0,0,0,0.65), 0 0 35px -8px color-mix(in srgb, ${palette.primary} 25%, transparent)`
+              : `0 18px 50px -12px color-mix(in srgb, ${palette.primary} 18%, transparent), 0 8px 20px -4px rgba(0,0,0,0.05)`,
           }}
         >
           {/* Top-right card decorative corner swoosh layers (matching image design, dynamically themed) */}
@@ -261,26 +285,40 @@ export default function LoginPage() {
             >
               <defs>
                 <linearGradient id="card-corner-bg" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor={palette.primary} stopOpacity={0.25} />
-                  <stop offset="60%" stopColor={palette.primaryGlow} stopOpacity={0.3} />
-                  <stop offset="100%" stopColor={palette.primaryGlow} stopOpacity={0.15} />
+                  <stop
+                    offset="0%"
+                    stopColor={palette.primary}
+                    stopOpacity={isDark ? 0.35 : 0.25}
+                  />
+                  <stop
+                    offset="60%"
+                    stopColor={palette.primaryGlow}
+                    stopOpacity={isDark ? 0.45 : 0.3}
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor={palette.primaryGlow}
+                    stopOpacity={isDark ? 0.25 : 0.15}
+                  />
                 </linearGradient>
                 <linearGradient id="card-corner-fg" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor={palette.primary} stopOpacity={0.5} />
-                  <stop offset="50%" stopColor={palette.primaryGlow} stopOpacity={0.6} />
-                  <stop offset="100%" stopColor={palette.primaryGlow} stopOpacity={0.75} />
+                  <stop offset="0%" stopColor={palette.primary} stopOpacity={isDark ? 0.65 : 0.5} />
+                  <stop
+                    offset="50%"
+                    stopColor={palette.primaryGlow}
+                    stopOpacity={isDark ? 0.75 : 0.6}
+                  />
+                  <stop
+                    offset="100%"
+                    stopColor={palette.primaryGlow}
+                    stopOpacity={isDark ? 0.85 : 0.75}
+                  />
                 </linearGradient>
               </defs>
               {/* Back layered curve */}
-              <path
-                d="M180 0 L70 0 C78 50 115 88 180 110 Z"
-                fill="url(#card-corner-bg)"
-              />
+              <path d="M180 0 L70 0 C78 50 115 88 180 110 Z" fill="url(#card-corner-bg)" />
               {/* Front layered curve */}
-              <path
-                d="M180 0 L105 0 C112 40 138 68 180 82 Z"
-                fill="url(#card-corner-fg)"
-              />
+              <path d="M180 0 L105 0 C112 40 138 68 180 82 Z" fill="url(#card-corner-fg)" />
             </svg>
           </div>
 
@@ -319,24 +357,34 @@ export default function LoginPage() {
 
           {/* Inline Red Error Alert if backend returns failure */}
           {errorMessage && (
-            <div className="relative z-10 mt-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50/90 p-3 text-xs text-rose-700 animate-fade-in shadow-xs">
-              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-600" />
+            <div className="relative z-10 mt-3 flex items-start gap-2 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50/90 dark:bg-rose-950/40 p-3 text-xs text-rose-700 dark:text-rose-300 animate-fade-in shadow-xs">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-600 dark:text-rose-400" />
               <div className="flex-1 font-medium">{errorMessage}</div>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="relative z-10 mt-4 sm:mt-5 space-y-3 sm:space-y-3.5">
+          <form
+            onSubmit={handleSubmit}
+            className="relative z-10 mt-4 sm:mt-5 space-y-3 sm:space-y-3.5"
+          >
             <div className="space-y-1">
-              <Label htmlFor="email" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <Label
+                htmlFor="email"
+                className="text-xs font-semibold text-slate-700 dark:text-slate-300"
+              >
                 Email or NTID
               </Label>
               <div className="relative">
-                <Mail className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 -translate-y-1/2 text-slate-400" />
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                 <Input
                   id="email"
                   type="text"
                   placeholder="admin@techno.com"
-                  className="h-10 sm:h-10.5 rounded-lg sm:rounded-xl bg-[#f0f4fc]/80 dark:bg-slate-800/80 border-[#dce5f5] dark:border-slate-700 pl-9 sm:pl-10 text-xs sm:text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:bg-white focus:ring-4 transition-all"
+                  className={`h-10 sm:h-10.5 rounded-lg sm:rounded-xl pl-9 sm:pl-10 text-xs sm:text-sm transition-all ${
+                    isDark
+                      ? "bg-slate-800/90 border-slate-750 text-slate-100 placeholder:text-slate-500 focus:bg-slate-800 focus:border-slate-500"
+                      : "bg-[#f0f4fc]/80 border-[#dce5f5] text-slate-900 placeholder:text-slate-400 focus:bg-white"
+                  }`}
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
@@ -348,16 +396,23 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="password" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <Label
+                htmlFor="password"
+                className="text-xs font-semibold text-slate-700 dark:text-slate-300"
+              >
                 Password
               </Label>
               <div className="relative">
-                <Lock className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 -translate-y-1/2 text-slate-400" />
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                 <Input
                   id="password"
                   type={showPwd ? "text" : "password"}
                   placeholder="••••••••"
-                  className="h-10 sm:h-10.5 rounded-lg sm:rounded-xl bg-[#f0f4fc]/80 dark:bg-slate-800/80 border-[#dce5f5] dark:border-slate-700 pl-9 sm:pl-10 pr-9 sm:pr-10 text-xs sm:text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:bg-white focus:ring-4 transition-all"
+                  className={`h-10 sm:h-10.5 rounded-lg sm:rounded-xl pl-9 sm:pl-10 pr-9 sm:pr-10 text-xs sm:text-sm transition-all ${
+                    isDark
+                      ? "bg-slate-800/90 border-slate-750 text-slate-100 placeholder:text-slate-500 focus:bg-slate-800 focus:border-slate-500"
+                      : "bg-[#f0f4fc]/80 border-[#dce5f5] text-slate-900 placeholder:text-slate-400 focus:bg-white"
+                  }`}
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
@@ -371,14 +426,20 @@ export default function LoginPage() {
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
                   aria-label={showPwd ? "Hide password" : "Show password"}
                 >
-                  {showPwd ? <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+                  {showPwd ? (
+                    <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  ) : (
+                    <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  )}
                 </button>
               </div>
               <div className="flex justify-end pt-0.5">
                 <Link
                   to="/forgot-password"
                   className="text-[11px] sm:text-xs font-medium hover:underline transition-colors"
-                  style={{ color: palette.primary }}
+                  style={{
+                    color: isDark ? palette.primaryGlow || palette.primary : palette.primary,
+                  }}
                 >
                   Forgot password?
                 </Link>
@@ -401,10 +462,10 @@ export default function LoginPage() {
             </Button>
 
             {/* Bottom Trust Badge Divider */}
-            <div className="pt-2 sm:pt-2.5 flex items-center gap-2 text-[10px] sm:text-[11px] text-slate-400 font-medium">
-              <span className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+            <div className="pt-2 sm:pt-2.5 flex items-center gap-2 text-[10px] sm:text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+              <span className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
               <span>Secure &bull; Reliable &bull; Built for You</span>
-              <span className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+              <span className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
             </div>
           </form>
         </Card>

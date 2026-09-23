@@ -54,16 +54,16 @@ function AIChatPage() {
         onChange={(e) => setText(e.target.value)}
         placeholder={disabled ? "AI chat is coming soon — stay tuned!" : "Ask anything..."}
         disabled={disabled || thinking}
-        className="h-12 flex-1 rounded-xl"
+        className="h-10 sm:h-10.5 flex-1 rounded-xl text-xs sm:text-sm"
         autoFocus
       />
       <Button
         type="submit"
         size="icon"
-        className="h-12 w-12 rounded-xl hover-lift"
+        className="h-10 w-10 sm:h-10.5 sm:w-10.5 rounded-xl hover-lift shrink-0"
         disabled={!text.trim() || disabled || thinking}
       >
-        <Send className="h-4 w-4" />
+        <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
       </Button>
     </form>
   );
@@ -71,27 +71,29 @@ function AIChatPage() {
   // ====== Pre-first-query (ChatGPT-like centered hero) ======
   if (!started) {
     return (
-      <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-3xl flex-col items-center justify-center animate-fade-in">
+      <div className="mx-auto flex h-[calc(100vh-6.5rem)] max-w-2xl flex-col items-center justify-center animate-fade-in px-2">
         <div
-          className="mb-6 flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-[var(--shadow-elegant)]"
+          className="mb-4 flex h-13 w-13 items-center justify-center rounded-2xl text-white shadow-[var(--shadow-elegant)]"
           style={{ backgroundImage: "var(--gradient-primary)" }}
         >
-          <Sparkles className="h-8 w-8" />
+          <Sparkles className="h-6.5 w-6.5" />
         </div>
-        <h1 className="font-display text-3xl font-semibold tracking-tight">
+        <h1 className="font-display text-2xl sm:text-[26px] font-semibold tracking-tight text-center">
           How can I help you today?
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground">Your workspace AI assistant</p>
+        <p className="mt-1 text-xs text-muted-foreground text-center">
+          Your workspace AI assistant
+        </p>
 
-        <div className="mt-8 w-full max-w-2xl">{Composer}</div>
+        <div className="mt-6 w-full max-w-xl">{Composer}</div>
 
-        <div className="mt-6 grid w-full max-w-2xl grid-cols-1 gap-2 sm:grid-cols-2">
+        <div className="mt-4 grid w-full max-w-xl grid-cols-1 gap-2 sm:grid-cols-2">
           {SUGGESTIONS.map((s) => (
             <button
               key={s}
               type="button"
               onClick={() => submit(s)}
-              className="rounded-xl border bg-card p-3 text-left text-sm text-foreground/80 transition hover:-translate-y-0.5 hover:border-primary/40 hover:text-foreground hover:shadow-sm"
+              className="rounded-xl border bg-card p-2.5 text-left text-xs text-foreground/80 transition hover:-translate-y-0.5 hover:border-primary/40 hover:text-foreground hover:shadow-xs"
             >
               {s}
             </button>
@@ -103,80 +105,80 @@ function AIChatPage() {
 
   // ====== Post-first-query (composer pinned to bottom) ======
   return (
-    <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-3xl flex-col animate-fade-in">
-      <header className="mb-4 flex items-center gap-3">
+    <div className="mx-auto flex h-[calc(100vh-6.5rem)] max-w-2xl flex-col animate-fade-in">
+      <header className="mb-3 flex items-center gap-2.5">
         <div
-          className="flex h-10 w-10 items-center justify-center rounded-xl text-white shadow-[var(--shadow-elegant)]"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-white shadow-xs"
           style={{ backgroundImage: "var(--gradient-primary)" }}
         >
-          <Sparkles className="h-5 w-5" />
+          <Sparkles className="h-4 w-4" />
         </div>
         <div>
-          <h1 className="font-display text-2xl font-semibold">AI Chat</h1>
-          <p className="text-sm text-muted-foreground">Your workspace AI assistant</p>
+          <h1 className="font-display text-lg font-semibold leading-tight">AI Chat</h1>
+          <p className="text-[11px] text-muted-foreground">Your workspace AI assistant</p>
         </div>
       </header>
 
-      <Card className="flex flex-1 flex-col overflow-hidden p-0">
+      <Card className="flex flex-1 flex-col overflow-hidden p-0 rounded-xl">
         <div
           ref={scrollRef}
-          className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6"
+          className="flex-1 space-y-3 overflow-y-auto p-3.5 sm:p-5"
           style={{
             backgroundImage:
               "radial-gradient(circle at 1px 1px, color-mix(in oklab, var(--primary) 6%, transparent) 1px, transparent 0)",
-            backgroundSize: "22px 22px",
+            backgroundSize: "20px 20px",
             contain: "content",
           }}
         >
           {messages.map((m) => (
             <div
               key={m.id}
-              className={`flex items-start gap-3 ${m.role === "user" ? "justify-end" : ""} animate-fade-in`}
+              className={`flex items-start gap-2.5 ${m.role === "user" ? "justify-end" : ""} animate-fade-in`}
             >
               {m.role === "assistant" && (
                 <div
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white shadow"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white shadow-xs"
                   style={{ backgroundImage: "var(--gradient-primary)" }}
                 >
-                  <Bot className="h-4 w-4" />
+                  <Bot className="h-3.5 w-3.5" />
                 </div>
               )}
               <div
-                className={`max-w-[78%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm ${
+                className={`max-w-[80%] rounded-xl px-3.5 py-2 text-xs sm:text-sm leading-relaxed shadow-xs ${
                   m.role === "user"
-                    ? "rounded-br-md bg-primary text-primary-foreground"
-                    : "rounded-bl-md bg-card text-foreground border"
+                    ? "rounded-br-sm bg-primary text-primary-foreground"
+                    : "rounded-bl-sm bg-card text-foreground border"
                 }`}
               >
                 {m.text}
               </div>
               {m.role === "user" && (
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">
-                  <UserIcon className="h-4 w-4" />
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-foreground">
+                  <UserIcon className="h-3.5 w-3.5" />
                 </div>
               )}
             </div>
           ))}
           {thinking && (
-            <div className="flex items-start gap-3 animate-fade-in">
+            <div className="flex items-start gap-2.5 animate-fade-in">
               <div
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white shadow"
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-white shadow-xs"
                 style={{ backgroundImage: "var(--gradient-primary)" }}
               >
-                <Bot className="h-4 w-4" />
+                <Bot className="h-3.5 w-3.5" />
               </div>
-              <div className="rounded-2xl rounded-bl-md border bg-card px-4 py-3 text-sm shadow-sm">
+              <div className="rounded-xl rounded-bl-sm border bg-card px-3.5 py-2.5 text-xs sm:text-sm shadow-xs">
                 <span className="inline-flex gap-1">
                   <span
-                    className="h-2 w-2 animate-bounce rounded-full bg-primary/60"
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/60"
                     style={{ animationDelay: "0ms" }}
                   />
                   <span
-                    className="h-2 w-2 animate-bounce rounded-full bg-primary/60"
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/60"
                     style={{ animationDelay: "150ms" }}
                   />
                   <span
-                    className="h-2 w-2 animate-bounce rounded-full bg-primary/60"
+                    className="h-1.5 w-1.5 animate-bounce rounded-full bg-primary/60"
                     style={{ animationDelay: "300ms" }}
                   />
                 </span>
@@ -185,10 +187,10 @@ function AIChatPage() {
           )}
         </div>
 
-        <div className="border-t bg-card p-3">
+        <div className="border-t bg-card p-2.5">
           {Composer}
           {disabled && (
-            <p className="mt-2 text-center text-xs text-muted-foreground">
+            <p className="mt-1.5 text-center text-[11px] text-muted-foreground">
               ✨ AI Chat is in preview — full functionality coming soon.
             </p>
           )}
