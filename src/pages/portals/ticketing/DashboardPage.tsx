@@ -162,7 +162,7 @@ function DashboardPage() {
     return c;
   }, [myTickets]);
 
-  const admin = isAdmin(user);
+  const admin = Boolean(user && isAdmin(user));
 
   const locationOptions = useMemo(() => {
     if (category === "store") return data.stores.map((s) => ({ value: s.id, label: s.name }));

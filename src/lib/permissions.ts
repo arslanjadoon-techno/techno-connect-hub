@@ -22,21 +22,23 @@ export function visibleTickets(user: User, tickets: Ticket[]): Ticket[] {
 }
 
 /** Can this user create + assign tickets? */
-export function canCreateTicket(user: User): boolean {
-  return user.roleName !== "user";
+export function canCreateTicket(user: User | null | undefined): boolean {
+  return Boolean(user && user.roleName !== "user");
 }
 
-export function canAssignTicket(user: User): boolean {
-  return user.roleName !== "user";
+export function canAssignTicket(user: User | null | undefined): boolean {
+  return Boolean(user && user.roleName !== "user");
 }
 
-export function isAdmin(user: User): boolean {
-  return user.roleName === "admin";
+export function isAdmin(user: User | null | undefined): boolean {
+  return user?.roleName === "admin";
 }
 
 /** Admin + any manager-level role can manage chat groups. */
-export function canManageChatGroups(user: User): boolean {
-  return user.roleName === "admin" || (user.roleName?.endsWith("manager") ?? false);
+export function canManageChatGroups(user: User | null | undefined): boolean {
+  return Boolean(
+    user && (user.roleName === "admin" || (user.roleName?.endsWith("manager") ?? false)),
+  );
 }
 
 /** Chat groups visible to user. */

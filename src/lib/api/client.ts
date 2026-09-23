@@ -621,6 +621,8 @@ export interface DepartmentEntity {
   updatedAt?: string;
 }
 
+export type Department = DepartmentEntity;
+
 export const DepartmentsApi = {
   getAll: (params?: PaginationParams) => {
     let url: string = DEPARTMENT_API_PATHS.getAll;
