@@ -13,48 +13,41 @@ export interface ChatSession {
   updatedAt: number;
 }
 
-const STORAGE_KEY = "techno_ai_chat_sessions_v1";
-
+/**
+ * AI Chat Service
+ * In-memory transient state for UI demonstration.
+ * Does not persist conversations to local storage as per frontend preview specifications.
+ */
 export class AiChatService {
-  /**
-   * Retrieves all chat sessions from storage.
-   */
-  getSessions(): ChatSession[] {
+  private inMemorySessions: ChatSession[] = [];
+
+  constructor() {
+    // Clean up any previously stored sessions from localStorage if present
     try {
-      const data = localStorage.getItem(STORAGE_KEY);
-      if (!data) return [];
-      const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-      console.error("Failed to load AI chat sessions from storage:", e);
-      return [];
+      localStorage.removeItem("techno_ai_chat_sessions_v1");
+    } catch {
+      // Ignore if localStorage is inaccessible
     }
   }
 
   /**
-   * Saves all chat sessions to storage.
+   * Retrieves all active in-memory chat sessions.
    */
-  private saveSessions(sessions: ChatSession[]): void {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
-    } catch (e) {
-      console.error("Failed to persist AI chat sessions to storage:", e);
-    }
+  getSessions(): ChatSession[] {
+    return [...this.inMemorySessions];
   }
 
   /**
    * Retrieves a single chat session by ID.
    */
   getSession(id: string): ChatSession | undefined {
-    const sessions = this.getSessions();
-    return sessions.find((s) => s.id === id);
+    return this.inMemorySessions.find((s) => s.id === id);
   }
 
   /**
-   * Creates a new chat session initiated with the user's first query as the title.
+   * Creates a new chat session in-memory initiated with the user's first query as the title.
    */
   createSession(firstQuery: string): ChatSession {
-    const sessions = this.getSessions();
     const cleanTitle = firstQuery.trim().slice(0, 60) || "New Conversation";
     const now = Date.now();
 
@@ -73,20 +66,18 @@ export class AiChatService {
       updatedAt: now,
     };
 
-    const updated = [newSession, ...sessions];
-    this.saveSessions(updated);
+    this.inMemorySessions = [newSession, ...this.inMemorySessions];
     return newSession;
   }
 
   /**
-   * Adds a message to an existing chat session.
+   * Adds a message to an existing in-memory chat session.
    */
   addMessage(
     sessionId: string,
     message: { role: "user" | "assistant"; text: string },
   ): ChatMessage | null {
-    const sessions = this.getSessions();
-    const index = sessions.findIndex((s) => s.id === sessionId);
+    const index = this.inMemorySessions.findIndex((s) => s.id === sessionId);
     if (index === -1) return null;
 
     const now = Date.now();
@@ -97,38 +88,31 @@ export class AiChatService {
       createdAt: now,
     };
 
-    const targetSession = sessions[index];
+    const targetSession = this.inMemorySessions[index];
     const updatedSession: ChatSession = {
       ...targetSession,
       messages: [...targetSession.messages, newMessage],
       updatedAt: now,
     };
 
-    sessions[index] = updatedSession;
-    this.saveSessions(sessions);
+    this.inMemorySessions[index] = updatedSession;
     return newMessage;
   }
 
   /**
-   * Deletes a chat session by ID.
+   * Deletes an in-memory chat session by ID.
    */
   deleteSession(id: string): boolean {
-    const sessions = this.getSessions();
-    const filtered = sessions.filter((s) => s.id !== id);
-    if (filtered.length === sessions.length) return false;
-    this.saveSessions(filtered);
-    return true;
+    const beforeCount = this.inMemorySessions.length;
+    this.inMemorySessions = this.inMemorySessions.filter((s) => s.id !== id);
+    return this.inMemorySessions.length !== beforeCount;
   }
 
   /**
-   * Clears all stored chat sessions.
+   * Clears all in-memory chat sessions.
    */
   clearAll(): void {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-    } catch (e) {
-      console.error("Failed to clear AI chat sessions:", e);
-    }
+    this.inMemorySessions = [];
   }
 }
 
