@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Background rounded squircle -->
+    <clipPath id="squircle">
+      <rect width="512" height="512" rx="116" ry="116" />
+    </clipPath>
+  </defs>
+
+  <!-- Background rounded squircle -->
+  <rect width="512" height="512" rx="116" ry="116" fill="#120e29" />
+
+  <!-- Radio/Wireless broadcast arcs above apex -->
+  <!-- Outer arc (muted violet) -->
+  <path
+    d="M 154 90 A 138 138 0 0 1 358 90"
+    fill="none"
+    stroke="#7852b2"
+    stroke-width="26"
+    stroke-linecap="round"
+  />
+
+  <!-- Inner arc (vibrant lavender) -->
+  <path
+    d="M 194 133 A 84 84 0 0 1 318 133"
+    fill="none"
+    stroke="#a87ffb"
+    stroke-width="26"
+    stroke-linecap="round"
+  />
+
+  <!-- Stylized "A" tower with integrated wireless circular lobes -->
+  <g fill="#a87ffb">
+    <!-- Diagonal legs with rounded stroke caps -->
+    <path
+      d="M 98 440 L 256 166 L 414 440"
+      fill="none"
+      stroke="#a87ffb"
+      stroke-width="44"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+
+    <!-- Left outer lobe -->
+    <circle cx="214" cy="342" r="54" />
+    <!-- Right outer lobe -->
+    <circle cx="298" cy="342" r="54" />
+    <!-- Connecting central bridge -->
+    <rect x="214" y="294" width="84" height="96" />
+  </g>
+
+  <!-- Bottom cleft dip between lobes matching background -->
+  <path
+    d="M 256 370 C 256 384, 256 396, 256 400"
+    stroke="#120e29"
+    stroke-width="8"
+    stroke-linecap="round"
+  />
+
+  <!-- Inner circular cutouts (pupils / wireless node centers) -->
+  <circle cx="214" cy="342" r="26" fill="#120e29" />
+  <circle cx="298" cy="342" r="26" fill="#120e29" />
+
+  <!-- Upper inner opening of the "A" tower above the lobes -->
+  <path
+    d="M 256 216 L 230 292 L 282 292 Z"
+    fill="#120e29"
+  />
+</svg>

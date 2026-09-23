@@ -507,20 +507,15 @@ export function AppSidebar() {
         <div className="pointer-events-none absolute -top-8 -right-6 h-24 w-24 rounded-full bg-primary/15 blur-2xl" />
         <div className="pointer-events-none absolute -bottom-10 -left-6 h-20 w-20 rounded-full bg-primary/10 blur-2xl" />
         <div className="relative flex items-center gap-2 px-1.5 py-2.5">
-          <div
-            className="flex h-7.5 w-7.5 shrink-0 items-center justify-center rounded-lg shadow-sm"
-            style={{ backgroundImage: "var(--gradient-primary, var(--gradient-gold))" }}
-          >
-            <ShieldCheck className="h-4 w-4 text-white" />
+          <div className="flex h-7.5 w-7.5 shrink-0 items-center justify-center rounded-lg overflow-hidden shadow-sm">
+            <img src="/favicon.svg" alt="Active8 Wireless" className="h-full w-full object-cover" />
           </div>
           {!collapsed && (
             <div className="min-w-0">
               <div className="truncate font-display text-[13px] font-semibold text-sidebar-foreground">
-                MIS
+                Active8 Wireless
               </div>
-              <div className="truncate text-[10px] text-sidebar-foreground/70">
-                Management Information System
-              </div>
+              <div className="truncate text-[10px] text-sidebar-foreground/70">MIS Portal</div>
             </div>
           )}
         </div>
