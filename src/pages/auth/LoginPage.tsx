@@ -322,29 +322,6 @@ export default function LoginPage() {
             </svg>
           </div>
 
-          {/* MIS Brand Header inside Card */}
-          <div className="relative z-10 flex items-center gap-2.5 sm:gap-3">
-            <div
-              className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl text-white shadow-md transition-all duration-500 shrink-0"
-              style={{
-                background:
-                  palette.primaryGradient ||
-                  `linear-gradient(135deg, ${palette.primary}, ${palette.primaryGlow})`,
-                boxShadow: `0 4px 14px color-mix(in srgb, ${palette.primary} 30%, transparent)`,
-              }}
-            >
-              <ShieldCheck className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <div className="font-display text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
-                MIS
-              </div>
-              <div className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                Management Information System
-              </div>
-            </div>
-          </div>
-
           {/* Welcome Title & Subtitle */}
           <div className="relative z-10 mt-3.5 sm:mt-4">
             <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
