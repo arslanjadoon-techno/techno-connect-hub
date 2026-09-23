@@ -8,7 +8,8 @@ export interface LeaseRecord {
   techId: string;
   storeName?: string | null;
   marketName?: string | null;
-  securityDeposit?: number | null;
+  // Backend column is varchar, not numeric - comes through as a string despite the name.
+  securityDeposit?: string | null;
   leaseIncrementPercentage?: string | null;
   contactNumber?: string | null;
   landlordCoi?: string | null;

@@ -141,10 +141,38 @@ export const LEAVE_API_PATHS = {
 } as const;
 
 /**
- * Leasing portal endpoints - same TechnoCommAPIs backend as everything else
- * (LeasingController), so no separate base URL like Commission/Ranker need.
- * Flat, PascalCase routes with no `/api` prefix, matching the controller's
- * actual [Route(...)] attributes exactly.
+ * Leasing portal - dedicated base URLs, mirroring LeasingFrontend's
+ * appsettings.json "Leasing" section one-for-one instead of sharing the
+ * generic API_BASE_URL. Each falls back to API_BASE_URL if not set.
+ */
+export const LEASING_API_BASE_URL =
+  (import.meta.env.VITE_LEASING_URL as string) || API_BASE_URL;
+export const LEASING_READ_API_BASE_URL =
+  (import.meta.env.VITE_LEASING_READ_URL as string) || API_BASE_URL;
+export const LEASING_AUTH_API_BASE_URL =
+  (import.meta.env.VITE_LEASING_AUTH_URL as string) || API_BASE_URL;
+export const LEASING_BULK_API_BASE_URL =
+  (import.meta.env.VITE_LEASING_BULK_URL as string) || API_BASE_URL;
+export const LEASING_UPLOAD_API_BASE_URL =
+  (import.meta.env.VITE_LEASING_UPLOAD_URL as string) || API_BASE_URL;
+export const LEASING_SHOPPER_API_BASE_URL =
+  (import.meta.env.VITE_LEASING_SHOPPER_URL as string) ||
+  "https://j40adiuh09.execute-api.us-east-2.amazonaws.com/Prod/ShopperTracker";
+export const LEASING_STORE_API_BASE_URL =
+  (import.meta.env.VITE_LEASING_STORE_URL as string) ||
+  "https://8yimb48vw8.execute-api.us-east-2.amazonaws.com/Prod/Store_n_Market";
+
+export const LEASING_STORE_PATHS = {
+  getMarketDemographics: "/MarketDemographics",
+  setMarketLocation: "/MarketDemographics",
+  getStores: "/Store",
+  getMarkets: "/Market",
+  addStore: "/AddStore",
+} as const;
+
+/**
+ * Leasing portal endpoints - flat, PascalCase routes with no `/api` prefix,
+ * matching LeasingController's actual [Route(...)] attributes exactly.
  */
 export const LEASING_API_PATHS = {
   getLeasingInfo: "/GetLeasingInfo",

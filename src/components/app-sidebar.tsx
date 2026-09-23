@@ -36,6 +36,13 @@ import {
   SlidersHorizontal,
   Target,
   FileSpreadsheet,
+  Upload,
+  TrendingUp,
+  AlertCircle,
+  ClipboardList,
+  Receipt,
+  FileSignature,
+  Eye,
 } from "lucide-react";
 
 import {
@@ -87,7 +94,34 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
   leasing: {
     title: "Leasing",
     icon: FileText,
-    items: [{ title: "Dashboard", url: "/leasing/dashboard", icon: Milestone }],
+    items: [
+      { title: "Dashboard", url: "/leasing/dashboard", icon: Milestone },
+      { title: "Leasing View", url: "/leasing/leasing-view", icon: Eye },
+      { title: "Manage Leasing", url: "/leasing/manage-leasing", icon: ClipboardList },
+      { title: "Rent Payment List", url: "/leasing/manage-rent-payment-list", icon: Receipt },
+      { title: "Rent Payment Agreement", url: "/leasing/manage-rent-payment-agreement", icon: FileSignature },
+      { title: "Rent Agreement to Monthly Rent", url: "/leasing/rent-agreement-to-monthly-rent", icon: CalendarDays },
+      {
+        title: "Lease Monitor",
+        url: "/leasing/lease-monitor/next-month-rent-change",
+        icon: TrendingUp,
+        children: [
+          { title: "Next Month Rent Change", url: "/leasing/lease-monitor/next-month-rent-change", icon: TrendingUp },
+          { title: "Lease Expiry Breakdown", url: "/leasing/lease-monitor/lease-expiry-breakdown", icon: AlertCircle },
+        ],
+      },
+      { title: "Reports", url: "/leasing/reports", icon: FileSpreadsheet },
+      {
+        title: "Bulk Upload",
+        url: "/leasing/bulk-upload/rent",
+        icon: Upload,
+        children: [
+          { title: "Rent", url: "/leasing/bulk-upload/rent", icon: DollarSign },
+          { title: "Accounting", url: "/leasing/bulk-upload/accounting", icon: BarChart3 },
+          { title: "Lease Details", url: "/leasing/bulk-upload/lease-details", icon: FileText },
+        ],
+      },
+    ],
   },
   ranker: {
     title: "Ranker",

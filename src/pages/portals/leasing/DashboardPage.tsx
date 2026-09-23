@@ -20,34 +20,36 @@ interface Kpi {
   value: number;
   list: LeaseRecord[] | null;
   icon: React.ComponentType<{ className?: string }>;
-  color: string;
+  accent: string;
+  iconFg: string;
 }
 
 function KpiCard({ kpi, onClick }: { kpi: Kpi; onClick: (list: LeaseRecord[] | null, title: string) => void }) {
   const Icon = kpi.icon;
   return (
     <Card
-      className={`p-4 border-l-4 transition hover:shadow-md ${kpi.list ? "cursor-pointer" : ""}`}
-      style={{ borderLeftColor: kpi.color }}
+      className={`relative overflow-hidden p-5 transition-all duration-200 hover:shadow-md border-border/80 ${kpi.list ? "cursor-pointer" : ""}`}
       onClick={() => onClick(kpi.list, kpi.title)}
     >
-      <div className="flex items-start justify-between">
+      <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${kpi.accent}`} />
+      <div className="relative flex items-start justify-between">
+        <div className="space-y-1">
+          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            {kpi.title}
+          </span>
+          <div className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+            {kpi.value}
+          </div>
+          {kpi.list && (
+            <p className={`text-[11px] font-medium ${kpi.iconFg}`}>View details &rarr;</p>
+          )}
+        </div>
         <div
-          className="flex h-11 w-11 items-center justify-center rounded-xl"
-          style={{ backgroundColor: `${kpi.color}22`, color: kpi.color }}
+          className={`flex h-10 w-10 items-center justify-center rounded-xl bg-background/80 shadow-xs border border-border/40 backdrop-blur-xs ${kpi.iconFg}`}
         >
           <Icon className="h-5 w-5" />
         </div>
-        <div className="text-2xl font-bold font-display" style={{ color: kpi.color }}>
-          {kpi.value}
-        </div>
       </div>
-      <p className="mt-3 text-sm font-medium text-muted-foreground">{kpi.title}</p>
-      {kpi.list && (
-        <span className="text-xs font-medium" style={{ color: kpi.color }}>
-          View details &rarr;
-        </span>
-      )}
     </Card>
   );
 }
@@ -56,7 +58,8 @@ interface FinanceCard {
   title: string;
   amount: number;
   icon: React.ComponentType<{ className?: string }>;
-  gradient: string;
+  accent: string;
+  iconFg: string;
 }
 
 function formatCurrency(value: number): string {
@@ -113,10 +116,22 @@ export default function LeasingDashboardPage() {
     const totalMarkets = new Set(leases.map((l) => l.marketName).filter(Boolean)).size;
 
     return [
-      { title: "Active Leases", value: activeLeases, list: null, icon: BarChart3, color: "#0d6efd" },
-      { title: "Expiring Soon", value: expiringSoon.length, list: expiringSoon, icon: AlertTriangle, color: "#f59e0b" },
-      { title: "Expired", value: expired.length, list: expired, icon: XCircle, color: "#dc3545" },
-      { title: "Total Markets", value: totalMarkets, list: null, icon: Building2, color: "#7c3aed" },
+      {
+        title: "Active Leases", value: activeLeases, list: null, icon: BarChart3,
+        accent: "from-sky-500/20 to-sky-500/5", iconFg: "text-sky-600 dark:text-sky-400",
+      },
+      {
+        title: "Expiring Soon", value: expiringSoon.length, list: expiringSoon, icon: AlertTriangle,
+        accent: "from-amber-500/20 to-amber-500/5", iconFg: "text-amber-600 dark:text-amber-400",
+      },
+      {
+        title: "Expired", value: expired.length, list: expired, icon: XCircle,
+        accent: "from-rose-500/20 to-rose-500/5", iconFg: "text-rose-600 dark:text-rose-400",
+      },
+      {
+        title: "Total Markets", value: totalMarkets, list: null, icon: Building2,
+        accent: "from-violet-500/20 to-violet-500/5", iconFg: "text-violet-600 dark:text-violet-400",
+      },
     ];
   }, [leases]);
 
@@ -129,10 +144,22 @@ export default function LeasingDashboardPage() {
     );
 
     return [
-      { title: "Rent", amount: match?.total_rent ?? 0, icon: DollarSign, gradient: "linear-gradient(135deg,#3b82f6,#2563eb)" },
-      { title: "CAM Charges", amount: match?.total_cam ?? 0, icon: Landmark, gradient: "linear-gradient(135deg,#4ade80,#16a34a)" },
-      { title: "Adjustments", amount: match?.total_adjustment ?? 0, icon: Receipt, gradient: "linear-gradient(135deg,#fb923c,#ea580c)" },
-      { title: "Total Payment", amount: match?.total_payment ?? 0, icon: PiggyBank, gradient: "linear-gradient(135deg,#8b5cf6,#7c3aed)" },
+      {
+        title: "Rent", amount: match?.total_rent ?? 0, icon: DollarSign,
+        accent: "from-blue-500/20 to-blue-500/5", iconFg: "text-blue-600 dark:text-blue-400",
+      },
+      {
+        title: "CAM Charges", amount: match?.total_cam ?? 0, icon: Landmark,
+        accent: "from-emerald-500/20 to-emerald-500/5", iconFg: "text-emerald-600 dark:text-emerald-400",
+      },
+      {
+        title: "Adjustments", amount: match?.total_adjustment ?? 0, icon: Receipt,
+        accent: "from-amber-500/20 to-amber-500/5", iconFg: "text-amber-600 dark:text-amber-400",
+      },
+      {
+        title: "Total Payment", amount: match?.total_payment ?? 0, icon: PiggyBank,
+        accent: "from-violet-500/20 to-violet-500/5", iconFg: "text-violet-600 dark:text-violet-400",
+      },
     ];
   }, [rentTotals]);
 
@@ -185,21 +212,25 @@ export default function LeasingDashboardPage() {
             return (
               <Card
                 key={card.title}
-                className="relative overflow-hidden p-5 border-0 text-white"
-                style={{ backgroundImage: card.gradient }}
+                className="relative overflow-hidden p-5 transition-all duration-200 hover:shadow-md border-border/80"
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/20">
+                <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${card.accent}`} />
+                <div className="relative flex items-center gap-3">
+                  <div
+                    className={`flex h-11 w-11 items-center justify-center rounded-xl bg-background/80 shadow-xs border border-border/40 backdrop-blur-xs ${card.iconFg}`}
+                  >
                     <Icon className="h-5 w-5" />
                   </div>
                   <div>
-                    <div className="text-sm font-medium text-white/90">{card.title}</div>
-                    <div className="text-xs text-white/70">
+                    <div className="text-sm font-medium text-foreground">{card.title}</div>
+                    <div className="text-xs text-muted-foreground">
                       {new Date().getMonth() + 1}/{new Date().getFullYear()}
                     </div>
                   </div>
                 </div>
-                <div className="mt-3 text-2xl font-bold font-display">${formatCurrency(card.amount)}</div>
+                <div className="relative mt-3 text-2xl font-bold font-display text-foreground">
+                  ${formatCurrency(card.amount)}
+                </div>
               </Card>
             );
           })}

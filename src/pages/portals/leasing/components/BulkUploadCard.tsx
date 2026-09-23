@@ -63,7 +63,7 @@ export default function BulkUploadCard({ title, controls, extraAction, canUpload
 
   if (processing) {
     return (
-      <Card className="mx-auto flex max-w-3xl flex-col items-center justify-center gap-3 p-16">
+      <Card className="mx-auto flex max-w-4xl flex-col items-center justify-center gap-3 p-16">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
         <p className="text-sm font-medium text-muted-foreground">Processing, please wait...</p>
       </Card>
@@ -71,7 +71,7 @@ export default function BulkUploadCard({ title, controls, extraAction, canUpload
   }
 
   return (
-    <Card className="mx-auto max-w-3xl space-y-4 p-6">
+    <Card className="mx-auto max-w-4xl space-y-4 p-6">
       <h1 className="font-display text-xl font-semibold">{title}</h1>
 
       <div className="flex flex-wrap items-center gap-3">

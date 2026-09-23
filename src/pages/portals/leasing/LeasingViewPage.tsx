@@ -31,8 +31,8 @@ import {
 const fmtDate = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
 
-const fmtCurrency = (v?: number | null) =>
-  v != null ? `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : null;
+const fmtCurrency = (v?: string | number | null) =>
+  v != null && v !== "" ? `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : null;
 
 const getDaysLeft = (d?: string | null) =>
   d ? Math.ceil((new Date(d).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
