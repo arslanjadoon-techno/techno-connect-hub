@@ -32,12 +32,12 @@ export function HeroHubGraph() {
   const radius = 142; // Distance from center to nodes
 
   return (
-    <div className="relative flex flex-col items-center justify-center w-full max-w-md mx-auto select-none">
+    <div className="relative flex flex-col items-center justify-center w-full max-w-xs sm:max-w-sm xl:max-w-md mx-auto select-none py-1">
       {/* Background radial glow */}
       <div className="absolute inset-0 bg-radial from-white/20 via-purple-500/10 to-transparent blur-2xl pointer-events-none rounded-full" />
 
       {/* SVG Network Canvas */}
-      <div className="relative w-full aspect-square max-w-[380px] sm:max-w-[400px]">
+      <div className="relative w-full aspect-square max-w-[260px] sm:max-w-[290px] xl:max-w-[340px]">
         <svg
           viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
           className="w-full h-full overflow-visible"

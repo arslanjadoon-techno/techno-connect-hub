@@ -109,84 +109,80 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
-      {/* Hero side with curved right edge */}
+    <div className="relative grid min-h-screen lg:h-screen lg:max-h-screen lg:overflow-hidden lg:grid-cols-[1.05fr_1fr] bg-slate-50 dark:bg-slate-950">
+      {/* Hero side with curved right edge — perfectly fits 100vh on desktop */}
       <div
-        className="relative hidden flex-col justify-between overflow-hidden p-10 text-white lg:flex clip-wave-right lg:-mr-16 lg:z-10"
-        style={{ backgroundImage: "var(--gradient-hero)" }}
+        className="relative hidden flex-col justify-between overflow-hidden p-6 lg:p-8 xl:p-12 text-white lg:flex clip-wave-right lg:-mr-16 lg:z-10 h-full"
+        style={{ backgroundImage: palette.heroGradient || "var(--gradient-hero)" }}
       >
         {/* Ambient background corner glow - pinned to outer edges, never covering text */}
-        <div className="pointer-events-none absolute -top-36 -left-36 h-[30rem] w-[30rem] rounded-full bg-white/10 blur-3xl animate-float-blob" />
+        <div className="pointer-events-none absolute -top-36 -left-36 h-[26rem] w-[26rem] rounded-full bg-white/10 blur-3xl animate-float-blob" />
         <div
-          className="pointer-events-none absolute -bottom-24 -right-12 h-[34rem] w-[34rem] rounded-full bg-white/10 blur-3xl animate-float-blob"
+          className="pointer-events-none absolute -bottom-24 -right-12 h-[30rem] w-[30rem] rounded-full bg-white/10 blur-3xl animate-float-blob"
           style={{ animationDelay: "2s" }}
         />
 
         {/* Decorative bubbles placed exclusively in empty negative space (margins & outer curve) */}
         {/* 1. Far Top-Right empty zone */}
-        <span className="pointer-events-none absolute right-[7%] top-[8%] h-9 w-9 rounded-full bg-white/30 animate-float-blob" />
+        <span className="pointer-events-none absolute right-[7%] top-[8%] h-8 w-8 rounded-full bg-white/30 animate-float-blob" />
         <span
-          className="pointer-events-none absolute right-[15%] top-[15%] h-14 w-14 rounded-full border-2 border-white/20 animate-float-blob"
+          className="pointer-events-none absolute right-[15%] top-[14%] h-12 w-12 rounded-full border-2 border-white/20 animate-float-blob"
           style={{ animationDelay: "3s" }}
         />
 
         {/* 2. Top-Center margin (well above main text) */}
         <span
-          className="pointer-events-none absolute left-[44%] top-[4%] h-6 w-6 rounded-full bg-white/25 animate-float-blob"
+          className="pointer-events-none absolute left-[44%] top-[3.5%] h-5 w-5 rounded-full bg-white/25 animate-float-blob"
           style={{ animationDelay: "1.2s" }}
         />
 
         {/* 3. Outer Curve boundary (middle-right empty zone) */}
         <span
-          className="pointer-events-none absolute right-[5%] top-[38%] h-7 w-7 rounded-full bg-white/25 animate-float-blob"
+          className="pointer-events-none absolute right-[5%] top-[38%] h-6 w-6 rounded-full bg-white/25 animate-float-blob"
           style={{ animationDelay: "2s" }}
         />
         <span
-          className="pointer-events-none absolute right-[8%] bottom-[30%] h-11 w-11 rounded-full bg-white/30 animate-float-blob"
+          className="pointer-events-none absolute right-[8%] bottom-[30%] h-10 w-10 rounded-full bg-white/30 animate-float-blob"
           style={{ animationDelay: "4.2s" }}
         />
 
         {/* 4. Lower-Right empty sweep */}
         <span
-          className="pointer-events-none absolute right-[14%] bottom-[12%] h-16 w-16 rounded-full border-2 border-white/25 animate-float-blob"
+          className="pointer-events-none absolute right-[14%] bottom-[12%] h-14 w-14 rounded-full border-2 border-white/25 animate-float-blob"
           style={{ animationDelay: "1.8s" }}
         />
         <span
-          className="pointer-events-none absolute right-[4%] bottom-[20%] h-8 w-8 rounded-full bg-white/35 animate-float-blob"
+          className="pointer-events-none absolute right-[4%] bottom-[20%] h-7 w-7 rounded-full bg-white/35 animate-float-blob"
           style={{ animationDelay: "0.8s" }}
         />
 
-        {/* 5. Bottom margin (next to copyright, far below carousel) */}
-        <span
-          className="pointer-events-none absolute left-[30%] bottom-[4%] h-6 w-6 rounded-full bg-white/20 animate-float-blob"
-          style={{ animationDelay: "2.8s" }}
-        />
-
         {/* Top Branding */}
-        <div className="relative z-20 flex items-center gap-3 animate-fade-in">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 backdrop-blur shadow-sm">
-            <ShieldCheck className="h-6 w-6 text-white" />
+        <div className="relative z-20 flex items-center gap-2.5 sm:gap-3 animate-fade-in">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15 backdrop-blur shadow-sm">
+            <ShieldCheck className="h-5 w-5 text-white" />
           </div>
           <div>
-            <div className="font-display text-lg font-semibold tracking-tight">MIS</div>
-            <div className="text-xs text-white/70">Management Information System</div>
+            <div className="font-display text-base sm:text-lg font-semibold tracking-tight">MIS</div>
+            <div className="text-[11px] sm:text-xs text-white/70">Management Information System</div>
           </div>
         </div>
 
         {/* Sliding Center Section: Slide 1 Text / Slide 2 Network Hub Graph (elevated z-20 so text is always crystal clear) */}
-        <div className="relative z-20">
+        <div className="relative z-20 my-auto py-2">
           <AuthHeroCarousel />
         </div>
 
         {/* Bottom Footer */}
-        <div className="relative z-20 text-xs text-white/60">© Techno Communications LLC</div>
+        <div className="relative z-20 text-[11px] sm:text-xs text-white/60">
+          &copy; Techno Communications LLC
+        </div>
       </div>
 
       {/* Form side — clean backdrop with ambient glow, dot grid, corner swoosh & refined card (dynamically styled per active palette) */}
-      <div className="relative flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#f8fafc] via-[#f1f5fb] to-[#e8effc] p-6 lg:pl-16">
+      <div className="relative flex min-h-screen lg:min-h-0 h-full w-full items-center justify-center overflow-y-auto lg:overflow-hidden bg-gradient-to-br from-[#f8fafc] via-[#f1f5fb] to-[#e8effc] p-4 sm:p-6 lg:p-8 xl:pl-16">
         {/* Ambient soft glow on top-right of form side */}
         <div
-          className="pointer-events-none absolute -right-20 -top-20 h-96 w-96 rounded-full blur-3xl opacity-30 transition-all duration-500"
+          className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 sm:h-80 sm:w-80 rounded-full blur-3xl opacity-30 transition-all duration-500"
           style={{
             background: `radial-gradient(circle, color-mix(in srgb, ${palette.primaryGlow} 40%, transparent) 0%, color-mix(in srgb, ${palette.primary} 25%, transparent) 50%, transparent 75%)`,
           }}
@@ -194,7 +190,7 @@ export default function LoginPage() {
 
         {/* Subtle decorative concentric ring at top right */}
         <div
-          className="pointer-events-none absolute right-14 top-10 h-52 w-52 rounded-full transition-all duration-500"
+          className="pointer-events-none absolute right-8 sm:right-12 top-6 sm:top-8 h-40 w-40 sm:h-48 sm:w-48 rounded-full transition-all duration-500"
           style={{
             borderColor: `color-mix(in srgb, ${palette.primary} 18%, transparent)`,
             borderWidth: 1,
@@ -202,7 +198,7 @@ export default function LoginPage() {
         />
 
         {/* Decorative Dot Grid Matrix (Top-Right of screen) */}
-        <div className="pointer-events-none absolute right-8 top-8 grid grid-cols-6 gap-2.5 opacity-40">
+        <div className="pointer-events-none absolute right-4 sm:right-7 top-4 sm:top-7 grid grid-cols-6 gap-2 sm:gap-2.5 opacity-35">
           {Array.from({ length: 24 }).map((_, i) => (
             <span
               key={i}
@@ -215,7 +211,7 @@ export default function LoginPage() {
         </div>
 
         {/* Bottom-right decorative corner layered swoosh */}
-        <div className="pointer-events-none absolute bottom-0 right-0 w-64 h-64 sm:w-80 sm:h-80 overflow-hidden z-0">
+        <div className="pointer-events-none absolute bottom-0 right-0 w-48 h-48 sm:w-64 sm:h-64 xl:w-72 xl:h-72 overflow-hidden z-0">
           <svg
             viewBox="0 0 320 320"
             fill="none"
@@ -250,13 +246,13 @@ export default function LoginPage() {
 
         {/* Login Card with refined elevation & top-right corner theme layers */}
         <Card
-          className="relative z-10 w-full max-w-[440px] rounded-[28px] border border-white/80 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 p-8 sm:p-9 backdrop-blur-sm overflow-hidden animate-scale-in transition-shadow duration-500"
+          className="relative z-10 w-full max-w-[380px] sm:max-w-[400px] xl:max-w-[420px] rounded-[24px] sm:rounded-[28px] border border-white/80 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 p-6 sm:p-7 xl:p-8 backdrop-blur-sm overflow-hidden animate-scale-in transition-shadow duration-500"
           style={{
-            boxShadow: `0 20px 60px -15px color-mix(in srgb, ${palette.primary} 18%, transparent), 0 10px 25px -5px rgba(0,0,0,0.05)`,
+            boxShadow: `0 18px 50px -12px color-mix(in srgb, ${palette.primary} 18%, transparent), 0 8px 20px -4px rgba(0,0,0,0.05)`,
           }}
         >
           {/* Top-right card decorative corner swoosh layers (matching image design, dynamically themed) */}
-          <div className="pointer-events-none absolute top-0 right-0 w-36 h-36 sm:w-44 sm:h-44 overflow-hidden rounded-tr-[28px]">
+          <div className="pointer-events-none absolute top-0 right-0 w-28 h-28 sm:w-36 sm:h-36 overflow-hidden rounded-tr-[24px] sm:rounded-tr-[28px]">
             <svg
               viewBox="0 0 180 180"
               fill="none"
@@ -289,9 +285,9 @@ export default function LoginPage() {
           </div>
 
           {/* MIS Brand Header inside Card */}
-          <div className="relative z-10 flex items-center gap-3">
+          <div className="relative z-10 flex items-center gap-2.5 sm:gap-3">
             <div
-              className="flex h-11 w-11 items-center justify-center rounded-xl text-white shadow-md transition-all duration-500"
+              className="flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-xl text-white shadow-md transition-all duration-500 shrink-0"
               style={{
                 background:
                   palette.primaryGradient ||
@@ -299,48 +295,48 @@ export default function LoginPage() {
                 boxShadow: `0 4px 14px color-mix(in srgb, ${palette.primary} 30%, transparent)`,
               }}
             >
-              <ShieldCheck className="h-6 w-6 text-white" />
+              <ShieldCheck className="h-5 w-5 text-white" />
             </div>
             <div>
-              <div className="font-display text-base font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
+              <div className="font-display text-sm sm:text-base font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
                 MIS
               </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+              <div className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                 Management Information System
               </div>
             </div>
           </div>
 
           {/* Welcome Title & Subtitle */}
-          <div className="relative z-10 mt-5">
-            <h2 className="font-display text-2xl sm:text-[26px] font-bold tracking-tight text-slate-900 dark:text-white">
+          <div className="relative z-10 mt-3.5 sm:mt-4">
+            <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
               Welcome back
             </h2>
-            <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            <p className="mt-0.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
               Sign in to your account to continue.
             </p>
           </div>
 
           {/* Inline Red Error Alert if backend returns failure */}
           {errorMessage && (
-            <div className="relative z-10 mt-4 flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50/90 p-3.5 text-xs text-rose-700 animate-fade-in shadow-xs">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
+            <div className="relative z-10 mt-3 flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50/90 p-3 text-xs text-rose-700 animate-fade-in shadow-xs">
+              <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-600" />
               <div className="flex-1 font-medium">{errorMessage}</div>
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="relative z-10 mt-6 space-y-4">
-            <div className="space-y-1.5">
+          <form onSubmit={handleSubmit} className="relative z-10 mt-4 sm:mt-5 space-y-3 sm:space-y-3.5">
+            <div className="space-y-1">
               <Label htmlFor="email" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                 Email or NTID
               </Label>
               <div className="relative">
-                <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   id="email"
                   type="text"
                   placeholder="admin@techno.com"
-                  className="h-11 rounded-xl bg-[#f0f4fc]/80 dark:bg-slate-800/80 border-[#dce5f5] dark:border-slate-700 pl-10 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:bg-white focus:ring-4 transition-all"
+                  className="h-10 sm:h-10.5 rounded-lg sm:rounded-xl bg-[#f0f4fc]/80 dark:bg-slate-800/80 border-[#dce5f5] dark:border-slate-700 pl-9 sm:pl-10 text-xs sm:text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:bg-white focus:ring-4 transition-all"
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
@@ -351,17 +347,17 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <Label htmlFor="password" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                 Password
               </Label>
               <div className="relative">
-                <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 -translate-y-1/2 text-slate-400" />
                 <Input
                   id="password"
                   type={showPwd ? "text" : "password"}
                   placeholder="••••••••"
-                  className="h-11 rounded-xl bg-[#f0f4fc]/80 dark:bg-slate-800/80 border-[#dce5f5] dark:border-slate-700 pl-10 pr-10 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:bg-white focus:ring-4 transition-all"
+                  className="h-10 sm:h-10.5 rounded-lg sm:rounded-xl bg-[#f0f4fc]/80 dark:bg-slate-800/80 border-[#dce5f5] dark:border-slate-700 pl-9 sm:pl-10 pr-9 sm:pr-10 text-xs sm:text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:bg-white focus:ring-4 transition-all"
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
@@ -375,13 +371,13 @@ export default function LoginPage() {
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
                   aria-label={showPwd ? "Hide password" : "Show password"}
                 >
-                  {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPwd ? <EyeOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
                 </button>
               </div>
               <div className="flex justify-end pt-0.5">
                 <Link
                   to="/forgot-password"
-                  className="text-xs font-medium hover:underline transition-colors"
+                  className="text-[11px] sm:text-xs font-medium hover:underline transition-colors"
                   style={{ color: palette.primary }}
                 >
                   Forgot password?
@@ -391,12 +387,12 @@ export default function LoginPage() {
 
             <Button
               type="submit"
-              className="mt-2 h-11 sm:h-12 w-full rounded-xl text-sm sm:text-base font-semibold text-white cursor-pointer transition-all flex items-center justify-center gap-2"
+              className="mt-1.5 sm:mt-2 h-10 sm:h-11 w-full rounded-lg sm:rounded-xl text-xs sm:text-sm font-semibold text-white cursor-pointer transition-all flex items-center justify-center gap-2"
               style={{
                 backgroundImage:
                   palette.primaryGradient ||
                   `linear-gradient(90deg, ${palette.primary} 0%, ${palette.primaryGlow} 100%)`,
-                boxShadow: `0 8px 24px -4px color-mix(in srgb, ${palette.primary} 35%, transparent)`,
+                boxShadow: `0 6px 20px -3px color-mix(in srgb, ${palette.primary} 35%, transparent)`,
               }}
               disabled={loading}
             >
@@ -405,7 +401,7 @@ export default function LoginPage() {
             </Button>
 
             {/* Bottom Trust Badge Divider */}
-            <div className="pt-3 flex items-center gap-3 text-[11px] text-slate-400 font-medium">
+            <div className="pt-2 sm:pt-2.5 flex items-center gap-2 text-[10px] sm:text-[11px] text-slate-400 font-medium">
               <span className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
               <span>Secure &bull; Reliable &bull; Built for You</span>
               <span className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
