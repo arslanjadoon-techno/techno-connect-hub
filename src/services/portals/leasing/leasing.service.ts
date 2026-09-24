@@ -1,4 +1,4 @@
-import { API_BASE_URL, LEASING_API_PATHS } from "@/lib/config";
+import { LEASING_API_BASE_URL, LEASING_API_PATHS } from "@/lib/config";
 import type {
   LeaseRecord,
   TotalRent,
@@ -22,13 +22,16 @@ import type {
  * directly, the same way the Commission service does.
  */
 export class LeasingService {
-  constructor(public readonly baseUrl: string = API_BASE_URL) {}
+  constructor(public readonly baseUrl: string = LEASING_API_BASE_URL) {}
 
+  // LeasingController reads the raw JWT off a custom "token" header (not the
+  // standard Authorization: Bearer scheme - it doesn't use [Authorize] at all,
+  // it manually calls JWTTokenController.IsUserAllowed(Request.Headers["token"], ...)).
   private headers(): Record<string, string> {
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     try {
       const token = window.localStorage.getItem("token");
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+      if (token) headers["token"] = token;
     } catch {
       // ignore - no localStorage access
     }
@@ -39,7 +42,7 @@ export class LeasingService {
     const headers: Record<string, string> = {};
     try {
       const token = window.localStorage.getItem("token");
-      if (token) headers["Authorization"] = `Bearer ${token}`;
+      if (token) headers["token"] = token;
     } catch {
       // ignore - no localStorage access
     }

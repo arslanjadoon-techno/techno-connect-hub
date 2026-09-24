@@ -11,8 +11,6 @@ import {
   type LeaseRecord,
   type LeaseRentAgreement,
 } from "@/services/portals/leasing";
-import { storesService } from "@/services/user-manager/stores.service";
-import type { Store } from "@/lib/api/client";
 import EditableField from "./components/EditableField";
 
 const ENTITY_OPTIONS = [
@@ -48,7 +46,6 @@ export default function LeasingDetailedPage() {
   const navigate = useNavigate();
 
   const [allLeases, setAllLeases] = useState<LeaseRecord[]>([]);
-  const [store, setStore] = useState<Store | null>(null);
   const [agreements, setAgreements] = useState<LeaseRentAgreement[]>([]);
   const [remarks, setRemarks] = useState("");
   const [pageLoading, setPageLoading] = useState(true);
@@ -81,15 +78,12 @@ export default function LeasingDetailedPage() {
     (async () => {
       setPageLoading(true);
       try {
-        const [leases, storesRes, remarkRows] = await Promise.all([
+        const [leases, remarkRows] = await Promise.all([
           leasingService.getAllLeasing(),
-          storesService.getAll({ size: 2000 }),
           leasingService.getLeaseExpirationRemarks(techId),
         ]);
         if (!active) return;
         setAllLeases(leases);
-        const matchedStore = storesRes.data?.find((s) => s.techId === techId) ?? null;
-        setStore(matchedStore);
         const firstRemark = remarkRows[0] as Record<string, unknown> | undefined;
         setRemarks((firstRemark?.remarks as string) ?? (firstRemark?.remark as string) ?? "");
       } catch (error) {
@@ -126,9 +120,9 @@ export default function LeasingDetailedPage() {
       const payload: LeaseRecord = {
         ...formData,
         techId: leaseData.techId,
-        storeName: store?.name ?? formData.storeName,
+        storeName: formData.storeName,
         marketName: formData.marketName,
-        contactNumber: store?.phone ?? formData.contactNumber,
+        contactNumber: formData.contactNumber,
         start_Date: formData.start_Date?.trim() === "" ? null : formData.start_Date,
         expiry_Due: formData.expiry_Due?.trim() === "" ? null : formData.expiry_Due,
         assignmentDate: formData.assignmentDate?.trim() === "" ? null : formData.assignmentDate,
@@ -244,7 +238,7 @@ export default function LeasingDetailedPage() {
               <span className="text-sm font-medium text-muted-foreground">{leaseData.techId}</span>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              {leaseData.marketName} &bull; {store?.address ?? "—"}
+              {leaseData.marketName} &bull; {leaseData.storeAddress ?? "—"}
             </p>
             {daysLeft !== null && (
               <Badge variant="outline" className={`mt-2 ${yesNoTone(daysLeft < 0 ? "Not Allowed" : daysLeft <= 45 ? "" : "Allowed")}`}>
@@ -289,9 +283,9 @@ export default function LeasingDetailedPage() {
             <EditableField label="Tenant / Entity Name" value={f.entityName ?? ""} editing={isEditing} type="select" options={ENTITY_OPTIONS} onChange={(v) => set("entityName", v)} />
             <EditableField label="Lease Signed By" value={f.leaseSignedBy ?? ""} editing={isEditing} onChange={(v) => set("leaseSignedBy", v)} />
             <EditableField label="Market Manager" value={f.marketManager ?? ""} editing={isEditing} onChange={(v) => set("marketManager", v)} />
-            <EditableField label="Store Email" value={store?.email ?? ""} editing={false} />
-            <EditableField label="Store Number" value={store?.phone ?? ""} editing={false} />
-            <EditableField label="Store Full Address" value={store?.address ?? ""} editing={false} />
+            <EditableField label="Store Email" value={leaseData.storeEmail ?? ""} editing={false} />
+            <EditableField label="Store Number" value={leaseData.storePhoneNumber ?? ""} editing={false} />
+            <EditableField label="Store Full Address" value={leaseData.storeAddress ?? ""} editing={false} />
             <EditableField label="Tier" value={leaseData.tier ?? ""} editing={false} />
             <EditableField
               label="Lease Status"
@@ -484,7 +478,7 @@ export default function LeasingDetailedPage() {
             badgeTone={!isEditing ? yesNoTone(leaseData.relocation) : undefined}
             displayValue={!isEditing ? (leaseData.relocation || "Not Found") : undefined}
           />
-          <EditableField label="Security Deposit" value={String(f.securityDeposit ?? "")} editing={isEditing} type="number" onChange={(v) => set("securityDeposit", Number(v))} />
+          <EditableField label="Security Deposit" value={String(f.securityDeposit ?? "")} editing={isEditing} type="number" onChange={(v) => set("securityDeposit", v)} />
         </div>
       </Card>
 
