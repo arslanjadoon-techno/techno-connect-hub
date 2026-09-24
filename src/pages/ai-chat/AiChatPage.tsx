@@ -30,7 +30,7 @@ import {
 } from "@/services/ai-chat/ai-chat.service";
 
 const STATIC_REPLY =
-  "This functionality is currently not available in this preview version. Stay tuned for upcoming updates!";
+  "We're still cooking this feature up! It's not in this preview version yet, but keep an eye out for our next update.";
 
 const SUGGESTIONS = [
   "Summarize my open tickets",
