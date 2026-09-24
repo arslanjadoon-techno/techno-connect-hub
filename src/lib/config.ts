@@ -146,8 +146,7 @@ export const LEAVE_API_PATHS = {
  * appsettings.json "Leasing" section one-for-one instead of sharing the
  * generic API_BASE_URL. Each falls back to API_BASE_URL if not set.
  */
-export const LEASING_API_BASE_URL =
-  (import.meta.env.VITE_LEASING_URL as string) || API_BASE_URL;
+export const LEASING_API_BASE_URL = (import.meta.env.VITE_LEASING_URL as string) || API_BASE_URL;
 export const LEASING_READ_API_BASE_URL =
   (import.meta.env.VITE_LEASING_READ_URL as string) || API_BASE_URL;
 export const LEASING_AUTH_API_BASE_URL =

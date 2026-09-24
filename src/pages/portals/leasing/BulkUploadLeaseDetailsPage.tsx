@@ -22,19 +22,47 @@ const SECTIONS = [
 
 const SECTION_COLUMNS: Record<string, string[]> = {
   "General Information": [
-    "TECH ID", "Lease Start Date", "Lease Expiry Date", "Assignment Date", "Take Over Date",
-    "Commencement Date Rent", "Lease Type", "Tenant / Entity Name", "Lease Signed By", "Market Manager",
+    "TECH ID",
+    "Lease Start Date",
+    "Lease Expiry Date",
+    "Assignment Date",
+    "Take Over Date",
+    "Commencement Date Rent",
+    "Lease Type",
+    "Tenant / Entity Name",
+    "Lease Signed By",
+    "Market Manager",
   ],
   "Agreement Clause": [
-    "TECH ID", "HVAC", "Exclusivity", "Termination", "Notice Period before Termination",
-    "Right to Sublease", "Sub Lease", "Option Period", "Option Notice Date", "Guarantor",
-    "Guarantor Type", "Relocation", "Security Deposit",
+    "TECH ID",
+    "HVAC",
+    "Exclusivity",
+    "Termination",
+    "Notice Period before Termination",
+    "Right to Sublease",
+    "Sub Lease",
+    "Option Period",
+    "Option Notice Date",
+    "Guarantor",
+    "Guarantor Type",
+    "Relocation",
+    "Security Deposit",
   ],
   "Property Management Information": [
-    "TECH ID", "Property Mgt Name", "Point of Contact", "Email", "Phone Number", "Address",
+    "TECH ID",
+    "Property Mgt Name",
+    "Point of Contact",
+    "Email",
+    "Phone Number",
+    "Address",
   ],
   "Landlord Information": [
-    "TECH ID", "Landlord", "Point of Contact", "Email", "Phone Number", "Address",
+    "TECH ID",
+    "Landlord",
+    "Point of Contact",
+    "Email",
+    "Phone Number",
+    "Address",
   ],
 };
 
@@ -53,7 +81,9 @@ function downloadTemplate(section: string) {
   XLSX.utils.book_append_sheet(workbook, worksheet, "Template");
   const buffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
   saveAs(
-    new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+    new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    }),
     `Template_${section.replace(/\s+/g, "_")}.xlsx`,
   );
 }
@@ -69,10 +99,14 @@ export default function BulkUploadLeaseDetailsPage() {
         onUpload={(file) => leasingService.bulkUploadLeaseDetails(file, section)}
         controls={
           <Select value={section} onValueChange={setSection}>
-            <SelectTrigger className="h-11 w-64"><SelectValue placeholder="Select Section" /></SelectTrigger>
+            <SelectTrigger className="h-11 w-64">
+              <SelectValue placeholder="Select Section" />
+            </SelectTrigger>
             <SelectContent>
               {SECTIONS.map((s) => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>

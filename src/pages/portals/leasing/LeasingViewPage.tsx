@@ -29,10 +29,14 @@ import {
 } from "@/services/portals/leasing";
 
 const fmtDate = (d?: string | null) =>
-  d ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : null;
+  d
+    ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : null;
 
 const fmtCurrency = (v?: string | number | null) =>
-  v != null && v !== "" ? `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : null;
+  v != null && v !== ""
+    ? `$${Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : null;
 
 const getDaysLeft = (d?: string | null) =>
   d ? Math.ceil((new Date(d).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
@@ -126,7 +130,9 @@ export default function LeasingViewPage() {
       ]);
 
       const current =
-        billingRows.find((r) => Number(r.year) === today.getFullYear() && Number(r.month) === today.getMonth() + 1) ??
+        billingRows.find(
+          (r) => Number(r.year) === today.getFullYear() && Number(r.month) === today.getMonth() + 1,
+        ) ??
         billingRows[billingRows.length - 1] ??
         null;
       setCurrentRent(current);
@@ -136,7 +142,9 @@ export default function LeasingViewPage() {
         .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
 
       const currAgt =
-        sorted.find((a) => new Date(a.startDate) <= today && (!a.endDate || new Date(a.endDate) >= today)) ??
+        sorted.find(
+          (a) => new Date(a.startDate) <= today && (!a.endDate || new Date(a.endDate) >= today),
+        ) ??
         sorted[sorted.length - 1] ??
         null;
       const nextAgt = sorted.find((a) => new Date(a.startDate) > today) ?? null;
@@ -153,13 +161,18 @@ export default function LeasingViewPage() {
   }, []);
 
   const options = useMemo(
-    () => allData.map((item) => ({ label: `${item.techId} — ${item.storeName || ""}`, lease: item })),
+    () =>
+      allData.map((item) => ({ label: `${item.techId} — ${item.storeName || ""}`, lease: item })),
     [allData],
   );
 
   const d = selected;
   const optionPeriodAnswer =
-    d?.optionPeriod === true ? `Yes${d?.optionPeriodDuration ? ` — ${d.optionPeriodDuration}` : ""}` : d?.optionPeriod === false ? "No" : null;
+    d?.optionPeriod === true
+      ? `Yes${d?.optionPeriodDuration ? ` — ${d.optionPeriodDuration}` : ""}`
+      : d?.optionPeriod === false
+        ? "No"
+        : null;
   const relocationAnswer = d?.relocation
     ? ["yes", "true", "1"].includes(String(d.relocation).toLowerCase())
       ? "Yes"
@@ -182,7 +195,9 @@ export default function LeasingViewPage() {
             className="flex h-10 w-full max-w-lg items-center gap-2 rounded-md border border-input bg-background px-3 text-sm text-muted-foreground hover:bg-accent"
           >
             <Search className="h-4 w-4 text-primary" />
-            {selected ? `${selected.techId} — ${selected.storeName || ""}` : "Search by Tech ID or Store Name..."}
+            {selected
+              ? `${selected.techId} — ${selected.storeName || ""}`
+              : "Search by Tech ID or Store Name..."}
             {loading && <Loader2 className="ml-auto h-3.5 w-3.5 animate-spin" />}
           </button>
         </PopoverTrigger>
@@ -211,11 +226,23 @@ export default function LeasingViewPage() {
         <Card className="overflow-hidden">
           <div className="flex flex-wrap items-start justify-between gap-2 border-b p-4">
             <div>
-              <h2 className="text-lg font-bold capitalize">{d.storeName?.toLowerCase() || d.techId}</h2>
+              <h2 className="text-lg font-bold capitalize">
+                {d.storeName?.toLowerCase() || d.techId}
+              </h2>
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                <Badge variant="outline" className="text-[11px]">{d.techId}</Badge>
-                {d.marketName && <Badge variant="outline" className="text-[11px]">{d.marketName}</Badge>}
-                {d.tier && <Badge variant="outline" className="text-[11px]">{d.tier}</Badge>}
+                <Badge variant="outline" className="text-[11px]">
+                  {d.techId}
+                </Badge>
+                {d.marketName && (
+                  <Badge variant="outline" className="text-[11px]">
+                    {d.marketName}
+                  </Badge>
+                )}
+                {d.tier && (
+                  <Badge variant="outline" className="text-[11px]">
+                    {d.tier}
+                  </Badge>
+                )}
                 <ExpiryBadge expiryDate={d.expiry_Due} />
               </div>
             </div>
@@ -232,7 +259,12 @@ export default function LeasingViewPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
-            <QACard icon={Calendar} question="Lease Expiration Date" answer={fmtDate(d.expiry_Due)} highlight />
+            <QACard
+              icon={Calendar}
+              question="Lease Expiration Date"
+              answer={fmtDate(d.expiry_Due)}
+              highlight
+            />
             <QACard icon={Calendar} question="Lease Start Date" answer={fmtDate(d.start_Date)} />
             <QACard icon={ClipboardList} question="Term of the Lease" answer={d.lease_Term} />
             <QACard
@@ -241,7 +273,11 @@ export default function LeasingViewPage() {
               answer={fmtCurrency(d.securityDeposit ?? d.security_deposit)}
             />
             <QACard icon={Repeat} question="Option Period" answer={optionPeriodAnswer} />
-            <QACard icon={Calendar} question="Option Notice Date" answer={fmtDate(d.optionNoticeDate)} />
+            <QACard
+              icon={Calendar}
+              question="Option Notice Date"
+              answer={fmtDate(d.optionNoticeDate)}
+            />
             <QACard
               icon={DollarSign}
               question="Next Rent Increase Amount"
@@ -268,7 +304,11 @@ export default function LeasingViewPage() {
               answer={d.assignmentDate ? `Assignment Date: ${fmtDate(d.assignmentDate)}` : null}
             />
             <QACard icon={Repeat} question="Relocation Clause" answer={relocationAnswer} />
-            <QACard icon={MapPin} question="Location Address of Leased Property" answer={d.storeName} />
+            <QACard
+              icon={MapPin}
+              question="Location Address of Leased Property"
+              answer={d.storeName}
+            />
           </div>
         </Card>
       )}

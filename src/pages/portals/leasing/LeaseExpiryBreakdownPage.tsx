@@ -17,16 +17,37 @@ const getDaysLeft = (date: string) => {
 };
 
 const TABS = [
-  { key: "critical", label: "0-30 Days", tone: "border-destructive/30 bg-destructive/10 text-destructive" },
-  { key: "high", label: "31-90 Days", tone: "border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400" },
-  { key: "medium", label: "90-180 Days", tone: "border-sky-300 bg-sky-50 text-sky-800 dark:bg-sky-950/30 dark:text-sky-400" },
-  { key: "low", label: "181-365 Days", tone: "border-blue-300 bg-blue-50 text-blue-800 dark:bg-blue-950/30 dark:text-blue-400" },
+  {
+    key: "critical",
+    label: "0-30 Days",
+    tone: "border-destructive/30 bg-destructive/10 text-destructive",
+  },
+  {
+    key: "high",
+    label: "31-90 Days",
+    tone: "border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400",
+  },
+  {
+    key: "medium",
+    label: "90-180 Days",
+    tone: "border-sky-300 bg-sky-50 text-sky-800 dark:bg-sky-950/30 dark:text-sky-400",
+  },
+  {
+    key: "low",
+    label: "181-365 Days",
+    tone: "border-blue-300 bg-blue-50 text-blue-800 dark:bg-blue-950/30 dark:text-blue-400",
+  },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
 
 function groupLeases(list: LeaseRecord[]): Record<TabKey, LeaseWithDaysLeft[]> {
-  const groups: Record<TabKey, LeaseWithDaysLeft[]> = { critical: [], high: [], medium: [], low: [] };
+  const groups: Record<TabKey, LeaseWithDaysLeft[]> = {
+    critical: [],
+    high: [],
+    medium: [],
+    low: [],
+  };
   for (const item of list) {
     const date = item.expiry_Due || item.createdAt;
     if (!date) continue;
@@ -97,7 +118,9 @@ export default function LeaseExpiryBreakdownPage() {
             style={{ borderLeftColor: undefined }}
           >
             <span className="text-sm font-medium">{tab.label}</span>
-            <Badge variant="outline" className={tab.tone}>{groups[tab.key].length}</Badge>
+            <Badge variant="outline" className={tab.tone}>
+              {groups[tab.key].length}
+            </Badge>
           </button>
         ))}
       </div>
@@ -108,20 +131,35 @@ export default function LeaseExpiryBreakdownPage() {
             <thead className="bg-muted/50">
               <tr>
                 {["Store Name", "Market", "Expiry Date", "Days Left", "Tier", "Action"].map((h) => (
-                  <th key={h} className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground">{h}</th>
+                  <th
+                    key={h}
+                    className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground"
+                  >
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y">
               {selectedList.length === 0 ? (
-                <tr><td colSpan={6} className="py-12 text-center text-sm text-muted-foreground">No leases in this category</td></tr>
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
+                    No leases in this category
+                  </td>
+                </tr>
               ) : (
                 selectedList.map((row, i) => (
                   <tr key={i} className="hover:bg-muted/30">
                     <td className="px-3 py-2 capitalize">{row.storeName?.toLowerCase() ?? "—"}</td>
                     <td className="px-3 py-2 capitalize">{row.marketName?.toLowerCase() ?? "—"}</td>
-                    <td className="px-3 py-2">{new Date(row.expiry_Due || row.createdAt || "").toLocaleDateString()}</td>
-                    <td className="px-3 py-2"><Badge variant="outline" className={activeTab.tone}>{row.daysLeft}d</Badge></td>
+                    <td className="px-3 py-2">
+                      {new Date(row.expiry_Due || row.createdAt || "").toLocaleDateString()}
+                    </td>
+                    <td className="px-3 py-2">
+                      <Badge variant="outline" className={activeTab.tone}>
+                        {row.daysLeft}d
+                      </Badge>
+                    </td>
                     <td className="px-3 py-2">{row.tier ?? "—"}</td>
                     <td className="px-3 py-2">
                       <Button

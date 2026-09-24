@@ -253,16 +253,35 @@
   box-shadow: var(--shadow-elegant);
 }
 
-/* Hide scrollbars across all modern and legacy browsers for sidebars */
-[data-sidebar="content"],
-[data-sidebar="sidebar"],
+/* Sidebar custom scrollbar (shows automatically on overflow, hidden when content fits) */
+[data-sidebar="content"] {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.25) transparent;
+}
+
+[data-sidebar="content"]::-webkit-scrollbar {
+  width: 5px;
+}
+
+[data-sidebar="content"]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-sidebar="content"]::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.22);
+  border-radius: 9999px;
+  transition: background-color 0.2s ease;
+}
+
+[data-sidebar="content"]::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.45);
+}
+
 .no-scrollbar {
   -ms-overflow-style: none !important;
   scrollbar-width: none !important;
 }
 
-[data-sidebar="content"]::-webkit-scrollbar,
-[data-sidebar="sidebar"]::-webkit-scrollbar,
 .no-scrollbar::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;

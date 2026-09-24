@@ -10,23 +10,49 @@ export function exportToExcel<T extends Record<string, unknown>>(
   data: T[],
   columns: string[],
   headerMap: Record<string, string>,
-  options: { sheetName?: string; fileName?: string; addRentHeaders?: boolean; year?: string | number; month?: string | number } = {},
+  options: {
+    sheetName?: string;
+    fileName?: string;
+    addRentHeaders?: boolean;
+    year?: string | number;
+    month?: string | number;
+  } = {},
 ): void {
   if (!data || data.length === 0) {
     alert("No data available");
     return;
   }
 
-  const { sheetName = "Sheet", fileName = "Export", addRentHeaders = false, year = "", month = "" } = options;
+  const {
+    sheetName = "Sheet",
+    fileName = "Export",
+    addRentHeaders = false,
+    year = "",
+    month = "",
+  } = options;
 
   const MONTH_NAMES = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
   ];
   const monthLabel = month ? (MONTH_NAMES[Number(month) - 1] ?? String(month)) : "";
 
-  const headers = columns.map((key) => headerMap[key] || key.charAt(0).toUpperCase() + key.slice(1));
-  const dataRows = data.map((item) => columns.map((key) => (item[key] as string | number | undefined) ?? ""));
+  const headers = columns.map(
+    (key) => headerMap[key] || key.charAt(0).toUpperCase() + key.slice(1),
+  );
+  const dataRows = data.map((item) =>
+    columns.map((key) => (item[key] as string | number | undefined) ?? ""),
+  );
 
   const aoa = addRentHeaders
     ? [["Monthly Rent Sheets"], [`Month: ${monthLabel}    Year: ${year}`], [], headers, ...dataRows]

@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { DataTable, type Column } from "@/components/data-table";
 import {
   BarChart3,
@@ -24,7 +30,13 @@ interface Kpi {
   iconFg: string;
 }
 
-function KpiCard({ kpi, onClick }: { kpi: Kpi; onClick: (list: LeaseRecord[] | null, title: string) => void }) {
+function KpiCard({
+  kpi,
+  onClick,
+}: {
+  kpi: Kpi;
+  onClick: (list: LeaseRecord[] | null, title: string) => void;
+}) {
   const Icon = kpi.icon;
   return (
     <Card
@@ -63,7 +75,10 @@ interface FinanceCard {
 }
 
 function formatCurrency(value: number): string {
-  return new Intl.NumberFormat("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value || 0);
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value || 0);
 }
 
 export default function LeasingDashboardPage() {
@@ -117,20 +132,36 @@ export default function LeasingDashboardPage() {
 
     return [
       {
-        title: "Active Leases", value: activeLeases, list: null, icon: BarChart3,
-        accent: "from-sky-500/20 to-sky-500/5", iconFg: "text-sky-600 dark:text-sky-400",
+        title: "Active Leases",
+        value: activeLeases,
+        list: null,
+        icon: BarChart3,
+        accent: "from-sky-500/20 to-sky-500/5",
+        iconFg: "text-sky-600 dark:text-sky-400",
       },
       {
-        title: "Expiring Soon", value: expiringSoon.length, list: expiringSoon, icon: AlertTriangle,
-        accent: "from-amber-500/20 to-amber-500/5", iconFg: "text-amber-600 dark:text-amber-400",
+        title: "Expiring Soon",
+        value: expiringSoon.length,
+        list: expiringSoon,
+        icon: AlertTriangle,
+        accent: "from-amber-500/20 to-amber-500/5",
+        iconFg: "text-amber-600 dark:text-amber-400",
       },
       {
-        title: "Expired", value: expired.length, list: expired, icon: XCircle,
-        accent: "from-rose-500/20 to-rose-500/5", iconFg: "text-rose-600 dark:text-rose-400",
+        title: "Expired",
+        value: expired.length,
+        list: expired,
+        icon: XCircle,
+        accent: "from-rose-500/20 to-rose-500/5",
+        iconFg: "text-rose-600 dark:text-rose-400",
       },
       {
-        title: "Total Markets", value: totalMarkets, list: null, icon: Building2,
-        accent: "from-violet-500/20 to-violet-500/5", iconFg: "text-violet-600 dark:text-violet-400",
+        title: "Total Markets",
+        value: totalMarkets,
+        list: null,
+        icon: Building2,
+        accent: "from-violet-500/20 to-violet-500/5",
+        iconFg: "text-violet-600 dark:text-violet-400",
       },
     ];
   }, [leases]);
@@ -145,20 +176,32 @@ export default function LeasingDashboardPage() {
 
     return [
       {
-        title: "Rent", amount: match?.total_rent ?? 0, icon: DollarSign,
-        accent: "from-blue-500/20 to-blue-500/5", iconFg: "text-blue-600 dark:text-blue-400",
+        title: "Rent",
+        amount: match?.total_rent ?? 0,
+        icon: DollarSign,
+        accent: "from-blue-500/20 to-blue-500/5",
+        iconFg: "text-blue-600 dark:text-blue-400",
       },
       {
-        title: "CAM Charges", amount: match?.total_cam ?? 0, icon: Landmark,
-        accent: "from-emerald-500/20 to-emerald-500/5", iconFg: "text-emerald-600 dark:text-emerald-400",
+        title: "CAM Charges",
+        amount: match?.total_cam ?? 0,
+        icon: Landmark,
+        accent: "from-emerald-500/20 to-emerald-500/5",
+        iconFg: "text-emerald-600 dark:text-emerald-400",
       },
       {
-        title: "Adjustments", amount: match?.total_adjustment ?? 0, icon: Receipt,
-        accent: "from-amber-500/20 to-amber-500/5", iconFg: "text-amber-600 dark:text-amber-400",
+        title: "Adjustments",
+        amount: match?.total_adjustment ?? 0,
+        icon: Receipt,
+        accent: "from-amber-500/20 to-amber-500/5",
+        iconFg: "text-amber-600 dark:text-amber-400",
       },
       {
-        title: "Total Payment", amount: match?.total_payment ?? 0, icon: PiggyBank,
-        accent: "from-violet-500/20 to-violet-500/5", iconFg: "text-violet-600 dark:text-violet-400",
+        title: "Total Payment",
+        amount: match?.total_payment ?? 0,
+        icon: PiggyBank,
+        accent: "from-violet-500/20 to-violet-500/5",
+        iconFg: "text-violet-600 dark:text-violet-400",
       },
     ];
   }, [rentTotals]);
@@ -168,7 +211,11 @@ export default function LeasingDashboardPage() {
     { key: "storeName", header: "STORE", accessor: (r) => r.storeName ?? "-" },
     { key: "marketName", header: "MARKET", accessor: (r) => r.marketName ?? "-" },
     { key: "expiry", header: "EXPIRY", accessor: (r) => r.expiry_Due ?? "-" },
-    { key: "status", header: "STATUS", accessor: (r) => (r.leaseStatus ?? (r.isDeleted ? "Inactive" : "Active")) },
+    {
+      key: "status",
+      header: "STATUS",
+      accessor: (r) => r.leaseStatus ?? (r.isDeleted ? "Inactive" : "Active"),
+    },
   ];
 
   if (loading) {
@@ -214,7 +261,9 @@ export default function LeasingDashboardPage() {
                 key={card.title}
                 className="relative overflow-hidden p-5 transition-all duration-200 hover:shadow-md border-border/80"
               >
-                <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${card.accent}`} />
+                <div
+                  className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${card.accent}`}
+                />
                 <div className="relative flex items-center gap-3">
                   <div
                     className={`flex h-11 w-11 items-center justify-center rounded-xl bg-background/80 shadow-xs border border-border/40 backdrop-blur-xs ${card.iconFg}`}
@@ -241,7 +290,9 @@ export default function LeasingDashboardPage() {
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{filteredTitle}</DialogTitle>
-            <DialogDescription>{filteredList?.length ?? 0} lease(s) matching this filter.</DialogDescription>
+            <DialogDescription>
+              {filteredList?.length ?? 0} lease(s) matching this filter.
+            </DialogDescription>
           </DialogHeader>
           {filteredList && (
             <DataTable<LeaseRecord>

@@ -99,15 +99,31 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
       { title: "Leasing View", url: "/leasing/leasing-view", icon: Eye },
       { title: "Manage Leasing", url: "/leasing/manage-leasing", icon: ClipboardList },
       { title: "Rent Payment List", url: "/leasing/manage-rent-payment-list", icon: Receipt },
-      { title: "Rent Payment Agreement", url: "/leasing/manage-rent-payment-agreement", icon: FileSignature },
-      { title: "Rent Agreement to Monthly Rent", url: "/leasing/rent-agreement-to-monthly-rent", icon: CalendarDays },
+      {
+        title: "Rent Payment Agreement",
+        url: "/leasing/manage-rent-payment-agreement",
+        icon: FileSignature,
+      },
+      {
+        title: "Rent Agreement to Monthly Rent",
+        url: "/leasing/rent-agreement-to-monthly-rent",
+        icon: CalendarDays,
+      },
       {
         title: "Lease Monitor",
         url: "/leasing/lease-monitor/next-month-rent-change",
         icon: TrendingUp,
         children: [
-          { title: "Next Month Rent Change", url: "/leasing/lease-monitor/next-month-rent-change", icon: TrendingUp },
-          { title: "Lease Expiry Breakdown", url: "/leasing/lease-monitor/lease-expiry-breakdown", icon: AlertCircle },
+          {
+            title: "Next Month Rent Change",
+            url: "/leasing/lease-monitor/next-month-rent-change",
+            icon: TrendingUp,
+          },
+          {
+            title: "Lease Expiry Breakdown",
+            url: "/leasing/lease-monitor/lease-expiry-breakdown",
+            icon: AlertCircle,
+          },
         ],
       },
       { title: "Reports", url: "/leasing/reports", icon: FileSpreadsheet },
@@ -555,7 +571,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent className="px-1 pb-4">
         {/* Workspace Group */}
         <SidebarGroup>
           {!collapsed && <SidebarGroupLabel>Workspace</SidebarGroupLabel>}

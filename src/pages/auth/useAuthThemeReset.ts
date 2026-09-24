@@ -5,4 +5,3 @@
 export function useAuthThemeReset() {
   // Dynamic theme support: do not force static override class so active theme colors persist
 }
-

@@ -246,7 +246,7 @@ function NotFound() {
 export function AppRoutes() {
   return (
     <Routes>
-      // ---------- Authentication ---------- //
+      {/* ---------- Authentication ---------- */}
       <Route path="/" element={<Navigate to="/ai-chat" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -260,11 +260,11 @@ export function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        // ---------- Dashboard ---------- //
+        {/* ---------- Dashboard ---------- */}
         <Route path="/ai-chat" element={<AiChatPage />} />
         <Route path="/chat" element={<TeamChatPage />} />
         <Route path="/settings" element={<SettingsPage />} />
-        // ---------- Ticketing Portal ---------- //
+        {/* ---------- Ticketing Portal ---------- */}
         {/* <Route path="/ticketing/dashboard" element={<TicketingDashboardPage />} /> */}
         <Route
           path="/ticketing/tickets"
@@ -290,7 +290,7 @@ export function AppRoutes() {
             </PortalRouteGuard>
           }
         />
-        // ---------- Commission Portal ---------- //
+        {/* ---------- Commission Portal ---------- */}
         <Route
           path="/commission/dashboard"
           element={
@@ -325,7 +325,7 @@ export function AppRoutes() {
             </PortalRouteGuard>
           }
         />
-        // ---------- Ranker Portal ---------- //
+        {/* ---------- Ranker Portal ---------- */}
         <Route
           element={
             <PortalRouteGuard portalKey="ranker">
@@ -344,7 +344,7 @@ export function AppRoutes() {
           <Route path="/ranker/rules" element={<RulesPage />} />
           <Route path="/ranker/criteria-details" element={<CriteriaDetailsPage />} />
         </Route>
-        // ---------- Lease / Scheduling / Ticketing Portals ---------- //
+        {/* ---------- Lease / Scheduling / Ticketing Portals ---------- */}
         <Route
           path="/lease/dashboard"
           element={
@@ -473,7 +473,7 @@ export function AppRoutes() {
             </PortalRouteGuard>
           }
         />
-        // ---------- Leave Portal ---------- //
+        {/* ---------- Leave Portal ---------- */}
         <Route
           path="/leave"
           element={
@@ -538,7 +538,7 @@ export function AppRoutes() {
             </PortalRouteGuard>
           }
         />
-        // ---------- User Manager ---------- //
+        {/* ---------- User Manager ---------- */}
         <Route
           path="/admin/users"
           element={

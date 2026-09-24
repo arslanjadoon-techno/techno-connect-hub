@@ -27,24 +27,64 @@ const LEASE_STATUS_OPTIONS = [
 ];
 
 const STATUS_TONE: Record<string, string> = {
-  Active: "border-emerald-300 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400",
-  "Expiring Soon": "border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400",
+  Active:
+    "border-emerald-300 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400",
+  "Expiring Soon":
+    "border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400",
   Expired: "border-destructive/30 bg-destructive/10 text-destructive",
   InActive: "border-border bg-muted text-muted-foreground",
-  "Door Closure": "border-amber-400 bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
+  "Door Closure":
+    "border-amber-400 bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300",
   Unknown: "border-border bg-muted text-muted-foreground",
 };
 
 const EXPORT_COLUMNS = [
-  "techId", "storeName", "marketName", "securityDeposit", "bankInformation", "entityName",
-  "guarantor", "lease_Term", "start_Date", "expiry_Due", "hvac", "exclusivity", "termination",
-  "relocation", "isDeleted", "optionPeriod", "optionPeriodDuration", "ownerAccountNumber",
-  "ownerRoutingNumber", "ownerAccountTitle", "ownerPaymentMode", "ownerBankName", "ownerCheckAddress",
-  "landLordName", "landLordPointOfContact", "landLordContactNumber", "landLordEmail", "landLordAddress",
-  "landLordIndividualOrCompany", "tier", "assignmentDate", "marketManager", "leaseSignedBy",
-  "noticePeriodBeforeTermination", "optionNoticeDate", "subLease", "takeOverDate",
-  "commencementDateRent", "guarantyType", "rightToTermination", "leaseStatus", "propertyMgtName",
-  "propertyMgtPointOfContact", "propertyMgtEmail", "propertyMgtPhoneNumber", "propertyMgtAddress",
+  "techId",
+  "storeName",
+  "marketName",
+  "securityDeposit",
+  "bankInformation",
+  "entityName",
+  "guarantor",
+  "lease_Term",
+  "start_Date",
+  "expiry_Due",
+  "hvac",
+  "exclusivity",
+  "termination",
+  "relocation",
+  "isDeleted",
+  "optionPeriod",
+  "optionPeriodDuration",
+  "ownerAccountNumber",
+  "ownerRoutingNumber",
+  "ownerAccountTitle",
+  "ownerPaymentMode",
+  "ownerBankName",
+  "ownerCheckAddress",
+  "landLordName",
+  "landLordPointOfContact",
+  "landLordContactNumber",
+  "landLordEmail",
+  "landLordAddress",
+  "landLordIndividualOrCompany",
+  "tier",
+  "assignmentDate",
+  "marketManager",
+  "leaseSignedBy",
+  "noticePeriodBeforeTermination",
+  "optionNoticeDate",
+  "subLease",
+  "takeOverDate",
+  "commencementDateRent",
+  "guarantyType",
+  "rightToTermination",
+  "leaseStatus",
+  "propertyMgtName",
+  "propertyMgtPointOfContact",
+  "propertyMgtEmail",
+  "propertyMgtPhoneNumber",
+  "propertyMgtAddress",
 ];
 
 function getDaysLeft(d?: string | null): number | null {
@@ -60,7 +100,9 @@ function getComputedStatus(days: number | null): string {
 }
 
 const fmtDate = (d?: string | null) =>
-  d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+  d
+    ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+    : "—";
 
 interface Row extends LeaseRecord {
   daysLeft: number | null;
@@ -157,21 +199,70 @@ export default function ManageLeasingPage() {
       searchValue: (r) => r.storeName ?? "",
     },
     { key: "techId", header: "Tech ID", accessor: (r) => r.techId || "—" },
-    { key: "market", header: "Market", accessor: (r) => <span className="capitalize">{r.marketName?.toLowerCase() || "—"}</span> },
+    {
+      key: "market",
+      header: "Market",
+      accessor: (r) => <span className="capitalize">{r.marketName?.toLowerCase() || "—"}</span>,
+    },
     {
       key: "tier",
       header: "Tier",
-      accessor: (r) => (r.tier ? <Badge variant="outline" className="border-indigo-300 bg-indigo-50 text-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-400">{r.tier}</Badge> : "—"),
+      accessor: (r) =>
+        r.tier ? (
+          <Badge
+            variant="outline"
+            className="border-indigo-300 bg-indigo-50 text-indigo-800 dark:bg-indigo-950/30 dark:text-indigo-400"
+          >
+            {r.tier}
+          </Badge>
+        ) : (
+          "—"
+        ),
     },
-    { key: "entity", header: "Entity name", accessor: (r) => <span className="capitalize text-muted-foreground">{r.entityName?.toLowerCase() || "—"}</span> },
-    { key: "leaseType", header: "Lease type", accessor: (r) => <span className="text-muted-foreground">{r.lease_Term || "Main Lease"}</span> },
-    { key: "start", header: "Start date", accessor: (r) => <span className="text-muted-foreground">{fmtDate(r.start_Date)}</span> },
-    { key: "expiry", header: "Expiry date", accessor: (r) => <span className="text-muted-foreground">{fmtDate(r.expiry_Due)}</span> },
+    {
+      key: "entity",
+      header: "Entity name",
+      accessor: (r) => (
+        <span className="capitalize text-muted-foreground">
+          {r.entityName?.toLowerCase() || "—"}
+        </span>
+      ),
+    },
+    {
+      key: "leaseType",
+      header: "Lease type",
+      accessor: (r) => (
+        <span className="text-muted-foreground">{r.lease_Term || "Main Lease"}</span>
+      ),
+    },
+    {
+      key: "start",
+      header: "Start date",
+      accessor: (r) => <span className="text-muted-foreground">{fmtDate(r.start_Date)}</span>,
+    },
+    {
+      key: "expiry",
+      header: "Expiry date",
+      accessor: (r) => <span className="text-muted-foreground">{fmtDate(r.expiry_Due)}</span>,
+    },
     {
       key: "days",
       header: "Days left",
       accessor: (r) => (
-        <Badge variant="outline" className={STATUS_TONE[r.daysLeft === null ? "Unknown" : r.daysLeft < 0 ? "Expired" : r.daysLeft <= 30 ? "Expiring Soon" : "Active"]}>
+        <Badge
+          variant="outline"
+          className={
+            STATUS_TONE[
+              r.daysLeft === null
+                ? "Unknown"
+                : r.daysLeft < 0
+                  ? "Expired"
+                  : r.daysLeft <= 30
+                    ? "Expiring Soon"
+                    : "Active"
+            ]
+          }
+        >
           {r.daysLeft === null ? "—" : `${r.daysLeft}d`}
         </Badge>
       ),
@@ -179,16 +270,29 @@ export default function ManageLeasingPage() {
     {
       key: "status",
       header: "Status",
-      accessor: (r) => <Badge variant="outline" className={STATUS_TONE[r.effectiveStatus] ?? STATUS_TONE.Unknown}>{r.effectiveStatus}</Badge>,
+      accessor: (r) => (
+        <Badge variant="outline" className={STATUS_TONE[r.effectiveStatus] ?? STATUS_TONE.Unknown}>
+          {r.effectiveStatus}
+        </Badge>
+      ),
     },
   ];
 
   const handleExport = () => {
-    const exportData = filtered.map((item) => ({ ...item, daysLeft: item.daysLeft ?? "", leaseStatus: item.effectiveStatus }));
-    exportToExcel(exportData as unknown as Record<string, unknown>[], EXPORT_COLUMNS, {}, {
-      sheetName: "Leasing Information",
-      fileName: "Leasing_Information_Sheet",
-    });
+    const exportData = filtered.map((item) => ({
+      ...item,
+      daysLeft: item.daysLeft ?? "",
+      leaseStatus: item.effectiveStatus,
+    }));
+    exportToExcel(
+      exportData as unknown as Record<string, unknown>[],
+      EXPORT_COLUMNS,
+      {},
+      {
+        sheetName: "Leasing Information",
+        fileName: "Leasing_Information_Sheet",
+      },
+    );
   };
 
   const handleRefresh = () => {
@@ -208,7 +312,9 @@ export default function ManageLeasingPage() {
           </div>
           <div>
             <h1 className="font-display text-xl font-semibold">Manage Leases</h1>
-            <p className="text-sm text-muted-foreground">View, filter and manage all store lease records</p>
+            <p className="text-sm text-muted-foreground">
+              View, filter and manage all store lease records
+            </p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -222,30 +328,47 @@ export default function ManageLeasingPage() {
       </div>
 
       <Card className="p-4 flex flex-wrap gap-3">
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="h-9 min-w-[220px] flex-[2]" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search..."
+          className="h-9 min-w-[220px] flex-[2]"
+        />
         <Select value={market} onValueChange={setMarket}>
-          <SelectTrigger className="h-9 w-44"><SelectValue placeholder="Market" /></SelectTrigger>
+          <SelectTrigger className="h-9 w-44">
+            <SelectValue placeholder="Market" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All markets</SelectItem>
             {marketOptions.map((m) => (
-              <SelectItem key={m} value={m}>{m.toLowerCase()}</SelectItem>
+              <SelectItem key={m} value={m}>
+                {m.toLowerCase()}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Select value={tier} onValueChange={setTier}>
-          <SelectTrigger className="h-9 w-36"><SelectValue placeholder="Tier" /></SelectTrigger>
+          <SelectTrigger className="h-9 w-36">
+            <SelectValue placeholder="Tier" />
+          </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All tiers</SelectItem>
             {tierOptions.map((t) => (
-              <SelectItem key={t} value={t}>{t}</SelectItem>
+              <SelectItem key={t} value={t}>
+                {t}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="h-9 w-44"><SelectValue placeholder="Lease status" /></SelectTrigger>
+          <SelectTrigger className="h-9 w-44">
+            <SelectValue placeholder="Lease status" />
+          </SelectTrigger>
           <SelectContent>
             {LEASE_STATUS_OPTIONS.map((o) => (
-              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
