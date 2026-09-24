@@ -1,4 +1,9 @@
-import { RANKER_API_BASE_URL, RANKER_API_PATHS } from "@/lib/config";
+import {
+  API_BASE_URL,
+  MARKET_API_PATHS,
+  RANKER_API_BASE_URL,
+  RANKER_API_PATHS,
+} from "@/lib/config";
 import type {
   RankerAggregatedRecord,
   RankerScoredRecord,
@@ -170,27 +175,66 @@ export class RankerService {
   }
 
   /**
-   * Fetch list of markets from the Ranker API for dropdown filters.
+   * Helper to retrieve the authentication token from storage if available.
+   */
+  private getAuthToken(): string | null {
+    if (typeof window === "undefined") return null;
+    try {
+      return window.localStorage.getItem("token");
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Fetch list of markets from the markets endpoint for dropdown filters.
+   * Endpoint: /api/markets/get-all
    */
   async getMarketList(): Promise<string[]> {
-    const endpoint = `${this.baseUrl}${RANKER_API_PATHS.getMarketList}`;
+    const endpoint = `${API_BASE_URL}${MARKET_API_PATHS.getAll}`;
 
     try {
+      const headers: Record<string, string> = {
+        accept: "application/json, text/plain, */*",
+        "cache-control": "no-cache",
+      };
+
+      const token = this.getAuthToken();
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+        headers["token"] = token;
+      }
+
       const response = await fetch(endpoint, {
         method: "GET",
-        headers: {
-          accept: "application/json, text/plain, */*",
-          "cache-control": "no-cache",
-        },
+        headers,
       });
 
       if (!response.ok) {
         throw new Error(`Failed to fetch market list (${response.status}: ${response.statusText})`);
       }
 
-      const data = await response.json();
-      if (!Array.isArray(data)) return [];
-      return data.map((m) => String(m).trim()).filter(Boolean);
+      const json = await response.json();
+
+      // Handle standard envelope { success: true, message: "...", data: [ { id: 5, name: "ARIZONA", ... } ] }
+      if (json && typeof json === "object" && Array.isArray(json.data)) {
+        return json.data
+          .map((m: any) => (typeof m === "string" ? m : m?.name))
+          .filter((name: any): name is string => Boolean(name && typeof name === "string"))
+          .map((name: string) => name.trim())
+          .filter(Boolean);
+      }
+
+      // Handle raw array fallback if endpoint returns direct array
+      if (Array.isArray(json)) {
+        return json
+          .map((m: any) => (typeof m === "string" ? m : m?.name))
+          .filter((name: any): name is string => Boolean(name && typeof name === "string"))
+          .map((name: string) => name.trim())
+          .filter(Boolean);
+      }
+
+      return [];
     } catch (err) {
       console.error("Error fetching Ranker market list:", err);
       throw err;

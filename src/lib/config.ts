@@ -204,6 +204,5 @@ export const RANKER_API_BASE_URL = (import.meta.env.VITE_RANKER_API_URL as strin
 export const RANKER_API_PATHS = {
   getAggregatedAchieved: "/GetAggregatedAchieved",
   getMonthlyAchieved: "/GetMonthlyAchieved",
-  getMarketList: "/GetMarketList",
   getGoalVsAchievement: "/GetGoalVsAchievement",
 } as const;
