@@ -118,7 +118,10 @@ export const LEASING_COMMISSION_API_BASE_URL =
   "https://leasingapi2.techno-communications.com";
 
 export const COMMISSION_MARKETS_API_URL =
-  "https://9t47yj4np0.execute-api.us-west-2.amazonaws.com/Prod/api/Leave/Markets";
+  (import.meta.env.VITE_COMMISSION_MARKETS_API_URL as string) ||
+  (import.meta.env.VITE_LEASING_URL
+    ? `${import.meta.env.VITE_LEASING_URL}/api/markets/get-all`
+    : "https://leasingapi.techno-communications.com/api/markets/get-all");
 
 export const COMMISSION_API_PATHS = {
   getEmployeeCommission: "/GetEmployeeCommission",

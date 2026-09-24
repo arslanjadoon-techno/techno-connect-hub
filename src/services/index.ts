@@ -19,6 +19,7 @@ export { commissionService, CommissionService } from "./portals/commission";
 export type {
   CommissionRow,
   CommissionMarket,
+  CommissionMarketsApiResponse,
   CommissionPaginationParams,
   CommissionPaginationResponse,
   GetEmployeeCommissionParams,

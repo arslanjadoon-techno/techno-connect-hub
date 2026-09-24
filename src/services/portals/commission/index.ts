@@ -2,6 +2,10 @@ export { CommissionService, commissionService } from "./commission.service";
 export type {
   CommissionRow,
   CommissionMarket,
+  CommissionMarketState,
+  CommissionMarketDistrict,
+  CommissionMarketAssignedUser,
+  CommissionMarketsApiResponse,
   CommissionPaginationParams,
   CommissionPaginationResponse,
   GetEmployeeCommissionParams,

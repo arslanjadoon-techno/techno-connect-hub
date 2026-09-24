@@ -166,16 +166,36 @@ export class CommissionService {
   }
 
   /**
-   * Fetch list of markets from the Leave/Markets endpoint.
-   * Endpoint: https://9t47yj4np0.execute-api.us-west-2.amazonaws.com/Prod/api/Leave/Markets
+   * Retrieves the authentication token from storage if available.
+   */
+  private getAuthToken(): string | null {
+    if (typeof window === "undefined") return null;
+    try {
+      return window.localStorage.getItem("token");
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Fetch list of markets from the markets endpoint.
+   * Endpoint: https://leasingapi.techno-communications.com/api/markets/get-all
    */
   async getMarkets(): Promise<CommissionMarket[]> {
     try {
+      const headers: Record<string, string> = {
+        accept: "application/json, text/plain, */*",
+      };
+
+      const token = this.getAuthToken();
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+        headers["token"] = token;
+      }
+
       const response = await fetch(COMMISSION_MARKETS_API_URL, {
         method: "GET",
-        headers: {
-          accept: "*/*",
-        },
+        headers,
       });
 
       if (!response.ok) {
@@ -183,8 +203,19 @@ export class CommissionService {
         return [];
       }
 
-      const data = await response.json();
-      return Array.isArray(data) ? data : [];
+      const json = await response.json();
+
+      // Handle standard envelope { success: true, message: "...", data: [...] }
+      if (json && typeof json === "object" && Array.isArray(json.data)) {
+        return json.data as CommissionMarket[];
+      }
+
+      // Fallback for direct array response
+      if (Array.isArray(json)) {
+        return json as CommissionMarket[];
+      }
+
+      return [];
     } catch (error) {
       console.error("Error in CommissionService.getMarkets:", error);
       return [];

@@ -49,9 +49,35 @@ export interface CommissionRow {
   [key: string]: unknown;
 }
 
+export interface CommissionMarketState {
+  id: number;
+  name: string;
+}
+
+export interface CommissionMarketDistrict {
+  id: number;
+  name: string;
+}
+
+export interface CommissionMarketAssignedUser {
+  id: number;
+  name: string;
+}
+
 export interface CommissionMarket {
   id: number;
   name: string;
+  state?: CommissionMarketState | null;
+  district?: CommissionMarketDistrict | null;
+  assignedUsers?: CommissionMarketAssignedUser[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CommissionMarketsApiResponse {
+  success: boolean;
+  message: string;
+  data: CommissionMarket[];
 }
 
 export interface CommissionPaginationParams {
