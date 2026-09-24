@@ -1,8 +1,9 @@
 import {
+  API_BASE_URL,
   COMMISSION_API_BASE_URL,
   COMMISSION_API_PATHS,
-  COMMISSION_MARKETS_API_URL,
   LEASING_COMMISSION_API_BASE_URL,
+  MARKET_API_PATHS,
 } from "@/lib/config";
 import type {
   CommissionRow,
@@ -193,7 +194,8 @@ export class CommissionService {
         headers["token"] = token;
       }
 
-      const response = await fetch(COMMISSION_MARKETS_API_URL, {
+      const url = `${API_BASE_URL}${MARKET_API_PATHS.getAll}`;
+      const response = await fetch(url, {
         method: "GET",
         headers,
       });

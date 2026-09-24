@@ -110,18 +110,10 @@ export const USER_PERMISSION_API_PATHS = {
 } as const;
 
 export const COMMISSION_API_BASE_URL =
-  (import.meta.env.VITE_COMMISSION_API_PROD_URL as string) ||
-  "https://idwhjd4bj2.execute-api.us-west-2.amazonaws.com/Prod";
+  (import.meta.env.VITE_COMMISSION_API_PROD_URL as string) || "";
 
 export const LEASING_COMMISSION_API_BASE_URL =
-  (import.meta.env.VITE_LEASING_COMMISSION_API_URL as string) ||
-  "https://leasingapi2.techno-communications.com";
-
-export const COMMISSION_MARKETS_API_URL =
-  (import.meta.env.VITE_COMMISSION_MARKETS_API_URL as string) ||
-  (import.meta.env.VITE_LEASING_URL
-    ? `${import.meta.env.VITE_LEASING_URL}/api/markets/get-all`
-    : "https://leasingapi.techno-communications.com/api/markets/get-all");
+  (import.meta.env.VITE_LEASING_COMMISSION_API_URL as string) || "";
 
 export const COMMISSION_API_PATHS = {
   getEmployeeCommission: "/GetEmployeeCommission",
@@ -159,11 +151,8 @@ export const LEASING_BULK_API_BASE_URL =
 export const LEASING_UPLOAD_API_BASE_URL =
   (import.meta.env.VITE_LEASING_UPLOAD_URL as string) || API_BASE_URL;
 export const LEASING_SHOPPER_API_BASE_URL =
-  (import.meta.env.VITE_LEASING_SHOPPER_URL as string) ||
-  "https://j40adiuh09.execute-api.us-east-2.amazonaws.com/Prod/ShopperTracker";
-export const LEASING_STORE_API_BASE_URL =
-  (import.meta.env.VITE_LEASING_STORE_URL as string) ||
-  "https://8yimb48vw8.execute-api.us-east-2.amazonaws.com/Prod/Store_n_Market";
+  (import.meta.env.VITE_LEASING_SHOPPER_URL as string) || "";
+export const LEASING_STORE_API_BASE_URL = (import.meta.env.VITE_LEASING_STORE_URL as string) || "";
 
 export const LEASING_STORE_PATHS = {
   getMarketDemographics: "/MarketDemographics",
@@ -210,9 +199,7 @@ export const LEASING_API_PATHS = {
   bulkUploadLeaseDetails: "/BulkUploadLeaseDetails",
 } as const;
 
-export const RANKER_API_BASE_URL =
-  (import.meta.env.VITE_RANKER_API_URL as string) ||
-  "https://cz4cn4y5ul.execute-api.us-east-2.amazonaws.com/Prod/Ranker";
+export const RANKER_API_BASE_URL = (import.meta.env.VITE_RANKER_API_URL as string) || "";
 
 export const RANKER_API_PATHS = {
   getAggregatedAchieved: "/GetAggregatedAchieved",
