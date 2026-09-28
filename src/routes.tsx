@@ -12,7 +12,7 @@ import ResetPasswordPage from "@/pages/auth/ResetPasswordPage";
 import Setup2FAPage from "@/pages/auth/Setup2FAPage";
 import Verify2FAPage from "@/pages/auth/Verify2FAPage";
 
-// ---------- Dashboard ---------- //
+// ---------- Application Dashboard ---------- //
 import AiChatPage from "@/pages/ai-chat/AiChatPage";
 import TeamChatPage from "@/pages/team-chat/TeamChatPage";
 import SettingsPage from "@/pages/settings/SettingsPage";
@@ -22,6 +22,9 @@ import TicketingDashboardPage from "@/pages/portals/ticketing/DashboardPage";
 import TicketsPage from "@/pages/portals/ticketing/TicketsPage";
 import TicketDetailPage from "@/pages/portals/ticketing/TicketDetailPage";
 import ExternalPage from "@/pages/portals/ticketing/ExternalPage";
+
+// ---------- Reporting Portal ---------- //
+import ReportingDashboard from "@/pages/portals/reporting/Dashboard";
 
 // ---------- Commission Portal ---------- //
 import CommissionDashboardPage from "@/pages/portals/commission/DashboardPage";
@@ -344,6 +347,7 @@ export function AppRoutes() {
           <Route path="/ranker/rules" element={<RulesPage />} />
           <Route path="/ranker/criteria-details" element={<CriteriaDetailsPage />} />
         </Route>
+        
         {/* ---------- Lease / Scheduling / Ticketing Portals ---------- */}
         <Route
           path="/lease/dashboard"
