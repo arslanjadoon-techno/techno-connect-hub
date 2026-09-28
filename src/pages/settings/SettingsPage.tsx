@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +15,7 @@ import {
   ShieldCheck,
   Loader2,
   Clock,
+  LogOut,
 } from "lucide-react";
 import {
   Select,
@@ -22,9 +24,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { PALETTES, useTheme } from "@/lib/theme";
 import { hierarchyApi, usersApi } from "@/lib/api/client";
+import { useAuth } from "@/lib/auth";
 
 interface StoredUser {
   id: number;
@@ -55,6 +67,8 @@ function writeStoredUser(u: StoredUser) {
 }
 
 export default function SettingsPage() {
+  const navigate = useNavigate();
+  const { logout } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const { palette, setPalette } = useTheme();
 
@@ -126,6 +140,7 @@ export default function SettingsPage() {
   const [showNew, setShowNew] = useState(false);
   const [showConf, setShowConf] = useState(false);
   const [savingPwd, setSavingPwd] = useState(false);
+  const [showPasswordConfirmModal, setShowPasswordConfirmModal] = useState(false);
 
   // Bypass 2FA — backend sourced
   const [bypass2fa, setBypass2fa] = useState<boolean>(Boolean(storedUser?.bypassTwoFactor));
@@ -198,21 +213,35 @@ export default function SettingsPage() {
     }
   };
 
-  const changePassword = async () => {
+  const validatePasswordForm = (): boolean => {
     if (!currentPwd || !newPwd || !confirmPwd) {
       toast.error("All password fields are required");
-      return;
+      return false;
     }
     if (newPwd.length < 8) {
       toast.error("New password must be at least 8 characters");
-      return;
+      return false;
     }
     if (newPwd !== confirmPwd) {
       toast.error("Passwords do not match");
-      return;
+      return false;
     }
     if (newPwd === currentPwd) {
-      toast.error("New password must differ from current");
+      toast.error("New password must differ from current password");
+      return false;
+    }
+    return true;
+  };
+
+  const handleUpdatePasswordClick = () => {
+    if (validatePasswordForm()) {
+      setShowPasswordConfirmModal(true);
+    }
+  };
+
+  const confirmChangePassword = async () => {
+    if (!validatePasswordForm()) {
+      setShowPasswordConfirmModal(false);
       return;
     }
     try {
@@ -222,11 +251,24 @@ export default function SettingsPage() {
         oldPassword: currentPwd,
         newPassword: newPwd,
       });
-      toast.success(res.message || "Password updated successfully");
+
+      setShowPasswordConfirmModal(false);
+      toast.success(
+        res.message ||
+          "Password updated successfully. Logging out, please sign in with your new password.",
+      );
+
       setCurrentPwd("");
       setNewPwd("");
       setConfirmPwd("");
+
+      // Log out user and redirect to login screen
+      setTimeout(() => {
+        logout();
+        navigate("/login", { replace: true });
+      }, 600);
     } catch (err: any) {
+      setShowPasswordConfirmModal(false);
       toast.error(err?.message || "Password update failed");
     } finally {
       setSavingPwd(false);
@@ -396,7 +438,12 @@ export default function SettingsPage() {
           />
         </div>
         <div className="mt-6 flex justify-end">
-          <Button onClick={changePassword} disabled={savingPwd} className="hover-lift">
+          <Button
+            type="button"
+            onClick={handleUpdatePasswordClick}
+            disabled={savingPwd}
+            className="hover-lift"
+          >
             {savingPwd && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Update password
           </Button>
@@ -520,6 +567,52 @@ export default function SettingsPage() {
           })}
         </div>
       </Card>
+
+      {/* Password Change Confirmation Modal */}
+      <AlertDialog
+        open={showPasswordConfirmModal}
+        onOpenChange={(open) => {
+          if (!savingPwd) setShowPasswordConfirmModal(open);
+        }}
+      >
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <div className="mx-auto sm:mx-0 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 mb-2">
+              <LogOut className="h-6 w-6" />
+            </div>
+            <AlertDialogTitle className="text-lg font-semibold text-foreground">
+              Confirm Password Update
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground leading-relaxed">
+              Updating your password will immediately log you out of the application. You will need
+              to log in again using your new password. Are you sure you want to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+            <AlertDialogCancel
+              disabled={savingPwd}
+              onClick={() => setShowPasswordConfirmModal(false)}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              disabled={savingPwd}
+              onClick={confirmChangePassword}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              {savingPwd ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Confirm & Update"
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
