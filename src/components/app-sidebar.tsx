@@ -78,7 +78,7 @@ const topItems: Item[] = [
   { title: "Team Chat", url: "/chat", icon: MessagesSquare },
 ];
 
-const PORTAL_ORDER = ["commission", "leasing", "ranker", "ticketing", "leave", "scheduling"];
+const PORTAL_ORDER = ["commission", "leasing", "ranker", "ticketing", "leave", "scheduling", "reporting"];
 
 const MASTER_PORTAL_GROUPS: Record<string, Group> = {
   commission: {
@@ -175,6 +175,11 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     title: "Scheduling",
     icon: CalendarDays,
     items: [{ title: "Dashboard", url: "/scheduling/dashboard", icon: BarChart3 }],
+  },
+  reporting: {
+    title: "Reporting",
+    icon: BarChart3,
+    items: [{ title: "Dashboard", url: "/reporting/dashboard", icon: LayoutDashboard }],
   },
 };
 
@@ -364,7 +369,8 @@ function getCurrentPortalRole(user: any, pathname: string): string {
         (currentPortal === "scheduling" && (pn.includes("schedul") || pn.includes("attendance"))) ||
         (currentPortal === "ticketing" && pn.includes("ticket")) ||
         (currentPortal === "leasing" && pn.includes("leas")) ||
-        (currentPortal === "ranker" && pn.includes("rank"))
+        (currentPortal === "ranker" && pn.includes("rank")) ||
+        (currentPortal === "reporting" && pn.includes("report"))
       );
     });
     if (access?.roleName) {
@@ -451,6 +457,9 @@ export function AppSidebar() {
   const isPortalAllowed = (portalKey: string): boolean => {
     const target = norm(portalKey);
 
+    // Reporting portal default visibility
+    if (target === "reporting") return true;
+
     // 1. Check assignedPortals list
     const inAssigned = allowedPortalsList.some((p: string) => {
       const pNorm = norm(p);
@@ -461,7 +470,8 @@ export function AppSidebar() {
         (target === "ticketing" && pNorm.includes("ticket")) ||
         (target === "leasing" && pNorm.includes("leas")) ||
         (target === "commission" && pNorm.includes("commiss")) ||
-        (target === "ranker" && pNorm.includes("rank"))
+        (target === "ranker" && pNorm.includes("rank")) ||
+        (target === "reporting" && pNorm.includes("report"))
       );
     });
     if (inAssigned) return true;
@@ -476,7 +486,8 @@ export function AppSidebar() {
         (target === "ticketing" && pNorm.includes("ticket")) ||
         (target === "leasing" && pNorm.includes("leas")) ||
         (target === "commission" && pNorm.includes("commiss")) ||
-        (target === "ranker" && pNorm.includes("rank"))
+        (target === "ranker" && pNorm.includes("rank")) ||
+        (target === "reporting" && pNorm.includes("report"))
       );
     });
     return inAccess;
@@ -493,7 +504,8 @@ export function AppSidebar() {
         (target === "ticketing" && pNorm.includes("ticket")) ||
         (target === "leasing" && pNorm.includes("leas")) ||
         (target === "commission" && pNorm.includes("commiss")) ||
-        (target === "ranker" && pNorm.includes("rank"))
+        (target === "ranker" && pNorm.includes("rank")) ||
+        (target === "reporting" && pNorm.includes("report"))
       );
     });
     return access?.roleName?.toLowerCase() ?? "";

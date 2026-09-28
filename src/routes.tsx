@@ -187,6 +187,7 @@ function PortalRouteGuard({ portalKey, children }: { portalKey: string; children
       const target = norm(portalKey);
 
       isAllowed =
+        target === "reporting" ||
         assigned.some((p: string) => {
           const pNorm = norm(p);
           return (
@@ -197,7 +198,8 @@ function PortalRouteGuard({ portalKey, children }: { portalKey: string; children
             (target === "ticketing" && pNorm.includes("ticket")) ||
             (target === "leasing" && pNorm.includes("leas")) ||
             (target === "commission" && pNorm.includes("commiss")) ||
-            (target === "ranker" && pNorm.includes("rank"))
+            (target === "ranker" && pNorm.includes("rank")) ||
+            (target === "reporting" && pNorm.includes("report"))
           );
         }) ||
         access.some((p: any) => {
@@ -210,7 +212,8 @@ function PortalRouteGuard({ portalKey, children }: { portalKey: string; children
             (target === "ticketing" && pNorm.includes("ticket")) ||
             (target === "leasing" && pNorm.includes("leas")) ||
             (target === "commission" && pNorm.includes("commiss")) ||
-            (target === "ranker" && pNorm.includes("rank"))
+            (target === "ranker" && pNorm.includes("rank")) ||
+            (target === "reporting" && pNorm.includes("report"))
           );
         });
     }
@@ -347,7 +350,7 @@ export function AppRoutes() {
           <Route path="/ranker/rules" element={<RulesPage />} />
           <Route path="/ranker/criteria-details" element={<CriteriaDetailsPage />} />
         </Route>
-        
+
         {/* ---------- Lease / Scheduling / Ticketing Portals ---------- */}
         <Route
           path="/lease/dashboard"
@@ -474,6 +477,23 @@ export function AppRoutes() {
           element={
             <PortalRouteGuard portalKey="ticketing">
               <ComingSoon title="Ticketing Portal Dashboard" />
+            </PortalRouteGuard>
+          }
+        />
+        {/* ---------- Reporting Portal ---------- */}
+        <Route
+          path="/reporting"
+          element={
+            <PortalRouteGuard portalKey="reporting">
+              <Navigate to="/reporting/dashboard" replace />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/reporting/dashboard"
+          element={
+            <PortalRouteGuard portalKey="reporting">
+              <ReportingDashboard />
             </PortalRouteGuard>
           }
         />

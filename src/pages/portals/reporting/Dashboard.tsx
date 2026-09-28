@@ -1,10 +1,5 @@
-import React from 'react';
-import { 
-  Bell, 
-  ChevronDown, 
-  Sidebar, 
-  Construction 
-} from 'lucide-react';
+import React from "react";
+import { Bell, ChevronDown, Sidebar, Construction } from "lucide-react";
 
 const ReportingDashboard: React.FC = () => {
   return (
@@ -13,7 +8,7 @@ const ReportingDashboard: React.FC = () => {
       <header className="h-16 bg-white border-b border-gray-200 px-6 flex items-center justify-between shadow-sm">
         {/* Left Side: Sidebar Toggle Icon */}
         <div className="flex items-center">
-          <button 
+          <button
             className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition"
             aria-label="Toggle Sidebar"
           >
@@ -24,7 +19,7 @@ const ReportingDashboard: React.FC = () => {
         {/* Right Side: Notifications & User Profile */}
         <div className="flex items-center space-x-5">
           {/* Notification Icon */}
-          <button 
+          <button
             className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-full transition relative"
             aria-label="Notifications"
           >
@@ -43,9 +38,7 @@ const ReportingDashboard: React.FC = () => {
               <span className="text-sm font-semibold text-gray-900 leading-none">
                 Default Admin
               </span>
-              <span className="text-xs text-amber-500 font-medium mt-1 leading-none">
-                Admin
-              </span>
+              <span className="text-xs text-amber-500 font-medium mt-1 leading-none">Admin</span>
             </div>
 
             {/* Dropdown Arrow */}
