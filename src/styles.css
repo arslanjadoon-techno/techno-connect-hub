@@ -1,6 +1,134 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Reporting uses the palette selected in Settings (techno-palette). */
+[data-reporting-theme] .text-\[\#7600bc\] {
+  color: var(--primary) !important;
+}
+[data-reporting-theme] .bg-\[\#7600bc\] {
+  background-color: var(--primary) !important;
+}
+[data-reporting-theme] .border-\[\#7600bc\] {
+  border-color: var(--primary) !important;
+}
+[data-reporting-theme] .hover\:bg-\[\#7600bc\]:hover {
+  background-color: var(--primary) !important;
+}
+[data-reporting-theme] .hover\:border-\[\#7600bc\]:hover {
+  border-color: var(--primary) !important;
+}
+[data-reporting-theme] .text-\[\#5d0096\],
+[data-reporting-theme] .text-\[\#65009d\],
+[data-reporting-theme] .text-\[\#42117d\],
+[data-reporting-theme] .text-\[\#501477\],
+[data-reporting-theme] .text-\[\#3f2354\] {
+  color: color-mix(in oklab, var(--primary) 82%, #000) !important;
+}
+[data-reporting-theme] .bg-\[\#8c18d8\],
+[data-reporting-theme] .bg-\[\#b100d8\] {
+  background-color: var(--primary-glow) !important;
+}
+[data-reporting-theme] .border-\[\#8c18d8\],
+[data-reporting-theme] .border-\[\#65009d\] {
+  border-color: var(--primary-glow) !important;
+}
+[data-reporting-theme] .text-\[\#42117d\],
+[data-reporting-theme] .text-\[\#5b167e\] {
+  color: var(--primary) !important;
+}
+[data-reporting-theme] .border-\[\#176b87\] {
+  border-color: var(--primary) !important;
+}
+[data-reporting-theme] .text-\[\#176b87\] {
+  color: var(--primary) !important;
+}
+[data-reporting-theme] .bg-\[\#501477\] {
+  background-color: var(--primary) !important;
+}
+.dark [data-reporting-theme] .bg-\[\#ead8f6\],
+.dark [data-reporting-theme] .bg-\[\#d8b7ed\],
+.dark [data-reporting-theme] .bg-\[\#c89ee8\],
+.dark [data-reporting-theme] .bg-\[\#c39be0\] {
+  background-color: var(--muted) !important;
+}
+.dark [data-reporting-theme] .border-\[\#b487d2\] {
+  border-color: var(--border) !important;
+}
+.dark [data-reporting-theme] .text-\[\#382242\],
+.dark [data-reporting-theme] .text-\[\#2f173e\] {
+  color: var(--foreground) !important;
+}
+[data-reporting-theme] .bg-\[\#f5e8ff\],
+[data-reporting-theme] .bg-\[\#f4ecff\],
+[data-reporting-theme] .bg-\[\#f2ebff\],
+[data-reporting-theme] .bg-\[\#fbf8ff\] {
+  background-color: color-mix(in oklab, var(--primary) 8%, white) !important;
+}
+[data-reporting-theme] .border-\[\#e5daf7\],
+[data-reporting-theme] .border-\[\#eadcf2\],
+[data-reporting-theme] .border-\[\#dec9eb\] {
+  border-color: color-mix(in oklab, var(--primary) 22%, white) !important;
+}
+
+/* Keep Reporting surfaces readable when the global dark theme is selected. */
+.dark [data-reporting-theme] {
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+}
+.dark [data-reporting-theme] .bg-white,
+.dark [data-reporting-theme] .bg-\[\#f8f9fc\],
+.dark [data-reporting-theme] .bg-\[\#fbfbfb\],
+.dark [data-reporting-theme] .bg-\[\#fbf8ff\],
+.dark [data-reporting-theme] .bg-\[\#fff8fb\] {
+  background-color: var(--card) !important;
+}
+.dark [data-reporting-theme] .text-\[\#2d3033\],
+.dark [data-reporting-theme] .text-\[\#3f3548\],
+.dark [data-reporting-theme] .text-\[\#4a4250\],
+.dark [data-reporting-theme] .text-\[\#6a5a75\] {
+  color: var(--foreground) !important;
+}
+.dark [data-reporting-theme] .border-\[\#eadcf2\],
+.dark [data-reporting-theme] .border-\[\#e5daf7\] {
+  border-color: var(--border) !important;
+}
+.dark [data-reporting-theme] .bg-\[\#faf7ff\],
+.dark [data-reporting-theme] .bg-\[\#f2ebff\],
+.dark [data-reporting-theme] .bg-\[\#ede2ff\] {
+  background-color: var(--muted) !important;
+}
+.dark [data-reporting-theme] .bg-white\/70 {
+  background-color: color-mix(in oklab, var(--background) 70%, transparent) !important;
+}
+.dark [data-reporting-theme] .report-section {
+  background-color: var(--card) !important;
+  border-color: var(--primary) !important;
+}
+.dark [data-reporting-theme] input,
+.dark [data-reporting-theme] select,
+.dark [data-reporting-theme] button:not(.bg-\[\#7600bc\]) {
+  color: var(--foreground);
+}
+.dark [data-reporting-theme] .text-\[\#3f2354\],
+.dark [data-reporting-theme] .text-\[\#5d5362\],
+.dark [data-reporting-theme] .text-\[\#4f4654\],
+.dark [data-reporting-theme] .text-\[\#302836\],
+.dark [data-reporting-theme] .text-\[\#2d3033\] {
+  color: var(--foreground) !important;
+}
+.dark [data-reporting-theme] .bg-\[\#f5e8ff\],
+.dark [data-reporting-theme] .bg-\[\#ead7f7\],
+.dark [data-reporting-theme] .bg-\[\#fbf3ff\],
+.dark [data-reporting-theme] .bg-\[\#fcfaff\] {
+  background-color: var(--muted) !important;
+}
+.dark [data-reporting-theme] .border-\[\#dcc9e8\],
+.dark [data-reporting-theme] .border-\[\#ccb5dc\],
+.dark [data-reporting-theme] .border-\[\#eee5f3\],
+.dark [data-reporting-theme] .border-\[\#e0d2e8\] {
+  border-color: var(--border) !important;
+}
+
 /* Auth screens default palette (Royal Blue & Violet) */
 .auth-standard {
   --primary: #1656f0;

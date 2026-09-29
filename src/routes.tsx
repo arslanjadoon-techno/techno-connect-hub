@@ -76,6 +76,9 @@ import CreatePermissionPage from "@/pages/user-manager/permissions/CreatePermiss
 import AssignPermissionsPage from "@/pages/user-manager/permissions/AssignPermissionsPage";
 import NotFoundInApp from "@/pages/shell/NotFoundInApp";
 import ComingSoon from "@/pages/shell/ComingSoon";
+import ReportingApp from "./pages/portals/reporting/ReportingApp";
+import StoreWisePdCompensationPage from "./pages/portals/reporting/store-wise-pd-compensation/page";
+import RetentionActivationPage from "./pages/portals/reporting/retention-activation/page";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -485,15 +488,31 @@ export function AppRoutes() {
           path="/reporting"
           element={
             <PortalRouteGuard portalKey="reporting">
-              <Navigate to="/reporting/dashboard" replace />
+              <Navigate to="/reporting/pd-compensation" replace />
             </PortalRouteGuard>
           }
         />
         <Route
-          path="/reporting/dashboard"
+          path="/reporting/pd-compensation"
           element={
             <PortalRouteGuard portalKey="reporting">
-              <ReportingDashboard />
+              <ReportingApp initialView="pd-compensation" />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/reporting/store-wise-pd-compensation"
+          element={
+            <PortalRouteGuard portalKey="reporting">
+              <StoreWisePdCompensationPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/reporting/retention-activation"
+          element={
+            <PortalRouteGuard portalKey="reporting">
+              <RetentionActivationPage />
             </PortalRouteGuard>
           }
         />
