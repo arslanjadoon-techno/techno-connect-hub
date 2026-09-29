@@ -7,29 +7,31 @@ import { Card } from "@/components/ui/card";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { ArrowLeft, Mail, ShieldCheck, Smartphone, Copy, CheckCircle2 } from "lucide-react";
 import { authApi, type TwoFaSetupData } from "@/lib/api/client";
+import { authService } from "@/services/auth";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import AuthHero from "./AuthHero";
 import ThemedQRCode from "./ThemedQRCode";
 
-/**
- * Two-step 2FA setup. Two entry paths:
- *   A. Direct visit / settings — user types email, we call /auth/2fa/setup for a QR.
- *   B. Redirected from /auth/login when backend returned qrCodeUrl+secretKey directly
- *      (Case 3 of the auth doc). The QR is read from location.state, no extra call.
- * After scanning, POST /auth/2fa/verify-and-enable returns a JWT — store it and
- * navigate straight to the dashboard (Case 3 final step).
- */
 export default function Setup2FAPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
   const stateData = (location.state ?? null) as {
     email?: string;
+    partialToken?: string;
+    qrCode?: string;
+    userName?: string;
+    userId?: number;
     secretKey?: string;
     qrCodeUrl?: string;
   } | null;
+
   const initialEmail = stateData?.email ?? params.get("email") ?? "";
+  const partialToken = stateData?.partialToken ?? "";
+  const qrCodeBase64 = stateData?.qrCode ?? "";
+  const userName = stateData?.userName ?? "";
+
   const { setSession } = useAuth();
   const [email, setEmail] = useState(initialEmail);
   const [setup, setSetup] = useState<TwoFaSetupData | null>(
@@ -41,9 +43,9 @@ export default function Setup2FAPage() {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
 
-  // Auto-trigger setup only when arriving with an email but no pre-fetched QR.
+  // Auto-trigger setup only when arriving with an email but no pre-fetched QR or partial token.
   useEffect(() => {
-    if (initialEmail && !setup) handleSetup(initialEmail);
+    if (initialEmail && !setup && !qrCodeBase64) handleSetup(initialEmail);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -53,9 +55,9 @@ export default function Setup2FAPage() {
     try {
       const res = await authApi.twoFaSetup(addr.trim());
       setSetup(res.data);
-      toast.success("Scan the QR with Google Authenticator");
-    } catch (err) {
-      toast.error((err as Error).message);
+      toast.success("Scan the QR code with Google Authenticator");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to generate QR code");
     } finally {
       setLoading(false);
     }
@@ -66,8 +68,19 @@ export default function Setup2FAPage() {
     if (code.length < 6) return;
     setLoading(true);
     try {
+      // Primary TOTP verify flow using partialToken
+      if (partialToken) {
+        const res = await authService.totpVerify(partialToken, code.trim());
+        if (res?.data?.token && res?.data?.user) {
+          setSession(res.data.token, res.data.user);
+          toast.success(res.message || "2FA verified — signed in successfully");
+          navigate("/ai-chat");
+          return;
+        }
+      }
+
+      // Fallback for settings-based 2FA enable flow
       const res: any = await authApi.twoFaVerifyEnable(email.trim(), code.trim());
-      // New backend returns token+user here; if present, log the user straight in.
       if (res?.data?.token && res?.data?.user) {
         setSession(res.data.token, res.data.user);
         toast.success("2FA enabled — signed in");
@@ -77,8 +90,8 @@ export default function Setup2FAPage() {
       toast.success("2FA enabled successfully");
       setDone(true);
       setTimeout(() => navigate("/login"), 1500);
-    } catch (err) {
-      toast.error((err as Error).message);
+    } catch (err: any) {
+      toast.error(err?.message || "Invalid verification code. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -90,11 +103,19 @@ export default function Setup2FAPage() {
     toast.success("Secret copied");
   }
 
+  const qrImageSrc = qrCodeBase64
+    ? qrCodeBase64.startsWith("data:image")
+      ? qrCodeBase64
+      : `data:image/png;base64,${qrCodeBase64}`
+    : null;
+
+  const hasQrAvailable = Boolean(qrImageSrc || setup?.qrCodeUrl);
+
   return (
     <div className="relative grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
       <AuthHero
         title="Protect your account with Google Authenticator."
-        subtitle="Add a second layer of security. Scan the QR with the Google Authenticator app, then enter the 6-digit code to enable 2FA."
+        subtitle="Add a second layer of security. Scan the QR code with Google Authenticator, then enter the 6-digit code to complete sign in."
       />
 
       <div className="flex items-center justify-center bg-muted/40 p-6 lg:pl-16">
@@ -114,7 +135,7 @@ export default function Setup2FAPage() {
               <h2 className="font-display text-2xl font-semibold">2FA enabled</h2>
               <p className="text-sm text-muted-foreground">Redirecting you to sign in…</p>
             </div>
-          ) : !setup ? (
+          ) : !hasQrAvailable ? (
             <div className="animate-fade-in">
               <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <ShieldCheck className="h-6 w-6" />
@@ -154,29 +175,49 @@ export default function Setup2FAPage() {
             <div className="animate-fade-in">
               <h2 className="font-display text-2xl font-semibold">Scan with Authenticator</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Open Google Authenticator and scan the code below. Then enter the 6-digit code it
-                shows.
+                Open Google Authenticator and scan the QR code below. Then enter the 6-digit code to
+                continue.
               </p>
 
+              {/* QR Display */}
               <div className="mt-5 flex flex-col items-center">
-                <ThemedQRCode qrCodeUrl={setup.qrCodeUrl} size={220} />
+                {qrImageSrc ? (
+                  <div className="p-3 bg-white rounded-2xl border shadow-sm flex items-center justify-center">
+                    <img
+                      src={qrImageSrc}
+                      alt="Two-factor authentication QR code"
+                      className="w-56 h-56 object-contain"
+                    />
+                  </div>
+                ) : setup?.qrCodeUrl ? (
+                  <ThemedQRCode qrCodeUrl={setup.qrCodeUrl} size={220} />
+                ) : null}
+
+                {userName && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Account: <span className="font-semibold text-foreground">{userName}</span>
+                  </p>
+                )}
               </div>
 
-              <div className="mt-4 rounded-xl border bg-muted/40 p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-                      <Smartphone className="h-3 w-3" /> Manual setup key
+              {/* Secret key fallback if available */}
+              {setup?.secretKey && (
+                <div className="mt-4 rounded-xl border bg-muted/40 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+                        <Smartphone className="h-3 w-3" /> Manual setup key
+                      </div>
+                      <div className="mt-1 truncate font-mono text-sm font-medium">
+                        {setup.secretKey}
+                      </div>
                     </div>
-                    <div className="mt-1 truncate font-mono text-sm font-medium">
-                      {setup.secretKey}
-                    </div>
+                    <Button type="button" size="sm" variant="outline" onClick={copySecret}>
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
-                  <Button type="button" size="sm" variant="outline" onClick={copySecret}>
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
                 </div>
-              </div>
+              )}
 
               <form onSubmit={handleVerify} className="mt-6 space-y-5">
                 <div className="space-y-2">
@@ -196,7 +237,7 @@ export default function Setup2FAPage() {
                   </div>
                 </div>
                 <Button type="submit" className="h-11 w-full" disabled={loading || code.length < 6}>
-                  {loading ? "Verifying..." : "Verify & enable 2FA"}
+                  {loading ? "Verifying..." : "Verify & sign in"}
                 </Button>
               </form>
             </div>

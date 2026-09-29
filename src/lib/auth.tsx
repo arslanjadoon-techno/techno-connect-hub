@@ -9,12 +9,28 @@ import {
 } from "react";
 import type { Department, Role, User } from "./types";
 import { ALL_DEPARTMENTS } from "./types";
-import { authApi, setToken, setStoredUser, getStoredUser, type BackendUser } from "./api/client";
+import { setToken, setStoredUser, getStoredUser, type BackendUser } from "./api/client";
+import { authService } from "@/services/auth";
 
 export type LoginResult =
   | { kind: "authenticated"; user: User }
-  | { kind: "setup2fa"; email: string; secretKey: string; qrCodeUrl: string }
-  | { kind: "verify2fa"; email: string };
+  | {
+      kind: "setup2fa";
+      email: string;
+      partialToken?: string;
+      qrCode?: string;
+      userName?: string;
+      userId?: number;
+      secretKey?: string;
+      qrCodeUrl?: string;
+    }
+  | {
+      kind: "verify2fa";
+      email: string;
+      partialToken?: string;
+      userName?: string;
+      userId?: number;
+    };
 
 interface AuthCtx {
   user: User | null;
@@ -116,27 +132,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string): Promise<LoginResult> => {
-      // apiRequest already throws when success=false (blocked account → message surfaces in toast).
-      const res = await authApi.login(email, password);
+      const res = await authService.totpLogin(email, password);
       const d: any = res.data ?? {};
 
-      // Case 2: Bypass-2FA — backend returned a usable JWT immediately.
+      // Case 1: First-time setup (QR Code screen)
+      if (d.requiresSetup === true || d.qrCode) {
+        return {
+          kind: "setup2fa",
+          email,
+          partialToken: d.partialToken,
+          qrCode: d.qrCode,
+          userName: d.userName,
+          userId: d.userID ?? d.userId,
+          secretKey: d.secretKey ?? "",
+          qrCodeUrl: d.qrCodeUrl ?? "",
+        };
+      }
+
+      // Case 2: Already registered in authenticator app (Code entry screen)
+      if (d.requiresTotp === true) {
+        return {
+          kind: "verify2fa",
+          email,
+          partialToken: d.partialToken,
+          userName: d.userName,
+          userId: d.userID ?? d.userId,
+        };
+      }
+
+      // Case 3: 2FA Bypassed (Direct Login)
       if (d.token) {
         const user = setSession(d.token as string, d.user);
         return { kind: "authenticated", user };
       }
 
-      // Case 3: First-time setup — backend returned a QR + secret to register the device.
-      if (d.qrCodeUrl) {
-        return {
-          kind: "setup2fa",
-          email,
-          secretKey: d.secretKey ?? "",
-          qrCodeUrl: d.qrCodeUrl as string,
-        };
-      }
-
-      // Case 4: Subsequent login — only the 6-digit verification step remains.
       return { kind: "verify2fa", email };
     },
     [setSession],

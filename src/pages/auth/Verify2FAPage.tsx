@@ -1,4 +1,4 @@
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -6,40 +6,57 @@ import { Label } from "@/components/ui/label";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import { authApi } from "@/lib/api/client";
+import { authService } from "@/services/auth";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import AuthHero from "./AuthHero";
 
-/**
- * Step 2 of login when 2FA is enabled. Reached automatically after
- * /auth/login returns requires2FA. Submits to /auth/login/verify-2fa
- * and stores the returned session.
- */
 export default function Verify2FAPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [params] = useSearchParams();
-  const email = params.get("email") ?? "";
+
+  const stateData = (location.state ?? null) as {
+    email?: string;
+    partialToken?: string;
+    userName?: string;
+    userId?: number;
+  } | null;
+
+  const email = stateData?.email ?? params.get("email") ?? "";
+  const partialToken = stateData?.partialToken ?? "";
+  const userName = stateData?.userName ?? "";
+
   const { setSession } = useAuth();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) {
-      toast.error("Missing email. Sign in again.");
-      navigate("/login");
-      return;
-    }
     if (code.length < 6) return;
     setLoading(true);
     try {
-      const res = await authApi.twoFaLoginVerify(email, code.trim());
-
-      setSession(res.data.token, res.data.user);
-      toast.success("Signed in successfully");
-      navigate("/ai-chat");
-    } catch (err) {
-      toast.error((err as Error).message);
+      if (partialToken) {
+        const res = await authService.totpVerify(partialToken, code.trim());
+        if (res?.data?.token && res?.data?.user) {
+          setSession(res.data.token, res.data.user);
+          toast.success(res.message || "Signed in successfully");
+          navigate("/ai-chat");
+          return;
+        }
+      } else if (email) {
+        const res = await authApi.twoFaLoginVerify(email, code.trim());
+        setSession(res.data.token, res.data.user);
+        toast.success(res.message || "Signed in successfully");
+        navigate("/ai-chat");
+        return;
+      } else {
+        toast.error("Session expired. Please sign in again.");
+        navigate("/login");
+        return;
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Invalid verification code. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -49,7 +66,7 @@ export default function Verify2FAPage() {
     <div className="relative grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
       <AuthHero
         title="One more step to keep your account safe."
-        subtitle="Open Google Authenticator and enter the 6-digit code generated for Techno MIS."
+        subtitle="Open Google Authenticator and enter the 6-digit code to complete sign in."
       />
 
       <div className="flex items-center justify-center bg-muted/40 p-6 lg:pl-16">
@@ -66,8 +83,11 @@ export default function Verify2FAPage() {
           </div>
           <h2 className="font-display text-2xl font-semibold">Two-factor verification</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Enter the 6-digit code for{" "}
-            <span className="font-medium text-foreground">{email || "your account"}</span>.
+            Enter the 6-digit verification code for{" "}
+            <span className="font-medium text-foreground">
+              {userName ? `${userName} (${email || "your account"})` : email || "your account"}
+            </span>
+            .
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-5">

@@ -9,7 +9,9 @@ export const API_BASE_URL = import.meta.env.VITE_API_DEV_URL as string | "N/A";
 
 /** Auth endpoints (no `/api` prefix per backend contract). */
 export const AUTH_PATHS = {
-  login: "/auth/login",
+  login: "/auth/totp-login",
+  totpLogin: "/auth/totp-login",
+  totpVerify: "/auth/totp/verify",
   forgotPassword: "/auth/forgot-password",
   verifyOtp: "/auth/verify-otp",
   resetPassword: "/auth/reset-password",

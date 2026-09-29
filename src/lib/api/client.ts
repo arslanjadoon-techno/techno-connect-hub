@@ -127,13 +127,20 @@ export interface TwoFaSetupData {
 }
 
 export const authApi = {
+  totpLogin: (email: string, password: string) =>
+    apiRequest<any>(AUTH_PATHS.totpLogin, {
+      method: "POST",
+      body: { email, password },
+      auth: false,
+    }),
+  totpVerify: (partialToken: string, code: string) =>
+    apiRequest<{ token: string; user: BackendUser; permissions?: any[] }>(AUTH_PATHS.totpVerify, {
+      method: "POST",
+      body: { partialToken, code },
+      auth: false,
+    }),
   login: (email: string, password: string) =>
-    apiRequest<{
-      token?: string;
-      user?: BackendUser;
-      requires2FA?: boolean;
-      twoFactorRequired?: boolean;
-    }>(AUTH_PATHS.login, {
+    apiRequest<any>(AUTH_PATHS.login, {
       method: "POST",
       body: { email, password },
       auth: false,
