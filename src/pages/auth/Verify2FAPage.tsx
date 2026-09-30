@@ -30,7 +30,6 @@ export default function Verify2FAPage() {
   const { setSession } = useAuth();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resetting, setResetting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,27 +62,16 @@ export default function Verify2FAPage() {
     }
   };
 
-  const handleReset2Fa = async () => {
+  const handleOpenReset2Fa = () => {
     const userIdentifier = email.trim();
-    if (!userIdentifier) {
-      toast.error("User email or ID is missing. Please sign in again.");
-      navigate("/login");
-      return;
-    }
-
-    setResetting(true);
-    try {
-      const res = await authService.reset2Fa(userIdentifier);
-      toast.success(
-        res.message ||
-          "Two-Factor Authentication reset — the user will be asked to set it up again on next login.",
-      );
-      navigate("/login", { replace: true });
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to reset Two-Factor Authentication. Please try again.");
-    } finally {
-      setResetting(false);
-    }
+    navigate(`/reset-2fa${userIdentifier ? `?email=${encodeURIComponent(userIdentifier)}` : ""}`, {
+      state: {
+        email: userIdentifier,
+        userName,
+        userId: stateData?.userId,
+        partialToken,
+      },
+    });
   };
 
   return (
@@ -136,13 +124,11 @@ export default function Verify2FAPage() {
             </Button>
             <button
               type="button"
-              onClick={handleReset2Fa}
-              disabled={resetting || loading}
+              onClick={handleOpenReset2Fa}
+              disabled={loading}
               className="block w-full text-center text-xs text-muted-foreground transition hover:text-foreground hover:underline disabled:opacity-50 cursor-pointer"
             >
-              {resetting
-                ? "Resetting Google Authenticator..."
-                : "Need to set up Google Authenticator?"}
+              Need to set up Google Authenticator?
             </button>
           </form>
         </Card>

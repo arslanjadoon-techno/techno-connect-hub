@@ -11,6 +11,7 @@ import ForgotPasswordPage from "@/pages/auth/ForgotPasswordPage";
 import ResetPasswordPage from "@/pages/auth/ResetPasswordPage";
 import Setup2FAPage from "@/pages/auth/Setup2FAPage";
 import Verify2FAPage from "@/pages/auth/Verify2FAPage";
+import Reset2FAPage from "@/pages/auth/Reset2FAPage";
 
 // ---------- Application Dashboard ---------- //
 import AiChatPage from "@/pages/ai-chat/AiChatPage";
@@ -259,6 +260,7 @@ export function AppRoutes() {
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route path="/setup-2fa" element={<Setup2FAPage />} />
       <Route path="/verify-2fa" element={<Verify2FAPage />} />
+      <Route path="/reset-2fa" element={<Reset2FAPage />} />
       <Route
         element={
           <ProtectedRoute>
