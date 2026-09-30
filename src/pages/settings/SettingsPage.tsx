@@ -403,7 +403,7 @@ export default function SettingsPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Email</Label>
+            <Label>Email / NTID</Label>
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div className="space-y-1.5">
@@ -411,7 +411,7 @@ export default function SettingsPage() {
             <Input
               value={phone ?? ""}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="+1 555 555 5555"
+              placeholder="+1 (123) 456-7890"
             />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
