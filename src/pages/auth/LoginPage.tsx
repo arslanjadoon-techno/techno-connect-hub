@@ -59,7 +59,7 @@ export default function LoginPage() {
       const data = (result.data || {}) as any;
 
       // 2. CASE 1: First time user - 2FA setup required (QR Code screen)
-      if (data.requiresSetup === true || data.qrCode) {
+      if (data.requiresSetup === true || data.qrCode || data.qrCodeUrl) {
         toast.message(
           result.message ||
             "Please scan the QR code using Google Authenticator to complete 2FA registration.",
@@ -68,7 +68,9 @@ export default function LoginPage() {
           state: {
             email: email.trim(),
             partialToken: data.partialToken,
+            qrCodeUrl: data.qrCodeUrl,
             qrCode: data.qrCode,
+            secretKey: data.secretKey,
             userName: data.userName,
             userId: data.userID ?? data.userId,
           },

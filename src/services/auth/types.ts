@@ -13,7 +13,9 @@ export interface TotpVerifyPayload {
 export interface TotpLoginSetupData {
   requiresSetup: true;
   partialToken: string;
-  qrCode: string; // Base64 PNG image
+  qrCode?: string; // Base64 PNG image (if provided)
+  qrCodeUrl?: string; // otpauth:// URI or external QR URL
+  secretKey?: string;
   userName?: string;
   userID?: number;
   userId?: number;

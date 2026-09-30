@@ -136,7 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const d: any = res.data ?? {};
 
       // Case 1: First-time setup (QR Code screen)
-      if (d.requiresSetup === true || d.qrCode) {
+      if (d.requiresSetup === true || d.qrCode || d.qrCodeUrl) {
         return {
           kind: "setup2fa",
           email,
