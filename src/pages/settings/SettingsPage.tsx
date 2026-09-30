@@ -68,7 +68,7 @@ function writeStoredUser(u: StoredUser) {
 
 export default function SettingsPage() {
   const navigate = useNavigate();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const { palette, setPalette } = useTheme();
 
@@ -295,6 +295,57 @@ export default function SettingsPage() {
     }
   };
 
+  // Check if user has permission to see and toggle "Bypass 2FA on login".
+  // Rule: Hide if user has role "user" in any portal, or if all portals are "user",
+  // or if overall role is "user". Feature is exclusively for managers and admins.
+  const isBypassAllowed = (() => {
+    const portalAccess: Array<{ portalName?: string; roleName?: string }> =
+      Array.isArray(user?.portalAccess) && user.portalAccess.length > 0
+        ? user.portalAccess
+        : Array.isArray(storedUser?.portalAccess) && storedUser.portalAccess.length > 0
+          ? storedUser.portalAccess
+          : [];
+
+    const isUserRole = (r?: string | null): boolean => {
+      if (!r) return false;
+      const clean = r
+        .toLowerCase()
+        .trim()
+        .replace(/[\s_-]/g, "");
+      return clean === "user";
+    };
+
+    const isManagerOrAdminRole = (r?: string | null): boolean => {
+      if (!r) return false;
+      const clean = r
+        .toLowerCase()
+        .trim()
+        .replace(/[\s_-]/g, "");
+      return clean.includes("admin") || clean.includes("manager");
+    };
+
+    // If portalAccess is present:
+    if (portalAccess.length > 0) {
+      // If ANY portal has the role "user", hide it!
+      const hasUserRoleInAnyPortal = portalAccess.some((p) => isUserRole(p.roleName));
+      if (hasUserRoleInAnyPortal) return false;
+
+      // Must be manager or admin in all portals
+      const allPortalsManagerOrAdmin = portalAccess.every((p) => isManagerOrAdminRole(p.roleName));
+      if (!allPortalsManagerOrAdmin) return false;
+
+      return true;
+    }
+
+    // Fallback: check global / primary role
+    const topRole =
+      user?.roleName || storedUser?.roleName || storedUser?.role?.name || storedUser?.role;
+
+    if (isUserRole(topRole)) return false;
+
+    return isManagerOrAdminRole(topRole);
+  })();
+
   return (
     <div className="mx-auto max-w-3xl space-y-5 animate-fade-in">
       <header>
@@ -352,7 +403,7 @@ export default function SettingsPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Email</Label>
+            <Label>Email / NTID</Label>
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div className="space-y-1.5">
@@ -360,7 +411,7 @@ export default function SettingsPage() {
             <Input
               value={phone ?? ""}
               onChange={(e) => setPhone(e.target.value)}
-              placeholder="+1 555 555 5555"
+              placeholder="+1 (123) 456-7890"
             />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
@@ -450,32 +501,34 @@ export default function SettingsPage() {
         </div>
       </Card>
 
-      {/* Two-factor authentication */}
-      <Card className="p-6 hover-lift">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-white"
-              style={{ backgroundImage: "var(--gradient-primary)" }}
-            >
-              <ShieldCheck className="h-4 w-4" />
+      {/* Two-factor authentication (visible only for managers and admins) */}
+      {isBypassAllowed && (
+        <Card className="p-6 hover-lift">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-white"
+                style={{ backgroundImage: "var(--gradient-primary)" }}
+              >
+                <ShieldCheck className="h-4 w-4" />
+              </div>
+              <div>
+                <h2 className="font-display text-lg font-semibold">Bypass 2FA on login</h2>
+                <p className="mt-1 max-w-md text-xs text-muted-foreground">
+                  When enabled, sign-in skips the third party Authenticator step. Recommended only
+                  for trusted devices.
+                </p>
+              </div>
             </div>
-            <div>
-              <h2 className="font-display text-lg font-semibold">Bypass 2FA on login</h2>
-              <p className="mt-1 max-w-md text-xs text-muted-foreground">
-                When enabled, sign-in skips the Google Authenticator step. Recommended only for
-                trusted devices.
-              </p>
-            </div>
+            <Switch
+              checked={bypass2fa}
+              disabled={togglingBypass}
+              onCheckedChange={onToggleBypass}
+              aria-label="Bypass 2FA on login"
+            />
           </div>
-          <Switch
-            checked={bypass2fa}
-            disabled={togglingBypass}
-            onCheckedChange={onToggleBypass}
-            aria-label="Bypass 2FA on login"
-          />
-        </div>
-      </Card>
+        </Card>
+      )}
 
       {/* Inactivity Auto-Logout */}
       <Card className="p-6 hover-lift">

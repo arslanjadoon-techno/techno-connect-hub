@@ -74,8 +74,15 @@ export default function ThemedQRCode({
   }
 
   return (
-    <div className={`relative inline-block rounded-2xl border bg-white p-3 shadow-sm ${className}`}>
-      <canvas ref={canvasRef} width={size} height={size} className="block rounded-md" />
+    <div
+      className={`relative inline-block rounded-2xl border bg-white p-3 shadow-sm max-w-full ${className}`}
+    >
+      <canvas
+        ref={canvasRef}
+        width={size}
+        height={size}
+        className="block rounded-md max-w-full h-auto"
+      />
       {error && <p className="mt-2 text-center text-[11px] text-destructive">{error}</p>}
     </div>
   );

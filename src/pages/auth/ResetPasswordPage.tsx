@@ -3,10 +3,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
 import { ArrowLeft, CheckCircle2, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
-import AuthHero from "./AuthHero";
+import AuthPageWrapper from "./AuthPageWrapper";
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
@@ -34,71 +33,75 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="relative grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
-      <AuthHero
-        title="Choose a new password."
-        subtitle="Use 8+ characters with a mix of letters, numbers, and symbols for the best protection."
-      />
+    <AuthPageWrapper
+      title="Choose a new password."
+      subtitle="Use 8+ characters with a mix of letters, numbers, and symbols for the best protection."
+      idPrefix="reset-pwd"
+      cardMaxWidth="max-w-[390px] sm:max-w-[420px] xl:max-w-[440px]"
+    >
+      <Link
+        to="/login"
+        className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
+      </Link>
 
-      <div className="flex items-center justify-center bg-muted/40 p-6 lg:pl-16">
-        <Card className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-2xl animate-scale-in">
-          <Link
-            to="/login"
-            className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
-          </Link>
-
-          {!tokenValid ? (
-            <div className="space-y-3">
-              <h2 className="font-display text-2xl font-semibold">Invalid or expired link</h2>
-              <p className="text-sm text-muted-foreground">
-                This reset link is missing or has expired. Please request a new one.
-              </p>
-              <Button asChild className="w-full">
-                <Link to="/forgot-password">Request new link</Link>
-              </Button>
-            </div>
-          ) : done ? (
-            <div className="space-y-4 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/15 text-success">
-                <CheckCircle2 className="h-7 w-7" />
-              </div>
-              <h2 className="font-display text-2xl font-semibold">Password updated</h2>
-              <p className="text-sm text-muted-foreground">Redirecting you to sign in...</p>
-            </div>
-          ) : (
-            <>
-              <h2 className="font-display text-2xl font-semibold">Set new password</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Enter and confirm your new password.
-              </p>
-              <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-                <PwdField
-                  label="New password"
-                  id="pwd"
-                  value={pwd}
-                  onChange={setPwd}
-                  show={showPwd}
-                  toggle={() => setShowPwd((v) => !v)}
-                />
-                <PwdField
-                  label="Confirm password"
-                  id="confirm"
-                  value={confirm}
-                  onChange={setConfirm}
-                  show={showConfirm}
-                  toggle={() => setShowConfirm((v) => !v)}
-                />
-                <Button type="submit" className="h-11 w-full" disabled={loading}>
-                  {loading ? "Updating..." : "Update password"}
-                </Button>
-              </form>
-            </>
-          )}
-        </Card>
-      </div>
-    </div>
+      {!tokenValid ? (
+        <div className="space-y-3">
+          <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Invalid or expired link
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            This reset link is missing or has expired. Please request a new one.
+          </p>
+          <Button asChild className="w-full">
+            <Link to="/forgot-password">Request new link</Link>
+          </Button>
+        </div>
+      ) : done ? (
+        <div className="space-y-4 text-center py-4">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/15 text-success">
+            <CheckCircle2 className="h-7 w-7" />
+          </div>
+          <h2 className="font-display text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Password updated
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            Redirecting you to sign in...
+          </p>
+        </div>
+      ) : (
+        <>
+          <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Set new password
+          </h2>
+          <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            Enter and confirm your new password.
+          </p>
+          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+            <PwdField
+              label="New password"
+              id="pwd"
+              value={pwd}
+              onChange={setPwd}
+              show={showPwd}
+              toggle={() => setShowPwd((v) => !v)}
+            />
+            <PwdField
+              label="Confirm password"
+              id="confirm"
+              value={confirm}
+              onChange={setConfirm}
+              show={showConfirm}
+              toggle={() => setShowConfirm((v) => !v)}
+            />
+            <Button type="submit" className="h-11 w-full" disabled={loading}>
+              {loading ? "Updating..." : "Update password"}
+            </Button>
+          </form>
+        </>
+      )}
+    </AuthPageWrapper>
   );
 }
 

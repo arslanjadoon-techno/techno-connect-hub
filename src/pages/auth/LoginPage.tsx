@@ -10,6 +10,7 @@ import { ShieldCheck, Mail, Lock, Eye, EyeOff, AlertCircle, ArrowRight } from "l
 import { toast } from "sonner";
 import { useAuthThemeReset } from "./useAuthThemeReset";
 import { AuthHeroCarousel } from "./AuthHeroCarousel";
+import { authService } from "@/services/auth";
 
 export default function LoginPage() {
   useAuthThemeReset();
@@ -45,45 +46,20 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      const baseUrl = import.meta.env.VITE_API_DEV_URL;
+      const result = await authService.totpLogin(email.trim(), password);
 
-      const response = await fetch(`${baseUrl}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
-      });
-
-      let result: any;
-      try {
-        result = await response.json();
-      } catch {
-        throw new Error(`Server returned status ${response.status}`);
-      }
-
-      // 1. CASE: Login Failure (e.g. {"success": false, "message": "Invalid Password", "data": null})
-      // Stay on login page, do NOT navigate, show backend error message in red and toast
-      if (result.success === false || (!result.success && !result.data && !result.token)) {
+      // 1. CASE: Login Failure
+      if (result.success === false || (!result.success && !result.data)) {
         const errorMsg = result.message || "Invalid Email or Password";
         setErrorMessage(errorMsg);
         toast.error(errorMsg);
         return;
       }
 
-      const data = result.data || {};
-      const token = data.token || result.token;
-      const userData = data.user || result.user;
+      const data = (result.data || {}) as any;
 
-      // 2. CASE: Direct Login Successful (Token and User present - bypass 2FA / Login successful)
-      // Land directly on home page without asking for Google Authenticator code
-      if (token && userData) {
-        setSession(token, userData);
-        toast.success(result.message || "Login successful.");
-        navigate("/ai-chat");
-        return;
-      }
-
-      // 3. CASE: Initial Login - Setup 2FA Required (QR Code scan screen)
-      if (data.qrCodeUrl || data.secretKey) {
+      // 2. CASE 1: First time user - 2FA setup required (QR Code screen)
+      if (data.requiresSetup === true || data.qrCode || data.qrCodeUrl) {
         toast.message(
           result.message ||
             "Please scan the QR code using Google Authenticator to complete 2FA registration.",
@@ -91,22 +67,55 @@ export default function LoginPage() {
         navigate("/setup-2fa", {
           state: {
             email: email.trim(),
-            secretKey: data.secretKey,
+            partialToken: data.partialToken,
             qrCodeUrl: data.qrCodeUrl,
+            qrCode: data.qrCode,
+            secretKey: data.secretKey,
+            userName: data.userName,
+            userId: data.userID ?? data.userId,
           },
         });
         return;
       }
 
-      // 4. CASE: 2FA Verification Required (Existing user - only 6-digit verification code screen)
-      const userEmail = email.trim();
-      toast.message(
-        result.message ||
-          "Two-Factor Authentication required. Enter the 6-digit code from Google Authenticator.",
-      );
-      navigate(`/verify-2fa?email=${encodeURIComponent(userEmail)}`);
-    } catch (err) {
-      const msg = (err as Error).message || "An unexpected error occurred. Please try again.";
+      // 3. CASE 2: User is already registered with authenticator app (Code entry screen)
+      if (data.requiresTotp === true) {
+        toast.message(
+          result.message ||
+            "Two-Factor Authentication required. Enter the 6-digit code from Google Authenticator.",
+        );
+        navigate(`/verify-2fa?email=${encodeURIComponent(email.trim())}`, {
+          state: {
+            email: email.trim(),
+            partialToken: data.partialToken,
+            userName: data.userName,
+            userId: data.userID ?? data.userId,
+          },
+        });
+        return;
+      }
+
+      // 4. CASE 3: 2FA Bypassed (Direct Login Successful)
+      const token = data.token;
+      const userData = data.user;
+      if (token && userData) {
+        setSession(token, userData);
+        toast.success(result.message || "Login successful.");
+        navigate("/ai-chat");
+        return;
+      }
+
+      // Fallback if token is present
+      if (data.token) {
+        setSession(data.token, data.user || {});
+        toast.success(result.message || "Login successful.");
+        navigate("/ai-chat");
+        return;
+      }
+
+      throw new Error(result.message || "Login failed. Unexpected response from server.");
+    } catch (err: any) {
+      const msg = err?.message || "An unexpected error occurred. Please try again.";
       setErrorMessage(msg);
       toast.error(msg);
     } finally {

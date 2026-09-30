@@ -1,208 +1,233 @@
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { ArrowLeft, Mail, ShieldCheck, Smartphone, Copy, CheckCircle2 } from "lucide-react";
-import { authApi, type TwoFaSetupData } from "@/lib/api/client";
+import { ArrowLeft, ShieldCheck, Smartphone, Copy, CheckCircle2 } from "lucide-react";
+import { authService } from "@/services/auth";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
-import AuthHero from "./AuthHero";
+import AuthPageWrapper from "./AuthPageWrapper";
 import ThemedQRCode from "./ThemedQRCode";
 
 /**
- * Two-step 2FA setup. Two entry paths:
- *   A. Direct visit / settings — user types email, we call /auth/2fa/setup for a QR.
- *   B. Redirected from /auth/login when backend returned qrCodeUrl+secretKey directly
- *      (Case 3 of the auth doc). The QR is read from location.state, no extra call.
- * After scanning, POST /auth/2fa/verify-and-enable returns a JWT — store it and
- * navigate straight to the dashboard (Case 3 final step).
+ * Extracts the secret parameter from an otpauth:// URI if present.
  */
+function extractSecretFromOtpauth(url?: string): string {
+  if (!url) return "";
+  try {
+    const u = new URL(url);
+    const sec = u.searchParams.get("secret");
+    if (sec) return sec;
+  } catch {
+    /* fallback to regex */
+  }
+  const match = url.match(/[?&]secret=([^&]+)/i);
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
 export default function Setup2FAPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
+
   const stateData = (location.state ?? null) as {
     email?: string;
-    secretKey?: string;
+    partialToken?: string;
+    qrCode?: string;
     qrCodeUrl?: string;
+    userName?: string;
+    userId?: number;
+    secretKey?: string;
   } | null;
-  const initialEmail = stateData?.email ?? params.get("email") ?? "";
+
+  const email = stateData?.email ?? params.get("email") ?? "";
+  const partialToken = stateData?.partialToken ?? "";
+  const rawQrCodeUrl = stateData?.qrCodeUrl ?? "";
+  const qrCodeBase64 = stateData?.qrCode ?? "";
+  const userName = stateData?.userName ?? "";
+
+  // Extract secret key if in otpauth:// or passed directly
+  const secretKey = stateData?.secretKey || extractSecretFromOtpauth(rawQrCodeUrl);
+
   const { setSession } = useAuth();
-  const [email, setEmail] = useState(initialEmail);
-  const [setup, setSetup] = useState<TwoFaSetupData | null>(
-    stateData?.qrCodeUrl
-      ? { qrCodeUrl: stateData.qrCodeUrl, secretKey: stateData.secretKey ?? "" }
-      : null,
-  );
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
-
-  // Auto-trigger setup only when arriving with an email but no pre-fetched QR.
-  useEffect(() => {
-    if (initialEmail && !setup) handleSetup(initialEmail);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function handleSetup(addr: string) {
-    if (!addr.trim()) return toast.error("Email is required");
-    setLoading(true);
-    try {
-      const res = await authApi.twoFaSetup(addr.trim());
-      setSetup(res.data);
-      toast.success("Scan the QR with Google Authenticator");
-    } catch (err) {
-      toast.error((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function handleVerify(e: React.FormEvent) {
     e.preventDefault();
     if (code.length < 6) return;
     setLoading(true);
     try {
-      const res: any = await authApi.twoFaVerifyEnable(email.trim(), code.trim());
-      // New backend returns token+user here; if present, log the user straight in.
+      if (!partialToken) {
+        throw new Error("Missing verification token. Please sign in again.");
+      }
+
+      const res = await authService.totpVerify(partialToken, code.trim());
       if (res?.data?.token && res?.data?.user) {
         setSession(res.data.token, res.data.user);
-        toast.success("2FA enabled — signed in");
+        toast.success(res.message || "2FA verified — signed in successfully");
+        setDone(true);
         navigate("/ai-chat");
         return;
       }
-      toast.success("2FA enabled successfully");
-      setDone(true);
-      setTimeout(() => navigate("/login"), 1500);
-    } catch (err) {
-      toast.error((err as Error).message);
+
+      throw new Error(res?.message || "Invalid verification code. Please try again.");
+    } catch (err: any) {
+      toast.error(err?.message || "Invalid verification code. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
   function copySecret() {
-    if (!setup?.secretKey) return;
-    navigator.clipboard.writeText(setup.secretKey);
-    toast.success("Secret copied");
+    if (!secretKey) return;
+    navigator.clipboard.writeText(secretKey);
+    toast.success("Manual setup key copied to clipboard");
   }
 
+  // Determine QR display format
+  const isBase64Image =
+    Boolean(qrCodeBase64) &&
+    (qrCodeBase64.startsWith("data:image") ||
+      (!qrCodeBase64.startsWith("http") && !qrCodeBase64.startsWith("otpauth:")));
+
+  const qrImageSrc = isBase64Image
+    ? qrCodeBase64.startsWith("data:image")
+      ? qrCodeBase64
+      : `data:image/png;base64,${qrCodeBase64}`
+    : null;
+
+  const otpauthUri = rawQrCodeUrl || (qrCodeBase64.startsWith("otpauth:") ? qrCodeBase64 : "");
+  const hasQrAvailable = Boolean(qrImageSrc || otpauthUri || rawQrCodeUrl);
+
   return (
-    <div className="relative grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
-      <AuthHero
-        title="Protect your account with Google Authenticator."
-        subtitle="Add a second layer of security. Scan the QR with the Google Authenticator app, then enter the 6-digit code to enable 2FA."
-      />
+    <AuthPageWrapper
+      title="Protect your account with Google Authenticator."
+      subtitle="Add a second layer of security. Scan the QR code with Google Authenticator, then enter the 6-digit code to complete sign in."
+      idPrefix="setup-2fa"
+      cardMaxWidth="max-w-[390px] sm:max-w-[420px] xl:max-w-[440px]"
+    >
+      <Link
+        to="/login"
+        className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
+      </Link>
 
-      <div className="flex items-center justify-center bg-muted/40 p-6 lg:pl-16">
-        <Card className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-2xl animate-scale-in">
-          <Link
-            to="/login"
-            className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
-          </Link>
+      {done ? (
+        <div className="space-y-4 text-center py-4">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/15 text-success">
+            <CheckCircle2 className="h-7 w-7" />
+          </div>
+          <h2 className="font-display text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+            2FA setup complete
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+            Redirecting to your dashboard…
+          </p>
+        </div>
+      ) : !hasQrAvailable ? (
+        <div className="animate-fade-in text-center py-4">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            <ShieldCheck className="h-6 w-6" />
+          </div>
+          <h2 className="font-display text-xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Session Expired
+          </h2>
+          <p className="mt-2 text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+            Two-factor authentication QR code is generated during sign in. Please sign in with your
+            credentials to set up 2FA.
+          </p>
+          <div className="mt-6">
+            <Button
+              type="button"
+              className="w-full h-11"
+              onClick={() => navigate("/login", { replace: true })}
+            >
+              Return to Sign In
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="animate-fade-in">
 
-          {done ? (
-            <div className="space-y-4 text-center">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/15 text-success">
-                <CheckCircle2 className="h-7 w-7" />
+          {/* QR Code Display - responsive container */}
+          <div className="mt-4 flex flex-col items-center">
+            {qrImageSrc ? (
+              <div className="p-3 bg-white rounded-2xl border shadow-xs flex items-center justify-center max-w-full">
+                <img
+                  src={qrImageSrc}
+                  alt="Two-factor authentication QR code"
+                  className="w-48 h-48 sm:w-52 sm:h-52 object-contain"
+                />
               </div>
-              <h2 className="font-display text-2xl font-semibold">2FA enabled</h2>
-              <p className="text-sm text-muted-foreground">Redirecting you to sign in…</p>
-            </div>
-          ) : !setup ? (
-            <div className="animate-fade-in">
-              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                <ShieldCheck className="h-6 w-6" />
-              </div>
-              <h2 className="font-display text-2xl font-semibold">Enable 2FA</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Enter your account email to generate a Google Authenticator setup.
+            ) : otpauthUri ? (
+              <ThemedQRCode otpauthUrl={otpauthUri} size={205} />
+            ) : (
+              <ThemedQRCode qrCodeUrl={rawQrCodeUrl} size={205} />
+            )}
+
+            {userName && (
+              <p className="mt-2 text-[11px] sm:text-xs text-muted-foreground text-center">
+                Account: <span className="font-semibold text-foreground">{userName}</span>
+                {email ? ` (${email})` : ""}
               </p>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSetup(email);
-                }}
-                className="mt-6 space-y-4"
-              >
-                <div className="space-y-1.5">
-                  <Label htmlFor="email">Email</Label>
-                  <div className="relative">
-                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      required
-                      placeholder="you@techno.com"
-                      className="h-11 pl-9"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                    />
+            )}
+          </div>
+
+          {/* Manual setup key fallback */}
+          {secretKey && (
+            <div className="mt-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-muted/40 p-2.5 sm:p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 text-[10px] sm:text-[11px] uppercase tracking-wide text-muted-foreground">
+                    <Smartphone className="h-3 w-3 shrink-0" /> Manual setup key
+                  </div>
+                  <div className="mt-0.5 truncate font-mono text-xs sm:text-sm font-medium select-all">
+                    {secretKey}
                   </div>
                 </div>
-                <Button type="submit" className="h-11 w-full" disabled={loading || !email}>
-                  {loading ? "Generating..." : "Generate QR code"}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={copySecret}
+                  title="Copy key"
+                  className="h-8 px-2.5 shrink-0"
+                >
+                  <Copy className="h-3.5 w-3.5" />
                 </Button>
-              </form>
-            </div>
-          ) : (
-            <div className="animate-fade-in">
-              <h2 className="font-display text-2xl font-semibold">Scan with Authenticator</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Open Google Authenticator and scan the code below. Then enter the 6-digit code it
-                shows.
-              </p>
-
-              <div className="mt-5 flex flex-col items-center">
-                <ThemedQRCode qrCodeUrl={setup.qrCodeUrl} size={220} />
               </div>
-
-              <div className="mt-4 rounded-xl border bg-muted/40 p-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-                      <Smartphone className="h-3 w-3" /> Manual setup key
-                    </div>
-                    <div className="mt-1 truncate font-mono text-sm font-medium">
-                      {setup.secretKey}
-                    </div>
-                  </div>
-                  <Button type="button" size="sm" variant="outline" onClick={copySecret}>
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </div>
-
-              <form onSubmit={handleVerify} className="mt-6 space-y-5">
-                <div className="space-y-2">
-                  <Label className="text-center block">Enter 6-digit code</Label>
-                  <div className="flex justify-center">
-                    <InputOTP maxLength={6} value={code} onChange={setCode} autoFocus>
-                      <InputOTPGroup className="gap-2">
-                        {[0, 1, 2, 3, 4, 5].map((i) => (
-                          <InputOTPSlot
-                            key={i}
-                            index={i}
-                            className="h-12 w-12 rounded-lg border border-input text-lg font-semibold shadow-sm transition-all data-[active=true]:ring-2 data-[active=true]:ring-primary data-[active=true]:border-primary"
-                          />
-                        ))}
-                      </InputOTPGroup>
-                    </InputOTP>
-                  </div>
-                </div>
-                <Button type="submit" className="h-11 w-full" disabled={loading || code.length < 6}>
-                  {loading ? "Verifying..." : "Verify & enable 2FA"}
-                </Button>
-              </form>
             </div>
           )}
-        </Card>
-      </div>
-    </div>
+
+          <form onSubmit={handleVerify} className="mt-4 sm:mt-5 space-y-4">
+            <div className="space-y-1.5">
+              <Label className="text-center block text-xs sm:text-sm font-medium">
+                Enter 6-digit code
+              </Label>
+              <div className="flex justify-center">
+                <InputOTP maxLength={6} value={code} onChange={setCode} autoFocus>
+                  <InputOTPGroup className="gap-1.5 sm:gap-2">
+                    {[0, 1, 2, 3, 4, 5].map((i) => (
+                      <InputOTPSlot
+                        key={i}
+                        index={i}
+                        className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg sm:rounded-xl border border-input text-base sm:text-lg font-semibold shadow-xs transition-all data-[active=true]:ring-2 data-[active=true]:ring-primary data-[active=true]:border-primary"
+                      />
+                    ))}
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+            </div>
+            <Button type="submit" className="h-11 w-full" disabled={loading || code.length < 6}>
+              {loading ? "Verifying..." : "Verify & sign in"}
+            </Button>
+          </form>
+        </div>
+      )}
+    </AuthPageWrapper>
   );
 }

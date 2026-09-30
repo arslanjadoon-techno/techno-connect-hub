@@ -8,7 +8,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import { ArrowLeft, MailCheck, CheckCircle2, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { authApi } from "@/lib/api/client";
 import { toast } from "sonner";
-import AuthHero from "./AuthHero";
+import AuthPageWrapper from "./AuthPageWrapper";
 
 type Step = "email" | "otp" | "reset" | "done";
 
@@ -69,145 +69,136 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="relative grid min-h-screen lg:grid-cols-[1.05fr_1fr]">
-      <AuthHero
-        title="Recover your account in 3 quick steps."
-        subtitle="We'll email a one-time code to verify it's you, then you can set a new password."
-      />
+    <AuthPageWrapper
+      title="Recover your account in 3 quick steps."
+      subtitle="We'll email a one-time code to verify it's you, then you can set a new password."
+      idPrefix="forgot-pwd"
+      cardMaxWidth="max-w-[390px] sm:max-w-[420px] xl:max-w-[440px]"
+    >
+      <Link
+        to="/login"
+        className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
+      </Link>
 
-      <div className="flex items-center justify-center bg-muted/40 p-6 lg:pl-16">
-        <Card className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-2xl animate-scale-in">
-          <Link
-            to="/login"
-            className="mb-4 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
-          </Link>
-
-          <div className="mb-5 flex items-center gap-2 text-xs">
-            <StepDot active={step === "email"} done={step !== "email"} label="Email" />
-            <div className="h-px flex-1 bg-border" />
-            <StepDot
-              active={step === "otp"}
-              done={step === "reset" || step === "done"}
-              label="OTP"
-            />
-            <div className="h-px flex-1 bg-border" />
-            <StepDot active={step === "reset"} done={step === "done"} label="Reset" />
-          </div>
-
-          {step === "email" && (
-            <div className="animate-fade-in">
-              <h2 className="font-display text-2xl font-semibold">Reset your password</h2>
-              <p className="mt-1 text-sm text-muted-foreground">Enter the email on your account.</p>
-              <form onSubmit={sendOtp} className="mt-6 space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="email">Email</Label>
-                  <div className="relative">
-                    <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      id="email"
-                      type="email"
-                      placeholder="you@techno.com"
-                      className="h-11 pl-9"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
-                <Button type="submit" className="h-11 w-full" disabled={loading || !email}>
-                  {loading ? "Sending..." : "Send OTP"}
-                </Button>
-              </form>
-            </div>
-          )}
-
-          {step === "otp" && (
-            <div className="animate-fade-in">
-              <div
-                className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary"
-                style={{ animation: "pulse-ring 2s infinite" }}
-              >
-                <MailCheck className="h-7 w-7" />
-              </div>
-              <h2 className="font-display text-center text-2xl font-semibold">
-                Enter verification code
-              </h2>
-              <p className="mt-1 text-center text-sm text-muted-foreground">
-                We sent a 6-digit OTP to{" "}
-                <span className="font-medium text-foreground">{email}</span>.
-              </p>
-              <form onSubmit={verifyOtp} className="mt-6 space-y-5">
-                <div className="flex justify-center">
-                  <InputOTP maxLength={6} value={otp} onChange={(v) => setOtp(v)}>
-                    <InputOTPGroup className="gap-2">
-                      {[0, 1, 2, 3, 4, 5].map((i) => (
-                        <InputOTPSlot
-                          key={i}
-                          index={i}
-                          className="h-12 w-12 rounded-lg border border-input text-lg font-semibold shadow-sm transition-all data-[active=true]:ring-2 data-[active=true]:ring-primary data-[active=true]:border-primary"
-                        />
-                      ))}
-                    </InputOTPGroup>
-                  </InputOTP>
-                </div>
-                <Button type="submit" className="h-11 w-full" disabled={loading || otp.length < 6}>
-                  {loading ? "Verifying..." : "Verify OTP"}
-                </Button>
-                <button
-                  type="button"
-                  onClick={() => setStep("email")}
-                  className="block w-full text-center text-xs text-muted-foreground hover:underline"
-                >
-                  Use a different email
-                </button>
-              </form>
-            </div>
-          )}
-
-          {step === "reset" && (
-            <div className="animate-fade-in">
-              <h2 className="font-display text-2xl font-semibold">Set new password</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Choose a new password for your account.
-              </p>
-              <form onSubmit={resetPwd} className="mt-6 space-y-4">
-                <PwdField
-                  label="New password"
-                  id="pwd"
-                  value={pwd}
-                  onChange={setPwd}
-                  show={showPwd}
-                  toggle={() => setShowPwd((v) => !v)}
-                />
-                <PwdField
-                  label="Confirm password"
-                  id="confirm"
-                  value={confirm}
-                  onChange={setConfirm}
-                  show={showConfirm}
-                  toggle={() => setShowConfirm((v) => !v)}
-                />
-                <Button type="submit" className="h-11 w-full" disabled={loading}>
-                  {loading ? "Updating..." : "Update password"}
-                </Button>
-              </form>
-            </div>
-          )}
-
-          {step === "done" && (
-            <div className="space-y-4 text-center animate-fade-in">
-              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/15 text-success">
-                <CheckCircle2 className="h-7 w-7" />
-              </div>
-              <h2 className="font-display text-2xl font-semibold">Password updated</h2>
-              <p className="text-sm text-muted-foreground">Redirecting you to sign in...</p>
-            </div>
-          )}
-        </Card>
+      <div className="mb-5 flex items-center gap-2 text-xs">
+        <StepDot active={step === "email"} done={step !== "email"} label="Email" />
+        <div className="h-px flex-1 bg-border" />
+        <StepDot active={step === "otp"} done={step === "reset" || step === "done"} label="OTP" />
+        <div className="h-px flex-1 bg-border" />
+        <StepDot active={step === "reset"} done={step === "done"} label="Reset" />
       </div>
-    </div>
+
+      {step === "email" && (
+        <div className="animate-fade-in">
+          <h2 className="font-display text-2xl font-semibold">Reset your password</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Enter the email on your account.</p>
+          <form onSubmit={sendOtp} className="mt-6 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Email</Label>
+              <div className="relative">
+                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@techno.com"
+                  className="h-11 pl-9"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+            <Button type="submit" className="h-11 w-full" disabled={loading || !email}>
+              {loading ? "Sending..." : "Send OTP"}
+            </Button>
+          </form>
+        </div>
+      )}
+
+      {step === "otp" && (
+        <div className="animate-fade-in">
+          <div
+            className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary"
+            style={{ animation: "pulse-ring 2s infinite" }}
+          >
+            <MailCheck className="h-7 w-7" />
+          </div>
+          <h2 className="font-display text-center text-2xl font-semibold">
+            Enter verification code
+          </h2>
+          <p className="mt-1 text-center text-sm text-muted-foreground">
+            We sent a 6-digit OTP to <span className="font-medium text-foreground">{email}</span>.
+          </p>
+          <form onSubmit={verifyOtp} className="mt-6 space-y-5">
+            <div className="flex justify-center">
+              <InputOTP maxLength={6} value={otp} onChange={(v) => setOtp(v)}>
+                <InputOTPGroup className="gap-2">
+                  {[0, 1, 2, 3, 4, 5].map((i) => (
+                    <InputOTPSlot
+                      key={i}
+                      index={i}
+                      className="h-12 w-12 rounded-lg border border-input text-lg font-semibold shadow-sm transition-all data-[active=true]:ring-2 data-[active=true]:ring-primary data-[active=true]:border-primary"
+                    />
+                  ))}
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+            <Button type="submit" className="h-11 w-full" disabled={loading || otp.length < 6}>
+              {loading ? "Verifying..." : "Verify OTP"}
+            </Button>
+            <button
+              type="button"
+              onClick={() => setStep("email")}
+              className="block w-full text-center text-xs text-muted-foreground hover:underline"
+            >
+              Use a different email
+            </button>
+          </form>
+        </div>
+      )}
+
+      {step === "reset" && (
+        <div className="animate-fade-in">
+          <h2 className="font-display text-2xl font-semibold">Set new password</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Choose a new password for your account.
+          </p>
+          <form onSubmit={resetPwd} className="mt-6 space-y-4">
+            <PwdField
+              label="New password"
+              id="pwd"
+              value={pwd}
+              onChange={setPwd}
+              show={showPwd}
+              toggle={() => setShowPwd((v) => !v)}
+            />
+            <PwdField
+              label="Confirm password"
+              id="confirm"
+              value={confirm}
+              onChange={setConfirm}
+              show={showConfirm}
+              toggle={() => setShowConfirm((v) => !v)}
+            />
+            <Button type="submit" className="h-11 w-full" disabled={loading}>
+              {loading ? "Updating..." : "Update password"}
+            </Button>
+          </form>
+        </div>
+      )}
+
+      {step === "done" && (
+        <div className="space-y-4 text-center animate-fade-in">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/15 text-success">
+            <CheckCircle2 className="h-7 w-7" />
+          </div>
+          <h2 className="font-display text-2xl font-semibold">Password updated</h2>
+          <p className="text-sm text-muted-foreground">Redirecting you to sign in...</p>
+        </div>
+      )}
+    </AuthPageWrapper>
   );
 }
 
