@@ -64,7 +64,7 @@ export default function Reset2FAPage() {
   return (
     <AuthPageWrapper
       title="Reset your Two-Factor Authentication."
-      subtitle="If you lost access or deleted your Google Authenticator account, confirm your Email or NTID to reset 2FA."
+      subtitle="If you lost access or deleted your Authenticator account, confirm your Email or NTID to reset 2FA."
       idPrefix="reset-2fa"
       cardMaxWidth="max-w-[390px] sm:max-w-[420px] xl:max-w-[440px]"
     >
@@ -91,14 +91,11 @@ export default function Reset2FAPage() {
         </div>
       ) : (
         <div className="animate-fade-in">
-          <div className="mb-3.5 flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
-            <ShieldAlert className="h-5 w-5 sm:h-6 sm:w-6" />
-          </div>
           <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
             Confirm 2FA Reset
           </h2>
           <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-            Confirm your Email or NTID below to reset your Google Authenticator configuration. On
+            Confirm your Email or NTID below to reset your Authenticator configuration. On
             your next login, you will scan a fresh QR code.
           </p>
 
@@ -123,7 +120,7 @@ export default function Reset2FAPage() {
             </div>
 
             <div className="rounded-xl border border-amber-200/50 dark:border-amber-900/40 bg-amber-500/10 p-3 text-[11px] sm:text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
-              Resetting 2FA allows you to register your account again on Google Authenticator. You
+              Resetting 2FA allows you to register your account again on Google or any Authenticator. You
               will be prompted with a new QR code after entering your password.
             </div>
 

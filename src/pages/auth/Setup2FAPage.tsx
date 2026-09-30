@@ -152,13 +152,6 @@ export default function Setup2FAPage() {
         </div>
       ) : (
         <div className="animate-fade-in">
-          <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-            Scan with Authenticator
-          </h2>
-          <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-            Open Google Authenticator and scan the QR code below. Then enter the 6-digit code to
-            continue.
-          </p>
 
           {/* QR Code Display - responsive container */}
           <div className="mt-4 flex flex-col items-center">

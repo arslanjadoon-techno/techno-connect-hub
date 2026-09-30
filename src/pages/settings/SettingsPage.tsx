@@ -463,7 +463,7 @@ export default function SettingsPage() {
             <div>
               <h2 className="font-display text-lg font-semibold">Bypass 2FA on login</h2>
               <p className="mt-1 max-w-md text-xs text-muted-foreground">
-                When enabled, sign-in skips the Google Authenticator step. Recommended only for
+                When enabled, sign-in skips the third party Authenticator step. Recommended only for
                 trusted devices.
               </p>
             </div>

@@ -87,9 +87,6 @@ export default function Verify2FAPage() {
         <ArrowLeft className="h-3.5 w-3.5" /> Back to sign in
       </Link>
 
-      <div className="mb-3.5 flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-        <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6" />
-      </div>
       <h2 className="font-display text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
         Two-factor verification
       </h2>
