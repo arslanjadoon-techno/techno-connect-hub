@@ -27,6 +27,12 @@ const allowedPaths = new Set([
   "Reporting/RetentionActivation/GetEmployeeWise",
   "Reporting/RetentionActivation/GetTrend",
   "Reporting/RetentionActivation/GetExport",
+  "Reporting/Profitability/GetKpi",
+  "Reporting/Profitability/GetStoreWiseMatrix",
+  "Reporting/Profitability/GetHeaders",
+  "Reporting/Profitability/GetMonthlyDistribution",
+  "Reporting/Profitability/GetExport",
+  "Reporting/Profitability/GetFilterValues",
 ]);
 
 type ReportingRouteContext = {

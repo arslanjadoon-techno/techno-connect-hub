@@ -79,6 +79,7 @@ import ComingSoon from "@/pages/shell/ComingSoon";
 import ReportingApp from "./pages/portals/reporting/ReportingApp";
 import StoreWisePdCompensationPage from "./pages/portals/reporting/store-wise-pd-compensation/page";
 import RetentionActivationPage from "./pages/portals/reporting/retention-activation/page";
+import ProfitabilityPage from "./pages/portals/reporting/profitability/page";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -513,6 +514,14 @@ export function AppRoutes() {
           element={
             <PortalRouteGuard portalKey="reporting">
               <RetentionActivationPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/reporting/profitability"
+          element={
+            <PortalRouteGuard portalKey="reporting">
+              <ProfitabilityPage />
             </PortalRouteGuard>
           }
         />

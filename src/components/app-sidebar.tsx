@@ -183,6 +183,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
       { title: "PD Compensation", url: "/reporting/pd-compensation", icon: FileText },
       { title: "Store Wise PD", url: "/reporting/store-wise-pd-compensation", icon: FileText },
       { title: "Retention & Activation", url: "/reporting/retention-activation", icon: FileText },
+      { title: "Profitability", url: "/reporting/profitability", icon: FileText },
     ],
   },
 };

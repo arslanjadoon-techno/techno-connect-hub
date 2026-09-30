@@ -15,7 +15,7 @@ export default function RetentionBreakdownTable({
     new Set(safeRows.flatMap((row) => Object.keys(row.byQualificationDay))),
   ).sort((a, b) => Number(a) - Number(b));
   const totals = days.reduce<Record<string, number>>((result, day) => {
-    result[day] = rows.reduce(
+    result[day] = safeRows.reduce(
       (sum, row) => sum + (row.byQualificationDay[day] ?? 0),
       0,
     );
@@ -29,7 +29,7 @@ export default function RetentionBreakdownTable({
   return (
     <ReportPanel title={title} className="overflow-hidden">
       <div className="max-h-[420px] overflow-auto p-2 sm:p-3">
-        <table className="isolate w-full min-w-[760px] border-separate border-spacing-0 text-[9px] sm:text-[10px]">
+        <table className="retention-report-table isolate w-full min-w-[760px] border-separate border-spacing-0 text-[9px] sm:text-[10px]">
           <thead className="relative z-20">
             <tr
               style={{

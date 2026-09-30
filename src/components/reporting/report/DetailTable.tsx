@@ -43,7 +43,7 @@ export default function DetailTable({
     <ReportPanel title="Detail" className="flex h-[460px] flex-col sm:h-[500px]">
       <div className="relative mx-2 mt-3 flex-1 overflow-hidden rounded-lg border border-[#7600bc] shadow-sm sm:mx-4">
         <div className="h-full overflow-auto">
-          <table className="isolate w-full min-w-[920px] border-separate border-spacing-0 text-[11px]">
+          <table className="retention-report-table isolate w-full min-w-[920px] border-separate border-spacing-0 text-[11px]">
             <thead className="sticky top-0 z-20">
               <tr
                 className="h-9"

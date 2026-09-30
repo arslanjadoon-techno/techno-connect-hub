@@ -104,6 +104,21 @@
   background-color: var(--card) !important;
   border-color: var(--primary) !important;
 }
+.profitability-report .report-section {
+  background-color: #ffffff !important;
+}
+.profitability-report .report-section > div:first-child {
+  color: var(--primary) !important;
+  font-weight: 600;
+}
+.profitability-report table thead {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+.profitability-report table thead th {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
 .dark [data-reporting-theme] input,
 .dark [data-reporting-theme] select,
 .dark [data-reporting-theme] button:not(.bg-\[\#7600bc\]) {
@@ -446,6 +461,15 @@ table thead tr,
 .dark .themed-thead th {
   color: color-mix(in oklab, var(--primary) 25%, var(--foreground)) !important;
 }
+
+/* Keep all retention report table headers visually consistent with the report theme. */
+.retention-report-table thead,
+.retention-report-table thead tr,
+.retention-report-table thead th {
+  background-color: var(--primary) !important;
+  color: #ffffff !important;
+}
+
 table tbody tr {
   transition: background-color 0.15s ease;
 }
