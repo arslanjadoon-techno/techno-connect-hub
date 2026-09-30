@@ -31,6 +31,7 @@ export const USER_API_PATHS = {
   updatePassword: "/api/users/update-password",
   toggle2FaBypass: "/api/users/toggle-2fa-bypass",
   toggleActivationStatus: "/api/users/toggle-activation-status",
+  reset2Fa: "/api/users/reset-2fa",
 } as const;
 
 export const STATE_API_PATHS = {

@@ -30,6 +30,7 @@ export default function Verify2FAPage() {
   const { setSession } = useAuth();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -59,6 +60,29 @@ export default function Verify2FAPage() {
       toast.error(err?.message || "Invalid verification code. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleReset2Fa = async () => {
+    const userIdentifier = email.trim();
+    if (!userIdentifier) {
+      toast.error("User email or ID is missing. Please sign in again.");
+      navigate("/login");
+      return;
+    }
+
+    setResetting(true);
+    try {
+      const res = await authService.reset2Fa(userIdentifier);
+      toast.success(
+        res.message ||
+          "Two-Factor Authentication reset — the user will be asked to set it up again on next login.",
+      );
+      navigate("/login", { replace: true });
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to reset Two-Factor Authentication. Please try again.");
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -110,12 +134,16 @@ export default function Verify2FAPage() {
             <Button type="submit" className="h-11 w-full" disabled={loading || code.length < 6}>
               {loading ? "Verifying..." : "Verify & sign in"}
             </Button>
-            <Link
-              to={`/setup-2fa${email ? `?email=${encodeURIComponent(email)}` : ""}`}
-              className="block text-center text-xs text-muted-foreground hover:underline"
+            <button
+              type="button"
+              onClick={handleReset2Fa}
+              disabled={resetting || loading}
+              className="block w-full text-center text-xs text-muted-foreground transition hover:text-foreground hover:underline disabled:opacity-50 cursor-pointer"
             >
-              Need to set up Google Authenticator?
-            </Link>
+              {resetting
+                ? "Resetting Google Authenticator..."
+                : "Need to set up Google Authenticator?"}
+            </button>
           </form>
         </Card>
       </div>

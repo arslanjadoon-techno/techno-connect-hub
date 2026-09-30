@@ -1,5 +1,5 @@
 import { http } from "../http";
-import { AUTH_PATHS } from "@/lib/config";
+import { AUTH_PATHS, USER_API_PATHS } from "@/lib/config";
 import type { BackendUser, TwoFaSetupData } from "@/lib/api/client";
 import type { TotpLoginResponseData, TotpVerifyResponseData } from "./types";
 
@@ -55,6 +55,14 @@ export class AuthService {
       { email, code },
       false,
     );
+  }
+
+  /**
+   * Resets 2FA for a user so that the QR code setup screen is presented on their next login.
+   * Endpoint: PUT /api/users/reset-2fa
+   */
+  reset2Fa(email: string) {
+    return http.put<null>(USER_API_PATHS.reset2Fa, { email }, false);
   }
 }
 
