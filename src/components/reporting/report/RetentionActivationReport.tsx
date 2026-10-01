@@ -20,7 +20,10 @@ import RetentionTrendChart from "./RetentionTrendChart";
 import RetentionBreakdownTable from "./RetentionBreakdownTable";
 import { useReportQuery } from "../dashboard/useReportQuery";
 import { useElementVisible } from "../dashboard/useElementVisible";
-import { downloadFile, formatCompactNumber } from "../../../pages/portals/reporting/lib/report-utils";
+import {
+  downloadFile,
+  formatCompactNumber,
+} from "../../../pages/portals/reporting/lib/report-utils";
 import { Button } from "@/components/ui/button";
 
 const emptyKpi: RetentionKpi = {
@@ -29,11 +32,7 @@ const emptyKpi: RetentionKpi = {
 };
 const emptyRows: RetentionTableRow[] = [];
 const emptyTrend: RetentionTrendDatum[] = [];
-export default function RetentionActivationReport({
-  filters,
-}: {
-  filters: Filters;
-}) {
+export default function RetentionActivationReport({ filters }: { filters: Filters }) {
   const marketEnabled = useElementVisible("retention-market-section");
   const storeEnabled = useElementVisible("retention-store-section");
   const employeeEnabled = useElementVisible("retention-employee-section");
@@ -77,12 +76,7 @@ export default function RetentionActivationReport({
     "Employee Wise request failed",
     employeeEnabled,
   );
-  const trend = useReportQuery(
-    loadTrend,
-    emptyTrend,
-    "Trend request failed",
-    trendEnabled,
-  );
+  const trend = useReportQuery(loadTrend, emptyTrend, "Trend request failed", trendEnabled);
   const report = {
     kpis: kpi.data,
     marketWise: marketWise.data,
@@ -94,19 +88,15 @@ export default function RetentionActivationReport({
     (query) => query.isLoading,
   );
   const error =
-    [kpi, marketWise, storeWise, employeeWise, trend]
-      .map((query) => query.error)
-      .find(Boolean) ?? "";
+    [kpi, marketWise, storeWise, employeeWise, trend].map((query) => query.error).find(Boolean) ??
+    "";
   const [isExporting, setIsExporting] = useState(false);
 
   async function handleExport() {
     if (isExporting) return;
     setIsExporting(true);
     try {
-      await downloadFile(
-        getRetentionExportUrl(filters),
-        "retention-activation-report.xlsx",
-      );
+      await downloadFile(getRetentionExportUrl(filters), "retention-activation-report.xlsx");
     } finally {
       setIsExporting(false);
     }
@@ -115,15 +105,9 @@ export default function RetentionActivationReport({
   return (
     <section className="min-w-0 max-w-full flex-1 overflow-hidden rounded-2xl border border-[#7600bc] bg-white p-2.5 shadow-lg shadow-[#7600bc]/5 sm:p-5">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div
-          className="text-[11px] font-semibold text-[#6a5a75]"
-          aria-live="polite"
-        >
+        <div className="text-[11px] font-semibold text-[#6a5a75]" aria-live="polite">
           {loading ? (
-            <LoadingIndicator
-              label="Loading Retention & Activation"
-              size="sm"
-            />
+            <LoadingIndicator label="Loading Retention & Activation" size="sm" />
           ) : (
             error || "Connected to Retention & Activation endpoints"
           )}
@@ -191,10 +175,7 @@ export default function RetentionActivationReport({
           />
         </div>
         <div id="retention-trend-section" className="min-w-0 max-w-full">
-          <RetentionTrendChart
-            points={report.trend}
-            isLoading={trend.isLoading}
-          />
+          <RetentionTrendChart points={report.trend} isLoading={trend.isLoading} />
         </div>
       </div>
     </section>

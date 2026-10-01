@@ -1,4 +1,7 @@
-import { formatCompactNumber, formatMoney } from "../../../pages/portals/reporting/lib/report-utils";
+import {
+  formatCompactNumber,
+  formatMoney,
+} from "../../../pages/portals/reporting/lib/report-utils";
 import type { SummaryDatum } from "../../../pages/portals/reporting/types";
 import LoadingIndicator from "./LoadingIndicator";
 import ReportPanel from "./ReportPanel";
@@ -8,16 +11,11 @@ type StoreTreemapChartProps = {
   isLoading?: boolean;
 };
 
-export default function StoreTreemapChart({
-  items,
-  isLoading = false,
-}: StoreTreemapChartProps) {
+export default function StoreTreemapChart({ items, isLoading = false }: StoreTreemapChartProps) {
   const safeItems = items ?? [];
   const hasTransactions = safeItems.some((item) => item.transactions > 0);
   const maxAmount = safeItems.reduce((max, item) => Math.max(max, item.amount), 1);
-  const columns = hasTransactions
-    ? "grid-cols-[1fr_86px_76px_76px]"
-    : "grid-cols-[1fr_92px_76px]";
+  const columns = hasTransactions ? "grid-cols-[1fr_86px_76px_76px]" : "grid-cols-[1fr_92px_76px]";
 
   return (
     <ReportPanel title="Store Wise PD Compensation" className="overflow-hidden">
@@ -28,9 +26,7 @@ export default function StoreTreemapChart({
           <span>Store</span>
           <span className="text-right">Amount</span>
           {/* <span className="text-right">Share</span> */}
-          {hasTransactions ? (
-            <span className="text-right">Avg / Txn</span>
-          ) : null}
+          {hasTransactions ? <span className="text-right">Avg / Txn</span> : null}
         </div>
 
         {isLoading ? (
@@ -68,8 +64,8 @@ export default function StoreTreemapChart({
                         </span>
                       ) : null}
                     </div>
-                      <div className="h-3 overflow-hidden rounded-sm bg-muted">
-                        <div
+                    <div className="h-3 overflow-hidden rounded-sm bg-muted">
+                      <div
                         className="h-full rounded-sm bg-primary"
                         style={{ width: `${amountWidth}%` }}
                       />

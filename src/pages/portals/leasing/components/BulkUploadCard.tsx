@@ -18,7 +18,13 @@ interface BulkUploadCardProps {
   onUpload: (file: File) => Promise<Record<string, string>>;
 }
 
-export default function BulkUploadCard({ title, controls, extraAction, canUpload, onUpload }: BulkUploadCardProps) {
+export default function BulkUploadCard({
+  title,
+  controls,
+  extraAction,
+  canUpload,
+  onUpload,
+}: BulkUploadCardProps) {
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState<{ text: string; ok: boolean } | null>(null);
   const [results, setResults] = useState<Array<[string, string]>>([]);
@@ -80,14 +86,20 @@ export default function BulkUploadCard({ title, controls, extraAction, canUpload
           {file ? "Change File" : "Select File"}
           <input type="file" accept=".xls,.xlsx" hidden onChange={handleFileChange} />
         </label>
-        {file && <span className="max-w-[200px] truncate text-sm text-muted-foreground">{file.name}</span>}
+        {file && (
+          <span className="max-w-[200px] truncate text-sm text-muted-foreground">{file.name}</span>
+        )}
         {controls}
-        <Button className="h-11 px-6" onClick={handleUpload}>Upload</Button>
+        <Button className="h-11 px-6" onClick={handleUpload}>
+          Upload
+        </Button>
         {extraAction}
       </div>
 
       {message && (
-        <p className={`text-sm font-medium ${message.ok ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>
+        <p
+          className={`text-sm font-medium ${message.ok ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}
+        >
           {message.text}
         </p>
       )}
@@ -97,8 +109,12 @@ export default function BulkUploadCard({ title, controls, extraAction, canUpload
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Tech ID</th>
-                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">Result</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">
+                  Tech ID
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground">
+                  Result
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y">

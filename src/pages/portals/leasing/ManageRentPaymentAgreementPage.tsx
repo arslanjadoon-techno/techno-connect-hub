@@ -26,7 +26,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { leasingService, type LeaseRentAgreement, type NewLeaseAgreement } from "@/services/portals/leasing";
+import {
+  leasingService,
+  type LeaseRentAgreement,
+  type NewLeaseAgreement,
+} from "@/services/portals/leasing";
 import { marketsService } from "@/services/user-manager/markets.service";
 import { storesService } from "@/services/user-manager/stores.service";
 import type { Market, Store } from "@/lib/api/client";
@@ -155,7 +159,9 @@ export default function ManageRentPaymentAgreementPage() {
     <div className="w-full space-y-4 animate-fade-in pb-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-semibold tracking-tight">Rent Payment Agreement</h1>
+          <h1 className="font-display text-2xl font-semibold tracking-tight">
+            Rent Payment Agreement
+          </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             Browse rent agreements by market and store.
           </p>
@@ -169,7 +175,11 @@ export default function ManageRentPaymentAgreementPage() {
         {markets.map((market) => {
           const marketStores = storesByMarket.get(market.id) ?? [];
           return (
-            <AccordionItem key={market.id} value={String(market.id)} className="rounded-lg border px-3">
+            <AccordionItem
+              key={market.id}
+              value={String(market.id)}
+              className="rounded-lg border px-3"
+            >
               <AccordionTrigger className="text-sm font-semibold">{market.name}</AccordionTrigger>
               <AccordionContent>
                 {marketStores.length === 0 ? (
@@ -180,23 +190,40 @@ export default function ManageRentPaymentAgreementPage() {
                       const techId = store.techId;
                       const storeLeases = techId ? (leasesByTechId.get(techId) ?? []) : [];
                       return (
-                        <AccordionItem key={store.id} value={String(store.id)} className="rounded-md border px-3">
+                        <AccordionItem
+                          key={store.id}
+                          value={String(store.id)}
+                          className="rounded-md border px-3"
+                        >
                           <AccordionTrigger className="text-sm">
                             <strong>{techId ?? "—"}</strong>&nbsp;{store.name}
                           </AccordionTrigger>
                           <AccordionContent className="space-y-2">
                             {storeLeases.length === 0 ? (
-                              <p className="text-sm text-muted-foreground">No lease records found.</p>
+                              <p className="text-sm text-muted-foreground">
+                                No lease records found.
+                              </p>
                             ) : (
                               storeLeases.map((lease) => {
                                 const key = `${lease.techId}-${lease.startDate}`;
                                 return (
-                                  <Card key={key} className="flex items-center justify-between p-3 text-sm">
+                                  <Card
+                                    key={key}
+                                    className="flex items-center justify-between p-3 text-sm"
+                                  >
                                     <div className="space-y-0.5">
-                                      <div><strong>Start:</strong> {lease.startDate}</div>
-                                      <div><strong>End:</strong> {lease.endDate ?? "—"}</div>
-                                      <div><strong>Rent:</strong> ${lease.monthlyRent ?? 0}</div>
-                                      <div><strong>CAM:</strong> ${lease.camCharges ?? 0}</div>
+                                      <div>
+                                        <strong>Start:</strong> {lease.startDate}
+                                      </div>
+                                      <div>
+                                        <strong>End:</strong> {lease.endDate ?? "—"}
+                                      </div>
+                                      <div>
+                                        <strong>Rent:</strong> ${lease.monthlyRent ?? 0}
+                                      </div>
+                                      <div>
+                                        <strong>CAM:</strong> ${lease.camCharges ?? 0}
+                                      </div>
                                     </div>
                                     <Button
                                       variant="ghost"
@@ -239,10 +266,14 @@ export default function ManageRentPaymentAgreementPage() {
                 value={addForm.marketId}
                 onValueChange={(v) => setAddForm((f) => ({ ...f, marketId: v, techId: "" }))}
               >
-                <SelectTrigger><SelectValue placeholder="Select market" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select market" />
+                </SelectTrigger>
                 <SelectContent>
                   {markets.map((m) => (
-                    <SelectItem key={m.id} value={String(m.id)}>{m.name}</SelectItem>
+                    <SelectItem key={m.id} value={String(m.id)}>
+                      {m.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -254,7 +285,9 @@ export default function ManageRentPaymentAgreementPage() {
                 onValueChange={(v) => setAddForm((f) => ({ ...f, techId: v }))}
                 disabled={!addForm.marketId}
               >
-                <SelectTrigger><SelectValue placeholder="Select store" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select store" />
+                </SelectTrigger>
                 <SelectContent>
                   {storesForSelectedMarket
                     .filter((s) => s.techId)
@@ -268,35 +301,65 @@ export default function ManageRentPaymentAgreementPage() {
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Monthly Rent</Label>
-              <Input type="number" value={addForm.monthlyRent} onChange={(e) => setAddForm((f) => ({ ...f, monthlyRent: e.target.value }))} />
+              <Input
+                type="number"
+                value={addForm.monthlyRent}
+                onChange={(e) => setAddForm((f) => ({ ...f, monthlyRent: e.target.value }))}
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">CAM Charges</Label>
-              <Input type="number" value={addForm.camCharges} onChange={(e) => setAddForm((f) => ({ ...f, camCharges: e.target.value }))} />
+              <Input
+                type="number"
+                value={addForm.camCharges}
+                onChange={(e) => setAddForm((f) => ({ ...f, camCharges: e.target.value }))}
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Adjustments</Label>
-              <Input type="number" value={addForm.adjustments} onChange={(e) => setAddForm((f) => ({ ...f, adjustments: e.target.value }))} />
+              <Input
+                type="number"
+                value={addForm.adjustments}
+                onChange={(e) => setAddForm((f) => ({ ...f, adjustments: e.target.value }))}
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Other Charges</Label>
-              <Input type="number" value={addForm.otherCharges} onChange={(e) => setAddForm((f) => ({ ...f, otherCharges: e.target.value }))} />
+              <Input
+                type="number"
+                value={addForm.otherCharges}
+                onChange={(e) => setAddForm((f) => ({ ...f, otherCharges: e.target.value }))}
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">Start Date</Label>
-              <Input type="date" value={addForm.startDate} onChange={(e) => setAddForm((f) => ({ ...f, startDate: e.target.value }))} />
+              <Input
+                type="date"
+                value={addForm.startDate}
+                onChange={(e) => setAddForm((f) => ({ ...f, startDate: e.target.value }))}
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs">End Date</Label>
-              <Input type="date" value={addForm.endDate} onChange={(e) => setAddForm((f) => ({ ...f, endDate: e.target.value }))} />
+              <Input
+                type="date"
+                value={addForm.endDate}
+                onChange={(e) => setAddForm((f) => ({ ...f, endDate: e.target.value }))}
+              />
             </div>
             <div className="col-span-2 space-y-1">
               <Label className="text-xs">Comments</Label>
-              <Textarea value={addForm.comments} onChange={(e) => setAddForm((f) => ({ ...f, comments: e.target.value }))} rows={3} />
+              <Textarea
+                value={addForm.comments}
+                onChange={(e) => setAddForm((f) => ({ ...f, comments: e.target.value }))}
+                rows={3}
+              />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>
+              Cancel
+            </Button>
             <Button onClick={handleAdd} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save"}
             </Button>

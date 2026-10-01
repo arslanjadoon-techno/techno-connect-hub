@@ -42,20 +42,39 @@ export default function EditableField({
       {editing && onChange ? (
         type === "select" ? (
           <Select value={value} onValueChange={onChange}>
-            <SelectTrigger className="h-9"><SelectValue placeholder="Select" /></SelectTrigger>
+            <SelectTrigger className="h-9">
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
             <SelectContent>
               {(options ?? []).map((o) => (
-                <SelectItem key={o} value={o}>{o}</SelectItem>
+                <SelectItem key={o} value={o}>
+                  {o}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         ) : type === "textarea" ? (
           <Textarea value={value} onChange={(e) => onChange(e.target.value)} rows={2} />
         ) : (
-          <Input type={type === "date" ? "date" : type === "email" ? "email" : type === "number" ? "number" : "text"} value={value} onChange={(e) => onChange(e.target.value)} className="h-9" />
+          <Input
+            type={
+              type === "date"
+                ? "date"
+                : type === "email"
+                  ? "email"
+                  : type === "number"
+                    ? "number"
+                    : "text"
+            }
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="h-9"
+          />
         )
       ) : badgeTone ? (
-        <Badge variant="outline" className={badgeTone}>{displayValue ?? show(value)}</Badge>
+        <Badge variant="outline" className={badgeTone}>
+          {displayValue ?? show(value)}
+        </Badge>
       ) : (
         <p className="text-sm">{displayValue ?? show(value)}</p>
       )}

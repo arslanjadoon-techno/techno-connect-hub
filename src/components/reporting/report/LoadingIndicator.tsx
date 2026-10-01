@@ -44,18 +44,14 @@ export default function LoadingIndicator({
           className={`${classes.ring} animate-spin rounded-full border-[#eadcf2] border-t-[#7600bc]`}
         />
         <span className="absolute flex items-center gap-0.5">
-          <span
-            className={`${classes.dot} animate-pulse rounded-full bg-[#7600bc]`}
-          />
+          <span className={`${classes.dot} animate-pulse rounded-full bg-[#7600bc]`} />
           <span
             className={`${classes.dot} animate-pulse rounded-full bg-[#c7116a] [animation-delay:120ms]`}
           />
         </span>
       </span>
 
-      <span className={`${classes.text} font-bold text-[#5e4c69]`}>
-        {label}
-      </span>
+      <span className={`${classes.text} font-bold text-[#5e4c69]`}>{label}</span>
     </div>
   );
 }

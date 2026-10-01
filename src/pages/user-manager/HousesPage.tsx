@@ -259,7 +259,7 @@ export default function HousesPage() {
   const handleDelete = async (s: House) => {
     try {
       setActionLoading(true);
-      const res = await HousesApi.delete({ id: s.id });
+      const res = await HousesApi.delete(s.id);
       if (res.success) {
         toast.success(res.message || "House deleted successfully");
         lastFetchedKey.current = "";

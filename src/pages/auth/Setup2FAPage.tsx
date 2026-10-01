@@ -152,7 +152,6 @@ export default function Setup2FAPage() {
         </div>
       ) : (
         <div className="animate-fade-in">
-
           {/* QR Code Display - responsive container */}
           <div className="mt-4 flex flex-col items-center">
             {qrImageSrc ? (

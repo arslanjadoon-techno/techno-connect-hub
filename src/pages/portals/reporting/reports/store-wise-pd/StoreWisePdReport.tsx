@@ -1,11 +1,6 @@
 "use client";
 
-import type {
-  KpiSummary,
-  MatrixDatum,
-  SummaryDatum,
-  TrendDatum,
-} from "../../types";
+import type { KpiSummary, MatrixDatum, SummaryDatum, TrendDatum } from "../../types";
 import KpiCard from "../../../../../components/reporting/report/KpiCard";
 import LollipopRankChart from "../../../../../components/reporting/report/LollipopRankChart";
 import StoreWiseMatrix from "../../../../../components/reporting/report/StoreWiseMatrix";
@@ -60,11 +55,7 @@ export default function StoreWisePdReport({
       exportTitle="Export Store Wise PD report"
       className="min-h-[420px]"
     >
-      <KpiCard
-        summary={kpi}
-        isLoading={isKpiLoading}
-        showTransactions={false}
-      />
+      <KpiCard summary={kpi} isLoading={isKpiLoading} showTransactions={false} />
       <div id="store-door-code-section" className="min-w-0 max-w-full">
         <LollipopRankChart
           title="Door Code Wise PD Amount"
@@ -89,10 +80,7 @@ export default function StoreWisePdReport({
         />
       </div>
       <div id="store-matrix-section" className="min-w-0 max-w-full">
-        <StoreWiseMatrix
-          items={matrix}
-          isLoading={isMatrixLoading || isMatrixDeferred}
-        />
+        <StoreWiseMatrix items={matrix} isLoading={isMatrixLoading || isMatrixDeferred} />
       </div>
     </ReportWorkspace>
   );

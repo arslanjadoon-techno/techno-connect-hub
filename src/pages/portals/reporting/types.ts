@@ -1,8 +1,5 @@
 export type ReportView =
-  | "pd-compensation"
-  | "store-wise-pd-compensation"
-  | "retention-activation"
-  | "profitability";
+  "pd-compensation" | "store-wise-pd-compensation" | "retention-activation" | "profitability";
 
 export type TransactionRow = {
   id: number;

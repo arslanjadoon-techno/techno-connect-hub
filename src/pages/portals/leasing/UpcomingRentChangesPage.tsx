@@ -15,8 +15,10 @@ interface Row extends UpcomingRentChange {
   pct: number | null;
 }
 
-const fmt = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtDate = (d: string) => new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const fmt = (n: number) =>
+  n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const fmtDate = (d: string) =>
+  new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 const nextMonthName = () => {
   const d = new Date();
@@ -25,9 +27,9 @@ const nextMonthName = () => {
 };
 
 const total = (r: UpcomingRentChange, prefix: "current" | "new") =>
-  (prefix === "current"
+  prefix === "current"
     ? (r.currentMonthlyRent ?? 0) + (r.currentCamCharges ?? 0) + (r.currentOtherCharges ?? 0)
-    : (r.newMonthlyRent ?? 0) + (r.newCamCharges ?? 0) + (r.newOtherCharges ?? 0));
+    : (r.newMonthlyRent ?? 0) + (r.newCamCharges ?? 0) + (r.newOtherCharges ?? 0);
 
 export default function UpcomingRentChangesPage() {
   const navigate = useNavigate();
@@ -76,7 +78,9 @@ export default function UpcomingRentChangesPage() {
             Rent Changes &mdash; {nextMonthName()}
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {loading ? "Loading..." : `${data.length} store${data.length !== 1 ? "s" : ""} with rent changes effective next month`}
+            {loading
+              ? "Loading..."
+              : `${data.length} store${data.length !== 1 ? "s" : ""} with rent changes effective next month`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -104,18 +108,40 @@ export default function UpcomingRentChangesPage() {
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
-                {["Store", "Tech ID", "Market", "Tier", "Current Total", "New Total", "Change", "Change %", "Effective Date", ""].map((h) => (
-                  <th key={h} className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground">{h}</th>
+                {[
+                  "Store",
+                  "Tech ID",
+                  "Market",
+                  "Tier",
+                  "Current Total",
+                  "New Total",
+                  "Change",
+                  "Change %",
+                  "Effective Date",
+                  "",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground"
+                  >
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y">
               {loading ? (
-                <tr><td colSpan={10} className="py-12 text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" /></td></tr>
+                <tr>
+                  <td colSpan={10} className="py-12 text-center">
+                    <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+                  </td>
+                </tr>
               ) : rows.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="py-12 text-center text-sm text-muted-foreground">
-                    {data.length === 0 ? `No rent changes scheduled for ${nextMonthName()}` : "No results match your search"}
+                    {data.length === 0
+                      ? `No rent changes scheduled for ${nextMonthName()}`
+                      : "No results match your search"}
                   </td>
                 </tr>
               ) : (
@@ -129,7 +155,11 @@ export default function UpcomingRentChangesPage() {
                       ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400"
                       : "border-border bg-muted text-muted-foreground";
                   return (
-                    <tr key={i} className="cursor-pointer whitespace-nowrap hover:bg-muted/30" onClick={() => goToLease(r.techId)}>
+                    <tr
+                      key={i}
+                      className="cursor-pointer whitespace-nowrap hover:bg-muted/30"
+                      onClick={() => goToLease(r.techId)}
+                    >
                       <td className="px-3 py-2 capitalize">{r.storeName?.toLowerCase() ?? "—"}</td>
                       <td className="px-3 py-2 font-medium">{r.techId}</td>
                       <td className="px-3 py-2 capitalize">{r.marketName?.toLowerCase() ?? "—"}</td>
@@ -146,7 +176,9 @@ export default function UpcomingRentChangesPage() {
                           {r.pct !== null ? `${isUp ? "+" : ""}${r.pct}%` : "N/A"}
                         </Badge>
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground">{fmtDate(r.effectiveDate)}</td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {fmtDate(r.effectiveDate)}
+                      </td>
                       <td className="px-3 py-2">
                         <Button
                           size="sm"

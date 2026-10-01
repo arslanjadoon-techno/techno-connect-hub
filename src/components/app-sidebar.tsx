@@ -78,7 +78,15 @@ const topItems: Item[] = [
   { title: "Team Chat", url: "/chat", icon: MessagesSquare },
 ];
 
-const PORTAL_ORDER = ["commission", "leasing", "ranker", "ticketing", "leave", "scheduling", "reporting"];
+const PORTAL_ORDER = [
+  "commission",
+  "leasing",
+  "ranker",
+  "ticketing",
+  "leave",
+  "scheduling",
+  "reporting",
+];
 
 const MASTER_PORTAL_GROUPS: Record<string, Group> = {
   commission: {

@@ -5,7 +5,7 @@ import { Sparkles } from "lucide-react";
 interface PortalNode {
   id: string;
   name: string;
-  angleDeg: number; 
+  angleDeg: number;
   isLive: boolean;
   statusLabel?: string;
 }

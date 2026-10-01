@@ -12,13 +12,8 @@ function compactMoney(value: number) {
   return formatCompactNumber(value);
 }
 
-export default function RetentionTrendChart({
-  points,
-  isLoading = false,
-}: Props) {
-  const sorted = [...points].sort(
-    (a, b) => a.qualificationDay - b.qualificationDay,
-  );
+export default function RetentionTrendChart({ points, isLoading = false }: Props) {
+  const sorted = [...points].sort((a, b) => a.qualificationDay - b.qualificationDay);
   const bars =
     sorted.length > 0
       ? [
@@ -41,11 +36,7 @@ export default function RetentionTrendChart({
       <div className="min-w-0 max-w-full overflow-x-auto px-2 pb-4 pt-2 sm:px-4">
         {isLoading ? (
           <div className="h-[320px]">
-            <LoadingIndicator
-              label="Loading retention trend"
-              size="lg"
-              layout="center"
-            />
+            <LoadingIndicator label="Loading retention trend" size="lg" layout="center" />
           </div>
         ) : bars.length === 0 ? (
           <div className="flex h-[320px] items-center justify-center text-sm text-[#7d7283]">
@@ -83,8 +74,7 @@ export default function RetentionTrendChart({
             })}
             {bars.map((bar, index) => {
               const barHeight = (bar.value / maxValue) * innerHeight;
-              const x =
-                padding.left + index * slotWidth + (slotWidth - barWidth) / 2;
+              const x = padding.left + index * slotWidth + (slotWidth - barWidth) / 2;
               const y = padding.top + innerHeight - barHeight;
               return (
                 <g key={`${bar.label}-${index}`}>
@@ -96,9 +86,7 @@ export default function RetentionTrendChart({
                     className={`${index === 0 ? "fill-[var(--primary)]" : "fill-[var(--primary-glow)]"} cursor-pointer transition-opacity hover:opacity-75`}
                   >
                     <title>
-                      {bar.label === "Activation"
-                        ? "Activation"
-                        : `Qualification Day ${bar.label}`}{" "}
+                      {bar.label === "Activation" ? "Activation" : `Qualification Day ${bar.label}`}{" "}
                       - {formatCompactNumber(bar.value)}
                     </title>
                   </rect>

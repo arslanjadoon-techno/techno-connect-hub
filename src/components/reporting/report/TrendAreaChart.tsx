@@ -23,15 +23,10 @@ export default function TrendAreaChart({
   isLoading = false,
 }: TrendAreaChartProps) {
   const safePoints = points ?? [];
-  const sortedPoints = [...safePoints].sort((a, b) =>
-    a.postedDate.localeCompare(b.postedDate),
-  );
+  const sortedPoints = [...safePoints].sort((a, b) => a.postedDate.localeCompare(b.postedDate));
   const hasTransactions = sortedPoints.some((point) => point.transactions > 0);
   const maxAmount = Math.max(...sortedPoints.map((point) => point.amount), 1);
-  const maxTransactions = Math.max(
-    ...sortedPoints.map((point) => point.transactions),
-    1,
-  );
+  const maxTransactions = Math.max(...sortedPoints.map((point) => point.transactions), 1);
   const innerWidth = width - padding.left - padding.right;
   const innerHeight = height - padding.top - padding.bottom;
   const barGap = 8;
@@ -48,9 +43,7 @@ export default function TrendAreaChart({
         : (index / (sortedPoints.length - 1)) * innerWidth);
     const amountHeight = (point.amount / maxAmount) * innerHeight;
     const transactionY =
-      padding.top +
-      innerHeight -
-      (point.transactions / maxTransactions) * innerHeight;
+      padding.top + innerHeight - (point.transactions / maxTransactions) * innerHeight;
 
     return {
       ...point,
@@ -63,10 +56,7 @@ export default function TrendAreaChart({
 
   const transactionPath = hasTransactions
     ? coordinates
-        .map(
-          (point, index) =>
-            `${index === 0 ? "M" : "L"} ${point.x} ${point.transactionY}`,
-        )
+        .map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.transactionY}`)
         .join(" ")
     : "";
   const ticks = [0, 0.25, 0.5, 0.75, 1];
@@ -77,11 +67,7 @@ export default function TrendAreaChart({
       <div className="min-w-0 max-w-full overflow-x-auto px-2 pb-4 pt-2 sm:px-4">
         {isLoading ? (
           <div className="h-[320px]">
-            <LoadingIndicator
-              label={`Loading ${title}`}
-              size="lg"
-              layout="center"
-            />
+            <LoadingIndicator label={`Loading ${title}`} size="lg" layout="center" />
           </div>
         ) : coordinates.length === 0 ? (
           <div className="flex h-[320px] items-center justify-center text-sm text-[#7d7283]">
@@ -143,8 +129,7 @@ export default function TrendAreaChart({
                   className="fill-[var(--primary)]"
                 >
                   <title>
-                    {formatLongDate(point.postedDate)} -{" "}
-                    {formatMoney(point.amount)}
+                    {formatLongDate(point.postedDate)} - {formatMoney(point.amount)}
                   </title>
                 </rect>
                 {index % labelInterval === 0 ? (
@@ -182,8 +167,8 @@ export default function TrendAreaChart({
                     strokeWidth="2"
                   >
                     <title>
-                      {formatLongDate(point.postedDate)} -{" "}
-                      {formatCompactNumber(point.transactions)} transactions
+                      {formatLongDate(point.postedDate)} - {formatCompactNumber(point.transactions)}{" "}
+                      transactions
                     </title>
                   </circle>
                 ))
@@ -193,9 +178,7 @@ export default function TrendAreaChart({
               x={padding.left - 46}
               y={padding.top + innerHeight / 2}
               className="fill-[#6a5a75] text-[11px] font-semibold"
-              transform={`rotate(-90 ${padding.left - 46} ${
-                padding.top + innerHeight / 2
-              })`}
+              transform={`rotate(-90 ${padding.left - 46} ${padding.top + innerHeight / 2})`}
               textAnchor="middle"
             >
               PD Amount
@@ -205,9 +188,7 @@ export default function TrendAreaChart({
                 x={width - 14}
                 y={padding.top + innerHeight / 2}
                 className="fill-[#6a5a75] text-[11px] font-semibold"
-                transform={`rotate(90 ${width - 14} ${
-                  padding.top + innerHeight / 2
-                })`}
+                transform={`rotate(90 ${width - 14} ${padding.top + innerHeight / 2})`}
                 textAnchor="middle"
               >
                 Transactions

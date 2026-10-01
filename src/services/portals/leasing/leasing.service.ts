@@ -87,7 +87,11 @@ export class LeasingService {
 
   private async request<T>(
     path: string,
-    opts: { method?: string; body?: unknown; query?: Record<string, string | number | undefined | null> } = {},
+    opts: {
+      method?: string;
+      body?: unknown;
+      query?: Record<string, string | number | undefined | null>;
+    } = {},
   ): Promise<T> {
     const query = opts.query ? this.buildQuery(opts.query) : "";
     const res = await fetch(`${this.baseUrl}${path}${query}`, {
@@ -121,8 +125,7 @@ export class LeasingService {
       const raw = row as Record<string, unknown>;
       const hvac = (row.hvac ?? raw.hVAC ?? raw.HVAC ?? null) as string | null;
       const landLordPointOfContact = (row.landLordPointOfContact ?? raw.pointOfContact ?? null) as
-        | string
-        | null;
+        string | null;
       return { ...row, hvac, landLordPointOfContact };
     });
   }
@@ -191,10 +194,16 @@ export class LeasingService {
     return Array.isArray(data) ? data : [];
   }
 
-  async getRentalPaymentDetails(year: string | number, month: string | number): Promise<RentalPaymentDetail[]> {
-    const data = await this.request<RentalPaymentDetail[]>(LEASING_API_PATHS.getRentalPaymentDetails, {
-      query: { year, month },
-    });
+  async getRentalPaymentDetails(
+    year: string | number,
+    month: string | number,
+  ): Promise<RentalPaymentDetail[]> {
+    const data = await this.request<RentalPaymentDetail[]>(
+      LEASING_API_PATHS.getRentalPaymentDetails,
+      {
+        query: { year, month },
+      },
+    );
     return Array.isArray(data) ? data : [];
   }
 
@@ -206,10 +215,15 @@ export class LeasingService {
   }
 
   async updateFinancialMonthlyFigures(data: FinancialMonthlyFiguresUpdate): Promise<unknown> {
-    return this.request(LEASING_API_PATHS.updateFinancialMonthlyFigures, { method: "POST", body: data });
+    return this.request(LEASING_API_PATHS.updateFinancialMonthlyFigures, {
+      method: "POST",
+      body: data,
+    });
   }
 
-  async updateFinancialMonthlyFiguresRowWise(data: Partial<FinancialMonthlyFiguresUpdate>): Promise<unknown> {
+  async updateFinancialMonthlyFiguresRowWise(
+    data: Partial<FinancialMonthlyFiguresUpdate>,
+  ): Promise<unknown> {
     return this.request(LEASING_API_PATHS.updateFinancialMonthlyFiguresRowWise, {
       method: "POST",
       body: data,
@@ -238,8 +252,15 @@ export class LeasingService {
     return this.request(LEASING_API_PATHS.updateLeaseRentAgreement, { method: "POST", body: data });
   }
 
-  async deleteLeaseRentAgreement(data: { TechID: string; StartDate: string; EndDate?: string | null }): Promise<unknown> {
-    return this.request(LEASING_API_PATHS.deleteLeaseRentAgreement, { method: "DELETE", body: data });
+  async deleteLeaseRentAgreement(data: {
+    TechID: string;
+    StartDate: string;
+    EndDate?: string | null;
+  }): Promise<unknown> {
+    return this.request(LEASING_API_PATHS.deleteLeaseRentAgreement, {
+      method: "DELETE",
+      body: data,
+    });
   }
 
   // ---------- Lease expiration remarks ---------- //
@@ -252,7 +273,10 @@ export class LeasingService {
   }
 
   async saveLeaseExpirationRemarks(data: unknown): Promise<unknown> {
-    return this.request(LEASING_API_PATHS.saveLeaseExpirationRemarks, { method: "POST", body: data });
+    return this.request(LEASING_API_PATHS.saveLeaseExpirationRemarks, {
+      method: "POST",
+      body: data,
+    });
   }
 
   // ---------- Report templates ---------- //
@@ -263,33 +287,59 @@ export class LeasingService {
   }
 
   async saveReportTemplate(name: string, fields: string[]): Promise<unknown> {
-    return this.request(LEASING_API_PATHS.saveReportTemplate, { method: "POST", body: { name, fields } });
+    return this.request(LEASING_API_PATHS.saveReportTemplate, {
+      method: "POST",
+      body: { name, fields },
+    });
   }
 
   async deleteReportTemplate(id: number): Promise<unknown> {
-    return this.request(LEASING_API_PATHS.deleteReportTemplate, { method: "DELETE", query: { id } });
+    return this.request(LEASING_API_PATHS.deleteReportTemplate, {
+      method: "DELETE",
+      query: { id },
+    });
   }
 
   // ---------- Bulk upload ---------- //
 
-  async bulkUploadRent(file: File, year: string | number, month: string | number): Promise<Record<string, string>> {
+  async bulkUploadRent(
+    file: File,
+    year: string | number,
+    month: string | number,
+  ): Promise<Record<string, string>> {
     const formData = new FormData();
     formData.append("file", file);
-    const result = await this.uploadFile<Record<string, string>>(LEASING_API_PATHS.bulkUploadRent, formData, { year, month });
+    const result = await this.uploadFile<Record<string, string>>(
+      LEASING_API_PATHS.bulkUploadRent,
+      formData,
+      { year, month },
+    );
     return result && typeof result === "object" ? result : {};
   }
 
-  async bulkUploadAccounting(file: File, year: string | number, month: string | number): Promise<Record<string, string>> {
+  async bulkUploadAccounting(
+    file: File,
+    year: string | number,
+    month: string | number,
+  ): Promise<Record<string, string>> {
     const formData = new FormData();
     formData.append("file", file);
-    const result = await this.uploadFile<Record<string, string>>(LEASING_API_PATHS.bulkUploadAccounting, formData, { year, month });
+    const result = await this.uploadFile<Record<string, string>>(
+      LEASING_API_PATHS.bulkUploadAccounting,
+      formData,
+      { year, month },
+    );
     return result && typeof result === "object" ? result : {};
   }
 
   async bulkUploadLeaseDetails(file: File, category: string): Promise<Record<string, string>> {
     const formData = new FormData();
     formData.append("file", file);
-    const result = await this.uploadFile<Record<string, string>>(LEASING_API_PATHS.bulkUploadLeaseDetails, formData, { category });
+    const result = await this.uploadFile<Record<string, string>>(
+      LEASING_API_PATHS.bulkUploadLeaseDetails,
+      formData,
+      { category },
+    );
     return result && typeof result === "object" ? result : {};
   }
 

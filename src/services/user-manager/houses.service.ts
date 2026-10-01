@@ -34,8 +34,9 @@ export class HousesService {
   }) {
     return http.put<House>(HOUSE_API_PATHS.updateHouse, payload);
   }
-  delete(id: number) {
-    return http.delete<null>(HOUSE_API_PATHS.deleteHouse, { id });
+  delete(id: number | string | { id: number | string }) {
+    const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
+    return http.delete<null>(HOUSE_API_PATHS.deleteHouse(numericId));
   }
 }
 

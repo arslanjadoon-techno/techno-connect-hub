@@ -27,7 +27,7 @@ export const USER_API_PATHS = {
   user: (id: string | number) => `/api/users/${id}`,
   addUser: "/api/users/add",
   updateUser: "/api/users/update",
-  deleteUser: "/api/users/delete",
+  deleteUser: (id: string | number) => `/api/users/delete/${id}`,
   updatePassword: "/api/users/update-password",
   toggle2FaBypass: "/api/users/toggle-2fa-bypass",
   toggleActivationStatus: "/api/users/toggle-activation-status",
@@ -39,7 +39,7 @@ export const STATE_API_PATHS = {
   state: (id: string | number) => `/api/states/${id}`,
   addState: "/api/states/add",
   updateState: "/api/states/update",
-  deleteState: "/api/states/delete",
+  deleteState: (id: string | number) => `/api/states/delete/${id}`,
 } as const;
 
 export const DISTRICT_API_PATHS = {
@@ -47,7 +47,7 @@ export const DISTRICT_API_PATHS = {
   district: (id: string | number) => `/api/districts/${id}`,
   addDistrict: "/api/districts/add",
   updateDistrict: "/api/districts/update",
-  deleteDistrict: "/api/districts/delete",
+  deleteDistrict: (id: string | number) => `/api/districts/delete/${id}`,
 } as const;
 
 export const MARKET_API_PATHS = {
@@ -55,7 +55,7 @@ export const MARKET_API_PATHS = {
   market: (id: string | number) => `/api/markets/${id}`,
   addMarket: "/api/markets/add",
   updateMarket: "/api/markets/update",
-  deleteMarket: "/api/markets/delete",
+  deleteMarket: (id: string | number) => `/api/markets/delete/${id}`,
 } as const;
 
 export const STORE_API_PATHS = {
@@ -63,7 +63,7 @@ export const STORE_API_PATHS = {
   store: (id: string | number) => `/api/stores/${id}`,
   addStore: "/api/stores/add",
   updateStore: "/api/stores/update",
-  deleteStore: "/api/stores/delete",
+  deleteStore: (id: string | number) => `/api/stores/delete/${id}`,
 } as const;
 
 export const HOUSE_API_PATHS = {
@@ -71,7 +71,7 @@ export const HOUSE_API_PATHS = {
   house: (id: string | number) => `/api/houses/${id}`,
   addHouse: "/api/houses/add",
   updateHouse: "/api/houses/update",
-  deleteHouse: "/api/houses/delete",
+  deleteHouse: (id: string | number) => `/api/houses/delete/${id}`,
 } as const;
 
 export const EXTERNAL_TEAM_API_PATHS = {
@@ -87,7 +87,7 @@ export const DEPARTMENT_API_PATHS = {
   department: (id: string | number) => `/api/departments/${id}`,
   addDepartment: "/api/departments/add",
   updateDepartment: "/api/departments/update",
-  deleteDepartment: "/api/departments/delete",
+  deleteDepartment: (id: string | number) => `/api/departments/delete/${id}`,
 } as const;
 
 export const HIRARCHY_API_PATHS = {
@@ -95,7 +95,7 @@ export const HIRARCHY_API_PATHS = {
   getDistrictsByState: (id: string | number) => `/api/districts/state/${id}`,
   addUser: "/api/users/add",
   updateUser: "/api/users/update",
-  deleteUser: "/api/users/delete",
+  deleteUser: (id: string | number) => `/api/users/delete/${id}`,
 } as const;
 
 export const PORTAL_API_PATHS = {

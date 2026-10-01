@@ -15,8 +15,18 @@ import { leasingService } from "@/services/portals/leasing";
 
 const YEARS = ["2026", "2027", "2028"];
 const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 export default function RentAgreement2MonthlyRentPage() {
@@ -53,10 +63,14 @@ export default function RentAgreement2MonthlyRentPage() {
           <div className="space-y-1.5">
             <Label>Year</Label>
             <Select value={year} onValueChange={setYear}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
               <SelectContent>
                 {YEARS.map((y) => (
-                  <SelectItem key={y} value={y}>{y}</SelectItem>
+                  <SelectItem key={y} value={y}>
+                    {y}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -65,10 +79,14 @@ export default function RentAgreement2MonthlyRentPage() {
           <div className="space-y-1.5">
             <Label>Month</Label>
             <Select value={month} onValueChange={setMonth}>
-              <SelectTrigger><SelectValue placeholder="Select month" /></SelectTrigger>
+              <SelectTrigger>
+                <SelectValue placeholder="Select month" />
+              </SelectTrigger>
               <SelectContent>
                 {MONTHS.map((m, i) => (
-                  <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>
+                  <SelectItem key={m} value={String(i + 1)}>
+                    {m}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>

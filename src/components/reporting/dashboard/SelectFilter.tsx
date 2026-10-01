@@ -5,17 +5,10 @@ type SelectFilterProps = {
   onChange: (value: string) => void;
 };
 
-export default function SelectFilter({
-  label,
-  value,
-  options,
-  onChange,
-}: SelectFilterProps) {
+export default function SelectFilter({ label, value, options, onChange }: SelectFilterProps) {
   return (
     <label className="block rounded-[6px] border border-[#7600bc] bg-white p-3">
-      <span className="mb-2 block text-[10px] font-semibold text-[#4a4250]">
-        {label}
-      </span>
+      <span className="mb-2 block text-[10px] font-semibold text-[#4a4250]">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}

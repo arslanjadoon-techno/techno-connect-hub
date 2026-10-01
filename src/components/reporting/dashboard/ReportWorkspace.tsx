@@ -41,11 +41,7 @@ export default function ReportWorkspace({
       <div className="grid min-w-0 max-w-full gap-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-[11px] font-semibold text-[#6a5a75]">
-            {loading ? (
-              <LoadingIndicator label={loadingLabel} size="sm" />
-            ) : (
-              status
-            )}
+            {loading ? <LoadingIndicator label={loadingLabel} size="sm" /> : status}
           </div>
           {onExport ? (
             <Button

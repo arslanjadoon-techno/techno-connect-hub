@@ -104,7 +104,8 @@ export default function ProfitabilityReport({
         if (result.categories?.length) setReportCategories(result.categories);
       })
       .catch((reason) => {
-        if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : "Profitability API failed");
+        if (!controller.signal.aborted)
+          setError(reason instanceof Error ? reason.message : "Profitability API failed");
       })
       .finally(() => {
         if (!controller.signal.aborted) {
@@ -116,10 +117,7 @@ export default function ProfitabilityReport({
   }, [filters]);
 
   const totals = useMemo(
-    () =>
-      reportCategories.map((_, index) =>
-        rows.reduce((sum, row) => sum + row.values[index], 0),
-      ),
+    () => reportCategories.map((_, index) => rows.reduce((sum, row) => sum + row.values[index], 0)),
     [rows, reportCategories],
   );
   const grandTotal = totals.reduce((sum, value) => sum + value, 0);
@@ -133,12 +131,17 @@ export default function ProfitabilityReport({
     if (nextFilters.postedEnd) params.set("postedTo", nextFilters.postedEnd);
     if (nextFilters.transactionStart) params.set("transactionFrom", nextFilters.transactionStart);
     if (nextFilters.transactionEnd) params.set("transactionTo", nextFilters.transactionEnd);
-    if (nextFilters.transactionType !== "All") params.set("transactionType", nextFilters.transactionType);
+    if (nextFilters.transactionType !== "All")
+      params.set("transactionType", nextFilters.transactionType);
     if (nextFilters.compType !== "All") params.set("compType", nextFilters.compType);
     if (nextFilters.dispute !== "All") params.set("dispute", nextFilters.dispute);
     nextFilters.markets.forEach((market) => params.append("market", market));
     nextFilters.stores.forEach((store) => params.append("store", store));
-    window.history.pushState({}, "", `${window.location.pathname}${params.toString() ? `?${params}` : ""}`);
+    window.history.pushState(
+      {},
+      "",
+      `${window.location.pathname}${params.toString() ? `?${params}` : ""}`,
+    );
   }
 
   async function handleExport() {
@@ -179,7 +182,11 @@ export default function ProfitabilityReport({
         />
       ) : null}
 
-      {error ? <div className="rounded-md border border-red-400 bg-red-950/30 px-3 py-2 text-xs text-red-200">{error}</div> : null}
+      {error ? (
+        <div className="rounded-md border border-red-400 bg-red-950/30 px-3 py-2 text-xs text-red-200">
+          {error}
+        </div>
+      ) : null}
 
       <section className="profitability-report relative min-w-0 flex-1 rounded-2xl border-2 border-[#7600bc] bg-white p-2.5 text-[#3f2354] shadow-lg shadow-[#7600bc]/10 sm:p-3">
         <div className="grid gap-5">
@@ -210,88 +217,80 @@ export default function ProfitabilityReport({
                 <LoadingIndicator label="Loading store wise profitability" size="lg" />
               </div>
             ) : (
-            <div className="max-h-[430px] overflow-auto">
-              <table className="w-full min-w-[950px] border-collapse text-[11px]">
-                <thead className="sticky top-0 z-10 bg-primary text-primary-foreground">
-                  <tr>
-                    <th className="px-2 py-2 text-left">Store</th>
-                    {reportCategories.map((c) => (
-                      <th key={c} className="px-2 py-2 font-medium">
-                        {c}
-                      </th>
+              <div className="max-h-[430px] overflow-auto">
+                <table className="w-full min-w-[950px] border-collapse text-[11px]">
+                  <thead className="sticky top-0 z-10 bg-primary text-primary-foreground">
+                    <tr>
+                      <th className="px-2 py-2 text-left">Store</th>
+                      {reportCategories.map((c) => (
+                        <th key={c} className="px-2 py-2 font-medium">
+                          {c}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((row, ri) => (
+                      <tr
+                        key={`${row.code}-${row.name}-${ri}`}
+                        className={
+                          ri % 2 ? "bg-muted/50 text-foreground" : "bg-card text-foreground"
+                        }
+                      >
+                        <td className="whitespace-nowrap px-2 py-1">
+                          {row.code} - {row.name}
+                        </td>
+                        {row.values.map((v, i) => (
+                          <td key={reportCategories[i]} className="px-2 py-1 text-right">
+                            {v < 0 ? `(${money.format(Math.abs(v))})` : money.format(v)}
+                          </td>
+                        ))}
+                      </tr>
                     ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row, ri) => (
-                    <tr
-                      key={`${row.code}-${row.name}-${ri}`}
-                      className={ri % 2 ? "bg-muted/50 text-foreground" : "bg-card text-foreground"}
-                    >
-                      <td className="whitespace-nowrap px-2 py-1">
-                        {row.code} - {row.name}
-                      </td>
-                      {row.values.map((v, i) => (
-                        <td
-                          key={reportCategories[i]}
-                          className="px-2 py-1 text-right"
-                        >
-                          {v < 0
-                            ? `(${money.format(Math.abs(v))})`
-                            : money.format(v)}
+                  </tbody>
+                  <tfoot className="sticky bottom-0 bg-primary/15 font-bold text-foreground">
+                    <tr>
+                      <td className="px-2 py-2">Total</td>
+                      {totals.map((v, i) => (
+                        <td key={reportCategories[i]} className="px-2 py-2 text-right">
+                          {v < 0 ? `(${money.format(Math.abs(v))})` : money.format(v)}
                         </td>
                       ))}
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot className="sticky bottom-0 bg-primary/15 font-bold text-foreground">
-                  <tr>
-                    <td className="px-2 py-2">Total</td>
-                    {totals.map((v, i) => (
-                      <td key={reportCategories[i]} className="px-2 py-2 text-right">
-                        {v < 0
-                          ? `(${money.format(Math.abs(v))})`
-                          : money.format(v)}
-                      </td>
-                    ))}
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+                  </tfoot>
+                </table>
+              </div>
             )}
           </ReportPanel>
 
-          <ReportPanel
-            title="Profitability Headers"
-            className="overflow-hidden p-3"
-          >
+          <ReportPanel title="Profitability Headers" className="overflow-hidden p-3">
             {dataLoading ? (
               <div className="flex h-[300px] items-center justify-center">
                 <LoadingIndicator label="Loading profitability headers" size="lg" />
               </div>
             ) : (
-            <div className="flex h-[300px] items-end gap-3 overflow-x-auto border-b border-[#e7dce9] px-3 pb-8 pt-6">
-              {totals.map((value, index) => (
-                <div
-                  key={reportCategories[index]}
-                  className="flex h-full min-w-[80px] flex-1 flex-col items-center justify-end"
-                >
-                  <span className="mb-2 text-[10px] text-[#5b3a68]">
-                    {shortMoney.format(value)}
-                  </span>
+              <div className="flex h-[300px] items-end gap-3 overflow-x-auto border-b border-[#e7dce9] px-3 pb-8 pt-6">
+                {totals.map((value, index) => (
                   <div
-                    className="w-[70%] bg-[var(--primary)]"
-                    style={{
-                      height: `${Math.max((Math.abs(value) / chartMax) * 190, 3)}px`,
-                      backgroundImage: "var(--gradient-primary)",
-                    }}
-                  />
-                  <span className="mt-3 text-center text-[9px] text-[#5b3a68]">
-                    {reportCategories[index]}
-                  </span>
-                </div>
-              ))}
-            </div>
+                    key={reportCategories[index]}
+                    className="flex h-full min-w-[80px] flex-1 flex-col items-center justify-end"
+                  >
+                    <span className="mb-2 text-[10px] text-[#5b3a68]">
+                      {shortMoney.format(value)}
+                    </span>
+                    <div
+                      className="w-[70%] bg-[var(--primary)]"
+                      style={{
+                        height: `${Math.max((Math.abs(value) / chartMax) * 190, 3)}px`,
+                        backgroundImage: "var(--gradient-primary)",
+                      }}
+                    />
+                    <span className="mt-3 text-center text-[9px] text-[#5b3a68]">
+                      {reportCategories[index]}
+                    </span>
+                  </div>
+                ))}
+              </div>
             )}
           </ReportPanel>
 
@@ -304,59 +303,64 @@ export default function ProfitabilityReport({
                 <LoadingIndicator label="Loading monthly profitability" size="lg" />
               </div>
             ) : (
-            <>
-            <div className="mb-4 flex flex-wrap justify-center gap-2">
-              {reportCategories.map((c, i) => (
-                <span key={c} className="text-[9px] text-[#685a6e]">
-                  <i
-                    className="mr-1 inline-block h-2 w-2 rounded-full"
-                    style={{ background: colors[i] }}
-                  />
-                  {c}
-                </span>
-              ))}
-            </div>
-            <div className="relative flex h-[300px] items-end gap-2 overflow-x-auto rounded-md border-b border-border px-3 pb-8 pt-4 [background-image:repeating-linear-gradient(to_bottom,transparent_0,transparent_59px,color-mix(in_oklab,var(--border)_70%,transparent)_60px)]">
-              <div className="pointer-events-none absolute bottom-8 left-1 top-3 z-10 flex w-7 flex-col justify-between text-[8px] text-muted-foreground">
-                <span>100%</span><span>80%</span><span>60%</span><span>40%</span><span>20%</span><span>0%</span>
-              </div>
-              <div
-                className="ml-7 flex h-full min-w-full items-end gap-4"
-                style={{ minWidth: `${Math.max(monthly.length * 88, 720)}px` }}
-              >
-              {monthly.map((item, index) => {
-                const total = item.values.reduce((a, b) => a + Math.abs(b), 0);
-                return (
-                  <div
-                    key={`${item.month}-${index}`}
-                    className="flex h-full w-[72px] flex-none flex-col justify-end"
-                  >
-                    <div className="flex h-[230px] w-16 shrink-0 flex-col-reverse justify-start rounded-t-md border-x border-t border-primary/20 bg-primary/5">
-                      {item.values.map((v, i) => (
-                        <div
-                          key={reportCategories[i]}
-                          title={`${reportCategories[i]} ${v.toFixed(1)}%`}
-                          className="flex items-center justify-center overflow-hidden text-[8px] font-bold text-white"
-                          style={{
-                            height: `${total ? Math.max((Math.abs(v) / total) * 100, 1.5) : 0}%`,
-                            background: colors[i],
-                          }}
-                        >
-                          {total && Math.abs(v) / total > 0.09
-                            ? `${((Math.abs(v) / total) * 100).toFixed(1)}%`
-                            : ""}
-                        </div>
-                      ))}
-                    </div>
-                    <span className="mt-3 whitespace-nowrap text-center text-[9px] text-[#66586b]">
-                      {item.month}
+              <>
+                <div className="mb-4 flex flex-wrap justify-center gap-2">
+                  {reportCategories.map((c, i) => (
+                    <span key={c} className="text-[9px] text-[#685a6e]">
+                      <i
+                        className="mr-1 inline-block h-2 w-2 rounded-full"
+                        style={{ background: colors[i] }}
+                      />
+                      {c}
                     </span>
+                  ))}
+                </div>
+                <div className="relative flex h-[300px] items-end gap-2 overflow-x-auto rounded-md border-b border-border px-3 pb-8 pt-4 [background-image:repeating-linear-gradient(to_bottom,transparent_0,transparent_59px,color-mix(in_oklab,var(--border)_70%,transparent)_60px)]">
+                  <div className="pointer-events-none absolute bottom-8 left-1 top-3 z-10 flex w-7 flex-col justify-between text-[8px] text-muted-foreground">
+                    <span>100%</span>
+                    <span>80%</span>
+                    <span>60%</span>
+                    <span>40%</span>
+                    <span>20%</span>
+                    <span>0%</span>
                   </div>
-                );
-              })}
-              </div>
-            </div>
-            </>
+                  <div
+                    className="ml-7 flex h-full min-w-full items-end gap-4"
+                    style={{ minWidth: `${Math.max(monthly.length * 88, 720)}px` }}
+                  >
+                    {monthly.map((item, index) => {
+                      const total = item.values.reduce((a, b) => a + Math.abs(b), 0);
+                      return (
+                        <div
+                          key={`${item.month}-${index}`}
+                          className="flex h-full w-[72px] flex-none flex-col justify-end"
+                        >
+                          <div className="flex h-[230px] w-16 shrink-0 flex-col-reverse justify-start rounded-t-md border-x border-t border-primary/20 bg-primary/5">
+                            {item.values.map((v, i) => (
+                              <div
+                                key={reportCategories[i]}
+                                title={`${reportCategories[i]} ${v.toFixed(1)}%`}
+                                className="flex items-center justify-center overflow-hidden text-[8px] font-bold text-white"
+                                style={{
+                                  height: `${total ? Math.max((Math.abs(v) / total) * 100, 1.5) : 0}%`,
+                                  background: colors[i],
+                                }}
+                              >
+                                {total && Math.abs(v) / total > 0.09
+                                  ? `${((Math.abs(v) / total) * 100).toFixed(1)}%`
+                                  : ""}
+                              </div>
+                            ))}
+                          </div>
+                          <span className="mt-3 whitespace-nowrap text-center text-[9px] text-[#66586b]">
+                            {item.month}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
             )}
           </ReportPanel>
         </div>

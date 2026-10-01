@@ -263,7 +263,7 @@ export default function StoresPage() {
   const handleDelete = async (s: Store) => {
     try {
       setActionLoading(true);
-      const res = await StoresApi.delete({ id: s.id });
+      const res = await StoresApi.delete(s.id);
       if (res.success) {
         toast.success(res.message || "Store deleted successfully");
         lastFetchedKey.current = "";

@@ -21,11 +21,7 @@ import { useStoreWisePdData } from "./reports/store-wise-pd/useStoreWisePdData";
 import ReportFilterWorkspace from "../../../components/reporting/dashboard/ReportFilterWorkspace";
 import PdCompensationReport from "./reports/pd-compensation/PdCompensationReport";
 import StoreWisePdReport from "./reports/store-wise-pd/StoreWisePdReport";
-import {
-  downloadFile,
-  formatShortDate,
-  getLastTenDays,
-} from "./lib/report-utils";
+import { downloadFile, formatShortDate, getLastTenDays } from "./lib/report-utils";
 
 type DashboardProps = {
   initialView: ReportView;
@@ -33,14 +29,10 @@ type DashboardProps = {
 
 const FILTER_STORAGE_KEY = "pd-reporting-filters-v6";
 const STORE_WISE_FILTER_STORAGE_KEY = "store-wise-pd-reporting-filters-v5";
-const RETENTION_FILTER_STORAGE_KEY =
-  "retention-activation-reporting-filters-v1";
+const RETENTION_FILTER_STORAGE_KEY = "retention-activation-reporting-filters-v1";
 const PAGE_SIZE = 50;
 const reportPaths = Object.fromEntries(
-  Object.entries(reportRegistry).map(([id, definition]) => [
-    id,
-    definition.path,
-  ]),
+  Object.entries(reportRegistry).map(([id, definition]) => [id, definition.path]),
 ) as Record<ReportView, string>;
 const defaultFilters: Filters = {
   ...getLastTenDays(),
@@ -105,18 +97,13 @@ function getInitialFilters(storageKey: string) {
     transactionType: read("transactionType", storedFilters.transactionType),
     compType: read("compType", storedFilters.compType),
     dispute: read("dispute", storedFilters.dispute),
-    markets: params.has("market")
-      ? params.getAll("market")
-      : storedFilters.markets,
+    markets: params.has("market") ? params.getAll("market") : storedFilters.markets,
     stores: params.has("store") ? params.getAll("store") : storedFilters.stores,
   };
 }
 
 function getInitialView(): ReportView {
-  if (
-    typeof window !== "undefined" &&
-    window.location.pathname === reportPaths.profitability
-  ) {
+  if (typeof window !== "undefined" && window.location.pathname === reportPaths.profitability) {
     return "profitability";
   }
   if (
@@ -140,10 +127,8 @@ function buildReportUrl(view: ReportView, filters: Filters) {
   if (filters.postedStart) params.set("postedFrom", filters.postedStart);
   if (filters.postedEnd) params.set("postedTo", filters.postedEnd);
 
-  if (filters.transactionStart)
-    params.set("transactionFrom", filters.transactionStart);
-  if (filters.transactionEnd)
-    params.set("transactionTo", filters.transactionEnd);
+  if (filters.transactionStart) params.set("transactionFrom", filters.transactionStart);
+  if (filters.transactionEnd) params.set("transactionTo", filters.transactionEnd);
   if (filters.programName !== "All") params.set("program", filters.programName);
   if (filters.transactionType !== "All") {
     params.set("transactionType", filters.transactionType);
@@ -162,26 +147,17 @@ export default function Dashboard({ initialView }: DashboardProps) {
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(true);
   const [filters, setFilters] = useState<Filters>(defaultFilters);
   const [draftFilters, setDraftFilters] = useState<Filters>(defaultFilters);
-  const [storeWiseFilters, setStoreWiseFilters] =
-    useState<Filters>(defaultFilters);
-  const [storeWiseDraftFilters, setStoreWiseDraftFilters] =
-    useState<Filters>(defaultFilters);
-  const [retentionFilters, setRetentionFilters] =
-    useState<Filters>(defaultFilters);
-  const [retentionDraftFilters, setRetentionDraftFilters] =
-    useState<Filters>(defaultFilters);
+  const [storeWiseFilters, setStoreWiseFilters] = useState<Filters>(defaultFilters);
+  const [storeWiseDraftFilters, setStoreWiseDraftFilters] = useState<Filters>(defaultFilters);
+  const [retentionFilters, setRetentionFilters] = useState<Filters>(defaultFilters);
+  const [retentionDraftFilters, setRetentionDraftFilters] = useState<Filters>(defaultFilters);
   const [page, setPage] = useState(1);
-  const [apiFilters, setApiFilters] =
-    useState<FilterOptionSet>(emptyFilterOptions);
+  const [apiFilters, setApiFilters] = useState<FilterOptionSet>(emptyFilterOptions);
   const [apiStoreWiseFilters, setApiStoreWiseFilters] =
     useState<FilterOptionSet>(emptyFilterOptions);
   const hasRestoredFiltersRef = useRef(false);
 
-  const pdReport = usePdCompensationData(
-    filters,
-    page,
-    activeView === "pd-compensation",
-  );
+  const pdReport = usePdCompensationData(filters, page, activeView === "pd-compensation");
   const storeWiseReport = useStoreWisePdData(
     storeWiseFilters,
     activeView === "store-wise-pd-compensation",
@@ -217,18 +193,12 @@ export default function Dashboard({ initialView }: DashboardProps) {
 
   useEffect(() => {
     if (!hasRestoredFiltersRef.current) return;
-    window.localStorage.setItem(
-      STORE_WISE_FILTER_STORAGE_KEY,
-      JSON.stringify(storeWiseFilters),
-    );
+    window.localStorage.setItem(STORE_WISE_FILTER_STORAGE_KEY, JSON.stringify(storeWiseFilters));
   }, [storeWiseFilters]);
 
   useEffect(() => {
     if (!hasRestoredFiltersRef.current) return;
-    window.localStorage.setItem(
-      RETENTION_FILTER_STORAGE_KEY,
-      JSON.stringify(retentionFilters),
-    );
+    window.localStorage.setItem(RETENTION_FILTER_STORAGE_KEY, JSON.stringify(retentionFilters));
   }, [retentionFilters]);
 
   useEffect(() => {
@@ -266,15 +236,13 @@ export default function Dashboard({ initialView }: DashboardProps) {
     const controller = new AbortController();
     const loadFilters =
       activeView === "pd-compensation"
-        ? getFilterValues({ signal: controller.signal }).then((options) =>
-            setApiFilters(options),
-          )
+        ? getFilterValues({ signal: controller.signal }).then((options) => setApiFilters(options))
         : activeView === "retention-activation"
           ? getFilterValues({ signal: controller.signal }).then((options) =>
               setApiStoreWiseFilters(options),
             )
-          : getStoreWiseFilterValues({ signal: controller.signal }).then(
-            (options) => setApiStoreWiseFilters(options),
+          : getStoreWiseFilterValues({ signal: controller.signal }).then((options) =>
+              setApiStoreWiseFilters(options),
             );
 
     loadFilters.catch(() => {
@@ -294,11 +262,7 @@ export default function Dashboard({ initialView }: DashboardProps) {
     pdReport.clearCache();
     setPage(1);
     setFilters({ ...nextFilters });
-    window.history.replaceState(
-      null,
-      "",
-      buildReportUrl("pd-compensation", nextFilters),
-    );
+    window.history.replaceState(null, "", buildReportUrl("pd-compensation", nextFilters));
   }
 
   function resetFilters() {
@@ -363,11 +327,7 @@ export default function Dashboard({ initialView }: DashboardProps) {
   function resetRetentionFilters() {
     setRetentionDraftFilters(defaultFilters);
     setRetentionFilters({ ...defaultFilters });
-    window.history.replaceState(
-      null,
-      "",
-      buildReportUrl("retention-activation", defaultFilters),
-    );
+    window.history.replaceState(null, "", buildReportUrl("retention-activation", defaultFilters));
   }
 
   async function exportReport() {
@@ -409,35 +369,28 @@ export default function Dashboard({ initialView }: DashboardProps) {
     : isStoreWiseView
       ? resetStoreWiseFilters
       : resetRetentionFilters;
-  const activeFilters = isPdView
-    ? filters
-    : isStoreWiseView
-      ? storeWiseFilters
-      : retentionFilters;
+  const activeFilters = isPdView ? filters : isStoreWiseView ? storeWiseFilters : retentionFilters;
   const dateRange =
     activeFilters.postedStart && activeFilters.postedEnd
       ? `${formatShortDate(activeFilters.postedStart)} – ${formatShortDate(activeFilters.postedEnd)}`
       : "All dates";
 
   return (
-    <main
-      data-reporting-theme
-      className="min-h-screen bg-[#f8f9fc] font-sans text-[#2d3033]"
-    >
+    <main data-reporting-theme className="min-h-screen bg-[#f8f9fc] font-sans text-[#2d3033]">
       <div className="px-2 pb-3 pt-3 sm:px-3">
         <div className="mb-3 flex flex-wrap gap-2">
           <Button
-  type="button"
-  onClick={() => setIsFilterPanelOpen((isOpen) => !isOpen)}
-  aria-pressed={isFilterPanelOpen}
-  className={`inline-flex h-9 cursor-pointer items-center gap-2 rounded-[6px] border px-3 text-[12px] font-bold shadow-sm transition ${
-    isFilterPanelOpen
-      ? "border-[#7600bc] bg-[#f5e8ff] text-[#7600bc]"
-      : "border-[#eadcf2] bg-white text-[#3f3548] hover:border-[#7600bc] hover:text-[#7600bc]"
-  }`}
->
-  <SlidersHorizontal size={15} />
-  Filters
+            type="button"
+            onClick={() => setIsFilterPanelOpen((isOpen) => !isOpen)}
+            aria-pressed={isFilterPanelOpen}
+            className={`inline-flex h-9 cursor-pointer items-center gap-2 rounded-[6px] border px-3 text-[12px] font-bold shadow-sm transition ${
+              isFilterPanelOpen
+                ? "border-[#7600bc] bg-[#f5e8ff] text-[#7600bc]"
+                : "border-[#eadcf2] bg-white text-[#3f3548] hover:border-[#7600bc] hover:text-[#7600bc]"
+            }`}
+          >
+            <SlidersHorizontal size={15} />
+            Filters
           </Button>
         </div>
 
@@ -488,15 +441,11 @@ export default function Dashboard({ initialView }: DashboardProps) {
               isKpiLoading={storeWiseReport.isKpiLoading}
               isMatrixLoading={storeWiseReport.isMatrixLoading}
               isDoorCodesLoading={storeWiseReport.isDoorCodesLoading}
-              isTransactionTypesLoading={
-                storeWiseReport.isTransactionTypesLoading
-              }
+              isTransactionTypesLoading={storeWiseReport.isTransactionTypesLoading}
               isTrendLoading={storeWiseReport.isTrendLoading}
               isMatrixDeferred={storeWiseReport.isMatrixDeferred}
               isDoorCodesDeferred={storeWiseReport.isDoorCodesDeferred}
-              isTransactionTypesDeferred={
-                storeWiseReport.isTransactionTypesDeferred
-              }
+              isTransactionTypesDeferred={storeWiseReport.isTransactionTypesDeferred}
               isTrendDeferred={storeWiseReport.isTrendDeferred}
               kpi={storeWiseReport.kpi}
               doorCodes={storeWiseReport.doorCodes}

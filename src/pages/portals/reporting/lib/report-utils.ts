@@ -23,14 +23,11 @@ export function getLastTenDays() {
 
 export async function downloadFile(url: string, fallbackName: string) {
   const token = typeof window !== "undefined" ? getToken() : null;
-  const isCrossOrigin = /^https?:\/\//i.test(url) &&
-    !url.startsWith(window.location.origin);
+  const isCrossOrigin = /^https?:\/\//i.test(url) && !url.startsWith(window.location.origin);
   const response = await fetch(url, {
     credentials: isCrossOrigin ? "omit" : "include",
     cache: "no-store",
-    headers: token
-      ? { Authorization: `Bearer ${token}`, token }
-      : undefined,
+    headers: token ? { Authorization: `Bearer ${token}`, token } : undefined,
   });
   if (!response.ok) {
     throw new Error(`Download failed: ${response.status}`);
@@ -38,12 +35,8 @@ export async function downloadFile(url: string, fallbackName: string) {
 
   const blob = await response.blob();
   const disposition = response.headers.get("content-disposition") ?? "";
-  const filenameMatch = disposition.match(
-    /filename\*?=(?:UTF-8''|\")?([^;\"]+)/i,
-  );
-  const filename = filenameMatch?.[1]
-    ? decodeURIComponent(filenameMatch[1])
-    : fallbackName;
+  const filenameMatch = disposition.match(/filename\*?=(?:UTF-8''|")?([^;"]+)/i);
+  const filename = filenameMatch?.[1] ? decodeURIComponent(filenameMatch[1]) : fallbackName;
   const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = objectUrl;
@@ -88,9 +81,7 @@ export function formatLongDate(dateValue: string) {
     return "";
   }
 
-  const normalizedDate = dateValue.includes("T")
-    ? dateValue
-    : `${dateValue}T00:00:00`;
+  const normalizedDate = dateValue.includes("T") ? dateValue : `${dateValue}T00:00:00`;
 
   return new Intl.DateTimeFormat("en-US", {
     weekday: "long",
@@ -109,25 +100,18 @@ export function formatMonth(dateValue: string) {
 
 export function filterRows(rows: TransactionRow[], filters: Filters) {
   return rows.filter((row) => {
-    const marketMatch =
-      filters.markets.length === 0 || filters.markets.includes(row.market);
-    const storeMatch =
-      filters.stores.length === 0 || filters.stores.includes(row.storeName);
+    const marketMatch = filters.markets.length === 0 || filters.markets.includes(row.market);
+    const storeMatch = filters.stores.length === 0 || filters.stores.includes(row.storeName);
     const postedMatch =
-      row.postedDate >= filters.postedStart &&
-      row.postedDate <= filters.postedEnd;
+      row.postedDate >= filters.postedStart && row.postedDate <= filters.postedEnd;
     const transactionMatch =
       row.transactionDate >= filters.transactionStart &&
       row.transactionDate <= filters.transactionEnd;
-    const programMatch =
-      filters.programName === "All" || row.programName === filters.programName;
+    const programMatch = filters.programName === "All" || row.programName === filters.programName;
     const transactionTypeMatch =
-      filters.transactionType === "All" ||
-      row.transactionType === filters.transactionType;
-    const compTypeMatch =
-      filters.compType === "All" || row.compType === filters.compType;
-    const disputeMatch =
-      filters.dispute === "All" || row.dispute === filters.dispute;
+      filters.transactionType === "All" || row.transactionType === filters.transactionType;
+    const compTypeMatch = filters.compType === "All" || row.compType === filters.compType;
+    const disputeMatch = filters.dispute === "All" || row.dispute === filters.dispute;
 
     return (
       marketMatch &&
@@ -191,10 +175,7 @@ export function summarizeRows(
 }
 
 export function groupRowsByMonth(rows: TransactionRow[]) {
-  const totals = new Map<
-    string,
-    { label: string; value: number; sort: string }
-  >();
+  const totals = new Map<string, { label: string; value: number; sort: string }>();
 
   rows.forEach((row) => {
     const key = row.postedDate.slice(0, 7);
@@ -211,9 +192,7 @@ export function groupRowsByMonth(rows: TransactionRow[]) {
     .map(({ label, value }) => ({ label, value }));
 }
 
-export function summarizeRowsByPostedDate(
-  rows: TransactionRow[],
-): TrendDatum[] {
+export function summarizeRowsByPostedDate(rows: TransactionRow[]): TrendDatum[] {
   const totals = new Map<string, { amount: number; transactions: number }>();
 
   rows.forEach((row) => {

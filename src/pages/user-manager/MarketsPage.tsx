@@ -196,7 +196,7 @@ export default function MarketsPage() {
   const handleDelete = async (m: Market) => {
     try {
       setActionLoading(true);
-      const res = await MarketsApi.delete({ id: m.id });
+      const res = await MarketsApi.delete(m.id);
       if (res.success) {
         toast.success(res.message || "Market deleted successfully");
         lastFetchedKey.current = "";

@@ -1,7 +1,1 @@
-export type {
-  DetailResult,
-  Filters,
-  KpiSummary,
-  SummaryDatum,
-  TrendDatum,
-} from "../../types";
+export type { DetailResult, Filters, KpiSummary, SummaryDatum, TrendDatum } from "../../types";

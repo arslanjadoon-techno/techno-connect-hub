@@ -8,13 +8,7 @@ import {
   getStoreWise,
   getTrend,
 } from "@/services/portals/reporting/report-api";
-import type {
-  DetailResult,
-  Filters,
-  KpiSummary,
-  SummaryDatum,
-  TrendDatum,
-} from "../../types";
+import type { DetailResult, Filters, KpiSummary, SummaryDatum, TrendDatum } from "../../types";
 import { useReportQuery } from "../../../../../components/reporting/dashboard/useReportQuery";
 import { useElementVisible } from "../../../../../components/reporting/dashboard/useElementVisible";
 
@@ -23,20 +17,13 @@ const emptyDetail: DetailResult = { totalRows: 0, rows: [] };
 const emptySummary: SummaryDatum[] = [];
 const emptyTrend: TrendDatum[] = [];
 
-export function usePdCompensationData(
-  filters: Filters,
-  page: number,
-  enabled: boolean,
-) {
+export function usePdCompensationData(filters: Filters, page: number, enabled: boolean) {
   const cache = useRef(new Map<string, DetailResult>());
   const marketEnabled = useElementVisible("pd-market-section", enabled);
   const storeEnabled = useElementVisible("pd-store-section", enabled);
   const trendEnabled = useElementVisible("pd-trend-section", enabled);
   const detailEnabled = useElementVisible("pd-detail-section", enabled);
-  const loadKpi = useCallback(
-    (signal: AbortSignal) => getKpi(filters, { signal }),
-    [filters],
-  );
+  const loadKpi = useCallback((signal: AbortSignal) => getKpi(filters, { signal }), [filters]);
   const loadMarket = useCallback(
     (signal: AbortSignal) => getMarketWise(filters, { signal }),
     [filters],
@@ -45,10 +32,7 @@ export function usePdCompensationData(
     (signal: AbortSignal) => getStoreWise(filters, { signal }),
     [filters],
   );
-  const loadTrend = useCallback(
-    (signal: AbortSignal) => getTrend(filters, { signal }),
-    [filters],
-  );
+  const loadTrend = useCallback((signal: AbortSignal) => getTrend(filters, { signal }), [filters]);
   const kpi = useReportQuery(loadKpi, emptyKpi, "KPI request failed", enabled);
   const market = useReportQuery(
     loadMarket,
@@ -56,18 +40,8 @@ export function usePdCompensationData(
     "Market Wise request failed",
     marketEnabled,
   );
-  const store = useReportQuery(
-    loadStore,
-    emptySummary,
-    "Store Wise request failed",
-    storeEnabled,
-  );
-  const trend = useReportQuery(
-    loadTrend,
-    emptyTrend,
-    "Trend request failed",
-    trendEnabled,
-  );
+  const store = useReportQuery(loadStore, emptySummary, "Store Wise request failed", storeEnabled);
+  const trend = useReportQuery(loadTrend, emptyTrend, "Trend request failed", trendEnabled);
   const loadDetail = useCallback(
     async (signal: AbortSignal) => {
       const key = `${JSON.stringify(filters)}:${page}`;
@@ -100,13 +74,9 @@ export function usePdCompensationData(
     isStoreLoading: store.isLoading,
     isTrendLoading: trend.isLoading,
     isDetailLoading: detail.isLoading,
-    isSummaryLoading: [kpi, market, store, trend].some(
-      (query) => query.isLoading,
-    ),
+    isSummaryLoading: [kpi, market, store, trend].some((query) => query.isLoading),
     status:
-      [kpi.error, market.error, store.error, trend.error, detail.error].find(
-        Boolean,
-      ) ||
+      [kpi.error, market.error, store.error, trend.error, detail.error].find(Boolean) ||
       ([kpi, market, store, trend, detail].some((query) => query.isLoading)
         ? "Loading reporting data"
         : "Connected to reporting endpoints"),

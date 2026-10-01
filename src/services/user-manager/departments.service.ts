@@ -15,8 +15,9 @@ export class DepartmentsService {
   update(payload: { id: number; name: string; description?: string }) {
     return http.put<Department>(DEPARTMENT_API_PATHS.updateDepartment, payload);
   }
-  delete(id: number) {
-    return http.delete<null>(DEPARTMENT_API_PATHS.deleteDepartment, { id });
+  delete(id: number | string | { id: number | string }) {
+    const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
+    return http.delete<null>(DEPARTMENT_API_PATHS.deleteDepartment(numericId));
   }
 }
 

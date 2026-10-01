@@ -1,7 +1,1 @@
-export type {
-  Filters,
-  KpiSummary,
-  MatrixDatum,
-  SummaryDatum,
-  TrendDatum,
-} from "../../types";
+export type { Filters, KpiSummary, MatrixDatum, SummaryDatum, TrendDatum } from "../../types";

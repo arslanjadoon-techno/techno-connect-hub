@@ -20,8 +20,9 @@ export class MarketsService {
   update(payload: { id: number; name: string; stateId: number }) {
     return http.put<Market>(MARKET_API_PATHS.updateMarket, payload);
   }
-  delete(id: number) {
-    return http.delete<null>(MARKET_API_PATHS.deleteMarket, { id });
+  delete(id: number | string | { id: number | string }) {
+    const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
+    return http.delete<null>(MARKET_API_PATHS.deleteMarket(numericId));
   }
 }
 

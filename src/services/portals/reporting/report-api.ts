@@ -24,7 +24,6 @@ export function clearReportResponseCache() {
   // Kept for callers that reset report state; responses are not cached here.
 }
 
-
 type RequestOptions = {
   signal?: AbortSignal;
 };
@@ -35,9 +34,6 @@ type DetailRequestOptions = RequestOptions & {
 };
 
 type ReportParam = string | number | string[] | undefined;
-
-
-
 
 const endpoints = {
   kpi: "/Reporting/GetKpi",
@@ -61,9 +57,7 @@ function getValue(record: Record<string, unknown>, ...keys: string[]) {
     return key.replace(/\s+/g, "").toLowerCase();
   }
 
-  const lookup = new Map(
-    Object.entries(record).map(([key, value]) => [normalizeKey(key), value]),
-  );
+  const lookup = new Map(Object.entries(record).map(([key, value]) => [normalizeKey(key), value]));
 
   for (const key of keys) {
     const value = lookup.get(normalizeKey(key));
@@ -146,9 +140,7 @@ async function getJson<T>(
     method: "GET",
     cache: "no-store",
     credentials: API_BASE_URL ? "omit" : "include",
-    headers: token
-      ? { Authorization: `Bearer ${token}`, token }
-      : undefined,
+    headers: token ? { Authorization: `Bearer ${token}`, token } : undefined,
     signal: options.signal
       ? AbortSignal.any([options.signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
       : AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -158,8 +150,7 @@ async function getJson<T>(
     const message = await response.text();
 
     throw new Error(
-      message ||
-        `Report API request failed: ${response.status} ${response.statusText}`,
+      message || `Report API request failed: ${response.status} ${response.statusText}`,
     );
   }
 
@@ -185,9 +176,7 @@ export function normalizeKpi(raw: unknown): KpiSummary {
 
   return {
     pdAmount: toNumber(getValue(record, "PDAmount", "pdAmount", "Amount")),
-    pdTransactions: toNumber(
-      getValue(record, "PDTransactions", "pdTransactions", "Transactions"),
-    ),
+    pdTransactions: toNumber(getValue(record, "PDTransactions", "pdTransactions", "Transactions")),
   };
 }
 
@@ -197,48 +186,34 @@ export function normalizeMatrix(raw: unknown): MatrixDatum[] {
 
     return {
       transactionType:
-        toStringValue(
-          getValue(record, "TransactionType", "transactionType"),
-        ).trim() || "Unassigned",
-      store:
-        toStringValue(getValue(record, "Store", "store")).trim() ||
+        toStringValue(getValue(record, "TransactionType", "transactionType")).trim() ||
         "Unassigned",
+      store: toStringValue(getValue(record, "Store", "store")).trim() || "Unassigned",
       amount: toNumber(getValue(record, "Amount", "amount")),
     };
   });
 }
 
 function normalizeSummary(raw: unknown, labelKeys: string[]): SummaryDatum[] {
-  const grouped = asArray(raw).reduce<Map<string, SummaryDatum>>(
-    (items, item) => {
-      const record = item as Record<string, unknown>;
-      const label =
-        toStringValue(getValue(record, ...labelKeys)).trim() || "Unassigned";
-      const current = items.get(label) ?? {
-        label,
-        amount: 0,
-        transactions: 0,
-      };
+  const grouped = asArray(raw).reduce<Map<string, SummaryDatum>>((items, item) => {
+    const record = item as Record<string, unknown>;
+    const label = toStringValue(getValue(record, ...labelKeys)).trim() || "Unassigned";
+    const current = items.get(label) ?? {
+      label,
+      amount: 0,
+      transactions: 0,
+    };
 
-      items.set(label, {
-        label,
-        amount: current.amount + toNumber(getValue(record, "Amount", "amount")),
-        transactions:
-          current.transactions +
-          toNumber(
-            getValue(
-              record,
-              "Transactions",
-              "transactions",
-              "TransactionCount",
-            ),
-          ),
-      });
+    items.set(label, {
+      label,
+      amount: current.amount + toNumber(getValue(record, "Amount", "amount")),
+      transactions:
+        current.transactions +
+        toNumber(getValue(record, "Transactions", "transactions", "TransactionCount")),
+    });
 
-      return items;
-    },
-    new Map(),
-  );
+    return items;
+  }, new Map());
 
   return Array.from(grouped.values()).sort((a, b) => b.amount - a.amount);
 }
@@ -249,28 +224,17 @@ export function normalizeTrend(raw: unknown): TrendDatum[] {
 
     return {
       postedDate: toStringValue(
-        getValue(
-          record,
-          "PostedDate",
-          "postedDate",
-          "Posted Date",
-          "reportDate",
-        ),
+        getValue(record, "PostedDate", "postedDate", "Posted Date", "reportDate"),
       ),
       amount: toNumber(getValue(record, "Amount", "amount")),
-      transactions: toNumber(
-        getValue(record, "Transactions", "transactions", "TransactionCount"),
-      ),
+      transactions: toNumber(getValue(record, "Transactions", "transactions", "TransactionCount")),
     };
   });
 }
 
 export function normalizeDetail(raw: unknown): DetailResult {
   if (Array.isArray(raw) && Array.isArray(raw[1])) {
-    const totalRecord = (Array.isArray(raw[0]) ? raw[0][0] : raw[0]) as Record<
-      string,
-      unknown
-    >;
+    const totalRecord = (Array.isArray(raw[0]) ? raw[0][0] : raw[0]) as Record<string, unknown>;
 
     return {
       totalRows: toNumber(getValue(totalRecord, "TotalRows", "totalRows")),
@@ -289,8 +253,7 @@ export function normalizeDetail(raw: unknown): DetailResult {
   return {
     totalRows: toNumber(getValue(record, "TotalRows", "totalRows", "Count")),
     rows: normalizeRows(
-      getValue(record, "Rows", "rows", "Data", "data", "ResultSet2", "value") ??
-        [],
+      getValue(record, "Rows", "rows", "Data", "data", "ResultSet2", "value") ?? [],
     ),
   };
 }
@@ -302,46 +265,20 @@ export function normalizeRows(raw: unknown): TransactionRow[] {
     return {
       id: toNumber(getValue(record, "Id", "id")) || index + 1,
       market: toStringValue(getValue(record, "Market", "market")),
-      doorCode: toStringValue(
-        getValue(record, "DoorCode", "doorCode", "Door Code"),
-      ),
-      storeName: toStringValue(
-        getValue(record, "StoreName", "storeName", "Store Name"),
-      ),
-      postedDate: toStringValue(
-        getValue(record, "PostedDate", "postedDate", "Posted Date"),
-      ),
+      doorCode: toStringValue(getValue(record, "DoorCode", "doorCode", "Door Code")),
+      storeName: toStringValue(getValue(record, "StoreName", "storeName", "Store Name")),
+      postedDate: toStringValue(getValue(record, "PostedDate", "postedDate", "Posted Date")),
       transactionDate: toStringValue(
-        getValue(
-          record,
-          "TransactionDate",
-          "transactionDate",
-          "Transaction Date",
-        ),
+        getValue(record, "TransactionDate", "transactionDate", "Transaction Date"),
       ),
       programName: toStringValue(
-        getValue(
-          record,
-          "ProgramName",
-          "programName",
-          "Program",
-          "Program Name",
-        ),
+        getValue(record, "ProgramName", "programName", "Program", "Program Name"),
       ),
       transactionType: toStringValue(
-        getValue(
-          record,
-          "TransactionType",
-          "transactionType",
-          "Transaction Type",
-        ),
+        getValue(record, "TransactionType", "transactionType", "Transaction Type"),
       ),
-      compType: toStringValue(
-        getValue(record, "CompType", "compType", "CompensationType"),
-      ),
-      dispute: toStringValue(
-        getValue(record, "Dispute", "dispute", "DisputeType"),
-      ),
+      compType: toStringValue(getValue(record, "CompType", "compType", "CompensationType")),
+      dispute: toStringValue(getValue(record, "Dispute", "dispute", "DisputeType")),
       amount: toNumber(getValue(record, "Amount", "amount")),
     };
   });
@@ -378,9 +315,7 @@ export function normalizeFilterValues(raw: unknown): FilterOptionSet {
   return {
     markets,
     storesByMarket: normalizeStoresByMarket(markets, storesRaw),
-    programs: asStrings(
-      getValue(record, "Program", "Programs", "programs", "Program Name"),
-    ),
+    programs: asStrings(getValue(record, "Program", "Programs", "programs", "Program Name")),
     transactionTypes: asStrings(
       getValue(
         record,
@@ -400,9 +335,7 @@ export function normalizeFilterValues(raw: unknown): FilterOptionSet {
         "Comp Type",
       ),
     ),
-    disputes: asStrings(
-      getValue(record, "DisputeType", "DisputeTypes", "disputes", "Dispute"),
-    ),
+    disputes: asStrings(getValue(record, "DisputeType", "DisputeTypes", "disputes", "Dispute")),
   };
 }
 
@@ -444,38 +377,34 @@ function asStrings(raw: unknown) {
 function normalizeStoresByMarket(markets: string[], raw: unknown) {
   if (raw && typeof raw === "object" && !Array.isArray(raw)) {
     const record = raw as Record<string, unknown>;
-    const mappedStores = Object.entries(record).reduce<
-      Record<string, string[]>
-    >((lookup, [market, stores]) => {
-      lookup[market] = asStrings(stores);
-      return lookup;
-    }, {});
+    const mappedStores = Object.entries(record).reduce<Record<string, string[]>>(
+      (lookup, [market, stores]) => {
+        lookup[market] = asStrings(stores);
+        return lookup;
+      },
+      {},
+    );
 
     if (Object.values(mappedStores).some((stores) => stores.length > 0)) {
       return mappedStores;
     }
   }
 
-  const groupedStores = asArray(raw).reduce<Record<string, string[]>>(
-    (lookup, item) => {
-      if (!item || typeof item !== "object") {
-        return lookup;
-      }
-
-      const record = item as Record<string, unknown>;
-      const market = toStringValue(getValue(record, "Market", "market"));
-      const store = toStringValue(
-        getValue(record, "Store", "store", "StoreName", "Store Name"),
-      );
-
-      if (market && store) {
-        lookup[market] = [...(lookup[market] ?? []), store];
-      }
-
+  const groupedStores = asArray(raw).reduce<Record<string, string[]>>((lookup, item) => {
+    if (!item || typeof item !== "object") {
       return lookup;
-    },
-    {},
-  );
+    }
+
+    const record = item as Record<string, unknown>;
+    const market = toStringValue(getValue(record, "Market", "market"));
+    const store = toStringValue(getValue(record, "Store", "store", "StoreName", "Store Name"));
+
+    if (market && store) {
+      lookup[market] = [...(lookup[market] ?? []), store];
+    }
+
+    return lookup;
+  }, {});
 
   if (Object.keys(groupedStores).length > 0) {
     return groupedStores;
@@ -496,46 +425,22 @@ export async function getKpi(filters: Filters, options?: RequestOptions) {
   return normalizeKpi(raw);
 }
 
-export async function getStoreWiseKpi(
-  filters: Filters,
-  options?: RequestOptions,
-) {
-  const raw = await getJson(
-    endpoints.storeWiseKpi,
-    buildReportParams(filters),
-    options,
-  );
+export async function getStoreWiseKpi(filters: Filters, options?: RequestOptions) {
+  const raw = await getJson(endpoints.storeWiseKpi, buildReportParams(filters), options);
   return normalizeKpi(raw);
 }
 
-export async function getStoreWiseMatrix(
-  filters: Filters,
-  options?: RequestOptions,
-) {
-  const raw = await getJson(
-    endpoints.storeWiseMatrix,
-    buildReportParams(filters),
-    options,
-  );
+export async function getStoreWiseMatrix(filters: Filters, options?: RequestOptions) {
+  const raw = await getJson(endpoints.storeWiseMatrix, buildReportParams(filters), options);
   return normalizeMatrix(raw);
 }
 
-export async function getStoreWiseDoorCodeWise(
-  filters: Filters,
-  options?: RequestOptions,
-) {
-  const raw = await getJson(
-    endpoints.storeWiseDoorCode,
-    buildReportParams(filters),
-    options,
-  );
+export async function getStoreWiseDoorCodeWise(filters: Filters, options?: RequestOptions) {
+  const raw = await getJson(endpoints.storeWiseDoorCode, buildReportParams(filters), options);
   return normalizeSummary(raw, ["Store", "store", "DoorCode", "doorCode"]);
 }
 
-export async function getStoreWiseTransactionTypeWise(
-  filters: Filters,
-  options?: RequestOptions,
-) {
+export async function getStoreWiseTransactionTypeWise(filters: Filters, options?: RequestOptions) {
   const raw = await getJson(
     endpoints.storeWiseTransactionType,
     buildReportParams(filters),
@@ -544,52 +449,27 @@ export async function getStoreWiseTransactionTypeWise(
   return normalizeSummary(raw, ["TransactionType", "transactionType"]);
 }
 
-export async function getStoreWiseMonthlyTrend(
-  filters: Filters,
-  options?: RequestOptions,
-) {
-  const raw = await getJson(
-    endpoints.storeWiseMonthlyTrend,
-    buildReportParams(filters),
-    options,
-  );
+export async function getStoreWiseMonthlyTrend(filters: Filters, options?: RequestOptions) {
+  const raw = await getJson(endpoints.storeWiseMonthlyTrend, buildReportParams(filters), options);
   return normalizeTrend(raw);
 }
 
-export async function getMarketWise(
-  filters: Filters,
-  options?: RequestOptions,
-) {
-  const raw = await getJson(
-    endpoints.marketWise,
-    buildReportParams(filters),
-    options,
-  );
+export async function getMarketWise(filters: Filters, options?: RequestOptions) {
+  const raw = await getJson(endpoints.marketWise, buildReportParams(filters), options);
   return normalizeSummary(raw, ["Market", "market"]);
 }
 
 export async function getStoreWise(filters: Filters, options?: RequestOptions) {
-  const raw = await getJson(
-    endpoints.storeWise,
-    buildReportParams(filters),
-    options,
-  );
+  const raw = await getJson(endpoints.storeWise, buildReportParams(filters), options);
   return normalizeSummary(raw, ["StoreName", "storeName", "Store", "store"]);
 }
 
 export async function getTrend(filters: Filters, options?: RequestOptions) {
-  const raw = await getJson(
-    endpoints.trend,
-    buildReportParams(filters),
-    options,
-  );
+  const raw = await getJson(endpoints.trend, buildReportParams(filters), options);
   return normalizeTrend(raw);
 }
 
-export async function getDetail(
-  filters: Filters,
-  options: DetailRequestOptions,
-) {
+export async function getDetail(filters: Filters, options: DetailRequestOptions) {
   const raw = await getJson(
     endpoints.detail,
     {
@@ -603,8 +483,7 @@ export async function getDetail(
   const detail = normalizeDetail(raw);
 
   if (Array.isArray(raw) && !Array.isArray(raw[1])) {
-    const loadedRows =
-      (options.pageNumber - 1) * options.pageSize + detail.rows.length;
+    const loadedRows = (options.pageNumber - 1) * options.pageSize + detail.rows.length;
 
     return {
       ...detail,
@@ -614,13 +493,10 @@ export async function getDetail(
   }
 
   const rawValue =
-    raw && typeof raw === "object"
-      ? getValue(raw as Record<string, unknown>, "value")
-      : undefined;
+    raw && typeof raw === "object" ? getValue(raw as Record<string, unknown>, "value") : undefined;
 
   if (Array.isArray(rawValue) && detail.totalRows === detail.rows.length) {
-    const loadedRows =
-      (options.pageNumber - 1) * options.pageSize + detail.rows.length;
+    const loadedRows = (options.pageNumber - 1) * options.pageSize + detail.rows.length;
 
     return {
       ...detail,

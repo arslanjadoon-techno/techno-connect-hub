@@ -48,10 +48,7 @@ export default function FilterPanel({
   onReset,
   onClose,
 }: FilterPanelProps) {
-  function updateFilter<Key extends keyof Filters>(
-    key: Key,
-    value: Filters[Key],
-  ) {
+  function updateFilter<Key extends keyof Filters>(key: Key, value: Filters[Key]) {
     onChange({ ...filters, [key]: value });
   }
 
@@ -65,9 +62,7 @@ export default function FilterPanel({
         className="mb-3 flex h-10 shrink-0 items-center justify-between rounded-md px-3 shadow-md"
         style={{ backgroundImage: "var(--gradient-primary)" }}
       >
-        <h2 className="text-xs font-semibold tracking-wide text-white">
-          {title}
-        </h2>
+        <h2 className="text-xs font-semibold tracking-wide text-white">{title}</h2>
 
         <div className="flex items-center gap-1.5">
           <Button
@@ -98,7 +93,6 @@ export default function FilterPanel({
             
           "
             title="Reset filters"
-           
           >
             <RotateCcw size={12} />
             Reset
@@ -123,8 +117,7 @@ export default function FilterPanel({
           </div>
 
           <span>
-            Showing{" "}
-            <span className="font-bold text-[#7600bc]">{resultCount}</span> rows
+            Showing <span className="font-bold text-[#7600bc]">{resultCount}</span> rows
           </span>
         </div>
       ) : null}

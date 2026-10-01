@@ -34,8 +34,9 @@ export class StoresService {
   }) {
     return http.put<Store>(STORE_API_PATHS.updateStore, payload);
   }
-  delete(id: number) {
-    return http.delete<null>(STORE_API_PATHS.deleteStore, { id });
+  delete(id: number | string | { id: number | string }) {
+    const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
+    return http.delete<null>(STORE_API_PATHS.deleteStore(numericId));
   }
 }
 

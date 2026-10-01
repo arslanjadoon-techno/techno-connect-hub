@@ -1,4 +1,8 @@
-import { formatCompactNumber, formatLongDate, formatMoney } from "../../../pages/portals/reporting/lib/report-utils";
+import {
+  formatCompactNumber,
+  formatLongDate,
+  formatMoney,
+} from "../../../pages/portals/reporting/lib/report-utils";
 import type { TransactionRow } from "../../../pages/portals/reporting/types";
 import LoadingIndicator from "./LoadingIndicator";
 import ReportPanel from "./ReportPanel";
@@ -75,30 +79,18 @@ export default function DetailTable({
                     index % 2 === 0 ? "bg-card" : "bg-muted/50"
                   }`}
                 >
-                  <td className="h-8 border-r border-border px-3">
-                    {row.market}
-                  </td>
-                  <td className="border-r border-border px-3">
-                    {row.doorCode}
-                  </td>
-                  <td className="border-r border-[#e5daf7] px-3">
-                    {row.storeName}
-                  </td>
+                  <td className="h-8 border-r border-border px-3">{row.market}</td>
+                  <td className="border-r border-border px-3">{row.doorCode}</td>
+                  <td className="border-r border-[#e5daf7] px-3">{row.storeName}</td>
                   <td className="border-r border-[#e5daf7] px-3">
                     {formatLongDate(row.postedDate)}
                   </td>
                   <td className="border-r border-[#e5daf7] px-3">
                     {formatLongDate(row.transactionDate)}
                   </td>
-                  <td className="border-r border-[#e5daf7] px-3">
-                    {row.programName}
-                  </td>
-                  <td className="border-r border-[#e5daf7] px-3">
-                    {row.transactionType}
-                  </td>
-                  <td className="px-3 text-right font-semibold">
-                    {formatMoney(row.amount)}
-                  </td>
+                  <td className="border-r border-[#e5daf7] px-3">{row.programName}</td>
+                  <td className="border-r border-[#e5daf7] px-3">{row.transactionType}</td>
+                  <td className="px-3 text-right font-semibold">{formatMoney(row.amount)}</td>
                 </tr>
               ))}
 
@@ -109,11 +101,7 @@ export default function DetailTable({
                     className="h-24 bg-card text-center text-sm font-medium text-muted-foreground"
                   >
                     {isLoading ? (
-                      <LoadingIndicator
-                        label="Loading detail rows"
-                        size="md"
-                        layout="center"
-                      />
+                      <LoadingIndicator label="Loading detail rows" size="md" layout="center" />
                     ) : (
                       "No matching detail rows"
                     )}

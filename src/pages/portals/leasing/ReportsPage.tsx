@@ -3,7 +3,16 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, Bookmark, Trash2, FolderOpen, ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
+import {
+  FileText,
+  Download,
+  Bookmark,
+  Trash2,
+  FolderOpen,
+  ChevronRight,
+  ChevronLeft,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { leasingService, type ReportTemplate } from "@/services/portals/leasing";
 import { exportToExcel } from "@/lib/excel-export";
@@ -39,7 +48,11 @@ const ALL_FIELDS: Field[] = [
   { key: "relocation", label: "Relocation", group: "Agreement" },
   { key: "rightToSublease", label: "Right to Sublease", group: "Agreement" },
   { key: "optionPeriodDuration", label: "Option Period Duration", group: "Agreement" },
-  { key: "noticePeriodBeforeTermination", label: "Notice Period before Termination", group: "Agreement" },
+  {
+    key: "noticePeriodBeforeTermination",
+    label: "Notice Period before Termination",
+    group: "Agreement",
+  },
   { key: "optionNoticeDate", label: "Option Notice Date", group: "Agreement" },
   { key: "subLease", label: "Sub Lease", group: "Agreement" },
   { key: "guarantor", label: "Guarantor", group: "Agreement" },
@@ -153,7 +166,10 @@ export default function ReportsPage() {
     }
     setSaving(true);
     try {
-      await leasingService.saveReportTemplate(name, selected.map((f) => f.key));
+      await leasingService.saveReportTemplate(
+        name,
+        selected.map((f) => f.key),
+      );
       toast.success("Template saved.");
       setTemplateName("");
       const refreshed = await leasingService.getReportTemplates();
@@ -167,7 +183,9 @@ export default function ReportsPage() {
 
   const handleLoadTemplate = (tpl: ReportTemplate) => {
     const keySet = new Set(tpl.fields);
-    const ordered = tpl.fields.map((k) => ALL_FIELDS.find((f) => f.key === k)).filter((f): f is Field => Boolean(f));
+    const ordered = tpl.fields
+      .map((k) => ALL_FIELDS.find((f) => f.key === k))
+      .filter((f): f is Field => Boolean(f));
     setSelected(ordered);
     setAvailable(ALL_FIELDS.filter((f) => !keySet.has(f.key)));
     setHlLeft(new Set());
@@ -189,7 +207,10 @@ export default function ReportsPage() {
     () =>
       available
         .filter((f) => filterGroup === "All" || f.group === filterGroup)
-        .filter((f) => !fieldSearch.trim() || f.label.toLowerCase().includes(fieldSearch.trim().toLowerCase())),
+        .filter(
+          (f) =>
+            !fieldSearch.trim() || f.label.toLowerCase().includes(fieldSearch.trim().toLowerCase()),
+        ),
     [available, filterGroup, fieldSearch],
   );
 
@@ -213,7 +234,9 @@ export default function ReportsPage() {
             key={g}
             onClick={() => setFilterGroup(g)}
             className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-              filterGroup === g ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted"
+              filterGroup === g
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card hover:bg-muted"
             }`}
           >
             {g}
@@ -227,11 +250,18 @@ export default function ReportsPage() {
             Available Fields <Badge variant="outline">{visibleAvailable.length}</Badge>
           </div>
           <div className="p-2">
-            <Input value={fieldSearch} onChange={(e) => setFieldSearch(e.target.value)} placeholder="Search fields..." className="h-8" />
+            <Input
+              value={fieldSearch}
+              onChange={(e) => setFieldSearch(e.target.value)}
+              placeholder="Search fields..."
+              className="h-8"
+            />
           </div>
           <div className="max-h-80 overflow-y-auto px-2 pb-2">
             {visibleAvailable.length === 0 ? (
-              <p className="p-3 text-xs italic text-muted-foreground">All fields in this group are selected.</p>
+              <p className="p-3 text-xs italic text-muted-foreground">
+                All fields in this group are selected.
+              </p>
             ) : (
               visibleAvailable.map((f) => (
                 <div
@@ -250,21 +280,36 @@ export default function ReportsPage() {
         </Card>
 
         <div className="flex flex-col items-center justify-center gap-2">
-          <Button size="icon" variant="outline" onClick={moveRight} disabled={!hlLeft.size} title="Add to report">
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={moveRight}
+            disabled={!hlLeft.size}
+            title="Add to report"
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button size="icon" variant="outline" onClick={moveLeft} disabled={!hlRight.size} title="Remove from report">
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={moveLeft}
+            disabled={!hlRight.size}
+            title="Remove from report"
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
         </div>
 
         <Card className="flex flex-col overflow-hidden">
           <div className="flex items-center justify-between border-b px-3 py-2 text-sm font-semibold">
-            Report Fields <Badge variant={selected.length ? "default" : "outline"}>{selected.length}</Badge>
+            Report Fields{" "}
+            <Badge variant={selected.length ? "default" : "outline"}>{selected.length}</Badge>
           </div>
           <div className="max-h-80 overflow-y-auto p-2">
             {selected.length === 0 ? (
-              <p className="p-3 text-xs italic text-muted-foreground">Highlight fields on the left and press the arrow to add them.</p>
+              <p className="p-3 text-xs italic text-muted-foreground">
+                Highlight fields on the left and press the arrow to add them.
+              </p>
             ) : (
               selected.map((f) => (
                 <div
@@ -299,9 +344,19 @@ export default function ReportsPage() {
         <Button
           size="sm"
           disabled={downloadingId !== null || !selected.length}
-          onClick={() => runDownload(selected.map((f) => f.key), "Custom_Report", "current")}
+          onClick={() =>
+            runDownload(
+              selected.map((f) => f.key),
+              "Custom_Report",
+              "current",
+            )
+          }
         >
-          {downloadingId === "current" ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Download className="mr-1.5 h-4 w-4" />}
+          {downloadingId === "current" ? (
+            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+          ) : (
+            <Download className="mr-1.5 h-4 w-4" />
+          )}
           {downloadingId === "current" ? "Downloading..." : "Download Report"}
         </Button>
       </Card>
@@ -309,15 +364,22 @@ export default function ReportsPage() {
       <Card className="p-3">
         <div className="mb-2 flex items-center gap-2 text-sm font-semibold">
           Saved Templates
-          {templatesLoading && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
+          {templatesLoading && (
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+          )}
         </div>
         {!templatesLoading && templates.length === 0 && (
-          <p className="text-sm text-muted-foreground">No saved templates yet. Build a report above and click Save Template.</p>
+          <p className="text-sm text-muted-foreground">
+            No saved templates yet. Build a report above and click Save Template.
+          </p>
         )}
         {templates.length > 0 && (
           <div className="divide-y">
             {templates.map((t) => (
-              <div key={t.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+              <div
+                key={t.id}
+                className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"
+              >
                 <div className="flex items-center gap-3">
                   <span className="font-medium">{t.name}</span>
                   <Badge variant="outline">{t.fields.length} fields</Badge>
@@ -332,10 +394,19 @@ export default function ReportsPage() {
                     disabled={downloadingId !== null}
                     onClick={() => runDownload(t.fields, t.name, t.id ?? t.name)}
                   >
-                    {downloadingId === (t.id ?? t.name) ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="mr-1 h-3.5 w-3.5" />}
+                    {downloadingId === (t.id ?? t.name) ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Download className="mr-1 h-3.5 w-3.5" />
+                    )}
                     Download
                   </Button>
-                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => handleDelete(t.id)}>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive"
+                    onClick={() => handleDelete(t.id)}
+                  >
                     <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete
                   </Button>
                 </div>

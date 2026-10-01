@@ -1,10 +1,8 @@
-
 import { NextResponse } from "next/server";
 import { AUTH_COOKIE_NAME, verifySignedSession } from "../../../lib/auth";
 
 const API_BASE_URL =
-  process.env.REPORTING_API_BASE_URL?.trim() ||
-  "https://leasingapi.techno-communications.com";
+  process.env.REPORTING_API_BASE_URL?.trim() || "https://leasingapi.techno-communications.com";
 
 const allowedPaths = new Set([
   "Reporting/GetKpi",
@@ -81,10 +79,7 @@ export async function GET(request: Request, context: ReportingRouteContext) {
       },
     });
   } catch {
-    return NextResponse.json(
-      { message: "The reporting API is unavailable." },
-      { status: 502 },
-    );
+    return NextResponse.json({ message: "The reporting API is unavailable." }, { status: 502 });
   }
 
   const contentType = upstream.headers.get("content-type") ?? "application/json";
@@ -116,9 +111,7 @@ export async function GET(request: Request, context: ReportingRouteContext) {
     status: upstream.status,
     headers: {
       "content-type": contentType,
-      ...(contentDisposition
-        ? { "content-disposition": contentDisposition }
-        : {}),
+      ...(contentDisposition ? { "content-disposition": contentDisposition } : {}),
     },
   });
 }

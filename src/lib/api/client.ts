@@ -245,8 +245,10 @@ export const usersApi = {
   update: (payload: Partial<AddUserPayload> & { id: number }) =>
     apiRequest<BackendUser>(USER_API_PATHS.updateUser, { method: "PUT", body: payload }),
 
-  delete: (id: number) =>
-    apiRequest<null>(USER_API_PATHS.deleteUser, { method: "DELETE", body: { id } }),
+  delete: (id: number | string | { id: number | string }) => {
+    const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
+    return apiRequest<null>(USER_API_PATHS.deleteUser(numericId), { method: "DELETE" });
+  },
 
   updatePassword: (payload: { email: string; oldPassword: string; newPassword: string }) =>
     apiRequest<null>(USER_API_PATHS.updatePassword, { method: "PUT", body: payload }),
@@ -292,8 +294,10 @@ export const StatesApi = {
   update: (payload: Partial<State> & { id: number }) =>
     apiRequest<State>(STATE_API_PATHS.updateState, { method: "PUT", body: payload }),
 
-  delete: (id: number) =>
-    apiRequest<null>(STATE_API_PATHS.deleteState, { method: "DELETE", body: { id } }),
+  delete: (id: number | string | { id: number | string }) => {
+    const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
+    return apiRequest<null>(STATE_API_PATHS.deleteState(numericId), { method: "DELETE" });
+  },
 };
 
 // ---------- Districts ---------- //
@@ -335,8 +339,10 @@ export const DistrictsApi = {
     apiRequest<District>(DISTRICT_API_PATHS.updateDistrict, { method: "PUT", body: payload }),
 
   // 5. Delete District
-  delete: (payload: { id: number }) =>
-    apiRequest<null>(DISTRICT_API_PATHS.deleteDistrict, { method: "DELETE", body: payload }),
+  delete: (id: number | string | { id: number | string }) => {
+    const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
+    return apiRequest<null>(DISTRICT_API_PATHS.deleteDistrict(numericId), { method: "DELETE" });
+  },
 };
 
 // ---------- Markets ---------- //
@@ -392,8 +398,10 @@ export const MarketsApi = {
   update: (payload: { id: number; name: string; districtId: number }) =>
     apiRequest<Market>(MARKET_API_PATHS.updateMarket, { method: "PUT", body: payload }),
 
-  delete: (payload: { id: number }) =>
-    apiRequest<null>(MARKET_API_PATHS.deleteMarket, { method: "DELETE", body: payload }),
+  delete: (id: number | string | { id: number | string }) => {
+    const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
+    return apiRequest<null>(MARKET_API_PATHS.deleteMarket(numericId), { method: "DELETE" });
+  },
 };
 
 // ---------- Stores ---------- //
@@ -481,8 +489,10 @@ export const StoresApi = {
     marketId: number;
   }) => apiRequest<Store>(STORE_API_PATHS.updateStore, { method: "PUT", body: payload }),
 
-  delete: (payload: { id: number }) =>
-    apiRequest<null>(STORE_API_PATHS.deleteStore, { method: "DELETE", body: payload }),
+  delete: (id: number | string | { id: number | string }) => {
+    const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
+    return apiRequest<null>(STORE_API_PATHS.deleteStore(numericId), { method: "DELETE" });
+  },
 };
 
 // ---------- Houses ---------- //
@@ -554,8 +564,10 @@ export const HousesApi = {
     marketId: number;
   }) => apiRequest<House>(HOUSE_API_PATHS.updateHouse, { method: "PUT", body: payload }),
 
-  delete: (payload: { id: number }) =>
-    apiRequest<null>(HOUSE_API_PATHS.deleteHouse, { method: "DELETE", body: payload }),
+  delete: (id: number | string | { id: number | string }) => {
+    const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
+    return apiRequest<null>(HOUSE_API_PATHS.deleteHouse(numericId), { method: "DELETE" });
+  },
 };
 
 // ---------- External Teams ---------- //
@@ -649,8 +661,10 @@ export const DepartmentsApi = {
       method: "PUT",
       body: payload,
     }),
-  delete: (id: number) =>
-    apiRequest<null>(DEPARTMENT_API_PATHS.deleteDepartment, { method: "DELETE", body: { id } }),
+  delete: (id: number | string | { id: number | string }) => {
+    const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
+    return apiRequest<null>(DEPARTMENT_API_PATHS.deleteDepartment(numericId), { method: "DELETE" });
+  },
 };
 
 // ---------- Portals ---------- //

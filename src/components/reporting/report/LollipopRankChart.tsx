@@ -1,4 +1,7 @@
-import { formatCompactNumber, formatMoney } from "../../../pages/portals/reporting/lib/report-utils";
+import {
+  formatCompactNumber,
+  formatMoney,
+} from "../../../pages/portals/reporting/lib/report-utils";
 import type { SummaryDatum } from "../../../pages/portals/reporting/types";
 import LoadingIndicator from "./LoadingIndicator";
 import ReportPanel from "./ReportPanel";
@@ -21,13 +24,8 @@ export default function LollipopRankChart({
   const safeItems = items ?? [];
   const hasTransactions = safeItems.some((item) => item.transactions > 0);
   const maxAmount = safeItems.reduce((max, item) => Math.max(max, item.amount), 1);
-  const maxTransactions = safeItems.reduce(
-    (max, item) => Math.max(max, item.transactions),
-    1,
-  );
-  const columns = hasTransactions
-    ? "grid-cols-[32px_1fr_92px_92px]"
-    : "grid-cols-[32px_1fr_92px]";
+  const maxTransactions = safeItems.reduce((max, item) => Math.max(max, item.transactions), 1);
+  const columns = hasTransactions ? "grid-cols-[32px_1fr_92px_92px]" : "grid-cols-[32px_1fr_92px]";
 
   return (
     <ReportPanel title={title} className="overflow-hidden">
@@ -43,11 +41,7 @@ export default function LollipopRankChart({
 
         {isLoading ? (
           <div className="h-[285px]">
-            <LoadingIndicator
-              label={`Loading ${title}`}
-              size="lg"
-              layout="center"
-            />
+            <LoadingIndicator label={`Loading ${title}`} size="lg" layout="center" />
           </div>
         ) : safeItems.length === 0 ? (
           <div className="flex h-[285px] items-center justify-center text-sm text-[#7d7283]">
@@ -57,10 +51,7 @@ export default function LollipopRankChart({
           <div className="grid max-h-[285px] gap-3 overflow-y-auto pr-1">
             {safeItems.map((item, index) => {
               const amountWidth = Math.max((item.amount / maxAmount) * 100, 3);
-              const transactionWidth = Math.max(
-                (item.transactions / maxTransactions) * 100,
-                3,
-              );
+              const transactionWidth = Math.max((item.transactions / maxTransactions) * 100, 3);
 
               return (
                 <div

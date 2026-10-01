@@ -15,8 +15,9 @@ export class ExternalTeamService {
   update(payload: { id: number; name: string; email: string; phone: string; address?: string }) {
     return http.put<ExternalVendor>(EXTERNAL_TEAM_API_PATHS.updateState, payload);
   }
-  delete(id: number) {
-    return http.delete<null>(EXTERNAL_TEAM_API_PATHS.deleteState, { id });
+  delete(id: number | string | { id: number | string }) {
+    const cleanId = typeof id === "object" && id !== null ? id.id : id;
+    return http.delete<null>(EXTERNAL_TEAM_API_PATHS.deleteState(cleanId));
   }
 }
 

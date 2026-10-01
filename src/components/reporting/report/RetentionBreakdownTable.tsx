@@ -5,26 +5,16 @@ import ReportPanel from "./ReportPanel";
 
 type Props = { title: string; rows?: RetentionTableRow[]; isLoading?: boolean };
 
-export default function RetentionBreakdownTable({
-  title,
-  rows,
-  isLoading = false,
-}: Props) {
+export default function RetentionBreakdownTable({ title, rows, isLoading = false }: Props) {
   const safeRows = rows ?? [];
   const days = Array.from(
     new Set(safeRows.flatMap((row) => Object.keys(row.byQualificationDay))),
   ).sort((a, b) => Number(a) - Number(b));
   const totals = days.reduce<Record<string, number>>((result, day) => {
-    result[day] = safeRows.reduce(
-      (sum, row) => sum + (row.byQualificationDay[day] ?? 0),
-      0,
-    );
+    result[day] = safeRows.reduce((sum, row) => sum + (row.byQualificationDay[day] ?? 0), 0);
     return result;
   }, {});
-  const activationTotal = safeRows.reduce(
-    (sum, row) => sum + row.activationAmount,
-    0,
-  );
+  const activationTotal = safeRows.reduce((sum, row) => sum + row.activationAmount, 0);
 
   return (
     <ReportPanel title={title} className="overflow-hidden">
@@ -58,11 +48,7 @@ export default function RetentionBreakdownTable({
             {isLoading ? (
               <tr>
                 <td colSpan={days.length + 2} className="h-20">
-                  <LoadingIndicator
-                    label={`Loading ${title}`}
-                    size="sm"
-                    layout="center"
-                  />
+                  <LoadingIndicator label={`Loading ${title}`} size="sm" layout="center" />
                 </td>
               </tr>
             ) : null}
@@ -104,9 +90,7 @@ export default function RetentionBreakdownTable({
           {!isLoading && safeRows.length > 0 ? (
             <tfoot>
               <tr className="bg-primary/15 font-bold text-foreground">
-                <td className="sticky left-0 z-10 bg-primary/15 px-2 py-2">
-                  Total
-                </td>
+                <td className="sticky left-0 z-10 bg-primary/15 px-2 py-2">Total</td>
                 <td className="px-2 py-2 text-right tabular-nums">
                   {formatMoney(activationTotal)}
                 </td>

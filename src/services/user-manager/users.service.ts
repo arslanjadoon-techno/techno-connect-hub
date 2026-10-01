@@ -25,8 +25,9 @@ export class UsersService {
   update(payload: Partial<AddUserPayload> & { id: number }) {
     return http.put<BackendUser>(USER_API_PATHS.updateUser, payload);
   }
-  delete(id: number) {
-    return http.delete<null>(USER_API_PATHS.deleteUser, { id });
+  delete(id: number | string | { id: number | string }) {
+    const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
+    return http.delete<null>(USER_API_PATHS.deleteUser(numericId));
   }
 }
 

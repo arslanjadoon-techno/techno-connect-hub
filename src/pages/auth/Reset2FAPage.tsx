@@ -95,8 +95,8 @@ export default function Reset2FAPage() {
             Confirm 2FA Reset
           </h2>
           <p className="mt-1 text-xs sm:text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-            Confirm your Email or NTID below to reset your Authenticator configuration. On
-            your next login, you will scan a fresh QR code.
+            Confirm your Email or NTID below to reset your Authenticator configuration. On your next
+            login, you will scan a fresh QR code.
           </p>
 
           <form onSubmit={handleConfirmReset} className="mt-5 space-y-4 sm:space-y-5">
@@ -120,8 +120,8 @@ export default function Reset2FAPage() {
             </div>
 
             <div className="rounded-xl border border-amber-200/50 dark:border-amber-900/40 bg-amber-500/10 p-3 text-[11px] sm:text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
-              Resetting 2FA allows you to register your account again on Google or any Authenticator. You
-              will be prompted with a new QR code after entering your password.
+              Resetting 2FA allows you to register your account again on Google or any
+              Authenticator. You will be prompted with a new QR code after entering your password.
             </div>
 
             <div className="space-y-2 pt-1">

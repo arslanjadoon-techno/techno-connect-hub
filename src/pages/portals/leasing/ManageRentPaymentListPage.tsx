@@ -41,8 +41,18 @@ interface GroupedPayment extends RentalPaymentDetail {
 }
 
 const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 
 const num = (v: unknown) => Number(v ?? 0);
@@ -206,7 +216,8 @@ export default function ManageRentPaymentListPage() {
         <div>
           <h1 className="font-display text-2xl font-semibold tracking-tight">Rent Payments</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {totals.count} stores &middot; <strong className="text-foreground">{money(totals.sum)}</strong> total dues
+            {totals.count} stores &middot;{" "}
+            <strong className="text-foreground">{money(totals.sum)}</strong> total dues
           </p>
         </div>
         <div className="flex gap-2">
@@ -236,22 +247,36 @@ export default function ManageRentPaymentListPage() {
         <div className="flex flex-col gap-1">
           <Label className="text-xs text-muted-foreground">Month</Label>
           <Select value={String(selectedMonth)} onValueChange={(v) => setSelectedMonth(Number(v))}>
-            <SelectTrigger className="h-9 w-40"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-9 w-40">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               {MONTHS.map((m, i) => (
-                <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>
+                <SelectItem key={m} value={String(i + 1)}>
+                  {m}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs text-muted-foreground">Tech ID</Label>
-          <Input value={techFilter} onChange={(e) => setTechFilter(e.target.value)} className="h-9 w-32" placeholder="Search..." />
+          <Input
+            value={techFilter}
+            onChange={(e) => setTechFilter(e.target.value)}
+            className="h-9 w-32"
+            placeholder="Search..."
+          />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs text-muted-foreground">Status</Label>
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-            <SelectTrigger className="h-9 w-32"><SelectValue /></SelectTrigger>
+          <Select
+            value={statusFilter}
+            onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}
+          >
+            <SelectTrigger className="h-9 w-32">
+              <SelectValue />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="All">All</SelectItem>
               <SelectItem value="Paid">Paid</SelectItem>
@@ -261,11 +286,21 @@ export default function ManageRentPaymentListPage() {
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs text-muted-foreground">Dues &ge;</Label>
-          <Input type="number" value={duesGreaterThan} onChange={(e) => setDuesGreaterThan(e.target.value)} className="h-9 w-28" />
+          <Input
+            type="number"
+            value={duesGreaterThan}
+            onChange={(e) => setDuesGreaterThan(e.target.value)}
+            className="h-9 w-28"
+          />
         </div>
         <div className="flex flex-col gap-1">
           <Label className="text-xs text-muted-foreground">Dues &le;</Label>
-          <Input type="number" value={duesLessThan} onChange={(e) => setDuesLessThan(e.target.value)} className="h-9 w-28" />
+          <Input
+            type="number"
+            value={duesLessThan}
+            onChange={(e) => setDuesLessThan(e.target.value)}
+            className="h-9 w-28"
+          />
         </div>
       </Card>
 
@@ -274,8 +309,27 @@ export default function ManageRentPaymentListPage() {
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
-                {["Tech ID", "Base Rent", "Adjustment", "CAM", "Other", "CAM Recon.", "Security Dep.", "Credit", "Status", "Total Due", "Accounting", "Diff.", "Action"].map((h) => (
-                  <th key={h} className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground">{h}</th>
+                {[
+                  "Tech ID",
+                  "Base Rent",
+                  "Adjustment",
+                  "CAM",
+                  "Other",
+                  "CAM Recon.",
+                  "Security Dep.",
+                  "Credit",
+                  "Status",
+                  "Total Due",
+                  "Accounting",
+                  "Diff.",
+                  "Action",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="whitespace-nowrap px-3 py-2.5 text-left text-xs font-semibold text-muted-foreground"
+                  >
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -289,22 +343,41 @@ export default function ManageRentPaymentListPage() {
                 </tr>
               ) : filteredGroups.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="py-12 text-center text-sm text-muted-foreground">No records found.</td>
+                  <td colSpan={13} className="py-12 text-center text-sm text-muted-foreground">
+                    No records found.
+                  </td>
                 </tr>
               ) : (
                 filteredGroups.map((g) => {
                   const isEditing = editingTechId === g.techId;
                   return (
                     <tr key={g.techId} className="hover:bg-muted/30">
-                      <td className="px-3 py-2 font-medium cursor-pointer" onClick={() => setDrawerGroup(g)}>{g.techId}</td>
-                      {(["base_rent", "adjustment", "cam_charges", "other_charges", "cam_Reconciliation_Charges", "security_deposit_assignmentfee", "credit_available"] as const).map((field) => (
+                      <td
+                        className="px-3 py-2 font-medium cursor-pointer"
+                        onClick={() => setDrawerGroup(g)}
+                      >
+                        {g.techId}
+                      </td>
+                      {(
+                        [
+                          "base_rent",
+                          "adjustment",
+                          "cam_charges",
+                          "other_charges",
+                          "cam_Reconciliation_Charges",
+                          "security_deposit_assignmentfee",
+                          "credit_available",
+                        ] as const
+                      ).map((field) => (
                         <td key={field} className="px-3 py-2">
                           {isEditing ? (
                             <Input
                               type="number"
                               className="h-8 w-24"
                               value={(editRowForm[field] as number | undefined) ?? ""}
-                              onChange={(e) => setEditRowForm((f) => ({ ...f, [field]: Number(e.target.value) }))}
+                              onChange={(e) =>
+                                setEditRowForm((f) => ({ ...f, [field]: Number(e.target.value) }))
+                              }
                             />
                           ) : (
                             money(g[field])
@@ -316,31 +389,60 @@ export default function ManageRentPaymentListPage() {
                           <label className="flex items-center gap-1.5 text-xs">
                             <Checkbox
                               checked={editRowForm.paid ?? false}
-                              onCheckedChange={(c) => setEditRowForm((f) => ({ ...f, paid: Boolean(c) }))}
+                              onCheckedChange={(c) =>
+                                setEditRowForm((f) => ({ ...f, paid: Boolean(c) }))
+                              }
                             />
                             Paid
                           </label>
                         ) : (
-                          <Badge variant="outline" className={g.paid ? "border-emerald-300 text-emerald-700" : "border-amber-300 text-amber-700"}>
+                          <Badge
+                            variant="outline"
+                            className={
+                              g.paid
+                                ? "border-emerald-300 text-emerald-700"
+                                : "border-amber-300 text-amber-700"
+                            }
+                          >
                             {g.paid ? "Paid" : "Pending"}
                           </Badge>
                         )}
                       </td>
                       <td className="px-3 py-2 font-medium">{money(g.total_due)}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{money(g.total_accounting_figure)}</td>
-                      <td className={`px-3 py-2 font-medium ${g.difference.toFixed(2) !== "0.00" ? "text-destructive" : ""}`}>{money(g.difference)}</td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {money(g.total_accounting_figure)}
+                      </td>
+                      <td
+                        className={`px-3 py-2 font-medium ${g.difference.toFixed(2) !== "0.00" ? "text-destructive" : ""}`}
+                      >
+                        {money(g.difference)}
+                      </td>
                       <td className="px-3 py-2">
                         {isEditing ? (
                           <div className="flex gap-1.5">
                             <Button size="sm" onClick={saveRowEdit} disabled={savingRow}>
-                              {savingRow ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Save"}
+                              {savingRow ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                "Save"
+                              )}
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => setEditingTechId(null)}>Cancel</Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditingTechId(null)}
+                            >
+                              Cancel
+                            </Button>
                           </div>
                         ) : (
                           <div className="flex gap-1.5">
-                            <Button size="sm" variant="outline" onClick={() => startRowEdit(g)}>Edit</Button>
-                            <Button size="sm" variant="ghost" onClick={() => openEditModal(g)}>More</Button>
+                            <Button size="sm" variant="outline" onClick={() => startRowEdit(g)}>
+                              Edit
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => openEditModal(g)}>
+                              More
+                            </Button>
                           </div>
                         )}
                       </td>
@@ -358,18 +460,40 @@ export default function ManageRentPaymentListPage() {
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
             <SheetTitle>{drawerGroup?.techId}</SheetTitle>
-            <SheetDescription>{drawerGroup?.records.length ?? 0} payment record(s)</SheetDescription>
+            <SheetDescription>
+              {drawerGroup?.records.length ?? 0} payment record(s)
+            </SheetDescription>
           </SheetHeader>
           <div className="mt-4 space-y-3">
             {drawerGroup?.records.map((r, idx) => (
               <Card key={idx} className="p-3 text-sm space-y-1">
-                <div className="flex justify-between"><span className="text-muted-foreground">Store</span><span>{r.storeName ?? "-"}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Market</span><span>{r.market ?? "-"}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Base Rent</span><span>{money(r.base_rent)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Pay Date</span><span>{r.pay_date?.split("T")[0] || "-"}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Payment Mode</span><span>{r.paymentMode ?? "-"}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Bank</span><span>{r.bankName ?? "-"}</span></div>
-                {r.remarks && <div className="pt-1 text-xs text-muted-foreground">Remarks: {r.remarks}</div>}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Store</span>
+                  <span>{r.storeName ?? "-"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Market</span>
+                  <span>{r.market ?? "-"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Base Rent</span>
+                  <span>{money(r.base_rent)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Pay Date</span>
+                  <span>{r.pay_date?.split("T")[0] || "-"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Payment Mode</span>
+                  <span>{r.paymentMode ?? "-"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Bank</span>
+                  <span>{r.bankName ?? "-"}</span>
+                </div>
+                {r.remarks && (
+                  <div className="pt-1 text-xs text-muted-foreground">Remarks: {r.remarks}</div>
+                )}
               </Card>
             ))}
           </div>
@@ -377,22 +501,27 @@ export default function ManageRentPaymentListPage() {
       </Sheet>
 
       {/* Edit modal: full figures edit */}
-      <Dialog open={editModalGroup !== null} onOpenChange={(open) => !open && setEditModalGroup(null)}>
+      <Dialog
+        open={editModalGroup !== null}
+        onOpenChange={(open) => !open && setEditModalGroup(null)}
+      >
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit financial figures &mdash; {editModalGroup?.techId}</DialogTitle>
           </DialogHeader>
           <div className="grid grid-cols-2 gap-3">
-            {([
-              ["base_rent", "Base Rent"],
-              ["adjustment", "Adjustment"],
-              ["cam_charges", "CAM Charges"],
-              ["other_charges", "Other Charges"],
-              ["cam_Reconciliation_Charges", "CAM Reconciliation"],
-              ["security_deposit_assignmentfee", "Security Deposit"],
-              ["credit_available", "Credit Available"],
-              ["total_accounting_figure", "Total Accounting Figure"],
-            ] as const).map(([field, label]) => (
+            {(
+              [
+                ["base_rent", "Base Rent"],
+                ["adjustment", "Adjustment"],
+                ["cam_charges", "CAM Charges"],
+                ["other_charges", "Other Charges"],
+                ["cam_Reconciliation_Charges", "CAM Reconciliation"],
+                ["security_deposit_assignmentfee", "Security Deposit"],
+                ["credit_available", "Credit Available"],
+                ["total_accounting_figure", "Total Accounting Figure"],
+              ] as const
+            ).map(([field, label]) => (
               <div key={field} className="space-y-1">
                 <Label className="text-xs">{label}</Label>
                 <Input
@@ -425,7 +554,9 @@ export default function ManageRentPaymentListPage() {
             </label>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditModalGroup(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setEditModalGroup(null)}>
+              Cancel
+            </Button>
             <Button onClick={saveEditModal} disabled={savingModal}>
               {savingModal ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save changes"}
             </Button>

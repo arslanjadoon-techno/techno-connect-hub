@@ -1,11 +1,6 @@
 "use client";
 
-import type {
-  DetailResult,
-  KpiSummary,
-  SummaryDatum,
-  TrendDatum,
-} from "../../types";
+import type { DetailResult, KpiSummary, SummaryDatum, TrendDatum } from "../../types";
 import DetailTable from "../../../../../components/reporting/report/DetailTable";
 import KpiCard from "../../../../../components/reporting/report/KpiCard";
 import LollipopRankChart from "../../../../../components/reporting/report/LollipopRankChart";

@@ -15,8 +15,9 @@ export class StatesService {
   update(payload: { id: number; name: string; symbol: string }) {
     return http.put<State>(STATE_API_PATHS.updateState, payload);
   }
-  delete(id: number) {
-    return http.delete<null>(STATE_API_PATHS.deleteState, { id });
+  delete(id: number | string | { id: number | string }) {
+    const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
+    return http.delete<null>(STATE_API_PATHS.deleteState(numericId));
   }
 }
 

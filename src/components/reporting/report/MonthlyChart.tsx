@@ -10,10 +10,7 @@ export default function MonthlyChart({ bars }: MonthlyChartProps) {
   const maxValue = Math.max(...bars.map((bar) => bar.value), 1);
 
   return (
-    <ReportPanel
-      title="Month Wise - Amount"
-      className="overflow-hidden rounded-xl "
-    >
+    <ReportPanel title="Month Wise - Amount" className="overflow-hidden rounded-xl ">
       <div className="overflow-x-auto">
         <div className="grid h-[310px] min-w-[520px] grid-cols-[70px_1fr] px-5 pt-5 pb-10 sm:min-w-0">
           {/* Y Axis */}
@@ -28,10 +25,7 @@ export default function MonthlyChart({ bars }: MonthlyChartProps) {
             {/* Horizontal Grid Lines */}
             <div className="absolute inset-0 grid grid-rows-5">
               {[0, 1, 2, 3, 4].map((tick) => (
-                <div
-                  key={tick}
-                  className="border-t border-dashed border-[#efe7f5]"
-                />
+                <div key={tick} className="border-t border-dashed border-[#efe7f5]" />
               ))}
             </div>
 
@@ -63,9 +57,7 @@ export default function MonthlyChart({ bars }: MonthlyChartProps) {
                     </div>
 
                     {/* Label */}
-                    <div className="mt-3 text-[10px] font-medium text-[#5d5565]">
-                      {bar.label}
-                    </div>
+                    <div className="mt-3 text-[10px] font-medium text-[#5d5565]">{bar.label}</div>
                   </div>
                 ))}
               </div>

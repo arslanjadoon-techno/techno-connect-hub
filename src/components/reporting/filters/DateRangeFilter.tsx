@@ -15,9 +15,7 @@ export default function DateRangeFilter({
 }: DateRangeFilterProps) {
   return (
     <div className="rounded-[6px] border border-[#7600bc] bg-white p-3">
-      <div className="mb-2 text-[10px] font-semibold text-[#4a4250]">
-        {label}
-      </div>
+      <div className="mb-2 text-[10px] font-semibold text-[#4a4250]">{label}</div>
       <div className="grid gap-2 text-[9px] text-[#5d5362]">
         <input
           type="date"

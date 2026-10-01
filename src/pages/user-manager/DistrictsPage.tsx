@@ -141,7 +141,7 @@ export default function DistrictsPage() {
   const handleDelete = async (d: District) => {
     try {
       setActionLoading(true);
-      const res = await DistrictsApi.delete({ id: d.id });
+      const res = await DistrictsApi.delete(d.id);
       if (res.success) {
         toast.success(res.message || "District deleted successfully");
         lastFetchedKey.current = "";
