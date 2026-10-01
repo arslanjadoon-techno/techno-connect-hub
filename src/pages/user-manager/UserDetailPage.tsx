@@ -393,8 +393,18 @@ export default function UserDetailPage() {
                   <Shield className="h-3 w-3" /> User Manager
                 </Badge>
               )}
-              {user.isTwoFactorEnabled && (
-                <Badge variant="outline" className="gap-1">
+              {user.bypassTwoFactor ? (
+                <Badge
+                  variant="outline"
+                  className="gap-1 text-rose-600 border-rose-300 dark:text-rose-400 dark:border-rose-800"
+                >
+                  2FA Disabled
+                </Badge>
+              ) : (
+                <Badge
+                  variant="outline"
+                  className="gap-1 text-emerald-600 border-emerald-300 dark:text-emerald-400 dark:border-emerald-800"
+                >
                   2FA Enabled
                 </Badge>
               )}
