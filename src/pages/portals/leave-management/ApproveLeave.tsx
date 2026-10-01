@@ -364,13 +364,15 @@ export default function ManagerLeaveManagement() {
     <div className="w-full max-w-6xl mx-auto space-y-5 p-4 sm:p-6 min-h-[calc(100vh-100px)]">
       {/* Loading state indicator */}
       {loading ? (
-        <div className="bg-white rounded-3xl border border-slate-100 p-16 text-center flex flex-col items-center justify-center space-y-3 shadow-sm">
+        <div className="bg-white dark:bg-slate-900/80 rounded-3xl border border-slate-100 dark:border-slate-800 p-16 text-center flex flex-col items-center justify-center space-y-3 shadow-sm">
           <Loader2 className="w-8 h-8 text-violet-600 animate-spin" />
-          <p className="text-xs font-semibold text-slate-500">Loading leave requests...</p>
+          <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            Loading leave requests...
+          </p>
         </div>
       ) : errorMsg ? (
-        <div className="bg-rose-50 border border-rose-100 rounded-3xl p-8 text-center space-y-3 shadow-sm">
-          <p className="text-sm text-rose-600 font-bold">{errorMsg}</p>
+        <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/50 rounded-3xl p-8 text-center space-y-3 shadow-sm">
+          <p className="text-sm text-rose-600 dark:text-rose-400 font-bold">{errorMsg}</p>
           <button
             onClick={fetchRequests}
             className="inline-flex items-center space-x-1.5 px-4 py-2 bg-rose-600 text-white text-xs font-bold rounded-xl hover:bg-rose-700 transition"
@@ -381,28 +383,28 @@ export default function ManagerLeaveManagement() {
         </div>
       ) : selectedRequest ? (
         /* ======================== DETAIL VIEW CARD ======================== */
-        <div className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 shadow-sm space-y-6 max-w-2xl mx-auto animate-fade-in">
+        <div className="bg-white dark:bg-slate-900/80 rounded-3xl border border-slate-100 dark:border-slate-800 p-6 sm:p-8 shadow-sm space-y-6 max-w-2xl mx-auto animate-fade-in">
           {/* Back Button */}
           <button
             onClick={() => setSelectedRequest(null)}
             disabled={submitting}
-            className="flex items-center space-x-2 text-xs font-bold text-slate-500 hover:text-violet-600 transition py-1 disabled:opacity-50"
+            className="flex items-center space-x-2 text-xs font-bold text-slate-500 dark:text-slate-400 hover:text-violet-600 dark:hover:text-violet-400 transition py-1 disabled:opacity-50"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Back to Requests List</span>
           </button>
 
           {/* User Info Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-5 gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-5 gap-4">
             <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 rounded-2xl bg-violet-100 text-violet-700 font-bold text-base flex items-center justify-center shrink-0 shadow-inner">
+              <div className="w-14 h-14 rounded-2xl bg-violet-100 dark:bg-violet-950/60 text-violet-700 dark:text-violet-300 font-bold text-base flex items-center justify-center shrink-0 shadow-inner">
                 {selectedRequest.avatar}
               </div>
               <div className="min-w-0">
-                <h3 className="text-lg font-bold text-slate-900 truncate">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white truncate">
                   {selectedRequest.employeeName}
                 </h3>
-                <div className="text-xs text-slate-500 font-medium flex items-center gap-1.5 mt-0.5">
+                <div className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5 mt-0.5">
                   <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <span className="font-semibold">{selectedRequest.market}</span>
                 </div>
@@ -413,12 +415,12 @@ export default function ManagerLeaveManagement() {
               <span
                 className={`text-xs font-bold px-3.5 py-1.5 rounded-full border inline-block ${
                   selectedRequest.status === "Approved"
-                    ? "bg-emerald-50 text-emerald-600 border-emerald-200"
+                    ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/60"
                     : selectedRequest.status === "Partially Approved"
-                      ? "bg-blue-50 text-blue-600 border-blue-200"
+                      ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/60"
                       : selectedRequest.status === "Rejected"
-                        ? "bg-rose-50 text-rose-600 border-rose-200"
-                        : "bg-amber-50 text-amber-600 border-amber-200"
+                        ? "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800/60"
+                        : "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/60"
                 }`}
               >
                 {selectedRequest.status}
@@ -428,19 +430,19 @@ export default function ManagerLeaveManagement() {
 
           {/* Request Meta Data Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+            <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">
                 TOTAL REQUESTED DAYS
               </span>
-              <p className="text-sm font-bold text-slate-800">
+              <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
                 {selectedRequest.selectedDates.length} Days
               </p>
             </div>
-            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+            <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+              <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">
                 REQUESTED DATE RANGE
               </span>
-              <p className="text-sm font-bold text-slate-800">
+              <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
                 {selectedRequest.selectedDates[0]?.dateStr} to{" "}
                 {selectedRequest.selectedDates[selectedRequest.selectedDates.length - 1]?.dateStr}
               </p>
@@ -448,20 +450,21 @@ export default function ManagerLeaveManagement() {
           </div>
 
           {/* Reason Section */}
-          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+          <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block mb-1">
               EMPLOYEE REASON
             </span>
-            <p className="text-xs sm:text-sm font-medium text-slate-700 leading-relaxed">
+            <p className="text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300 leading-relaxed">
               {selectedRequest.reason || "No reason provided."}
             </p>
           </div>
 
           {/* Date Selection Checkbox Section */}
-          <div className="border border-slate-200 rounded-2xl p-4 bg-slate-50/50 space-y-3">
-            <div className="flex flex-wrap items-center justify-between border-b border-slate-200 pb-2.5 gap-2">
-              <span className="text-xs font-bold text-slate-700 uppercase flex items-center gap-1.5">
-                <CalendarIcon className="w-4 h-4 text-violet-600" /> Select Dates To Approve
+          <div className="border border-slate-200 dark:border-slate-800 rounded-2xl p-4 bg-slate-50/50 dark:bg-slate-800/30 space-y-3">
+            <div className="flex flex-wrap items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5 gap-2">
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-200 uppercase flex items-center gap-1.5">
+                <CalendarIcon className="w-4 h-4 text-violet-600 dark:text-violet-400" /> Select
+                Dates To Approve
               </span>
 
               {/* Select All Checkbox */}
@@ -470,12 +473,12 @@ export default function ManagerLeaveManagement() {
                   type="button"
                   disabled={submitting}
                   onClick={handleToggleSelectAll}
-                  className="flex items-center space-x-1.5 text-xs font-bold text-violet-600 hover:text-violet-800 transition py-0.5 disabled:opacity-50"
+                  className="flex items-center space-x-1.5 text-xs font-bold text-violet-600 dark:text-violet-400 hover:text-violet-800 dark:hover:text-violet-300 transition py-0.5 disabled:opacity-50"
                 >
                   {checkedDayIds.length === selectedRequest.selectedDates.length ? (
-                    <CheckSquare className="w-4 h-4 text-violet-600" />
+                    <CheckSquare className="w-4 h-4 text-violet-600 dark:text-violet-400" />
                   ) : (
-                    <Square className="w-4 h-4 text-slate-400" />
+                    <Square className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                   )}
                   <span>Select All ({selectedRequest.selectedDates.length})</span>
                 </button>
@@ -494,18 +497,20 @@ export default function ManagerLeaveManagement() {
                     onClick={() => !isReadOnly && handleToggleDate(item.id)}
                     className={`flex items-center justify-between p-3 rounded-xl border transition touch-manipulation ${
                       isReadOnly
-                        ? "bg-slate-100/80 border-slate-200 cursor-default"
+                        ? "bg-slate-100/80 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 cursor-default"
                         : isChecked
-                          ? "bg-violet-50 border-violet-300 cursor-pointer ring-1 ring-violet-400/20"
-                          : "bg-white border-slate-200 cursor-pointer hover:bg-slate-50"
+                          ? "bg-violet-50 dark:bg-violet-950/40 border-violet-300 dark:border-violet-700 cursor-pointer ring-1 ring-violet-400/20"
+                          : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60"
                     }`}
                   >
-                    <span className="text-xs font-bold text-slate-700">{item.dateStr}</span>
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                      {item.dateStr}
+                    </span>
                     <div>
                       {isChecked ? (
-                        <CheckSquare className="w-5 h-5 text-violet-600" />
+                        <CheckSquare className="w-5 h-5 text-violet-600 dark:text-violet-400" />
                       ) : (
-                        <Square className="w-5 h-5 text-slate-300" />
+                        <Square className="w-5 h-5 text-slate-300 dark:text-slate-600" />
                       )}
                     </div>
                   </div>
@@ -516,7 +521,7 @@ export default function ManagerLeaveManagement() {
 
           {/* Manager Note Input */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1.5">
+            <label className="block text-xs font-semibold text-slate-600 dark:text-slate-300 mb-1.5">
               Manager Note / Feedback (Optional)
             </label>
             <textarea
@@ -525,7 +530,7 @@ export default function ManagerLeaveManagement() {
               value={managerNote}
               onChange={(e) => setManagerNote(e.target.value)}
               disabled={selectedRequest.status !== "Pending" || submitting}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 resize-none font-medium disabled:opacity-75"
+              className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-3.5 py-2.5 text-xs sm:text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 resize-none font-medium disabled:opacity-75"
             />
           </div>
 
@@ -536,7 +541,7 @@ export default function ManagerLeaveManagement() {
                 type="button"
                 disabled={submitting}
                 onClick={() => setIsRejectModalOpen(true)}
-                className="w-full sm:flex-1 py-3 bg-rose-50 text-rose-600 font-bold rounded-xl text-xs hover:bg-rose-100 transition flex items-center justify-center space-x-1.5 active:scale-[0.99] disabled:opacity-50"
+                className="w-full sm:flex-1 py-3 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-bold rounded-xl text-xs hover:bg-rose-100 dark:hover:bg-rose-900/60 transition flex items-center justify-center space-x-1.5 active:scale-[0.99] disabled:opacity-50"
               >
                 <XCircle className="w-4 h-4" />
                 <span>Reject Entire Request</span>
@@ -569,10 +574,10 @@ export default function ManagerLeaveManagement() {
           {/* Header & Search Bar (Matches Screenshot 1 & 2) */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
                 Manager Leave Approvals
               </h1>
-              <p className="text-xs sm:text-sm text-slate-400 font-medium flex items-center space-x-1.5 mt-1">
+              <p className="text-xs sm:text-sm text-slate-400 dark:text-slate-400 font-medium flex items-center space-x-1.5 mt-1">
                 <FileText className="w-4 h-4 text-slate-400 shrink-0" />
                 <span>Select requests to approve individual or all requested dates</span>
               </p>
@@ -584,7 +589,7 @@ export default function ManagerLeaveManagement() {
                 placeholder="Search employee or market..."
                 value={searchQuery}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-2xl pl-10 pr-4 py-2.5 text-xs sm:text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 shadow-sm"
+                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl pl-10 pr-4 py-2.5 text-xs sm:text-sm text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 shadow-sm"
               />
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             </div>
@@ -600,16 +605,16 @@ export default function ManagerLeaveManagement() {
                   onClick={() => setActiveTab("Pending")}
                   className={`px-4 py-2 rounded-full text-xs font-bold flex items-center space-x-2 transition ${
                     activeTab === "Pending"
-                      ? "bg-slate-900 text-white shadow-sm"
-                      : "bg-white text-slate-600 border border-slate-200 hover:border-slate-300"
+                      ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm"
+                      : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
                   }`}
                 >
                   <span>Pending</span>
                   <span
                     className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                       activeTab === "Pending"
-                        ? "bg-slate-700 text-white"
-                        : "bg-slate-100 text-slate-500"
+                        ? "bg-slate-700 dark:bg-slate-200 text-white dark:text-slate-900"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
                     }`}
                   >
                     {pendingCount}
@@ -621,16 +626,16 @@ export default function ManagerLeaveManagement() {
                   onClick={() => setActiveTab("Approved")}
                   className={`px-4 py-2 rounded-full text-xs font-bold flex items-center space-x-2 transition ${
                     activeTab === "Approved"
-                      ? "bg-slate-900 text-white shadow-sm"
-                      : "bg-white text-slate-600 border border-slate-200 hover:border-slate-300"
+                      ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm"
+                      : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
                   }`}
                 >
                   <span>Approved</span>
                   <span
                     className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                       activeTab === "Approved"
-                        ? "bg-slate-700 text-white"
-                        : "bg-slate-100 text-slate-500"
+                        ? "bg-slate-700 dark:bg-slate-200 text-white dark:text-slate-900"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
                     }`}
                   >
                     {approvedCount}
@@ -642,16 +647,16 @@ export default function ManagerLeaveManagement() {
                   onClick={() => setActiveTab("Rejected")}
                   className={`px-4 py-2 rounded-full text-xs font-bold flex items-center space-x-2 transition ${
                     activeTab === "Rejected"
-                      ? "bg-slate-900 text-white shadow-sm"
-                      : "bg-white text-slate-600 border border-slate-200 hover:border-slate-300"
+                      ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm"
+                      : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
                   }`}
                 >
                   <span>Rejected</span>
                   <span
                     className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                       activeTab === "Rejected"
-                        ? "bg-slate-700 text-white"
-                        : "bg-slate-100 text-slate-500"
+                        ? "bg-slate-700 dark:bg-slate-200 text-white dark:text-slate-900"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
                     }`}
                   >
                     {rejectedCount}
@@ -663,16 +668,16 @@ export default function ManagerLeaveManagement() {
                   onClick={() => setActiveTab("All")}
                   className={`px-4 py-2 rounded-full text-xs font-bold flex items-center space-x-2 transition ${
                     activeTab === "All"
-                      ? "bg-slate-900 text-white shadow-sm"
-                      : "bg-white text-slate-600 border border-slate-200 hover:border-slate-300"
+                      ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm"
+                      : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
                   }`}
                 >
                   <span>All</span>
                   <span
                     className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                       activeTab === "All"
-                        ? "bg-slate-700 text-white"
-                        : "bg-slate-100 text-slate-500"
+                        ? "bg-slate-700 dark:bg-slate-200 text-white dark:text-slate-900"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
                     }`}
                   >
                     {allCount}
@@ -684,14 +689,14 @@ export default function ManagerLeaveManagement() {
             )}
 
             {/* List vs Calendar View Toggle Button (Matches Screenshots) */}
-            <div className="bg-slate-100/90 p-1 rounded-2xl flex items-center shrink-0 ml-auto border border-slate-200/60 shadow-inner">
+            <div className="bg-slate-100/90 dark:bg-slate-800/90 p-1 rounded-2xl flex items-center shrink-0 ml-auto border border-slate-200/60 dark:border-slate-700/60 shadow-inner">
               <button
                 type="button"
                 onClick={() => setViewMode("list")}
                 className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${
                   viewMode === "list"
-                    ? "bg-white text-violet-600 shadow-sm"
-                    : "text-slate-500 hover:text-slate-800"
+                    ? "bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 shadow-sm"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                 }`}
               >
                 <LayoutGrid className="w-3.5 h-3.5" />
@@ -703,8 +708,8 @@ export default function ManagerLeaveManagement() {
                 onClick={() => setViewMode("calendar")}
                 className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition ${
                   viewMode === "calendar"
-                    ? "bg-white text-violet-600 shadow-sm"
-                    : "text-slate-500 hover:text-slate-800"
+                    ? "bg-white dark:bg-slate-900 text-violet-600 dark:text-violet-400 shadow-sm"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                 }`}
               >
                 <CalendarIcon className="w-3.5 h-3.5" />
@@ -717,7 +722,7 @@ export default function ManagerLeaveManagement() {
           {viewMode === "list" ? (
             <div className="space-y-3.5">
               {filteredRequests.length === 0 ? (
-                <div className="bg-white rounded-3xl border border-slate-100 p-12 text-center text-xs sm:text-sm text-slate-400 font-medium shadow-sm">
+                <div className="bg-white dark:bg-slate-900/80 rounded-3xl border border-slate-100 dark:border-slate-800 p-12 text-center text-xs sm:text-sm text-slate-400 dark:text-slate-500 font-medium shadow-sm">
                   No leave requests found for the selected filter.
                 </div>
               ) : (
@@ -725,42 +730,42 @@ export default function ManagerLeaveManagement() {
                   <div
                     key={req.id}
                     onClick={() => handleOpenDetail(req)}
-                    className="bg-white rounded-2xl sm:rounded-3xl border border-slate-100 p-4 sm:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:border-violet-200 hover:shadow-md transition duration-200 flex flex-col sm:flex-row sm:items-center justify-between cursor-pointer gap-4 active:scale-[0.99]"
+                    className="bg-white dark:bg-slate-900/80 rounded-2xl sm:rounded-3xl border border-slate-100 dark:border-slate-800 p-4 sm:p-5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] hover:border-violet-200 dark:hover:border-violet-800 hover:shadow-md transition duration-200 flex flex-col sm:flex-row sm:items-center justify-between cursor-pointer gap-4 active:scale-[0.99]"
                   >
                     <div className="flex items-center space-x-4 min-w-0">
                       {/* Round Initials Avatar */}
-                      <div className="w-12 h-12 rounded-2xl bg-violet-50 text-violet-700 font-bold text-sm flex items-center justify-center shrink-0 shadow-inner">
+                      <div className="w-12 h-12 rounded-2xl bg-violet-50 dark:bg-violet-950 text-violet-700 dark:text-violet-300 font-bold text-sm flex items-center justify-center shrink-0 shadow-inner">
                         {req.avatar}
                       </div>
 
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center space-x-2">
-                          <h4 className="font-extrabold text-slate-900 text-sm sm:text-base tracking-tight truncate">
+                          <h4 className="font-extrabold text-slate-900 dark:text-white text-sm sm:text-base tracking-tight truncate">
                             {req.employeeName}
                           </h4>
-                          <span className="text-slate-300 font-bold">•</span>
-                          <span className="text-xs font-bold text-slate-500 uppercase tracking-wide truncate">
+                          <span className="text-slate-300 dark:text-slate-600 font-bold">•</span>
+                          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide truncate">
                             {req.market}
                           </span>
                         </div>
 
-                        <div className="text-xs text-slate-400 font-medium mt-0.5">
+                        <div className="text-xs text-slate-400 dark:text-slate-500 font-medium mt-0.5">
                           <span>{req.selectedDates.length} Days requested</span>
                         </div>
                       </div>
                     </div>
 
                     {/* Status Badge */}
-                    <div className="flex items-center justify-between sm:justify-end border-t border-slate-50 pt-2 sm:pt-0 sm:border-0">
+                    <div className="flex items-center justify-between sm:justify-end border-t border-slate-50 dark:border-slate-800/80 pt-2 sm:pt-0 sm:border-0">
                       <span
                         className={`text-xs font-bold px-4 py-1.5 rounded-full border ${
                           req.status === "Approved"
-                            ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                            ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800/60"
                             : req.status === "Partially Approved"
-                              ? "bg-blue-50 text-blue-600 border-blue-100"
+                              ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-800/60"
                               : req.status === "Rejected"
-                                ? "bg-rose-50 text-rose-600 border-rose-100"
-                                : "bg-amber-50 text-amber-600 border-amber-100"
+                                ? "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-800/60"
+                                : "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-800/60"
                         }`}
                       >
                         {req.status}
@@ -773,10 +778,10 @@ export default function ManagerLeaveManagement() {
           ) : (
             /* ======================== 2. CALENDAR VIEW ======================== */
             <div className="space-y-4">
-              <div className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 shadow-sm space-y-6">
+              <div className="bg-white dark:bg-slate-900/80 rounded-3xl border border-slate-100 dark:border-slate-800 p-6 sm:p-8 shadow-sm space-y-6">
                 {/* Month Navigator Header (Matches Screenshot 2) */}
                 <div className="flex items-center justify-between">
-                  <h3 className="font-extrabold text-slate-900 text-lg sm:text-xl tracking-tight">
+                  <h3 className="font-extrabold text-slate-900 dark:text-white text-lg sm:text-xl tracking-tight">
                     {currentCalendarDate.toLocaleString("default", {
                       month: "long",
                       year: "numeric",
@@ -794,14 +799,14 @@ export default function ManagerLeaveManagement() {
                           ),
                         )
                       }
-                      className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-50 transition"
+                      className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
                     <button
                       type="button"
                       onClick={() => setCurrentCalendarDate(new Date(2026, 7, 1))}
-                      className="px-3.5 py-1 text-xs font-bold text-slate-700 border border-slate-200 rounded-full hover:bg-slate-50 transition"
+                      className="px-3.5 py-1 text-xs font-bold text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 transition"
                     >
                       Today
                     </button>
@@ -816,7 +821,7 @@ export default function ManagerLeaveManagement() {
                           ),
                         )
                       }
-                      className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-700 hover:bg-slate-50 transition"
+                      className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
@@ -824,7 +829,7 @@ export default function ManagerLeaveManagement() {
                 </div>
 
                 {/* Days of Week Header */}
-                <div className="grid grid-cols-7 text-center font-bold text-slate-400 text-xs tracking-wider uppercase pb-2">
+                <div className="grid grid-cols-7 text-center font-bold text-slate-400 dark:text-slate-500 text-xs tracking-wider uppercase pb-2">
                   <span>SUN</span>
                   <span>MON</span>
                   <span>TUE</span>
@@ -841,7 +846,7 @@ export default function ManagerLeaveManagement() {
                       return (
                         <div
                           key={`empty-${idx}`}
-                          className="h-20 sm:h-24 bg-slate-50/50 rounded-2xl"
+                          className="h-20 sm:h-24 bg-slate-50/50 dark:bg-slate-800/30 rounded-2xl"
                         />
                       );
                     }
@@ -856,16 +861,18 @@ export default function ManagerLeaveManagement() {
                         onClick={() => setSelectedCalendarDateStr(dateStr)}
                         className={`h-20 sm:h-24 p-2 sm:p-2.5 rounded-2xl border flex flex-col justify-between transition cursor-pointer ${
                           isSelected
-                            ? "border-violet-500 bg-violet-50/40 ring-2 ring-violet-500/20 shadow-sm"
+                            ? "border-violet-500 bg-violet-50/40 dark:bg-violet-950/40 ring-2 ring-violet-500/20 shadow-sm"
                             : dayLeaves.length > 0
-                              ? "bg-white border-slate-100 hover:border-violet-200 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
-                              : "bg-white border-slate-100 hover:border-slate-200"
+                              ? "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-violet-200 dark:hover:border-violet-700 shadow-[0_1px_2px_rgba(0,0,0,0.03)]"
+                              : "bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700"
                         }`}
                       >
                         <div className="flex items-center justify-between">
                           <span
                             className={`text-xs sm:text-sm font-bold ${
-                              isSelected ? "text-violet-700" : "text-slate-700"
+                              isSelected
+                                ? "text-violet-700 dark:text-violet-400"
+                                : "text-slate-700 dark:text-slate-300"
                             }`}
                           >
                             {dayNumber}
@@ -888,13 +895,13 @@ export default function ManagerLeaveManagement() {
                                 e.stopPropagation();
                                 handleOpenDetail(leave.request);
                               }}
-                              className="text-[10px] bg-slate-100 hover:bg-violet-100 text-slate-700 hover:text-violet-900 px-1.5 py-0.5 rounded truncate font-semibold transition"
+                              className="text-[10px] bg-slate-100 dark:bg-slate-800 hover:bg-violet-100 dark:hover:bg-violet-900/50 text-slate-700 dark:text-slate-300 hover:text-violet-900 dark:hover:text-violet-200 px-1.5 py-0.5 rounded truncate font-semibold transition"
                             >
                               {leave.employeeName}
                             </div>
                           ))}
                           {dayLeaves.length > 2 && (
-                            <div className="text-[9px] text-slate-400 font-bold px-1">
+                            <div className="text-[9px] text-slate-400 dark:text-slate-500 font-bold px-1">
                               +{dayLeaves.length - 2} more
                             </div>
                           )}
@@ -911,19 +918,21 @@ export default function ManagerLeaveManagement() {
                   const dateLeaves = getLeavesForDate(selectedCalendarDateStr);
 
                   return (
-                    <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm space-y-4 animate-fade-in">
-                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                        <h4 className="text-sm sm:text-base font-bold text-slate-800">
+                    <div className="bg-white dark:bg-slate-900/80 rounded-3xl border border-slate-100 dark:border-slate-800 p-6 shadow-sm space-y-4 animate-fade-in">
+                      <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+                        <h4 className="text-sm sm:text-base font-bold text-slate-800 dark:text-slate-100">
                           Leave Requests on{" "}
-                          <span className="text-violet-600">{selectedCalendarDateStr}</span>
+                          <span className="text-violet-600 dark:text-violet-400">
+                            {selectedCalendarDateStr}
+                          </span>
                         </h4>
-                        <span className="text-xs font-bold text-slate-400">
+                        <span className="text-xs font-bold text-slate-400 dark:text-slate-500">
                           Total: {dateLeaves.length}
                         </span>
                       </div>
 
                       {dateLeaves.length === 0 ? (
-                        <p className="text-xs text-slate-400 font-medium py-2">
+                        <p className="text-xs text-slate-400 dark:text-slate-500 font-medium py-2">
                           No approved leave records on this date.
                         </p>
                       ) : (
@@ -932,28 +941,28 @@ export default function ManagerLeaveManagement() {
                             <div
                               key={idx}
                               onClick={() => handleOpenDetail(item.request)}
-                              className="flex items-center space-x-3.5 p-3.5 bg-slate-50 border border-slate-100 hover:border-violet-300 hover:bg-violet-50/30 rounded-2xl cursor-pointer transition active:scale-[0.99]"
+                              className="flex items-center space-x-3.5 p-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 hover:border-violet-300 dark:hover:border-violet-700 hover:bg-violet-50/30 dark:hover:bg-violet-950/30 rounded-2xl cursor-pointer transition active:scale-[0.99]"
                             >
-                              <div className="w-10 h-10 rounded-2xl bg-violet-100 text-violet-700 font-bold text-xs flex items-center justify-center shrink-0">
+                              <div className="w-10 h-10 rounded-2xl bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300 font-bold text-xs flex items-center justify-center shrink-0">
                                 {item.avatar}
                               </div>
                               <div className="min-w-0 flex-1">
-                                <p className="text-xs font-bold text-slate-800 truncate">
+                                <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
                                   {item.employeeName}
                                 </p>
-                                <p className="text-[11px] text-slate-400 font-medium truncate">
+                                <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium truncate">
                                   {item.market}
                                 </p>
                               </div>
                               <span
                                 className={`text-[10px] font-bold px-2.5 py-1 rounded-full border shrink-0 ${
                                   item.request.status === "Approved"
-                                    ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                                    ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800/60"
                                     : item.request.status === "Partially Approved"
-                                      ? "bg-blue-50 text-blue-600 border-blue-100"
+                                      ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-100 dark:border-blue-800/60"
                                       : item.request.status === "Rejected"
-                                        ? "bg-rose-50 text-rose-600 border-rose-100"
-                                        : "bg-amber-50 text-amber-600 border-amber-100"
+                                        ? "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-800/60"
+                                        : "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-800/60"
                                 }`}
                               >
                                 {item.request.status}
@@ -972,23 +981,26 @@ export default function ManagerLeaveManagement() {
 
       {/* Rejection Confirmation Modal */}
       {isRejectModalOpen && selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 shadow-xl max-w-sm w-full space-y-4">
-            <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 dark:bg-black/70 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-6 sm:p-8 shadow-xl max-w-sm w-full space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
               <XCircle className="w-7 h-7" />
             </div>
 
             <div className="text-center space-y-1.5">
-              <h3 className="text-base sm:text-lg font-bold text-slate-900">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
                 Reject Leave Request?
               </h3>
-              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
                 Are you sure you want to reject all{" "}
-                <span className="font-bold text-slate-800">
+                <span className="font-bold text-slate-800 dark:text-slate-200">
                   {selectedRequest.selectedDates.length} days
                 </span>{" "}
                 requested by{" "}
-                <span className="font-bold text-slate-800">{selectedRequest.employeeName}</span>?
+                <span className="font-bold text-slate-800 dark:text-slate-200">
+                  {selectedRequest.employeeName}
+                </span>
+                ?
               </p>
             </div>
 
@@ -997,7 +1009,7 @@ export default function ManagerLeaveManagement() {
                 type="button"
                 disabled={submitting}
                 onClick={() => setIsRejectModalOpen(false)}
-                className="flex-1 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl text-xs hover:bg-slate-200 transition disabled:opacity-50"
+                className="flex-1 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold rounded-xl text-xs hover:bg-slate-200 dark:hover:bg-slate-700 transition disabled:opacity-50"
               >
                 Cancel
               </button>

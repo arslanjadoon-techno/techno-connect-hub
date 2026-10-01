@@ -462,9 +462,6 @@ export function AppSidebar() {
   const isPortalAllowed = (portalKey: string): boolean => {
     const target = norm(portalKey);
 
-    // Reporting portal default visibility
-    if (target === "reporting") return true;
-
     // 1. Check assignedPortals list
     const inAssigned = allowedPortalsList.some((p: string) => {
       const pNorm = norm(p);

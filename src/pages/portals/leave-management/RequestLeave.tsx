@@ -319,21 +319,21 @@ export default function RequestLeavePage() {
     switch (status) {
       case 1:
         return (
-          <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">
+          <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/60">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
             Approved
           </span>
         );
       case 2:
         return (
-          <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-600 border border-rose-100">
+          <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-100 dark:border-rose-800/60">
             <span className="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1.5"></span>
             Rejected
           </span>
         );
       case 3:
         return (
-          <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-600 border border-blue-100">
+          <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-100 dark:border-blue-800/60">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"></span>
             Partially Approved
           </span>
@@ -341,7 +341,7 @@ export default function RequestLeavePage() {
       case 0:
       default:
         return (
-          <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-600 border border-amber-100">
+          <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-100 dark:border-amber-800/60">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5"></span>
             Pending
           </span>
@@ -353,34 +353,38 @@ export default function RequestLeavePage() {
     <div className="w-full max-w-6xl mx-auto space-y-8 p-4 sm:p-6 min-h-[calc(100vh-100px)] animate-fade-in">
       {/* Page Title & Subtitle */}
       <div>
-        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
           Leave Management
         </h1>
-        <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">
+        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium mt-1">
           Select date (s) and apply for leave request.
         </p>
       </div>
 
       {/* Notifications */}
       {successMsg && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 px-5 py-3.5 rounded-2xl flex items-center space-x-2 text-xs sm:text-sm font-semibold shadow-sm animate-fade-in">
-          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-700 dark:text-emerald-300 px-5 py-3.5 rounded-2xl flex items-center space-x-2 text-xs sm:text-sm font-semibold shadow-sm animate-fade-in">
+          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
           <span>{successMsg}</span>
         </div>
       )}
       {errorMsg && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-5 py-3.5 rounded-2xl flex items-center space-x-2 text-xs sm:text-sm font-semibold shadow-sm animate-fade-in">
-          <XCircle className="w-4 h-4 shrink-0 text-rose-600" />
+        <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-rose-700 dark:text-rose-300 px-5 py-3.5 rounded-2xl flex items-center space-x-2 text-xs sm:text-sm font-semibold shadow-sm animate-fade-in">
+          <XCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
           <span>{errorMsg}</span>
         </div>
       )}
 
       {/* ======================== CARD 1: APPLY FOR LEAVE ======================== */}
-      <div className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 shadow-sm space-y-6">
+      <div className="bg-white dark:bg-slate-900/80 rounded-3xl border border-slate-100 dark:border-slate-800 p-6 sm:p-8 shadow-sm space-y-6">
         {/* Card Header */}
-        <div className="flex items-center space-x-2 border-b border-slate-100 pb-4">
-          <span className="text-violet-600 font-extrabold text-lg leading-none">+</span>
-          <h2 className="text-base sm:text-lg font-bold text-slate-900">Apply for Leave</h2>
+        <div className="flex items-center space-x-2 border-b border-slate-100 dark:border-slate-800 pb-4">
+          <span className="text-violet-600 dark:text-violet-400 font-extrabold text-lg leading-none">
+            +
+          </span>
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+            Apply for Leave
+          </h2>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -388,7 +392,7 @@ export default function RequestLeavePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             {/* Market Selection */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-600 flex items-center space-x-1.5">
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center space-x-1.5">
                 <Building2 className="w-3.5 h-3.5 text-slate-400" />
                 <span>Market</span>
               </label>
@@ -399,7 +403,7 @@ export default function RequestLeavePage() {
                     setSelectedMarketId(Number(e.target.value))
                   }
                   disabled={loadingMarkets || markets.length === 0}
-                  className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs sm:text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 shadow-sm cursor-pointer disabled:opacity-60"
+                  className="w-full appearance-none bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 shadow-sm cursor-pointer disabled:opacity-60"
                 >
                   {loadingMarkets ? (
                     <option value={0}>Loading markets...</option>
@@ -421,7 +425,7 @@ export default function RequestLeavePage() {
 
             {/* Manager Selection */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-slate-600 flex items-center space-x-1.5">
+              <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center space-x-1.5">
                 <User className="w-3.5 h-3.5 text-slate-400" />
                 <span>Manager</span>
               </label>
@@ -432,7 +436,7 @@ export default function RequestLeavePage() {
                     setSelectedManagerId(Number(e.target.value))
                   }
                   disabled={loadingManagers || managers.length === 0}
-                  className="w-full appearance-none bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs sm:text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 shadow-sm cursor-pointer disabled:opacity-60"
+                  className="w-full appearance-none bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3 text-xs sm:text-sm font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 shadow-sm cursor-pointer disabled:opacity-60"
                 >
                   {loadingManagers ? (
                     <option value={0}>Loading managers...</option>
@@ -455,16 +459,16 @@ export default function RequestLeavePage() {
 
           {/* Select Dates Calendar Section */}
           <div className="space-y-2">
-            <label className="text-xs font-semibold text-slate-600 flex items-center space-x-1.5">
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center space-x-1.5">
               <CalendarIcon className="w-3.5 h-3.5 text-slate-400" />
               <span>Select Dates</span>
             </label>
 
             {/* Calendar Box Container */}
-            <div className="border border-slate-200 rounded-3xl p-5 sm:p-6 bg-white space-y-4 shadow-sm">
+            <div className="border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 bg-white dark:bg-slate-900/60 space-y-4 shadow-sm">
               {/* Calendar Month Header with Nav Arrows */}
               <div className="flex items-center justify-between">
-                <h3 className="font-extrabold text-slate-900 text-sm sm:text-base">
+                <h3 className="font-extrabold text-slate-900 dark:text-white text-sm sm:text-base">
                   {calendarDate.toLocaleString("default", {
                     month: "long",
                     year: "numeric",
@@ -475,14 +479,14 @@ export default function RequestLeavePage() {
                   <button
                     type="button"
                     onClick={handlePrevMonth}
-                    className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 transition"
+                    className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <button
                     type="button"
                     onClick={handleNextMonth}
-                    className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 transition"
+                    className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -490,7 +494,7 @@ export default function RequestLeavePage() {
               </div>
 
               {/* Day of Week Headers */}
-              <div className="grid grid-cols-7 text-center text-xs font-bold text-slate-400 tracking-wide">
+              <div className="grid grid-cols-7 text-center text-xs font-bold text-slate-400 dark:text-slate-500 tracking-wide">
                 <span>Sun</span>
                 <span>Mon</span>
                 <span>Tue</span>
@@ -518,17 +522,17 @@ export default function RequestLeavePage() {
 
                   // Compute dynamic button styling based on date status
                   let buttonStyle =
-                    "bg-white text-slate-800 border-slate-200 hover:border-violet-300 hover:bg-violet-50/30 cursor-pointer";
+                    "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700 hover:border-violet-300 dark:hover:border-violet-600 hover:bg-violet-50/30 dark:hover:bg-violet-950/30 cursor-pointer";
 
                   if (info.type === "passed") {
                     buttonStyle =
-                      "bg-slate-100/80 text-slate-300 border-slate-200 cursor-not-allowed";
+                      "bg-slate-100/80 dark:bg-slate-800/50 text-slate-300 dark:text-slate-600 border-slate-200 dark:border-slate-800 cursor-not-allowed";
                   } else if (info.type === "approved") {
                     buttonStyle =
-                      "bg-emerald-100 text-emerald-800 border-emerald-300 font-bold cursor-not-allowed shadow-xs";
+                      "bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 font-bold cursor-not-allowed shadow-xs";
                   } else if (info.type === "pending") {
                     buttonStyle =
-                      "bg-amber-100 text-amber-800 border-amber-300 font-bold cursor-not-allowed shadow-xs";
+                      "bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800 font-bold cursor-not-allowed shadow-xs";
                   } else if (isSelected) {
                     buttonStyle =
                       "bg-violet-600 text-white border-violet-600 shadow-md shadow-violet-600/20 font-bold scale-[1.02]";
@@ -550,13 +554,13 @@ export default function RequestLeavePage() {
               </div>
 
               {/* Status Legend */}
-              <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-3 sm:gap-4 text-[11px] font-medium text-slate-500">
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3 sm:gap-4 text-[11px] font-medium text-slate-500 dark:text-slate-400">
                 <div className="flex items-center space-x-1.5">
-                  <span className="w-3 h-3 rounded-md bg-emerald-100 border border-emerald-300"></span>
+                  <span className="w-3 h-3 rounded-md bg-emerald-100 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800"></span>
                   <span>Approved (Leave Taken)</span>
                 </div>
                 <div className="flex items-center space-x-1.5">
-                  <span className="w-3 h-3 rounded-md bg-amber-100 border border-amber-300"></span>
+                  <span className="w-3 h-3 rounded-md bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800"></span>
                   <span>Pending Approval</span>
                 </div>
                 <div className="flex items-center space-x-1.5">
@@ -564,21 +568,23 @@ export default function RequestLeavePage() {
                   <span>Selected</span>
                 </div>
                 <div className="flex items-center space-x-1.5">
-                  <span className="w-3 h-3 rounded-md bg-white border border-slate-200"></span>
+                  <span className="w-3 h-3 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700"></span>
                   <span>Available</span>
                 </div>
                 <div className="flex items-center space-x-1.5">
-                  <span className="w-3 h-3 rounded-md bg-slate-100 border border-slate-200"></span>
+                  <span className="w-3 h-3 rounded-md bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"></span>
                   <span>Passed</span>
                 </div>
               </div>
 
               {/* Selected Dates Summary Counter */}
               {selectedDates.length > 0 && (
-                <div className="pt-2 text-xs text-violet-700 font-semibold flex items-center space-x-1">
+                <div className="pt-2 text-xs text-violet-700 dark:text-violet-400 font-semibold flex items-center space-x-1">
                   <span>Selected:</span>
                   <span className="font-bold">{selectedDates.length} date(s)</span>
-                  <span className="text-slate-400 font-normal">({selectedDates.join(", ")})</span>
+                  <span className="text-slate-400 dark:text-slate-500 font-normal">
+                    ({selectedDates.join(", ")})
+                  </span>
                 </div>
               )}
             </div>
@@ -586,13 +592,15 @@ export default function RequestLeavePage() {
 
           {/* Reason Section */}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-600 block">Reason</label>
+            <label className="text-xs font-semibold text-slate-600 dark:text-slate-300 block">
+              Reason
+            </label>
             <textarea
               rows={3}
               value={reason}
               onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setReason(e.target.value)}
               placeholder="Briefly describe the reason for leave"
-              className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs sm:text-sm placeholder:text-slate-400 font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 resize-none shadow-sm"
+              className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-xs sm:text-sm placeholder:text-slate-400 dark:placeholder:text-slate-500 font-medium text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-600 resize-none shadow-sm"
             />
           </div>
 
@@ -617,11 +625,13 @@ export default function RequestLeavePage() {
       </div>
 
       {/* ======================== CARD 2: LEAVE HISTORY ======================== */}
-      <div className="bg-white rounded-3xl border border-slate-100 p-6 sm:p-8 shadow-sm space-y-5">
+      <div className="bg-white dark:bg-slate-900/80 rounded-3xl border border-slate-100 dark:border-slate-800 p-6 sm:p-8 shadow-sm space-y-5">
         <div className="flex items-center justify-between">
-          <h2 className="text-base sm:text-lg font-bold text-slate-900">Leave History</h2>
+          <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+            Leave History
+          </h2>
           {loadingHistory && (
-            <div className="flex items-center space-x-1.5 text-xs text-slate-400">
+            <div className="flex items-center space-x-1.5 text-xs text-slate-400 dark:text-slate-500">
               <Loader2 className="w-3.5 h-3.5 animate-spin text-violet-600" />
               <span>Loading...</span>
             </div>
@@ -632,7 +642,7 @@ export default function RequestLeavePage() {
         <div className="overflow-x-auto no-scrollbar">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              <tr className="border-b border-slate-100 dark:border-slate-800 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                 <th className="pb-3 pr-4 font-bold">MARKET</th>
                 <th className="pb-3 pr-4 font-bold">MANAGER</th>
                 <th className="pb-3 pr-4 font-bold">SELECTED DATES</th>
@@ -641,10 +651,13 @@ export default function RequestLeavePage() {
                 <th className="pb-3 font-bold text-right">STATUS</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs font-medium text-slate-700 dark:text-slate-300">
               {historyRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-xs text-slate-400 font-medium">
+                  <td
+                    colSpan={6}
+                    className="py-8 text-center text-xs text-slate-400 dark:text-slate-500 font-medium"
+                  >
                     No leave requests history found.
                   </td>
                 </tr>
@@ -669,14 +682,17 @@ export default function RequestLeavePage() {
                       : [req.fromDate.split("T")[0]];
 
                   return (
-                    <tr key={req.id} className="hover:bg-slate-50/80 transition group">
+                    <tr
+                      key={req.id}
+                      className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition group"
+                    >
                       {/* MARKET */}
-                      <td className="py-4 pr-4 font-bold text-slate-900 uppercase">
+                      <td className="py-4 pr-4 font-bold text-slate-900 dark:text-white uppercase">
                         {req.marketName || "—"}
                       </td>
 
                       {/* MANAGER */}
-                      <td className="py-4 pr-4 font-medium text-slate-600">
+                      <td className="py-4 pr-4 font-medium text-slate-600 dark:text-slate-300">
                         {req.managerName || "—"}
                       </td>
 
@@ -686,13 +702,13 @@ export default function RequestLeavePage() {
                           {dateList.slice(0, 3).map((dStr, idx) => (
                             <span
                               key={idx}
-                              className="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 font-semibold text-[11px] border border-slate-200/60"
+                              className="px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-[11px] border border-slate-200/60 dark:border-slate-700"
                             >
                               {dStr}
                             </span>
                           ))}
                           {dateList.length > 3 && (
-                            <span className="px-2 py-0.5 rounded-xl bg-violet-100 text-violet-700 font-bold text-[10px]">
+                            <span className="px-2 py-0.5 rounded-xl bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300 font-bold text-[10px]">
                               +{dateList.length - 3} more
                             </span>
                           )}
@@ -700,12 +716,12 @@ export default function RequestLeavePage() {
                       </td>
 
                       {/* TOTAL DAYS */}
-                      <td className="py-4 pr-4 font-bold text-slate-900 text-center">
+                      <td className="py-4 pr-4 font-bold text-slate-900 dark:text-white text-center">
                         {daysCount}
                       </td>
 
                       {/* REASON */}
-                      <td className="py-4 pr-4 font-medium text-slate-600 max-w-xs truncate">
+                      <td className="py-4 pr-4 font-medium text-slate-600 dark:text-slate-400 max-w-xs truncate">
                         {req.reason || "—"}
                       </td>
 
