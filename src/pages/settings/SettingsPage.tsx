@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { PALETTES, useTheme } from "@/lib/theme";
-import { hierarchyApi, usersApi } from "@/lib/api/client";
+import { hierarchyApi, usersApi, StatesApi, MarketsApi, DistrictsApi } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth";
 
 interface StoredUser {
@@ -86,47 +86,214 @@ export default function SettingsPage() {
     return "placeholder";
   });
 
+  const [states, setStates] = useState<{ id: number; name: string }[]>([]);
+  const [loadingStates, setLoadingStates] = useState<boolean>(true);
+  const [selectedStateId, setSelectedStateId] = useState<string>(() => {
+    const sId =
+      storedUser?.stateId ||
+      storedUser?.state?.id ||
+      storedUser?.states?.[0]?.id ||
+      storedUser?.states?.[0];
+    if (sId) return String(sId);
+    return "placeholder";
+  });
+
+  const [markets, setMarkets] = useState<{ id: number; name: string }[]>([]);
+  const [loadingMarkets, setLoadingMarkets] = useState<boolean>(true);
+  const [selectedMarketId, setSelectedMarketId] = useState<string>(() => {
+    const mId =
+      storedUser?.marketId ||
+      storedUser?.market?.id ||
+      storedUser?.markets?.[0]?.id ||
+      storedUser?.markets?.[0];
+    if (mId) return String(mId);
+    return "placeholder";
+  });
+
+  const [districts, setDistricts] = useState<{ id: number; name: string }[]>([]);
+  const [loadingDistricts, setLoadingDistricts] = useState<boolean>(true);
+  const [selectedDistrictId, setSelectedDistrictId] = useState<string>(() => {
+    const dId =
+      storedUser?.districtId ||
+      storedUser?.district?.id ||
+      storedUser?.districts?.[0]?.id ||
+      storedUser?.districts?.[0];
+    if (dId) return String(dId);
+    return "placeholder";
+  });
+
   const [savingProfile, setSavingProfile] = useState(false);
 
-  // Fetch departments from /api/departments/get-all
+  // Fetch departments, states, markets, and districts in parallel
   useEffect(() => {
     let isMounted = true;
-    async function loadDepartments() {
+    async function loadHierarchyData() {
       try {
         setLoadingDepts(true);
-        const res = await hierarchyApi.getDepartments();
-        if (isMounted) {
-          const list: { id: number; name: string }[] = Array.isArray(res?.data)
-            ? res.data
-            : Array.isArray(res)
-              ? (res as any)
-              : [];
-          setDepartments(list);
+        setLoadingStates(true);
+        setLoadingMarkets(true);
+        setLoadingDistricts(true);
 
-          // Auto-match user's existing department by ID or name
-          setSelectedDeptId((prev) => {
-            if (prev && prev !== "placeholder") return prev;
-            if (storedUser?.department?.id) {
-              const matchId = list.find((d) => d.id === storedUser.department?.id);
-              if (matchId) return String(matchId.id);
-            }
-            const rawName = (storedUser?.department?.name ?? storedUser?.departmentName ?? "")
-              .toLowerCase()
-              .trim();
-            if (rawName) {
-              const matchName = list.find((d) => d.name?.toLowerCase().trim() === rawName);
-              if (matchName) return String(matchName.id);
-            }
-            return "placeholder";
-          });
-        }
+        const [deptsRes, statesRes, marketsRes, districtsRes] = await Promise.all([
+          hierarchyApi.getDepartments().catch(() => null),
+          StatesApi.getAll({ size: 1000 } as any).catch(() =>
+            hierarchyApi.getStates().catch(() => null),
+          ),
+          MarketsApi.getAll({ size: 5000 } as any).catch(() =>
+            hierarchyApi.getMarkets().catch(() => null),
+          ),
+          DistrictsApi.getAll({ size: 5000 } as any).catch(() =>
+            hierarchyApi.getDistricts().catch(() => null),
+          ),
+        ]);
+
+        if (!isMounted) return;
+
+        // 1. Departments
+        const deptList: { id: number; name: string }[] = Array.isArray(deptsRes?.data)
+          ? deptsRes.data
+          : Array.isArray(deptsRes)
+            ? (deptsRes as any)
+            : [];
+        setDepartments(deptList);
+
+        // Auto-match user's existing department by ID or name
+        setSelectedDeptId((prev) => {
+          if (prev && prev !== "placeholder") return prev;
+          if (storedUser?.department?.id) {
+            const matchId = deptList.find((d) => d.id === storedUser.department?.id);
+            if (matchId) return String(matchId.id);
+          }
+          const rawName = (storedUser?.department?.name ?? storedUser?.departmentName ?? "")
+            .toLowerCase()
+            .trim();
+          if (rawName) {
+            const matchName = deptList.find((d) => d.name?.toLowerCase().trim() === rawName);
+            if (matchName) return String(matchName.id);
+          }
+          return "none";
+        });
+
+        // 2. States
+        const stateList: { id: number; name: string }[] = Array.isArray(statesRes?.data)
+          ? statesRes.data
+          : Array.isArray(statesRes)
+            ? (statesRes as any)
+            : [];
+        setStates(stateList);
+
+        // Auto-match user's existing state
+        setSelectedStateId((prev) => {
+          if (prev && prev !== "placeholder") return prev;
+          const userStateId =
+            storedUser?.stateId ||
+            storedUser?.state?.id ||
+            storedUser?.states?.[0]?.id ||
+            storedUser?.states?.[0];
+          if (userStateId) {
+            const matchId = stateList.find((s) => String(s.id) === String(userStateId));
+            if (matchId) return String(matchId.id);
+          }
+          const rawStateName = (
+            storedUser?.stateName ||
+            storedUser?.state?.name ||
+            storedUser?.states?.[0]?.name ||
+            ""
+          )
+            .toLowerCase()
+            .trim();
+          if (rawStateName) {
+            const matchName = stateList.find((s) => s.name?.toLowerCase().trim() === rawStateName);
+            if (matchName) return String(matchName.id);
+          }
+          return "none";
+        });
+
+        // 3. Markets
+        const marketList: any[] = Array.isArray(marketsRes?.data)
+          ? marketsRes.data
+          : Array.isArray(marketsRes)
+            ? (marketsRes as any)
+            : [];
+        setMarkets(marketList);
+
+        // Auto-match user's existing market
+        setSelectedMarketId((prev) => {
+          if (prev && prev !== "placeholder") return prev;
+          const userMarketId =
+            storedUser?.marketId ||
+            storedUser?.market?.id ||
+            storedUser?.markets?.[0]?.id ||
+            storedUser?.markets?.[0];
+          if (userMarketId) {
+            const matchId = marketList.find((m) => String(m.id) === String(userMarketId));
+            if (matchId) return String(matchId.id);
+          }
+          const rawMarketName = (
+            storedUser?.marketName ||
+            storedUser?.market?.name ||
+            storedUser?.markets?.[0]?.name ||
+            ""
+          )
+            .toLowerCase()
+            .trim();
+          if (rawMarketName) {
+            const matchName = marketList.find(
+              (m) => m.name?.toLowerCase().trim() === rawMarketName,
+            );
+            if (matchName) return String(matchName.id);
+          }
+          return "none";
+        });
+
+        // 4. Districts
+        const districtList: any[] = Array.isArray(districtsRes?.data)
+          ? districtsRes.data
+          : Array.isArray(districtsRes)
+            ? (districtsRes as any)
+            : [];
+        setDistricts(districtList);
+
+        // Auto-match user's existing district
+        setSelectedDistrictId((prev) => {
+          if (prev && prev !== "placeholder") return prev;
+          const userDistrictId =
+            storedUser?.districtId ||
+            storedUser?.district?.id ||
+            storedUser?.districts?.[0]?.id ||
+            storedUser?.districts?.[0];
+          if (userDistrictId) {
+            const matchId = districtList.find((d) => String(d.id) === String(userDistrictId));
+            if (matchId) return String(matchId.id);
+          }
+          const rawDistrictName = (
+            storedUser?.districtName ||
+            storedUser?.district?.name ||
+            storedUser?.districts?.[0]?.name ||
+            ""
+          )
+            .toLowerCase()
+            .trim();
+          if (rawDistrictName) {
+            const matchName = districtList.find(
+              (d) => d.name?.toLowerCase().trim() === rawDistrictName,
+            );
+            if (matchName) return String(matchName.id);
+          }
+          return "none";
+        });
       } catch (err: any) {
-        console.error("Failed to load departments in settings:", err);
+        console.error("Failed to load hierarchy data in settings:", err);
       } finally {
-        if (isMounted) setLoadingDepts(false);
+        if (isMounted) {
+          setLoadingDepts(false);
+          setLoadingStates(false);
+          setLoadingMarkets(false);
+          setLoadingDistricts(false);
+        }
       }
     }
-    loadDepartments();
+    loadHierarchyData();
     return () => {
       isMounted = false;
     };
@@ -178,7 +345,11 @@ export default function SettingsPage() {
     try {
       setSavingProfile(true);
       const selectedDeptObj = departments.find((d) => String(d.id) === selectedDeptId);
-      const res = await usersApi.update({
+      const selectedStateObj = states.find((s) => String(s.id) === selectedStateId);
+      const selectedMarketObj = markets.find((m) => String(m.id) === selectedMarketId);
+      const selectedDistrictObj = districts.find((d) => String(d.id) === selectedDistrictId);
+
+      const updatePayload: any = {
         id: storedUser.id,
         fullName: fullName.trim(),
         email: email.trim(),
@@ -186,9 +357,30 @@ export default function SettingsPage() {
         department: selectedDeptObj ? { id: selectedDeptObj.id, name: selectedDeptObj.name } : null,
         departmentName: selectedDeptObj ? selectedDeptObj.name : null,
         departmentId: selectedDeptObj ? selectedDeptObj.id : null,
+        stateId: selectedStateObj ? selectedStateObj.id : null,
+        stateName: selectedStateObj ? selectedStateObj.name : null,
+        states: selectedStateObj ? [{ id: selectedStateObj.id, name: selectedStateObj.name }] : [],
+        marketId: selectedMarketObj ? selectedMarketObj.id : null,
+        marketName: selectedMarketObj ? selectedMarketObj.name : null,
+        markets: selectedMarketObj
+          ? [{ id: selectedMarketObj.id, name: selectedMarketObj.name }]
+          : [],
+        districtId: selectedDistrictObj ? selectedDistrictObj.id : null,
+        districtName: selectedDistrictObj ? selectedDistrictObj.name : null,
+        districts: selectedDistrictObj
+          ? [{ id: selectedDistrictObj.id, name: selectedDistrictObj.name }]
+          : [],
+        allowedUserManagement: storedUser.allowedUserManagement ?? false,
+        active: storedUser.active ?? true,
+        assignedPortals: storedUser.assignedPortals ?? [],
+        portalAccess: storedUser.portalAccess ?? [],
+        houses: storedUser.houses ?? [],
+        stores: storedUser.stores ?? [],
         // profileImage isn't part of AddUserPayload typings yet — send via cast
         ...(avatarUrl ? ({ profileImage: avatarUrl } as any) : {}),
-      } as any);
+      };
+
+      const res = await usersApi.update(updatePayload);
 
       const merged: StoredUser = { ...storedUser, ...(res.data as any) };
       // Ensure these fields are persisted even if backend response is sparse
@@ -198,10 +390,49 @@ export default function SettingsPage() {
       if (selectedDeptObj) {
         merged.department = { id: selectedDeptObj.id, name: selectedDeptObj.name };
         merged.departmentName = selectedDeptObj.name;
+        merged.departmentId = selectedDeptObj.id;
       } else if (selectedDeptId === "none") {
         merged.department = null;
         merged.departmentName = null;
+        merged.departmentId = null;
       }
+
+      if (selectedStateObj) {
+        merged.state = { id: selectedStateObj.id, name: selectedStateObj.name };
+        merged.stateId = selectedStateObj.id;
+        merged.stateName = selectedStateObj.name;
+        merged.states = [{ id: selectedStateObj.id, name: selectedStateObj.name }];
+      } else if (selectedStateId === "none") {
+        merged.state = null;
+        merged.stateId = null;
+        merged.stateName = null;
+        merged.states = [];
+      }
+
+      if (selectedMarketObj) {
+        merged.market = { id: selectedMarketObj.id, name: selectedMarketObj.name };
+        merged.marketId = selectedMarketObj.id;
+        merged.marketName = selectedMarketObj.name;
+        merged.markets = [{ id: selectedMarketObj.id, name: selectedMarketObj.name }];
+      } else if (selectedMarketId === "none") {
+        merged.market = null;
+        merged.marketId = null;
+        merged.marketName = null;
+        merged.markets = [];
+      }
+
+      if (selectedDistrictObj) {
+        merged.district = { id: selectedDistrictObj.id, name: selectedDistrictObj.name };
+        merged.districtId = selectedDistrictObj.id;
+        merged.districtName = selectedDistrictObj.name;
+        merged.districts = [{ id: selectedDistrictObj.id, name: selectedDistrictObj.name }];
+      } else if (selectedDistrictId === "none") {
+        merged.district = null;
+        merged.districtId = null;
+        merged.districtName = null;
+        merged.districts = [];
+      }
+
       if (avatarUrl) merged.profileImage = avatarUrl;
       writeStoredUser(merged);
       setStoredUser(merged);
@@ -434,6 +665,93 @@ export default function SettingsPage() {
                   {departments.map((dept) => (
                     <SelectItem key={dept.id} value={String(dept.id)}>
                       {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {/* State Dropdown */}
+          <div className="space-y-1.5">
+            <Label>State</Label>
+            {loadingStates ? (
+              <div className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm text-muted-foreground shadow-sm">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span>Loading states...</span>
+              </div>
+            ) : (
+              <Select value={selectedStateId} onValueChange={(val) => setSelectedStateId(val)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select state" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="placeholder" disabled>
+                    Select state
+                  </SelectItem>
+                  <SelectItem value="none">None / Unassigned</SelectItem>
+                  {states.map((st) => (
+                    <SelectItem key={st.id} value={String(st.id)}>
+                      {st.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {/* Market Dropdown */}
+          <div className="space-y-1.5">
+            <Label>Market</Label>
+            {loadingMarkets ? (
+              <div className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm text-muted-foreground shadow-sm">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span>Loading markets...</span>
+              </div>
+            ) : (
+              <Select value={selectedMarketId} onValueChange={(val) => setSelectedMarketId(val)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select market" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="placeholder" disabled>
+                    Select market
+                  </SelectItem>
+                  <SelectItem value="none">None / Unassigned</SelectItem>
+                  {markets.map((m) => (
+                    <SelectItem key={m.id} value={String(m.id)}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {/* District Dropdown */}
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>District</Label>
+            {loadingDistricts ? (
+              <div className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm text-muted-foreground shadow-sm">
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                <span>Loading districts...</span>
+              </div>
+            ) : (
+              <Select
+                value={selectedDistrictId}
+                onValueChange={(val) => setSelectedDistrictId(val)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select district" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="placeholder" disabled>
+                    Select district
+                  </SelectItem>
+                  <SelectItem value="none">None / Unassigned</SelectItem>
+                  {districts.map((d) => (
+                    <SelectItem key={d.id} value={String(d.id)}>
+                      {d.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
