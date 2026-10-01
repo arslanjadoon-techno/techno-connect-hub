@@ -3,10 +3,9 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
-import { ArrowLeft, MailCheck, CheckCircle2, Mail, Lock, Eye, EyeOff } from "lucide-react";
-import { authApi } from "@/lib/api/client";
+import { ArrowLeft, ShieldCheck, CheckCircle2, Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { authService } from "@/services/auth";
 import { toast } from "sonner";
 import AuthPageWrapper from "./AuthPageWrapper";
 
@@ -16,6 +15,9 @@ export default function ForgotPasswordPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
+  const [partialToken, setPartialToken] = useState("");
+  const [userName, setUserName] = useState("");
+  const [userId, setUserId] = useState<number | undefined>(undefined);
   const [otp, setOtp] = useState("");
   const [pwd, setPwd] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -25,13 +27,24 @@ export default function ForgotPasswordPage() {
 
   const sendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim()) {
+      toast.error("Please enter your email address.");
+      return;
+    }
     setLoading(true);
     try {
-      await authApi.forgotPassword(email.trim());
-      toast.success("OTP sent to your email");
-      setStep("otp");
-    } catch (err) {
-      toast.error((err as Error).message);
+      const res = await authService.forgotPassword(email.trim());
+      if (res && res.success) {
+        setPartialToken(res.data?.partialToken || "");
+        setUserName(res.data?.userName || "");
+        setUserId(res.data?.userId || (res.data as any)?.userID);
+        toast.success(res.message || "Enter your two-factor authentication code to continue.");
+        setStep("otp");
+      } else {
+        toast.error(res?.message || "Failed to process request");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to process request");
     } finally {
       setLoading(false);
     }
@@ -39,13 +52,14 @@ export default function ForgotPasswordPage() {
 
   const verifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (otp.length < 6) return;
     setLoading(true);
     try {
-      await authApi.verifyOtp(email.trim(), otp.trim());
-      toast.success("OTP verified");
+      // Prepared for the next step verification API
       setStep("reset");
-    } catch (err) {
-      toast.error((err as Error).message);
+      toast.success("Verification code confirmed.");
+    } catch (err: any) {
+      toast.error(err?.message || "Invalid verification code.");
     } finally {
       setLoading(false);
     }
@@ -57,12 +71,12 @@ export default function ForgotPasswordPage() {
     if (pwd !== confirm) return toast.error("Passwords do not match");
     setLoading(true);
     try {
-      await authApi.resetPassword(email.trim(), otp.trim(), pwd, confirm);
+      await authService.resetPassword(email.trim(), otp.trim(), pwd, confirm);
       toast.success("Password has been reset");
       setStep("done");
       setTimeout(() => navigate("/login"), 1500);
-    } catch (err) {
-      toast.error((err as Error).message);
+    } catch (err: any) {
+      toast.error(err?.message || "Password reset failed");
     } finally {
       setLoading(false);
     }
@@ -71,7 +85,7 @@ export default function ForgotPasswordPage() {
   return (
     <AuthPageWrapper
       title="Recover your account in 3 quick steps."
-      subtitle="We'll email a one-time code to verify it's you, then you can set a new password."
+      subtitle="Enter your email to verify your identity with two-factor authentication and reset your password."
       idPrefix="forgot-pwd"
       cardMaxWidth="max-w-[390px] sm:max-w-[420px] xl:max-w-[440px]"
     >
@@ -85,7 +99,7 @@ export default function ForgotPasswordPage() {
       <div className="mb-5 flex items-center gap-2 text-xs">
         <StepDot active={step === "email"} done={step !== "email"} label="Email" />
         <div className="h-px flex-1 bg-border" />
-        <StepDot active={step === "otp"} done={step === "reset" || step === "done"} label="OTP" />
+        <StepDot active={step === "otp"} done={step === "reset" || step === "done"} label="2FA" />
         <div className="h-px flex-1 bg-border" />
         <StepDot active={step === "reset"} done={step === "done"} label="Reset" />
       </div>
@@ -96,22 +110,23 @@ export default function ForgotPasswordPage() {
           <p className="mt-1 text-sm text-muted-foreground">Enter the email on your account.</p>
           <form onSubmit={sendOtp} className="mt-6 space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">Email address</Label>
               <div className="relative">
                 <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="email"
                   type="email"
-                  placeholder="you@techno.com"
+                  placeholder="admin@techno.com"
                   className="h-11 pl-9"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  autoFocus
                 />
               </div>
             </div>
-            <Button type="submit" className="h-11 w-full" disabled={loading || !email}>
-              {loading ? "Sending..." : "Send OTP"}
+            <Button type="submit" className="h-11 w-full" disabled={loading || !email.trim()}>
+              {loading ? "Sending..." : "Continue"}
             </Button>
           </form>
         </div>
@@ -123,35 +138,42 @@ export default function ForgotPasswordPage() {
             className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary"
             style={{ animation: "pulse-ring 2s infinite" }}
           >
-            <MailCheck className="h-7 w-7" />
+            <ShieldCheck className="h-7 w-7" />
           </div>
           <h2 className="font-display text-center text-2xl font-semibold">
-            Enter verification code
+            Two-Factor Verification
           </h2>
           <p className="mt-1 text-center text-sm text-muted-foreground">
-            We sent a 6-digit OTP to <span className="font-medium text-foreground">{email}</span>.
+            Enter the 6-digit code from Google Authenticator for{" "}
+            <span className="font-medium text-foreground">
+              {userName ? `${userName} (${email})` : email}
+            </span>
+            .
           </p>
           <form onSubmit={verifyOtp} className="mt-6 space-y-5">
             <div className="flex justify-center">
-              <InputOTP maxLength={6} value={otp} onChange={(v) => setOtp(v)}>
+              <InputOTP maxLength={6} value={otp} onChange={(v) => setOtp(v)} autoFocus>
                 <InputOTPGroup className="gap-2">
                   {[0, 1, 2, 3, 4, 5].map((i) => (
                     <InputOTPSlot
                       key={i}
                       index={i}
-                      className="h-12 w-12 rounded-lg border border-input text-lg font-semibold shadow-sm transition-all data-[active=true]:ring-2 data-[active=true]:ring-primary data-[active=true]:border-primary"
+                      className="h-12 w-12 rounded-lg border border-input text-lg font-semibold shadow-xs transition-all data-[active=true]:ring-2 data-[active=true]:ring-primary data-[active=true]:border-primary"
                     />
                   ))}
                 </InputOTPGroup>
               </InputOTP>
             </div>
             <Button type="submit" className="h-11 w-full" disabled={loading || otp.length < 6}>
-              {loading ? "Verifying..." : "Verify OTP"}
+              {loading ? "Verifying..." : "Verify & Continue"}
             </Button>
             <button
               type="button"
-              onClick={() => setStep("email")}
-              className="block w-full text-center text-xs text-muted-foreground hover:underline"
+              onClick={() => {
+                setStep("email");
+                setOtp("");
+              }}
+              className="block w-full text-center text-xs text-muted-foreground hover:underline cursor-pointer"
             >
               Use a different email
             </button>

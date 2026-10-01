@@ -1,7 +1,11 @@
 import { http } from "../http";
 import { AUTH_PATHS, USER_API_PATHS } from "@/lib/config";
 import type { BackendUser, TwoFaSetupData } from "@/lib/api/client";
-import type { TotpLoginResponseData, TotpVerifyResponseData } from "./types";
+import type {
+  TotpLoginResponseData,
+  TotpVerifyResponseData,
+  ForgotPasswordResponseData,
+} from "./types";
 
 export class AuthService {
   /**
@@ -31,7 +35,7 @@ export class AuthService {
   }
 
   forgotPassword(email: string) {
-    return http.post<null>(AUTH_PATHS.forgotPassword, { email }, false);
+    return http.post<ForgotPasswordResponseData>(AUTH_PATHS.forgotPassword, { email }, false);
   }
   verifyOtp(email: string, otp: string) {
     return http.post<null>(AUTH_PATHS.verifyOtp, { email, otp }, false);

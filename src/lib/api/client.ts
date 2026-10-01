@@ -146,7 +146,7 @@ export const authApi = {
       auth: false,
     }),
   forgotPassword: (email: string) =>
-    apiRequest<null>(AUTH_PATHS.forgotPassword, { method: "POST", body: { email }, auth: false }),
+    apiRequest<any>(AUTH_PATHS.forgotPassword, { method: "POST", body: { email }, auth: false }),
   verifyOtp: (email: string, otp: string) =>
     apiRequest<null>(AUTH_PATHS.verifyOtp, { method: "POST", body: { email, otp }, auth: false }),
   resetPassword: (email: string, otp: string, newPassword: string, confirmPassword: string) =>

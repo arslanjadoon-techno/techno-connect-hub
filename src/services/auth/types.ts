@@ -39,6 +39,13 @@ export interface TotpLoginDirectData {
 
 export type TotpLoginResponseData = TotpLoginSetupData | TotpLoginVerifyData | TotpLoginDirectData;
 
+export interface ForgotPasswordResponseData {
+  partialToken: string;
+  userName?: string;
+  userId?: number;
+  userID?: number;
+}
+
 export interface TotpVerifyResponseData {
   token: string;
   user: BackendUser | any;
