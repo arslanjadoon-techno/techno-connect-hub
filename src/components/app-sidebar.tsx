@@ -585,9 +585,9 @@ export function AppSidebar() {
           {!collapsed && (
             <div className="min-w-0">
               <div className="truncate font-display text-[13px] font-semibold text-sidebar-foreground">
-                Active8 Wireless
+                Company Portal
               </div>
-              <div className="truncate text-[10px] text-sidebar-foreground/70">MIS Portal</div>
+              <div className="truncate text-[10px] text-sidebar-foreground/70">Management Information System</div>
             </div>
           )}
         </div>

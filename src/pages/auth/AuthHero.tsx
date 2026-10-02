@@ -76,7 +76,7 @@ export default function AuthHero({
         <p className="text-white/80">{subtitle}</p>
       </div>
 
-      <div className="relative z-10 text-xs text-white/60">© Techno Communications LLC</div>
+      <div className="relative z-10 text-xs text-white/60">© All Rights Reserved.</div>
     </div>
   );
 }

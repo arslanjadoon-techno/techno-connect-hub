@@ -1,5 +1,5 @@
 {
-  "name": "Active8 Wireless MIS",
+  "name": "Company Portal - MIS",
   "description": "Internal management information system for Active8 Wireless.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

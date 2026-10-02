@@ -196,7 +196,7 @@ export default function LoginPage() {
 
         {/* Bottom Footer */}
         <div className="relative z-20 text-[11px] sm:text-xs text-white/60">
-          &copy; Techno Communications LLC
+          &copy; All Rights Reserved.
         </div>
       </div>
 
