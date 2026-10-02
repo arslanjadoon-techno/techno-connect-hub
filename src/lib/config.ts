@@ -14,6 +14,7 @@ export const AUTH_PATHS = {
   totpVerify: "/auth/totp/verify",
   forgotPassword: "/auth/forgot-password",
   verifyOtp: "/auth/verify-otp",
+  resetPasswordVerify: "/auth/reset-password/verify",
   resetPassword: "/auth/reset-password",
   twoFaSetup: "/auth/2fa/setup",
   twoFaVerifyEnable: "/auth/2fa/verify-and-enable",

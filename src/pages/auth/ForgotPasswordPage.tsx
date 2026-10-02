@@ -52,12 +52,22 @@ export default function ForgotPasswordPage() {
 
   const verifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (otp.length < 6) return;
+    if (otp.length < 6) {
+      toast.error("Please enter the complete 6-digit verification code.");
+      return;
+    }
     setLoading(true);
     try {
-      // Prepared for the next step verification API
-      setStep("reset");
-      toast.success("Verification code confirmed.");
+      const res = await authService.resetPasswordVerify(partialToken, otp.trim());
+      if (res && res.success) {
+        if (res.data?.partialToken) {
+          setPartialToken(res.data.partialToken);
+        }
+        toast.success(res.message || "Code verified. Enter your new password.");
+        setStep("reset");
+      } else {
+        toast.error(res?.message || "Invalid verification code.");
+      }
     } catch (err: any) {
       toast.error(err?.message || "Invalid verification code.");
     } finally {
@@ -67,20 +77,34 @@ export default function ForgotPasswordPage() {
 
   const resetPwd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pwd.length < 8) return toast.error("Password must be at least 8 characters");
-    if (pwd !== confirm) return toast.error("Passwords do not match");
+    if (pwd.length < 8) {
+      toast.error("New password must be at least 8 characters.");
+      return;
+    }
+    if (pwd !== confirm) {
+      toast.error("Passwords do not match.");
+      return;
+    }
     setLoading(true);
     try {
-      await authService.resetPassword(email.trim(), otp.trim(), pwd, confirm);
-      toast.success("Password has been reset");
-      setStep("done");
-      setTimeout(() => navigate("/login"), 1500);
+      const res = await authService.resetPassword(partialToken, pwd);
+      if (res && res.success) {
+        toast.success(res.message || "Password reset successfully.");
+        setStep("done");
+        setTimeout(() => navigate("/login"), 1500);
+      } else {
+        toast.error(res?.message || "Password reset failed.");
+      }
     } catch (err: any) {
-      toast.error(err?.message || "Password reset failed");
+      toast.error(err?.message || "Password reset failed.");
     } finally {
       setLoading(false);
     }
   };
+
+  const isPasswordLengthOk = pwd.length >= 8;
+  const isPasswordMatch = pwd.length > 0 && confirm.length > 0 && pwd === confirm;
+  const isMismatch = confirm.length > 0 && pwd !== confirm;
 
   return (
     <AuthPageWrapper
@@ -125,7 +149,7 @@ export default function ForgotPasswordPage() {
                 />
               </div>
             </div>
-            <Button type="submit" className="h-11 w-full" disabled={loading || !email.trim()}>
+            <Button type="submit" className="h-11 w-full cursor-pointer" disabled={loading || !email.trim()}>
               {loading ? "Sending..." : "Continue"}
             </Button>
           </form>
@@ -164,7 +188,7 @@ export default function ForgotPasswordPage() {
                 </InputOTPGroup>
               </InputOTP>
             </div>
-            <Button type="submit" className="h-11 w-full" disabled={loading || otp.length < 6}>
+            <Button type="submit" className="h-11 w-full cursor-pointer" disabled={loading || otp.length < 6}>
               {loading ? "Verifying..." : "Verify & Continue"}
             </Button>
             <button
@@ -185,26 +209,102 @@ export default function ForgotPasswordPage() {
         <div className="animate-fade-in">
           <h2 className="font-display text-2xl font-semibold">Set new password</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Choose a new password for your account.
+            Choose a strong password with at least 8 characters.
           </p>
           <form onSubmit={resetPwd} className="mt-6 space-y-4">
-            <PwdField
-              label="New password"
-              id="pwd"
-              value={pwd}
-              onChange={setPwd}
-              show={showPwd}
-              toggle={() => setShowPwd((v) => !v)}
-            />
-            <PwdField
-              label="Confirm password"
-              id="confirm"
-              value={confirm}
-              onChange={setConfirm}
-              show={showConfirm}
-              toggle={() => setShowConfirm((v) => !v)}
-            />
-            <Button type="submit" className="h-11 w-full" disabled={loading}>
+            <div className="space-y-1.5">
+              <Label htmlFor="pwd">New password</Label>
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="pwd"
+                  type={showPwd ? "text" : "password"}
+                  placeholder="••••••••"
+                  className={`h-11 pl-9 pr-10 transition-colors ${
+                    pwd.length > 0 && isPasswordLengthOk
+                      ? "border-emerald-500/50 focus-visible:ring-emerald-500/30"
+                      : ""
+                  }`}
+                  value={pwd}
+                  onChange={(e) => setPwd(e.target.value)}
+                  required
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPwd((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer"
+                  aria-label={showPwd ? "Hide password" : "Show password"}
+                >
+                  {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+              {pwd.length > 0 && !isPasswordLengthOk && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400">
+                  Password must be at least 8 characters ({pwd.length}/8)
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="confirm">Confirm password</Label>
+                {isPasswordMatch && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 animate-in zoom-in-75 fade-in duration-300">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    Passwords match
+                  </span>
+                )}
+              </div>
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="confirm"
+                  type={showConfirm ? "text" : "password"}
+                  placeholder="••••••••"
+                  className={`h-11 pl-9 pr-16 transition-all duration-300 ${
+                    isPasswordMatch
+                      ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/20 dark:bg-emerald-950/10 text-emerald-950 dark:text-emerald-100"
+                      : isMismatch
+                        ? "border-rose-300 focus-visible:ring-rose-500/20"
+                        : ""
+                  }`}
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  required
+                />
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  {/* Animated Green Tick on Password Match */}
+                  {isPasswordMatch && (
+                    <div
+                      className="flex items-center justify-center h-7 w-7 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 shadow-xs animate-in zoom-in-50 fade-in duration-300"
+                      title="Passwords match successfully"
+                    >
+                      <CheckCircle2 className="h-4.5 w-4.5 text-emerald-500 animate-pulse" />
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirm((v) => !v)}
+                    className="rounded p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer"
+                    aria-label={showConfirm ? "Hide password" : "Show password"}
+                  >
+                    {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+              {isMismatch && (
+                <p className="text-[11px] text-rose-500 animate-in fade-in duration-200">
+                  Passwords do not match
+                </p>
+              )}
+            </div>
+
+            <Button
+              type="submit"
+              className="h-11 w-full cursor-pointer transition-all duration-300"
+              disabled={loading || !isPasswordLengthOk || !isPasswordMatch}
+            >
               {loading ? "Updating..." : "Update password"}
             </Button>
           </form>
@@ -213,7 +313,7 @@ export default function ForgotPasswordPage() {
 
       {step === "done" && (
         <div className="space-y-4 text-center animate-fade-in">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-success/15 text-success">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400">
             <CheckCircle2 className="h-7 w-7" />
           </div>
           <h2 className="font-display text-2xl font-semibold">Password updated</h2>

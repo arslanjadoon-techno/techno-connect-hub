@@ -46,6 +46,20 @@ export interface ForgotPasswordResponseData {
   userID?: number;
 }
 
+export interface ResetPasswordVerifyPayload {
+  partialToken: string;
+  code: string;
+}
+
+export interface ResetPasswordVerifyResponseData {
+  partialToken: string;
+}
+
+export interface ResetPasswordPayload {
+  partialToken: string;
+  newPassword: string;
+}
+
 export interface TotpVerifyResponseData {
   token: string;
   user: BackendUser | any;

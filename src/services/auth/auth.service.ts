@@ -5,6 +5,7 @@ import type {
   TotpLoginResponseData,
   TotpVerifyResponseData,
   ForgotPasswordResponseData,
+  ResetPasswordVerifyResponseData,
 } from "./types";
 
 export class AuthService {
@@ -34,18 +35,40 @@ export class AuthService {
     return this.totpLogin(email, password);
   }
 
+  /**
+   * Step 1 of password recovery: requests OTP/2FA initiation for given email.
+   * Endpoint: POST /auth/forgot-password
+   */
   forgotPassword(email: string) {
     return http.post<ForgotPasswordResponseData>(AUTH_PATHS.forgotPassword, { email }, false);
   }
-  verifyOtp(email: string, otp: string) {
-    return http.post<null>(AUTH_PATHS.verifyOtp, { email, otp }, false);
-  }
-  resetPassword(email: string, otp: string, newPassword: string, confirmPassword: string) {
-    return http.post<null>(
-      AUTH_PATHS.resetPassword,
-      { email, otp, newPassword, confirmPassword },
+
+  /**
+   * Step 2 of password recovery: verifies the 6-digit 2FA code against the partial token.
+   * Endpoint: POST /auth/reset-password/verify
+   */
+  resetPasswordVerify(partialToken: string, code: string) {
+    return http.post<ResetPasswordVerifyResponseData>(
+      AUTH_PATHS.resetPasswordVerify,
+      { partialToken, code },
       false,
     );
+  }
+
+  /**
+   * Step 3 of password recovery: sets the new password using the verified partial token.
+   * Endpoint: POST /auth/reset-password
+   */
+  resetPassword(partialToken: string, newPassword: string) {
+    return http.post<null>(
+      AUTH_PATHS.resetPassword,
+      { partialToken, newPassword },
+      false,
+    );
+  }
+
+  verifyOtp(email: string, otp: string) {
+    return http.post<null>(AUTH_PATHS.verifyOtp, { email, otp }, false);
   }
   twoFaSetup(email: string) {
     return http.post<TwoFaSetupData>(AUTH_PATHS.twoFaSetup, { email }, false);

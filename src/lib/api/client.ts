@@ -147,14 +147,20 @@ export const authApi = {
     }),
   forgotPassword: (email: string) =>
     apiRequest<any>(AUTH_PATHS.forgotPassword, { method: "POST", body: { email }, auth: false }),
-  verifyOtp: (email: string, otp: string) =>
-    apiRequest<null>(AUTH_PATHS.verifyOtp, { method: "POST", body: { email, otp }, auth: false }),
-  resetPassword: (email: string, otp: string, newPassword: string, confirmPassword: string) =>
-    apiRequest<null>(AUTH_PATHS.resetPassword, {
+  resetPasswordVerify: (partialToken: string, code: string) =>
+    apiRequest<any>(AUTH_PATHS.resetPasswordVerify, {
       method: "POST",
-      body: { email, otp, newPassword, confirmPassword },
+      body: { partialToken, code },
       auth: false,
     }),
+  resetPassword: (partialToken: string, newPassword: string) =>
+    apiRequest<null>(AUTH_PATHS.resetPassword, {
+      method: "POST",
+      body: { partialToken, newPassword },
+      auth: false,
+    }),
+  verifyOtp: (email: string, otp: string) =>
+    apiRequest<null>(AUTH_PATHS.verifyOtp, { method: "POST", body: { email, otp }, auth: false }),
   twoFaSetup: (email: string) =>
     apiRequest<TwoFaSetupData>(AUTH_PATHS.twoFaSetup, {
       method: "POST",
