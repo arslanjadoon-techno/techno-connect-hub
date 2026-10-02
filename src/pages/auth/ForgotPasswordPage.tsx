@@ -28,7 +28,7 @@ export default function ForgotPasswordPage() {
   const sendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim()) {
-      toast.error("Please enter your email address.");
+      toast.error("Please enter your email or NTID.");
       return;
     }
     setLoading(true);
@@ -109,7 +109,7 @@ export default function ForgotPasswordPage() {
   return (
     <AuthPageWrapper
       title="Recover your account in 3 quick steps."
-      subtitle="Enter your email to verify your identity with two-factor authentication and reset your password."
+      subtitle="Enter your email or NTID to verify your identity with two-factor authentication and reset your password."
       idPrefix="forgot-pwd"
       cardMaxWidth="max-w-[390px] sm:max-w-[420px] xl:max-w-[440px]"
     >
@@ -121,7 +121,7 @@ export default function ForgotPasswordPage() {
       </Link>
 
       <div className="mb-5 flex items-center gap-2 text-xs">
-        <StepDot active={step === "email"} done={step !== "email"} label="Email" />
+        <StepDot active={step === "email"} done={step !== "email"} label="Account" />
         <div className="h-px flex-1 bg-border" />
         <StepDot active={step === "otp"} done={step === "reset" || step === "done"} label="2FA" />
         <div className="h-px flex-1 bg-border" />
@@ -131,16 +131,16 @@ export default function ForgotPasswordPage() {
       {step === "email" && (
         <div className="animate-fade-in">
           <h2 className="font-display text-2xl font-semibold">Reset your password</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Enter the email on your account.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Enter the email or NTID on your account.</p>
           <form onSubmit={sendOtp} className="mt-6 space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email">Email address</Label>
+              <Label htmlFor="email">Email / NTID</Label>
               <div className="relative">
                 <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="email"
-                  type="email"
-                  placeholder="admin@techno.com"
+                  type="text"
+                  placeholder="admin@techno.com or NTID"
                   className="h-11 pl-9"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
