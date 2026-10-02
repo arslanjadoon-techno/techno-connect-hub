@@ -13,5 +13,17 @@ export default defineConfig({
     host: "0.0.0.0",
     port: 3000,
     strictPort: true,
+    proxy: {
+      "/auth": {
+        target: "https://leasingapi.techno-communications.com",
+        changeOrigin: true,
+        secure: false,
+      },
+      "/api": {
+        target: "https://leasingapi.techno-communications.com",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
 });

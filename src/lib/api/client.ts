@@ -75,7 +75,11 @@ interface RequestOpts {
 }
 
 export async function apiRequest<T>(path: string, opts: RequestOpts = {}): Promise<ApiEnvelope<T>> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    accept: "*/*",
+    Accept: "*/*",
+  };
   if (opts.auth !== false) {
     const tok = getToken();
     if (tok) {
