@@ -200,18 +200,18 @@ export default function StatesPage() {
           onPageSizeChange={(newSize) => setSize(newSize)}
           columns={[
             {
-              key: "name",
-              header: "Name",
-              accessor: (s) => <div className="py-2 text-left font-medium">{s.name}</div>,
-              searchValue: (s) => s.name,
-            },
-            {
               key: "symbol",
               header: "Symbol (Code)",
               accessor: (s) => (
                 <div className="font-mono py-2 text-left text-muted-foreground">{s.symbol}</div>
               ),
               searchValue: (s) => s.symbol,
+            },
+            {
+              key: "name",
+              header: "Name",
+              accessor: (s) => <div className="py-2 text-left font-medium">{s.name}</div>,
+              searchValue: (s) => s.name,
             },
             {
               key: "manager",
@@ -317,7 +317,7 @@ function StateForm({ initial, isSaving, onSave }: StateFormProps) {
           value={manager}
           disabled={isSaving}
           onChange={(e) => setManager(e.target.value)}
-          placeholder="e.g. Ali Khan"
+          placeholder="e.g. John Doe"
         />
       </div>
       <div className="space-y-1.5">
@@ -329,7 +329,7 @@ function StateForm({ initial, isSaving, onSave }: StateFormProps) {
           value={email}
           disabled={isSaving}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="e.g. ali.khan@example.com"
+          placeholder="e.g. john.doe@example.com"
         />
       </div>
       <div className="space-y-1.5">
@@ -340,7 +340,7 @@ function StateForm({ initial, isSaving, onSave }: StateFormProps) {
           value={phone}
           disabled={isSaving}
           onChange={(e) => setPhone(e.target.value)}
-          placeholder="e.g. 12345678"
+          placeholder="e.g. +1 (123) 456-7890"
         />
       </div>
       <Button
