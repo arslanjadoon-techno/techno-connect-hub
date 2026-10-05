@@ -347,14 +347,22 @@ export interface District {
 
 export const DistrictsApi = {
   // 1. Get All Districts
-  getAll: (params?: { page?: number; size?: number; state?: string | number }) => {
+  getAll: (params?: {
+    page?: number;
+    size?: number;
+    state?: string | number;
+    market?: string | number;
+  }) => {
     const queryParts: string[] = [];
 
     if (params) {
       if (params.page !== undefined) queryParts.push(`page=${params.page}`);
       if (params.size !== undefined) queryParts.push(`size=${params.size}`);
       if (params.state !== undefined && params.state !== "all") {
-        queryParts.push(`state=${params.state}`);
+        queryParts.push(`state=${encodeURIComponent(String(params.state))}`);
+      }
+      if (params.market !== undefined && params.market !== "all") {
+        queryParts.push(`market=${encodeURIComponent(String(params.market))}`);
       }
     }
 
@@ -475,6 +483,7 @@ export const StoresApi = {
     state?: string | number;
     district?: string | number;
     market?: string | number;
+    search?: string;
   }) => {
     const queryParts: string[] = [];
 
@@ -483,15 +492,19 @@ export const StoresApi = {
       if (params.size !== undefined) queryParts.push(`size=${params.size}`);
 
       if (params.state !== undefined && params.state !== "all") {
-        queryParts.push(`state=${params.state}`);
-      }
-
-      if (params.district !== undefined && params.district !== "all") {
-        queryParts.push(`district=${params.district}`);
+        queryParts.push(`state=${encodeURIComponent(String(params.state))}`);
       }
 
       if (params.market !== undefined && params.market !== "all") {
-        queryParts.push(`market=${params.market}`);
+        queryParts.push(`market=${encodeURIComponent(String(params.market))}`);
+      }
+
+      if (params.district !== undefined && params.district !== "all") {
+        queryParts.push(`district=${encodeURIComponent(String(params.district))}`);
+      }
+
+      if (params.search !== undefined && params.search.trim() !== "") {
+        queryParts.push(`search=${encodeURIComponent(params.search.trim())}`);
       }
     }
 

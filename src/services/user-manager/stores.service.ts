@@ -9,6 +9,7 @@ export class StoresService {
     state?: string | number;
     district?: string | number;
     market?: string | number;
+    search?: string;
   }) {
     return http.get<Store[]>(STORE_API_PATHS.getAll, params);
   }
@@ -17,20 +18,28 @@ export class StoresService {
   }
   add(payload: {
     name: string;
+    number?: string;
     address: string;
     email: string;
     phone: string;
+    doorCode?: string;
+    stateId?: number;
     districtId: number;
+    marketId?: number;
   }) {
     return http.post<Store>(STORE_API_PATHS.addStore, payload);
   }
   update(payload: {
     id: number;
     name: string;
+    number?: string;
     address: string;
     email: string;
     phone: string;
+    doorCode?: string;
+    stateId?: number;
     districtId: number;
+    marketId?: number;
   }) {
     return http.put<Store>(STORE_API_PATHS.updateStore, payload);
   }
