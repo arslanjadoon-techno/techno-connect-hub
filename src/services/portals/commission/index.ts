@@ -1,4 +1,5 @@
 export { CommissionService, commissionService } from "./commission.service";
+export { HousesService, housesService } from "./houses.service";
 export type {
   CommissionRow,
   CommissionMarket,

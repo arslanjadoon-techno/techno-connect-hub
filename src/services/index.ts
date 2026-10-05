@@ -15,7 +15,12 @@ export { http, HttpClient } from "./http";
 export type { ApiEnvelope } from "./http";
 
 // Commission Portal
-export { commissionService, CommissionService } from "./portals/commission";
+export {
+  commissionService,
+  CommissionService,
+  housesService,
+  HousesService,
+} from "./portals/commission";
 export type {
   CommissionRow,
   CommissionMarket,
@@ -41,8 +46,6 @@ export {
   MarketsService,
   storesService,
   StoresService,
-  housesService,
-  HousesService,
   externalTeamService,
   ExternalTeamService,
   departmentsService,

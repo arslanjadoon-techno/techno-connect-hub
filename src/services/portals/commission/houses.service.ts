@@ -1,4 +1,4 @@
-import { http } from "../http";
+import { http } from "../../http";
 import { HOUSE_API_PATHS } from "@/lib/config";
 import type { House } from "@/lib/api/client";
 
@@ -12,9 +12,11 @@ export class HousesService {
   }) {
     return http.get<House[]>(HOUSE_API_PATHS.getAll, params);
   }
+
   get(id: string | number) {
     return http.get<House>(HOUSE_API_PATHS.house(id));
   }
+
   add(payload: {
     name: string;
     address: string;
@@ -24,6 +26,7 @@ export class HousesService {
   }) {
     return http.post<House>(HOUSE_API_PATHS.addHouse, payload);
   }
+
   update(payload: {
     id: number;
     name: string;
@@ -34,6 +37,7 @@ export class HousesService {
   }) {
     return http.put<House>(HOUSE_API_PATHS.updateHouse, payload);
   }
+
   delete(id: number | string | { id: number | string }) {
     const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
     return http.delete<null>(HOUSE_API_PATHS.deleteHouse(numericId));

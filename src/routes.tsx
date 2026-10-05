@@ -32,6 +32,7 @@ import CommissionDashboardPage from "@/pages/portals/commission/DashboardPage";
 import CommissionPage from "@/pages/portals/commission/CommissionPage";
 import Support from "@/pages/portals/commission/Support";
 import Privacy from "@/pages/portals/commission/Privacy";
+import HousesPage from "@/pages/portals/commission/HousesPage";
 
 // ---------- Ranker Portal ---------- //
 import RankerDashboardPage from "@/pages/portals/ranker/DashboardPage";
@@ -71,7 +72,6 @@ import DepartmentsPage from "@/pages/user-manager/DepartmentsPage";
 import DistrictsPage from "@/pages/user-manager/DistrictsPage";
 import StatesPage from "@/pages/user-manager/StatesPage";
 import MarketsPage from "@/pages/user-manager/MarketsPage";
-import HousesPage from "@/pages/user-manager/HousesPage";
 import StoresPage from "@/pages/user-manager/StoresPage";
 import CreatePermissionPage from "@/pages/user-manager/permissions/CreatePermissionPage";
 import AssignPermissionsPage from "@/pages/user-manager/permissions/AssignPermissionsPage";
@@ -336,6 +336,18 @@ export function AppRoutes() {
               <Support />
             </PortalRouteGuard>
           }
+        />
+        <Route
+          path="/commission/houses"
+          element={
+            <PortalRouteGuard portalKey="commission">
+              <HousesPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/commission/home"
+          element={<Navigate to="/commission/houses" replace />}
         />
         {/* ---------- Ranker Portal ---------- */}
         <Route
@@ -667,11 +679,7 @@ export function AppRoutes() {
         />
         <Route
           path="/admin/houses"
-          element={
-            <UserManagementOnly>
-              <HousesPage />
-            </UserManagementOnly>
-          }
+          element={<Navigate to="/commission/houses" replace />}
         />
         <Route
           path="/admin/stores"

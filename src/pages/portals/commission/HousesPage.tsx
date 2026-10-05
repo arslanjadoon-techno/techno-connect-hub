@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Search, XCircle } from "lucide-react";
-import { HousesApi, StatesApi, DistrictsApi, MarketsApi } from "@/lib/api/client";
+import { StatesApi, DistrictsApi, MarketsApi } from "@/lib/api/client";
+import { housesService } from "@/services/portals/commission";
 
 interface House {
   id: number;
@@ -119,7 +120,7 @@ export default function HousesPage() {
         }
       }
 
-      const res = await HousesApi.getAll({
+      const res = await housesService.getAll({
         page: targetPage,
         size: targetSize,
         state: targetState !== "all" ? targetState : undefined,
@@ -259,7 +260,7 @@ export default function HousesPage() {
   const handleDelete = async (s: House) => {
     try {
       setActionLoading(true);
-      const res = await HousesApi.delete(s.id);
+      const res = await housesService.delete(s.id);
       if (res.success) {
         toast.success(res.message || "House deleted successfully");
         lastFetchedKey.current = "";
@@ -288,15 +289,14 @@ export default function HousesPage() {
     try {
       setActionLoading(true);
       if (initial) {
-        const res = await HousesApi.update({
+        const res = await housesService.update({
           id: initial.id,
+          name: formData.address,
           address: formData.address,
+          email: "",
           phone: formData.phone,
-          // Dependent values updates allowed if needed, though form preserves initialization structure
-          stateId: formData.stateId,
           districtId: formData.districtId,
-          marketId: formData.marketId,
-        });
+        } as any);
         if (res.success) {
           toast.success(res.message || "House updated successfully");
           lastFetchedKey.current = "";
@@ -312,7 +312,13 @@ export default function HousesPage() {
           toast.error(res.message || "Update failed");
         }
       } else {
-        const res = await HousesApi.add(formData);
+        const res = await housesService.add({
+          name: formData.address,
+          address: formData.address,
+          email: "",
+          phone: formData.phone,
+          districtId: formData.districtId,
+        } as any);
         if (res.success) {
           toast.success(res.message || "House added successfully");
           lastFetchedKey.current = "";

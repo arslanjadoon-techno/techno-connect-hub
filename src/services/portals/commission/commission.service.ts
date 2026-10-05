@@ -5,6 +5,7 @@ import {
   LEASING_COMMISSION_API_BASE_URL,
   MARKET_API_PATHS,
 } from "@/lib/config";
+import { housesService, HousesService } from "./houses.service";
 import type {
   CommissionRow,
   CommissionMarket,
@@ -25,6 +26,8 @@ const DEFAULT_OTP = "123456";
  * Handles all API calls related to the Commission Portal.
  */
 export class CommissionService {
+  public readonly houses: HousesService = housesService;
+
   constructor(public readonly baseUrl: string = COMMISSION_API_BASE_URL) {}
 
   /**
