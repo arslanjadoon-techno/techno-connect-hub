@@ -101,7 +101,13 @@ export function UserMenu() {
           document.body.removeChild(a);
         }
       } else {
-        toast.info(res?.message || "No unviewed payslips found.");
+        const currentUserName =
+          user?.fullName ||
+          user?.name ||
+          user?.userName ||
+          (user?.firstName ? `${user.firstName} ${user.lastName || ""}`.trim() : "") ||
+          "User";
+        toast.info(`No payroll record found for ${currentUserName}.`);
       }
     } catch (err: any) {
       toast.error(err?.message || "Failed to fetch payslip information.");
