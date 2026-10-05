@@ -292,9 +292,10 @@ export interface State {
 }
 
 // Pagination params
-export interface PaginationParams {
+export interface StateQueryParams {
   page?: number;
   size?: number;
+  search?: string;
 }
 
 export interface StatePayload {
@@ -306,11 +307,16 @@ export interface StatePayload {
 }
 
 export const StatesApi = {
-  getAll: (params?: PaginationParams) => {
+  getAll: (params?: StateQueryParams) => {
     let url: string = STATE_API_PATHS.getAll;
 
-    if (params && params.page !== undefined && params.size !== undefined) {
-      url = `${STATE_API_PATHS.getAll}?page=${params.page}&size=${params.size}`;
+    if (params) {
+      const trimmedSearch = params.search?.trim();
+      if (trimmedSearch) {
+        url = `${STATE_API_PATHS.getAll}?search=${encodeURIComponent(trimmedSearch)}`;
+      } else if (params.page !== undefined && params.size !== undefined) {
+        url = `${STATE_API_PATHS.getAll}?page=${params.page}&size=${params.size}`;
+      }
     }
     return apiRequest<State[]>(url);
   },

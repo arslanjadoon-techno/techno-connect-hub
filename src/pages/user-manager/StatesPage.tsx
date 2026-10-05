@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { AdminGuard, CrudPage } from "@/components/crud-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import { StatesApi, usersApi } from "@/lib/api/client";
 
 interface StateAssignedUser {
@@ -53,29 +53,89 @@ export default function StatesPage() {
   const [size, setSize] = useState<number>(15);
   const [totalRecords, setTotalRecords] = useState<number>(0);
 
+  // Server-side backend search states
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+  const [isSearchingBackend, setIsSearchingBackend] = useState<boolean>(false);
+
+  // Pre-loaded users list for both Add and Edit modal manager dropdowns
+  const [usersList, setUsersList] = useState<
+    Array<{ id: number; fullName: string; email: string; phone?: string | null }>
+  >([]);
+  const [loadingUsers, setLoadingUsers] = useState<boolean>(false);
+
   // Synchronous atomic locker to prevent simultaneous duplicate fetches
   const lastFetchedKey = useRef<string>("");
   const isFetchingRef = useRef<boolean>(false);
 
-  // Single dynamic fetch method
-  const fetchStates = async (targetPage: number, targetSize: number) => {
-    const currentRequestKey = `${targetPage}-${targetSize}`;
+  // Load users list at the page level so it is immediately ready for Add and Edit state modals
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoadingUsers(true);
+        const res = await usersApi.getAll({ page: 0, size: 200 });
+        if (active && res.success && Array.isArray(res.data)) {
+          setUsersList(
+            res.data.map((u: any) => ({
+              id: u.id,
+              fullName:
+                u.fullName ||
+                u.name ||
+                `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
+                `User #${u.id}`,
+              email: u.email || "",
+              phone: u.phone || "",
+            })),
+          );
+        }
+      } catch (err) {
+        console.error("Error loading users for state manager dropdown:", err);
+      } finally {
+        if (active) setLoadingUsers(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Debounce search query changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Single dynamic fetch method supporting both pagination and backend search
+  const fetchStates = async (targetPage: number, targetSize: number, search?: string) => {
+    const trimmedSearch = (search ?? "").trim();
+    const currentRequestKey = trimmedSearch
+      ? `search-${trimmedSearch}`
+      : `page-${targetPage}-${targetSize}`;
 
     if (lastFetchedKey.current === currentRequestKey || isFetchingRef.current) {
       return;
     }
 
     try {
-      setLoading(true);
+      if (trimmedSearch) {
+        setIsSearchingBackend(true);
+      } else {
+        setLoading(true);
+      }
       isFetchingRef.current = true;
       lastFetchedKey.current = currentRequestKey;
 
-      const apiClient = StatesApi.getAll as any;
-      const res = await apiClient({ page: targetPage, size: targetSize });
+      const res = trimmedSearch
+        ? await StatesApi.getAll({ search: trimmedSearch })
+        : await StatesApi.getAll({ page: targetPage, size: targetSize });
 
       if (res.success) {
         // EDGE CASE FIX: If current page has no data but database has records, fallback to previous page
         if (
+          !trimmedSearch &&
           res.data.length === 0 &&
           res.pagination &&
           res.pagination.totalRecords > 0 &&
@@ -92,7 +152,9 @@ export default function StatesPage() {
 
         setStates(res.data);
 
-        if (res.pagination && typeof res.pagination.totalRecords === "number") {
+        if (trimmedSearch) {
+          setTotalRecords(res.data.length);
+        } else if (res.pagination && typeof res.pagination.totalRecords === "number") {
           setTotalRecords(res.pagination.totalRecords);
         } else {
           setTotalRecords(res.data.length);
@@ -106,14 +168,15 @@ export default function StatesPage() {
       lastFetchedKey.current = "";
     } finally {
       setLoading(false);
+      setIsSearchingBackend(false);
       isFetchingRef.current = false;
     }
   };
 
-  // Synchronized effect wrapper to look at exact state adjustments safely
+  // Synchronized effect wrapper to trigger fetch on page, size, or search query change
   useEffect(() => {
-    fetchStates(page, size);
-  }, [page, size]);
+    fetchStates(page, size, debouncedSearch);
+  }, [page, size, debouncedSearch]);
 
   // Delete Call
   const handleDelete = async (s: State) => {
@@ -123,7 +186,7 @@ export default function StatesPage() {
       if (res.success) {
         toast.success(res.message || "State deleted successfully");
         lastFetchedKey.current = "";
-        fetchStates(page, size);
+        fetchStates(page, size, debouncedSearch);
       } else {
         toast.error(res.message || "Could not delete state");
       }
@@ -155,7 +218,7 @@ export default function StatesPage() {
         if (res.success) {
           toast.success(res.message || "State updated successfully");
           lastFetchedKey.current = "";
-          fetchStates(page, size);
+          fetchStates(page, size, debouncedSearch);
           close();
         } else {
           toast.error(res.message);
@@ -172,7 +235,7 @@ export default function StatesPage() {
         if (res.success) {
           toast.success(res.message || "State added successfully");
           lastFetchedKey.current = "";
-          fetchStates(page, size);
+          fetchStates(page, size, debouncedSearch);
           close();
         } else {
           toast.error(res.message);
@@ -185,7 +248,7 @@ export default function StatesPage() {
     }
   };
 
-  if (loading && states.length === 0) {
+  if (loading && states.length === 0 && !debouncedSearch) {
     return (
       <div className="flex h-[50vh] w-full flex-col items-center justify-center gap-2 text-muted-foreground">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -203,12 +266,20 @@ export default function StatesPage() {
           rows={states}
           rowKey={(s) => s.id.toString()}
           isSaving={actionLoading}
-          isLoading={loading}
+          isLoading={loading && !debouncedSearch}
           rowCount={totalRecords}
           page={page}
           pageSize={size}
           onPageChange={(newPage) => setPage(newPage)}
           onPageSizeChange={(newSize) => setSize(newSize)}
+          serverSearch={true}
+          searchValue={searchQuery}
+          onSearchChange={(val) => {
+            lastFetchedKey.current = "";
+            setSearchQuery(val);
+            if (page !== 0) setPage(0);
+          }}
+          isSearching={isSearchingBackend || searchQuery !== debouncedSearch}
           columns={[
             {
               key: "symbol",
@@ -265,6 +336,8 @@ export default function StatesPage() {
             <StateForm
               initial={initial}
               isSaving={actionLoading}
+              usersList={usersList}
+              loadingUsers={loadingUsers}
               onSave={(formData) => handleSave(initial, formData, close)}
             />
           )}
@@ -277,10 +350,12 @@ export default function StatesPage() {
 interface StateFormProps {
   initial: State | null;
   isSaving: boolean;
+  usersList: Array<{ id: number; fullName: string; email: string; phone?: string | null }>;
+  loadingUsers: boolean;
   onSave: (data: StateFormData) => void;
 }
 
-function StateForm({ initial, isSaving, onSave }: StateFormProps) {
+function StateForm({ initial, isSaving, usersList, loadingUsers, onSave }: StateFormProps) {
   const [name, setName] = useState(initial?.name ?? "");
   const [symbol, setSymbol] = useState(initial?.symbol ?? "");
   const [managerId, setManagerId] = useState<number>(
@@ -295,37 +370,40 @@ function StateForm({ initial, isSaving, onSave }: StateFormProps) {
   const [phone, setPhone] = useState(
     initial?.assignedUsers?.[0]?.phone ?? initial?.phone ?? "",
   );
-  const [usersList, setUsersList] = useState<
-    Array<{ id: number; fullName: string; email: string; phone?: string | null }>
-  >([]);
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const res = await usersApi.getAll({ page: 0, size: 200 });
-        if (active && res.success && Array.isArray(res.data)) {
-          setUsersList(
-            res.data.map((u: any) => ({
-              id: u.id,
-              fullName:
-                u.fullName ||
-                u.name ||
-                `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
-                `User #${u.id}`,
-              email: u.email || "",
-              phone: u.phone || "",
-            })),
-          );
-        }
-      } catch {
-        /* ignore */
+  const [searchManagerQuery, setSearchManagerQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Ensure initial assigned user is present in the list even if not in the first 200
+  const mergedUsersList = useMemo(() => {
+    if (initial?.assignedUsers?.[0]?.id) {
+      const initUser = initial.assignedUsers[0];
+      const exists = usersList.some((u) => u.id === initUser.id);
+      if (!exists) {
+        return [
+          {
+            id: initUser.id,
+            fullName: initUser.name,
+            email: initUser.email || "",
+            phone: initUser.phone || "",
+          },
+          ...usersList,
+        ];
       }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
+    }
+    return usersList;
+  }, [usersList, initial]);
+
+  const filteredUsers = useMemo(() => {
+    if (!searchManagerQuery.trim()) return mergedUsersList;
+    const q = searchManagerQuery.toLowerCase().trim();
+    return mergedUsersList.filter(
+      (u) =>
+        u.fullName.toLowerCase().includes(q) ||
+        (u.email || "").toLowerCase().includes(q) ||
+        String(u.id).includes(q),
+    );
+  }, [mergedUsersList, searchManagerQuery]);
 
   const handleManagerSelect = (val: string) => {
     const numId = Number(val) || 0;
@@ -333,7 +411,7 @@ function StateForm({ initial, isSaving, onSave }: StateFormProps) {
     if (numId === 0) {
       setManager("");
     } else {
-      const found = usersList.find((u) => u.id === numId);
+      const found = mergedUsersList.find((u) => u.id === numId);
       if (found) {
         setManager(found.fullName);
         if (found.email) setEmail(found.email);
@@ -373,32 +451,59 @@ function StateForm({ initial, isSaving, onSave }: StateFormProps) {
         <Label>
           Manager <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
         </Label>
-        {usersList.length > 0 ? (
-          <Select
-            value={String(managerId)}
-            onValueChange={handleManagerSelect}
-            disabled={isSaving}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select Manager (Optional)" />
-            </SelectTrigger>
-            <SelectContent className="max-h-60">
-              <SelectItem value="0">None / No Manager</SelectItem>
-              {usersList.map((u) => (
+        <Select
+          value={String(managerId)}
+          onValueChange={handleManagerSelect}
+          disabled={isSaving}
+          onOpenChange={(open) => {
+            if (!open) setSearchManagerQuery("");
+            else setTimeout(() => searchInputRef.current?.focus(), 100);
+          }}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue
+              placeholder={
+                loadingUsers && usersList.length === 0
+                  ? "Loading users..."
+                  : "Select Manager (Optional)"
+              }
+            />
+          </SelectTrigger>
+          <SelectContent onKeyDown={(e) => e.stopPropagation()}>
+            {/* Embedded Search Input field */}
+            <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
+              <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
+              <input
+                ref={searchInputRef}
+                placeholder="Search managers by name or email..."
+                value={searchManagerQuery}
+                onChange={(e) => setSearchManagerQuery(e.target.value)}
+                className="w-full text-xs bg-transparent outline-none h-6"
+              />
+            </div>
+
+            <SelectItem value="0">
+              <span className="text-muted-foreground italic text-xs">None / No Manager</span>
+            </SelectItem>
+
+            {filteredUsers.length === 0 ? (
+              <div className="text-xs text-muted-foreground p-2 text-center">
+                {loadingUsers ? "Loading users..." : "No users found"}
+              </div>
+            ) : (
+              filteredUsers.map((u) => (
                 <SelectItem key={u.id} value={String(u.id)}>
-                  {u.fullName} {u.email ? `(${u.email})` : ""}
+                  <div className="flex flex-col text-left">
+                    <span className="font-medium text-xs">{u.fullName}</span>
+                    {u.email && (
+                      <span className="text-[10px] text-muted-foreground">{u.email}</span>
+                    )}
+                  </div>
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ) : (
-          <Input
-            value={manager}
-            disabled={isSaving}
-            onChange={(e) => setManager(e.target.value)}
-            placeholder="e.g. John Doe"
-          />
-        )}
+              ))
+            )}
+          </SelectContent>
+        </Select>
       </div>
       <div className="space-y-1.5">
         <Label>

@@ -1,9 +1,15 @@
 import { http } from "../http";
 import { STATE_API_PATHS } from "@/lib/config";
-import type { State, StatePayload } from "@/lib/api/client";
+import type { State, StatePayload, StateQueryParams } from "@/lib/api/client";
 
 export class StatesService {
-  getAll(params?: { page?: number; size?: number }) {
+  getAll(params?: StateQueryParams) {
+    const trimmedSearch = params?.search?.trim();
+    if (trimmedSearch) {
+      return http.get<State[]>(
+        `${STATE_API_PATHS.getAll}?search=${encodeURIComponent(trimmedSearch)}`,
+      );
+    }
     return http.get<State[]>(STATE_API_PATHS.getAll, params);
   }
   get(id: string | number) {
