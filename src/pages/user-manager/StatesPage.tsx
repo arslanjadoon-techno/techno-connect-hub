@@ -7,12 +7,31 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { StatesApi } from "@/lib/api/client";
 
+interface StateAssignedUser {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
 interface State {
   id: number;
   name: string;
   symbol: string;
+  assignedUsers?: StateAssignedUser[];
+  manager?: string;
+  email?: string;
+  phone?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+interface StateFormData {
+  name: string;
+  symbol: string;
+  manager?: string;
+  email?: string;
+  phone?: string;
 }
 
 export default function StatesPage() {
@@ -109,7 +128,7 @@ export default function StatesPage() {
   // Save/Update Call
   const handleSave = async (
     initial: State | null,
-    formData: { name: string; symbol: string },
+    formData: StateFormData,
     close: () => void,
   ) => {
     try {
@@ -119,7 +138,10 @@ export default function StatesPage() {
           id: initial.id,
           name: formData.name,
           symbol: formData.symbol,
-        });
+          ...(formData.manager ? { managerName: formData.manager } : {}),
+          ...(formData.email ? { managerEmail: formData.email } : {}),
+          ...(formData.phone ? { managerPhone: formData.phone } : {}),
+        } as any);
         if (res.success) {
           toast.success(res.message || "State updated successfully");
           lastFetchedKey.current = "";
@@ -129,7 +151,13 @@ export default function StatesPage() {
           toast.error(res.message);
         }
       } else {
-        const res = await StatesApi.add(formData);
+        const res = await StatesApi.add({
+          name: formData.name,
+          symbol: formData.symbol,
+          ...(formData.manager ? { managerName: formData.manager } : {}),
+          ...(formData.email ? { managerEmail: formData.email } : {}),
+          ...(formData.phone ? { managerPhone: formData.phone } : {}),
+        } as any);
         if (res.success) {
           toast.success(res.message || "State added successfully");
           lastFetchedKey.current = "";
@@ -158,21 +186,18 @@ export default function StatesPage() {
   return (
     <div className="w-full">
       <div className="w-full border-0 shadow-none bg-transparent [&_input]:bg-white dark:[&_input]:bg-zinc-950 [&_thead]:bg-zinc-200 dark:[&_thead]:bg-zinc-800 [&_thead]:border-b-2 [&_thead]:border-border [&_th]:font-bold [&_th]:text-zinc-900 dark:[&_th]:text-zinc-100 [&_th]:h-12 [&_tbody_tr]:bg-background [&_tbody_tr]:even:bg-zinc-50/50 dark:[&_tbody_tr]:even:bg-zinc-900/30 [&_tbody_tr]:hover:bg-muted/40 [&_th:last-child]:text-right [&_th:last-child]:pr-10 [&_td:last-child]:text-right">
-        {/* NO ERRORS NOW: Clean, strongly-typed component instance */}
         <CrudPage<State>
           title="States"
           subtitle="Manage US states the company operates in."
           rows={states}
           rowKey={(s) => s.id.toString()}
           isSaving={actionLoading}
-          isLoading={loading} // Purely accepted now by your updated interface
-
+          isLoading={loading}
           rowCount={totalRecords}
           page={page}
           pageSize={size}
           onPageChange={(newPage) => setPage(newPage)}
           onPageSizeChange={(newSize) => setSize(newSize)}
-
           columns={[
             {
               key: "name",
@@ -187,6 +212,41 @@ export default function StatesPage() {
                 <div className="font-mono py-2 text-left text-muted-foreground">{s.symbol}</div>
               ),
               searchValue: (s) => s.symbol,
+            },
+            {
+              key: "manager",
+              header: "Manager",
+              accessor: (s) => {
+                const mgr = s.assignedUsers?.[0]?.name || s.manager || "—";
+                return <div className="py-2 text-left font-medium text-foreground">{mgr}</div>;
+              },
+              searchValue: (s) => s.assignedUsers?.[0]?.name || s.manager || "",
+            },
+            {
+              key: "email",
+              header: "Email",
+              accessor: (s) => {
+                const mail = s.assignedUsers?.[0]?.email || s.email || "—";
+                return (
+                  <div className="py-2 text-left text-muted-foreground">
+                    {mail !== "—" ? (
+                      <span className="text-foreground/90">{mail}</span>
+                    ) : (
+                      "—"
+                    )}
+                  </div>
+                );
+              },
+              searchValue: (s) => s.assignedUsers?.[0]?.email || s.email || "",
+            },
+            {
+              key: "phone",
+              header: "Phone",
+              accessor: (s) => {
+                const ph = s.assignedUsers?.[0]?.phone || s.phone || "—";
+                return <div className="py-2 text-left text-muted-foreground">{ph}</div>;
+              },
+              searchValue: (s) => s.assignedUsers?.[0]?.phone || s.phone || "",
             },
           ]}
           onDelete={handleDelete}
@@ -206,38 +266,95 @@ export default function StatesPage() {
 interface StateFormProps {
   initial: State | null;
   isSaving: boolean;
-  onSave: (data: { name: string; symbol: string }) => void;
+  onSave: (data: StateFormData) => void;
 }
 
 function StateForm({ initial, isSaving, onSave }: StateFormProps) {
   const [name, setName] = useState(initial?.name ?? "");
   const [symbol, setSymbol] = useState(initial?.symbol ?? "");
+  const [manager, setManager] = useState(
+    initial?.assignedUsers?.[0]?.name ?? initial?.manager ?? "",
+  );
+  const [email, setEmail] = useState(
+    initial?.assignedUsers?.[0]?.email ?? initial?.email ?? "",
+  );
+  const [phone, setPhone] = useState(
+    initial?.assignedUsers?.[0]?.phone ?? initial?.phone ?? "",
+  );
 
   return (
     <div className="space-y-4">
       <div className="space-y-1.5">
-        <Label>Name</Label>
+        <Label>
+          Name <span className="text-destructive">*</span>
+        </Label>
         <Input
           value={name}
           disabled={isSaving}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Texas"
+          required
         />
       </div>
       <div className="space-y-1.5">
-        <Label>Symbol</Label>
+        <Label>
+          Symbol <span className="text-destructive">*</span>
+        </Label>
         <Input
           value={symbol}
           disabled={isSaving}
           onChange={(e) => setSymbol(e.target.value)}
           maxLength={3}
           placeholder="e.g. TX"
+          required
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>
+          Manager <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+        </Label>
+        <Input
+          value={manager}
+          disabled={isSaving}
+          onChange={(e) => setManager(e.target.value)}
+          placeholder="e.g. Ali Khan"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>
+          Email <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+        </Label>
+        <Input
+          type="email"
+          value={email}
+          disabled={isSaving}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="e.g. ali.khan@example.com"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>
+          Phone <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+        </Label>
+        <Input
+          value={phone}
+          disabled={isSaving}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="e.g. 12345678"
         />
       </div>
       <Button
-        className="w-full flex items-center justify-center gap-2"
+        className="w-full flex items-center justify-center gap-2 cursor-pointer"
         disabled={!name.trim() || !symbol.trim() || isSaving}
-        onClick={() => onSave({ name: name.trim(), symbol: symbol.trim().toUpperCase() })}
+        onClick={() =>
+          onSave({
+            name: name.trim(),
+            symbol: symbol.trim().toUpperCase(),
+            manager: manager.trim() || undefined,
+            email: email.trim() || undefined,
+            phone: phone.trim() || undefined,
+          })
+        }
       >
         {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
         {initial ? "Update State" : "Save State"}

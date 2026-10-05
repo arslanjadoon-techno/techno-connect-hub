@@ -272,10 +272,21 @@ export const usersApi = {
 
 // ---------- States ---------- //
 
+export interface StateAssignedUser {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
 export interface State {
   id: number;
   name: string;
   symbol: string;
+  assignedUsers?: StateAssignedUser[];
+  managerName?: string;
+  managerEmail?: string;
+  managerPhone?: string;
   createdAt?: string;
   updatedAt?: string;
 }

@@ -215,8 +215,8 @@ const adminGroup: Group = {
     },
     { title: "Departments", url: "/admin/departments", icon: Briefcase },
     { title: "States", url: "/admin/states", icon: MapPin },
-    { title: "Districts", url: "/admin/districts", icon: Building2 },
     { title: "Markets", url: "/admin/markets", icon: Network },
+    { title: "Districts", url: "/admin/districts", icon: Building2 },
     { title: "Stores", url: "/admin/stores", icon: StoreIcon },
   ],
 };
