@@ -82,3 +82,7 @@ export type {
   CancelLeavePayload,
   LeaveTypeOption,
 } from "./portals/leave-management";
+
+// Payslips & Payroll Hub
+export { payslipService, PayslipService, type PayslipItem } from "./payslips";
+

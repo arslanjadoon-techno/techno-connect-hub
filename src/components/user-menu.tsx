@@ -1,5 +1,15 @@
+import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { LogOut, Settings as SettingsIcon, Sun, MoonStar, ChevronDown } from "lucide-react";
+import {
+  LogOut,
+  Settings as SettingsIcon,
+  Sun,
+  MoonStar,
+  ChevronDown,
+  Receipt,
+  Loader2,
+  ExternalLink,
+} from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,6 +20,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
+import { payslipService } from "@/services/payslips";
+import { toast } from "sonner";
 
 function getCurrentPortalRole(user: any, pathname: string): string {
   if (!user || !Array.isArray(user.portalAccess)) return "—";
@@ -40,6 +52,7 @@ export function UserMenu() {
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const pathname = useLocation().pathname;
+  const [loadingPayroll, setLoadingPayroll] = useState(false);
 
   const localUserData = typeof window !== "undefined" ? localStorage.getItem("user") : null;
   if (!localUserData) return null;
@@ -54,6 +67,48 @@ export function UserMenu() {
       ? `${nameParts[0]?.[0] || ""}${nameParts[nameParts.length - 1]?.[0] || ""}`
       : `${nameParts[0]?.[0] || ""}${nameParts[0]?.[1] || ""}`
   ).toUpperCase();
+
+  const handlePayrollHub = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    const rawUserId = user?.id || user?.userId || user?.userID;
+    if (!rawUserId) {
+      toast.error("User ID not found. Please log in again.");
+      return;
+    }
+
+    try {
+      setLoadingPayroll(true);
+      const res = await payslipService.getUnviewedByUserId(rawUserId);
+
+      let targetUrl: string | undefined;
+
+      if (Array.isArray(res?.data) && res.data.length > 0) {
+        targetUrl = res.data[0]?.token;
+      } else if (res?.data && typeof res.data === "object" && "token" in res.data) {
+        targetUrl = (res.data as any).token;
+      }
+
+      if (targetUrl && typeof targetUrl === "string" && targetUrl.trim()) {
+        const cleanUrl = targetUrl.trim();
+        const newTab = window.open(cleanUrl, "_blank", "noopener,noreferrer");
+        if (!newTab || newTab.closed || typeof newTab.closed === "undefined") {
+          const a = document.createElement("a");
+          a.href = cleanUrl;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        }
+      } else {
+        toast.info(res?.message || "No unviewed payslips found.");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to fetch payslip information.");
+    } finally {
+      setLoadingPayroll(false);
+    }
+  };
 
   return (
     <DropdownMenu>
@@ -158,6 +213,21 @@ export function UserMenu() {
           </div>
         </div>
         <DropdownMenuSeparator />
+        <DropdownMenuItem
+          disabled={loadingPayroll}
+          onClick={handlePayrollHub}
+          className="flex w-full cursor-pointer items-center justify-between gap-2"
+        >
+          <div className="flex items-center gap-2">
+            {loadingPayroll ? (
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            ) : (
+              <Receipt className="h-4 w-4" />
+            )}
+            <span>Payroll Hub</span>
+          </div>
+          <ExternalLink className="h-3 w-3 text-muted-foreground opacity-70" />
+        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link to="/settings" className="flex w-full cursor-pointer items-center gap-2">
             <SettingsIcon className="h-4 w-4" /> Settings
