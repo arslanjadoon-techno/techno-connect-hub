@@ -297,6 +297,14 @@ export interface PaginationParams {
   size?: number;
 }
 
+export interface StatePayload {
+  name: string;
+  symbol: string;
+  email: string;
+  phone: string;
+  managerId: number;
+}
+
 export const StatesApi = {
   getAll: (params?: PaginationParams) => {
     let url: string = STATE_API_PATHS.getAll;
@@ -309,10 +317,10 @@ export const StatesApi = {
 
   get: (id: string | number) => apiRequest<State>(STATE_API_PATHS.state(id)),
 
-  add: (payload: { name: string; symbol: string }) =>
+  add: (payload: StatePayload) =>
     apiRequest<State>(STATE_API_PATHS.addState, { method: "POST", body: payload }),
 
-  update: (payload: Partial<State> & { id: number }) =>
+  update: (payload: StatePayload & { id: number }) =>
     apiRequest<State>(STATE_API_PATHS.updateState, { method: "PUT", body: payload }),
 
   delete: (id: number | string | { id: number | string }) => {

@@ -1,6 +1,6 @@
 import { http } from "../http";
 import { STATE_API_PATHS } from "@/lib/config";
-import type { State } from "@/lib/api/client";
+import type { State, StatePayload } from "@/lib/api/client";
 
 export class StatesService {
   getAll(params?: { page?: number; size?: number }) {
@@ -9,23 +9,10 @@ export class StatesService {
   get(id: string | number) {
     return http.get<State>(STATE_API_PATHS.state(id));
   }
-  add(payload: {
-    name: string;
-    symbol: string;
-    managerName?: string;
-    managerEmail?: string;
-    managerPhone?: string;
-  }) {
+  add(payload: StatePayload) {
     return http.post<State>(STATE_API_PATHS.addState, payload);
   }
-  update(payload: {
-    id: number;
-    name: string;
-    symbol: string;
-    managerName?: string;
-    managerEmail?: string;
-    managerPhone?: string;
-  }) {
+  update(payload: StatePayload & { id: number }) {
     return http.put<State>(STATE_API_PATHS.updateState, payload);
   }
   delete(id: number | string | { id: number | string }) {

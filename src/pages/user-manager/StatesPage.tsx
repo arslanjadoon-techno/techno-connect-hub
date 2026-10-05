@@ -3,9 +3,16 @@ import { AdminGuard, CrudPage } from "@/components/crud-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { StatesApi } from "@/lib/api/client";
+import { StatesApi, usersApi } from "@/lib/api/client";
 
 interface StateAssignedUser {
   id: number;
@@ -20,6 +27,7 @@ interface State {
   symbol: string;
   assignedUsers?: StateAssignedUser[];
   manager?: string;
+  managerId?: number;
   email?: string;
   phone?: string;
   createdAt?: string;
@@ -29,9 +37,10 @@ interface State {
 interface StateFormData {
   name: string;
   symbol: string;
+  email: string;
+  phone: string;
+  managerId: number;
   manager?: string;
-  email?: string;
-  phone?: string;
 }
 
 export default function StatesPage() {
@@ -134,14 +143,15 @@ export default function StatesPage() {
     try {
       setActionLoading(true);
       if (initial) {
-        const res = await StatesApi.update({
+        const payload = {
           id: initial.id,
           name: formData.name,
           symbol: formData.symbol,
-          ...(formData.manager ? { managerName: formData.manager } : {}),
-          ...(formData.email ? { managerEmail: formData.email } : {}),
-          ...(formData.phone ? { managerPhone: formData.phone } : {}),
-        } as any);
+          email: formData.email ?? "",
+          phone: formData.phone ?? "",
+          managerId: Number(formData.managerId) || 0,
+        };
+        const res = await StatesApi.update(payload);
         if (res.success) {
           toast.success(res.message || "State updated successfully");
           lastFetchedKey.current = "";
@@ -151,13 +161,14 @@ export default function StatesPage() {
           toast.error(res.message);
         }
       } else {
-        const res = await StatesApi.add({
+        const payload = {
           name: formData.name,
           symbol: formData.symbol,
-          ...(formData.manager ? { managerName: formData.manager } : {}),
-          ...(formData.email ? { managerEmail: formData.email } : {}),
-          ...(formData.phone ? { managerPhone: formData.phone } : {}),
-        } as any);
+          email: formData.email ?? "",
+          phone: formData.phone ?? "",
+          managerId: Number(formData.managerId) || 0,
+        };
+        const res = await StatesApi.add(payload);
         if (res.success) {
           toast.success(res.message || "State added successfully");
           lastFetchedKey.current = "";
@@ -272,6 +283,9 @@ interface StateFormProps {
 function StateForm({ initial, isSaving, onSave }: StateFormProps) {
   const [name, setName] = useState(initial?.name ?? "");
   const [symbol, setSymbol] = useState(initial?.symbol ?? "");
+  const [managerId, setManagerId] = useState<number>(
+    initial?.assignedUsers?.[0]?.id ?? (initial as any)?.managerId ?? 0,
+  );
   const [manager, setManager] = useState(
     initial?.assignedUsers?.[0]?.name ?? initial?.manager ?? "",
   );
@@ -281,6 +295,52 @@ function StateForm({ initial, isSaving, onSave }: StateFormProps) {
   const [phone, setPhone] = useState(
     initial?.assignedUsers?.[0]?.phone ?? initial?.phone ?? "",
   );
+  const [usersList, setUsersList] = useState<
+    Array<{ id: number; fullName: string; email: string; phone?: string | null }>
+  >([]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await usersApi.getAll({ page: 0, size: 200 });
+        if (active && res.success && Array.isArray(res.data)) {
+          setUsersList(
+            res.data.map((u: any) => ({
+              id: u.id,
+              fullName:
+                u.fullName ||
+                u.name ||
+                `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
+                `User #${u.id}`,
+              email: u.email || "",
+              phone: u.phone || "",
+            })),
+          );
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleManagerSelect = (val: string) => {
+    const numId = Number(val) || 0;
+    setManagerId(numId);
+    if (numId === 0) {
+      setManager("");
+    } else {
+      const found = usersList.find((u) => u.id === numId);
+      if (found) {
+        setManager(found.fullName);
+        if (found.email) setEmail(found.email);
+        if (found.phone) setPhone(found.phone);
+      }
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -313,12 +373,32 @@ function StateForm({ initial, isSaving, onSave }: StateFormProps) {
         <Label>
           Manager <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
         </Label>
-        <Input
-          value={manager}
-          disabled={isSaving}
-          onChange={(e) => setManager(e.target.value)}
-          placeholder="e.g. John Doe"
-        />
+        {usersList.length > 0 ? (
+          <Select
+            value={String(managerId)}
+            onValueChange={handleManagerSelect}
+            disabled={isSaving}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select Manager (Optional)" />
+            </SelectTrigger>
+            <SelectContent className="max-h-60">
+              <SelectItem value="0">None / No Manager</SelectItem>
+              {usersList.map((u) => (
+                <SelectItem key={u.id} value={String(u.id)}>
+                  {u.fullName} {u.email ? `(${u.email})` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <Input
+            value={manager}
+            disabled={isSaving}
+            onChange={(e) => setManager(e.target.value)}
+            placeholder="e.g. John Doe"
+          />
+        )}
       </div>
       <div className="space-y-1.5">
         <Label>
@@ -350,9 +430,10 @@ function StateForm({ initial, isSaving, onSave }: StateFormProps) {
           onSave({
             name: name.trim(),
             symbol: symbol.trim().toUpperCase(),
+            email: email.trim(),
+            phone: phone.trim(),
+            managerId: Number(managerId) || 0,
             manager: manager.trim() || undefined,
-            email: email.trim() || undefined,
-            phone: phone.trim() || undefined,
           })
         }
       >
