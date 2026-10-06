@@ -1,0 +1,103 @@
+{
+  "currentUser": {
+    "id": "test-user-001",
+    "name": "Alex Morgan",
+    "email": "alex.morgan@example.test",
+    "role": "ChatUser",
+    "presence": "online"
+  },
+  "users": [
+    {
+      "id": "test-user-001",
+      "name": "Alex Morgan",
+      "email": "alex.morgan@example.test",
+      "role": "ChatUser",
+      "presence": "online"
+    },
+    {
+      "id": "test-user-002",
+      "name": "Jordan Lee",
+      "email": "jordan.lee@example.test",
+      "role": "ChatUser",
+      "presence": "online"
+    },
+    {
+      "id": "test-user-003",
+      "name": "Samira Patel",
+      "email": "samira.patel@example.test",
+      "role": "ChatUser",
+      "presence": "away"
+    },
+    {
+      "id": "test-user-004",
+      "name": "Chris Nguyen",
+      "email": "chris.nguyen@example.test",
+      "role": "ChatAdmin",
+      "presence": "busy"
+    }
+  ],
+  "conversations": [
+    {
+      "id": "test-chat-001",
+      "chatId": "test-chat-001",
+      "type": "direct",
+      "title": "Jordan Lee",
+      "participants": ["test-user-001", "test-user-002"],
+      "lastMessageAt": "2026-10-06T16:30:00.000Z",
+      "unreadCount": 1,
+      "messages": [
+        {
+          "id": "test-message-001",
+          "chatId": "test-chat-001",
+          "senderId": "test-user-002",
+          "senderName": "Jordan Lee",
+          "text": "Hi Alex, can we review the new chat screen?",
+          "sentAt": "2026-10-06T16:25:00.000Z"
+        },
+        {
+          "id": "test-message-002",
+          "chatId": "test-chat-001",
+          "senderId": "test-user-001",
+          "senderName": "Alex Morgan",
+          "text": "Sure, I’m testing it now.",
+          "sentAt": "2026-10-06T16:27:00.000Z"
+        },
+        {
+          "id": "test-message-003",
+          "chatId": "test-chat-001",
+          "senderId": "test-user-002",
+          "senderName": "Jordan Lee",
+          "text": "Great. Let me know if anything looks off.",
+          "sentAt": "2026-10-06T16:30:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "test-chat-002",
+      "chatId": "test-chat-002",
+      "type": "group",
+      "title": "Frontend Testing",
+      "participants": ["test-user-001", "test-user-002", "test-user-003"],
+      "lastMessageAt": "2026-10-06T15:45:00.000Z",
+      "unreadCount": 0,
+      "messages": [
+        {
+          "id": "test-message-004",
+          "chatId": "test-chat-002",
+          "senderId": "test-user-003",
+          "senderName": "Samira Patel",
+          "text": "I added a few sample cases for the group chat.",
+          "sentAt": "2026-10-06T15:42:00.000Z"
+        },
+        {
+          "id": "test-message-005",
+          "chatId": "test-chat-002",
+          "senderId": "test-user-001",
+          "senderName": "Alex Morgan",
+          "text": "Thanks! I’ll check them.",
+          "sentAt": "2026-10-06T15:45:00.000Z"
+        }
+      ]
+    }
+  ]
+}

@@ -68,6 +68,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
+import SidebarRail from "@/pages/team-chat/sidebar/SidebarRail";
 
 type SubItem = { title: string; url: string; icon?: any };
 type Item = { title: string; url: string; icon: any; children?: SubItem[] };
@@ -419,6 +420,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const pathname = useLocation().pathname;
   const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const [teamChatOpen, setTeamChatOpen] = useState(() => pathname.startsWith("/chat"));
 
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
   const groupActive = (g: Group) =>
@@ -601,15 +603,54 @@ export function AppSidebar() {
             <SidebarMenu>
               {topItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                    <Link to={item.url} className="flex items-center gap-2">
+                  {item.url === "/chat" ? (
+                    <SidebarMenuButton
+                      isActive={isActive(item.url)}
+                      tooltip={item.title}
+                      onClick={() => {
+                        if (!isActive(item.url)) {
+                          setTeamChatOpen(true);
+                          navigate(item.url);
+                          return;
+                        }
+                        setTeamChatOpen((open) => !open);
+                      }}
+                    >
                       <item.icon className="h-4 w-4" />
-                      {!collapsed && <span>{item.title}</span>}
-                    </Link>
-                  </SidebarMenuButton>
+                      {!collapsed && <span className="flex-1">{item.title}</span>}
+                      {!collapsed &&
+                        (teamChatOpen ? (
+                          <ChevronUp className="h-4 w-4 opacity-70" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 opacity-70" />
+                        ))}
+                    </SidebarMenuButton>
+                  ) : (
+                    <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
+                      <Link to={item.url} className="flex items-center gap-2">
+                        <item.icon className="h-4 w-4" />
+                        {!collapsed && <span>{item.title}</span>}
+                      </Link>
+                    </SidebarMenuButton>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
+            {location.pathname.startsWith("/chat") && teamChatOpen && (
+              <div className="mt-1 border-t border-sidebar-border/50 pt-1">
+                <SidebarRail
+                  embedded
+                  currentUser={user}
+                  currentUserName={user?.name || user?.email || "Current user"}
+                  onOpenCalls={() => navigate("/chat/calls")}
+                  onOpenMedia={() => navigate("/chat/media")}
+                  onOpenNotes={() => navigate("/chat/notes")}
+                  onCreateGroup={() => navigate("/chat/groups/new")}
+                  onSettingsOpen={() => navigate("/chat/settings")}
+                  onTabSelect={() => navigate("/chat")}
+                />
+              </div>
+            )}
           </SidebarGroupContent>
         </SidebarGroup>
 
