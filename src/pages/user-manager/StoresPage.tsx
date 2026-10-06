@@ -12,12 +12,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Search, XCircle } from "lucide-react";
-import {
-  storesService,
-  statesService,
-  marketsService,
-  districtsService,
-} from "@/services";
+import { storesService, statesService, marketsService, districtsService } from "@/services";
 
 interface Store {
   id: number;
@@ -681,7 +676,9 @@ export default function StoresPage() {
                 key: "number",
                 header: "Number",
                 accessor: (s) => (
-                  <div className="py-2 text-left font-mono font-medium text-xs">{s.number ?? "—"}</div>
+                  <div className="py-2 text-left font-mono font-medium text-xs">
+                    {s.number ?? "—"}
+                  </div>
                 ),
                 searchValue: (s) => s.number ?? "",
               },

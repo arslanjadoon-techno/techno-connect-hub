@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { AdminGuard, CrudPage } from "@/components/crud-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Search } from "lucide-react";
-import { StatesApi, usersApi } from "@/lib/api/client";
+import { statesService, usersService } from "@/services";
 
 interface StateAssignedUser {
   id: number;
@@ -37,9 +37,9 @@ interface State {
 interface StateFormData {
   name: string;
   symbol: string;
-  email: string;
-  phone: string;
-  managerId: number;
+  email?: string;
+  phone?: string;
+  managerId?: number;
   manager?: string;
 }
 
@@ -58,47 +58,9 @@ export default function StatesPage() {
   const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [isSearchingBackend, setIsSearchingBackend] = useState<boolean>(false);
 
-  // Pre-loaded users list for both Add and Edit modal manager dropdowns
-  const [usersList, setUsersList] = useState<
-    Array<{ id: number; fullName: string; email: string; phone?: string | null }>
-  >([]);
-  const [loadingUsers, setLoadingUsers] = useState<boolean>(false);
-
   // Synchronous atomic locker to prevent simultaneous duplicate fetches
   const lastFetchedKey = useRef<string>("");
   const isFetchingRef = useRef<boolean>(false);
-
-  // Load users list at the page level so it is immediately ready for Add and Edit state modals
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        setLoadingUsers(true);
-        const res = await usersApi.getAll({ page: 0, size: 200 });
-        if (active && res.success && Array.isArray(res.data)) {
-          setUsersList(
-            res.data.map((u: any) => ({
-              id: u.id,
-              fullName:
-                u.fullName ||
-                u.name ||
-                `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
-                `User #${u.id}`,
-              email: u.email || "",
-              phone: u.phone || "",
-            })),
-          );
-        }
-      } catch (err) {
-        console.error("Error loading users for state manager dropdown:", err);
-      } finally {
-        if (active) setLoadingUsers(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
 
   // Debounce search query changes
   useEffect(() => {
@@ -129,11 +91,11 @@ export default function StatesPage() {
       lastFetchedKey.current = currentRequestKey;
 
       const res = trimmedSearch
-        ? await StatesApi.getAll({ search: trimmedSearch })
-        : await StatesApi.getAll({ page: targetPage, size: targetSize });
+        ? await statesService.getAll({ search: trimmedSearch })
+        : await statesService.getAll({ page: targetPage, size: targetSize });
 
       if (res.success) {
-        // EDGE CASE FIX: If current page has no data but database has records, fallback to previous page
+        // Fallback if current page has no data but database has records
         if (
           !trimmedSearch &&
           res.data.length === 0 &&
@@ -182,7 +144,7 @@ export default function StatesPage() {
   const handleDelete = async (s: State) => {
     try {
       setActionLoading(true);
-      const res = await StatesApi.delete(s.id);
+      const res = await statesService.delete(s.id);
       if (res.success) {
         toast.success(res.message || "State deleted successfully");
         lastFetchedKey.current = "";
@@ -197,48 +159,60 @@ export default function StatesPage() {
     }
   };
 
-  // Save/Update Call
-  const handleSave = async (
-    initial: State | null,
-    formData: StateFormData,
-    close: () => void,
-  ) => {
+  // Save/Update Call - Omits managerId, email, and phone if unselected or empty
+  const handleSave = async (initial: State | null, formData: StateFormData, close: () => void) => {
     try {
       setActionLoading(true);
       if (initial) {
-        const payload = {
+        const payload: Record<string, any> = {
           id: initial.id,
-          name: formData.name,
-          symbol: formData.symbol,
-          email: formData.email ?? "",
-          phone: formData.phone ?? "",
-          managerId: Number(formData.managerId) || 0,
+          name: formData.name.trim(),
+          symbol: formData.symbol.trim().toUpperCase(),
         };
-        const res = await StatesApi.update(payload);
+
+        if (formData.email && formData.email.trim()) {
+          payload.email = formData.email.trim();
+        }
+        if (formData.phone && formData.phone.trim()) {
+          payload.phone = formData.phone.trim();
+        }
+        if (formData.managerId && Number(formData.managerId) > 0) {
+          payload.managerId = Number(formData.managerId);
+        }
+
+        const res = await statesService.update(payload as any);
         if (res.success) {
           toast.success(res.message || "State updated successfully");
           lastFetchedKey.current = "";
           fetchStates(page, size, debouncedSearch);
           close();
         } else {
-          toast.error(res.message);
+          toast.error(res.message || "Failed to update state");
         }
       } else {
-        const payload = {
-          name: formData.name,
-          symbol: formData.symbol,
-          email: formData.email ?? "",
-          phone: formData.phone ?? "",
-          managerId: Number(formData.managerId) || 0,
+        const payload: Record<string, any> = {
+          name: formData.name.trim(),
+          symbol: formData.symbol.trim().toUpperCase(),
         };
-        const res = await StatesApi.add(payload);
+
+        if (formData.email && formData.email.trim()) {
+          payload.email = formData.email.trim();
+        }
+        if (formData.phone && formData.phone.trim()) {
+          payload.phone = formData.phone.trim();
+        }
+        if (formData.managerId && Number(formData.managerId) > 0) {
+          payload.managerId = Number(formData.managerId);
+        }
+
+        const res = await statesService.add(payload as any);
         if (res.success) {
           toast.success(res.message || "State added successfully");
           lastFetchedKey.current = "";
           fetchStates(page, size, debouncedSearch);
           close();
         } else {
-          toast.error(res.message);
+          toast.error(res.message || "Failed to create state");
         }
       }
     } catch (err: any) {
@@ -292,15 +266,20 @@ export default function StatesPage() {
             {
               key: "name",
               header: "Name",
-              accessor: (s) => <div className="py-2 text-left font-medium">{s.name}</div>,
+              accessor: (s) => <div className="font-medium py-2 text-left">{s.name}</div>,
               searchValue: (s) => s.name,
             },
             {
               key: "manager",
               header: "Manager",
               accessor: (s) => {
-                const mgr = s.assignedUsers?.[0]?.name || s.manager || "—";
-                return <div className="py-2 text-left font-medium text-foreground">{mgr}</div>;
+                const assigned = s.assignedUsers?.[0];
+                const mgrName = assigned?.name || s.manager || "—";
+                return (
+                  <div className="py-2 text-left text-zinc-800 dark:text-zinc-200 font-medium">
+                    {mgrName}
+                  </div>
+                );
               },
               searchValue: (s) => s.assignedUsers?.[0]?.name || s.manager || "",
             },
@@ -308,15 +287,10 @@ export default function StatesPage() {
               key: "email",
               header: "Email",
               accessor: (s) => {
-                const mail = s.assignedUsers?.[0]?.email || s.email || "—";
+                const assigned = s.assignedUsers?.[0];
+                const mgrEmail = assigned?.email || s.email || "—";
                 return (
-                  <div className="py-2 text-left text-muted-foreground">
-                    {mail !== "—" ? (
-                      <span className="text-foreground/90">{mail}</span>
-                    ) : (
-                      "—"
-                    )}
-                  </div>
+                  <div className="py-2 text-left text-xs text-muted-foreground">{mgrEmail}</div>
                 );
               },
               searchValue: (s) => s.assignedUsers?.[0]?.email || s.email || "",
@@ -325,8 +299,13 @@ export default function StatesPage() {
               key: "phone",
               header: "Phone",
               accessor: (s) => {
-                const ph = s.assignedUsers?.[0]?.phone || s.phone || "—";
-                return <div className="py-2 text-left text-muted-foreground">{ph}</div>;
+                const assigned = s.assignedUsers?.[0];
+                const mgrPhone = assigned?.phone || s.phone || "—";
+                return (
+                  <div className="py-2 text-left text-xs text-zinc-600 dark:text-zinc-400 font-mono">
+                    {mgrPhone}
+                  </div>
+                );
               },
               searchValue: (s) => s.assignedUsers?.[0]?.phone || s.phone || "",
             },
@@ -336,8 +315,6 @@ export default function StatesPage() {
             <StateForm
               initial={initial}
               isSaving={actionLoading}
-              usersList={usersList}
-              loadingUsers={loadingUsers}
               onSave={(formData) => handleSave(initial, formData, close)}
             />
           )}
@@ -350,60 +327,89 @@ export default function StatesPage() {
 interface StateFormProps {
   initial: State | null;
   isSaving: boolean;
-  usersList: Array<{ id: number; fullName: string; email: string; phone?: string | null }>;
-  loadingUsers: boolean;
   onSave: (data: StateFormData) => void;
 }
 
-function StateForm({ initial, isSaving, usersList, loadingUsers, onSave }: StateFormProps) {
+function StateForm({ initial, isSaving, onSave }: StateFormProps) {
+  const initialUser = initial?.assignedUsers?.[0];
   const [name, setName] = useState(initial?.name ?? "");
   const [symbol, setSymbol] = useState(initial?.symbol ?? "");
-  const [managerId, setManagerId] = useState<number>(
-    initial?.assignedUsers?.[0]?.id ?? (initial as any)?.managerId ?? 0,
-  );
-  const [manager, setManager] = useState(
-    initial?.assignedUsers?.[0]?.name ?? initial?.manager ?? "",
-  );
-  const [email, setEmail] = useState(
-    initial?.assignedUsers?.[0]?.email ?? initial?.email ?? "",
-  );
-  const [phone, setPhone] = useState(
-    initial?.assignedUsers?.[0]?.phone ?? initial?.phone ?? "",
-  );
+  const [managerId, setManagerId] = useState<number>(initialUser?.id ?? initial?.managerId ?? 0);
+  const [manager, setManager] = useState<string>(initialUser?.name ?? initial?.manager ?? "");
+  const [email, setEmail] = useState<string>(initialUser?.email ?? initial?.email ?? "");
+  const [phone, setPhone] = useState<string>(initialUser?.phone ?? initial?.phone ?? "");
 
+  const [usersList, setUsersList] = useState<
+    Array<{ id: number; fullName: string; email?: string; phone?: string }>
+  >(
+    initialUser
+      ? [
+          {
+            id: initialUser.id,
+            fullName: initialUser.name,
+            email: initialUser.email || "",
+            phone: initialUser.phone || "",
+          },
+        ]
+      : [],
+  );
+  const [loadingUsers, setLoadingUsers] = useState<boolean>(false);
   const [searchManagerQuery, setSearchManagerQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Ensure initial assigned user is present in the list even if not in the first 200
-  const mergedUsersList = useMemo(() => {
-    if (initial?.assignedUsers?.[0]?.id) {
-      const initUser = initial.assignedUsers[0];
-      const exists = usersList.some((u) => u.id === initUser.id);
-      if (!exists) {
-        return [
-          {
-            id: initUser.id,
-            fullName: initUser.name,
-            email: initUser.email || "",
-            phone: initUser.phone || "",
-          },
-          ...usersList,
-        ];
-      }
-    }
-    return usersList;
-  }, [usersList, initial]);
+  // Debounce the manager search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchManagerQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchManagerQuery]);
 
-  const filteredUsers = useMemo(() => {
-    if (!searchManagerQuery.trim()) return mergedUsersList;
-    const q = searchManagerQuery.toLowerCase().trim();
-    return mergedUsersList.filter(
-      (u) =>
-        u.fullName.toLowerCase().includes(q) ||
-        (u.email || "").toLowerCase().includes(q) ||
-        String(u.id).includes(q),
-    );
-  }, [mergedUsersList, searchManagerQuery]);
+  // Search users via GET /api/users/search?search=...
+  useEffect(() => {
+    let active = true;
+    const fetchUsers = async () => {
+      setLoadingUsers(true);
+      try {
+        const res = await usersService.search({ search: debouncedSearchQuery });
+        if (active && res.success && Array.isArray(res.data)) {
+          const mapped = res.data.map((u: any) => ({
+            id: u.id,
+            fullName:
+              u.fullName ||
+              u.name ||
+              `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
+              `User #${u.id}`,
+            email: u.email || "",
+            phone: u.phone || "",
+          }));
+
+          // Preserve selected initial user so Select displays their name properly
+          if (initialUser && !mapped.some((m) => m.id === initialUser.id)) {
+            mapped.unshift({
+              id: initialUser.id,
+              fullName: initialUser.name,
+              email: initialUser.email || "",
+              phone: initialUser.phone || "",
+            });
+          }
+
+          setUsersList(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to search users for manager dropdown:", err);
+      } finally {
+        if (active) setLoadingUsers(false);
+      }
+    };
+
+    fetchUsers();
+
+    return () => {
+      active = false;
+    };
+  }, [debouncedSearchQuery]);
 
   const handleManagerSelect = (val: string) => {
     const numId = Number(val) || 0;
@@ -411,11 +417,11 @@ function StateForm({ initial, isSaving, usersList, loadingUsers, onSave }: State
     if (numId === 0) {
       setManager("");
     } else {
-      const found = mergedUsersList.find((u) => u.id === numId);
+      const found = usersList.find((u) => u.id === numId);
       if (found) {
         setManager(found.fullName);
-        if (found.email) setEmail(found.email);
-        if (found.phone) setPhone(found.phone);
+        setEmail(found.email || "");
+        setPhone(found.phone || "");
       }
     }
   };
@@ -470,34 +476,38 @@ function StateForm({ initial, isSaving, usersList, loadingUsers, onSave }: State
             />
           </SelectTrigger>
           <SelectContent onKeyDown={(e) => e.stopPropagation()}>
-            {/* Embedded Search Input field */}
+            {/* Embedded Search Input field connected to GET /api/users/search */}
             <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
               <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
               <input
                 ref={searchInputRef}
-                placeholder="Search managers by name or email..."
+                placeholder="Search managers by name, email..."
                 value={searchManagerQuery}
                 onChange={(e) => setSearchManagerQuery(e.target.value)}
                 className="w-full text-xs bg-transparent outline-none h-6"
               />
+              {loadingUsers && (
+                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground ml-1 shrink-0" />
+              )}
             </div>
 
             <SelectItem value="0">
               <span className="text-muted-foreground italic text-xs">None / No Manager</span>
             </SelectItem>
 
-            {filteredUsers.length === 0 ? (
+            {usersList.length === 0 ? (
               <div className="text-xs text-muted-foreground p-2 text-center">
-                {loadingUsers ? "Loading users..." : "No users found"}
+                {loadingUsers ? "Searching users..." : "No users found"}
               </div>
             ) : (
-              filteredUsers.map((u) => (
+              usersList.map((u) => (
                 <SelectItem key={u.id} value={String(u.id)}>
                   <div className="flex flex-col text-left">
                     <span className="font-medium text-xs">{u.fullName}</span>
-                    {u.email && (
-                      <span className="text-[10px] text-muted-foreground">{u.email}</span>
-                    )}
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                      {u.email && <span>{u.email}</span>}
+                      {u.phone && <span>{u.phone}</span>}
+                    </div>
                   </div>
                 </SelectItem>
               ))
@@ -535,9 +545,9 @@ function StateForm({ initial, isSaving, usersList, loadingUsers, onSave }: State
           onSave({
             name: name.trim(),
             symbol: symbol.trim().toUpperCase(),
-            email: email.trim(),
-            phone: phone.trim(),
-            managerId: Number(managerId) || 0,
+            email: email.trim() || undefined,
+            phone: phone.trim() || undefined,
+            managerId: Number(managerId) > 0 ? Number(managerId) : undefined,
             manager: manager.trim() || undefined,
           })
         }

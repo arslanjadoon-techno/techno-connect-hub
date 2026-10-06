@@ -301,9 +301,9 @@ export interface StateQueryParams {
 export interface StatePayload {
   name: string;
   symbol: string;
-  email: string;
-  phone: string;
-  managerId: number;
+  email?: string;
+  phone?: string;
+  managerId?: number;
 }
 
 export const StatesApi = {
