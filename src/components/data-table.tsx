@@ -316,7 +316,7 @@ export function DataTable<T>({
           <Input
             id="table-search-query-input"
             name="search"
-            type="search"
+            type="text"
             autoComplete="off"
             autoCorrect="off"
             autoCapitalize="off"
@@ -341,7 +341,7 @@ export function DataTable<T>({
               setLocalPage(1);
             }}
             placeholder={searchPlaceholder}
-            className="pl-8 pr-8"
+            className="pl-8 pr-8 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
           />
           <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
             {isSearchingProp ? (
