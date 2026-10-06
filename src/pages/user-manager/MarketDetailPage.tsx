@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { marketsService, statesService, usersService, storesService } from "@/services";
+import { marketsService, storesService } from "@/services";
 import type { Market } from "@/lib/api/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
-  Eye,
   Loader2,
   Mail,
   MapPin,
@@ -20,25 +19,8 @@ import {
   ShieldAlert,
   Store,
   User,
+  Users,
 } from "lucide-react";
-
-interface StateInfo {
-  id: number;
-  name: string;
-  symbol?: string;
-  email?: string;
-  phone?: string;
-  managerName?: string;
-  assignedUsers?: Array<{ id: number; name: string; email?: string; phone?: string }>;
-}
-
-interface ManagerInfo {
-  id?: number;
-  name?: string;
-  email?: string;
-  phone?: string;
-  department?: string;
-}
 
 interface StoreItem {
   id: number;
@@ -53,10 +35,7 @@ export default function MarketDetailPage() {
   const navigate = useNavigate();
 
   const [market, setMarket] = useState<Market | null>(null);
-  const [stateDetails, setStateDetails] = useState<StateInfo | null>(null);
-  const [managerDetails, setManagerDetails] = useState<ManagerInfo | null>(null);
   const [associatedStores, setAssociatedStores] = useState<StoreItem[]>([]);
-
   const [loading, setLoading] = useState(true);
 
   const loadMarketData = async () => {
@@ -64,7 +43,7 @@ export default function MarketDetailPage() {
     try {
       setLoading(true);
 
-      // 1. Fetch Market
+      // 1. Fetch Market directly from /api/markets/:id
       const marketRes = await marketsService.get(id);
       if (!marketRes.success || !marketRes.data) {
         toast.error(marketRes.message || "Failed to load market");
@@ -75,72 +54,7 @@ export default function MarketDetailPage() {
       const marketData = marketRes.data;
       setMarket(marketData);
 
-      // 2. Fetch Market Manager Details if assigned
-      const assignedMgr = marketData.assignedUsers?.[0];
-      if (assignedMgr?.id) {
-        try {
-          const userRes = await usersService.get(assignedMgr.id);
-          if (userRes.success && userRes.data) {
-            setManagerDetails({
-              id: userRes.data.id,
-              name: userRes.data.fullName || assignedMgr.name,
-              email: userRes.data.email || assignedMgr.email || "",
-              phone: userRes.data.phone || assignedMgr.phone || "",
-              department: (userRes.data as any).department?.name,
-            });
-          } else {
-            setManagerDetails({
-              id: assignedMgr.id,
-              name: assignedMgr.name,
-              email: assignedMgr.email || marketData.email || "",
-              phone: assignedMgr.phone || marketData.phone || "",
-            });
-          }
-        } catch {
-          setManagerDetails({
-            id: assignedMgr.id,
-            name: assignedMgr.name,
-            email: assignedMgr.email || marketData.email || "",
-            phone: assignedMgr.phone || marketData.phone || "",
-          });
-        }
-      } else if (marketData.manager || marketData.email || marketData.phone) {
-        setManagerDetails({
-          name: marketData.manager || "—",
-          email: marketData.email || "",
-          phone: marketData.phone || "",
-        });
-      } else {
-        setManagerDetails(null);
-      }
-
-      // 3. Fetch Operating State Details & State Manager
-      if (marketData.state?.id) {
-        try {
-          const stateRes = await statesService.get(marketData.state.id);
-          if (stateRes.success && stateRes.data) {
-            const s = stateRes.data;
-            const stateMgr = s.assignedUsers?.[0];
-            setStateDetails({
-              id: s.id,
-              name: s.name,
-              symbol: s.symbol,
-              email: s.email || stateMgr?.email || "",
-              phone: s.phone || stateMgr?.phone || "",
-              managerName: stateMgr?.name || s.manager || "",
-              assignedUsers: s.assignedUsers,
-            });
-          }
-        } catch (err) {
-          console.error("Failed to load state details:", err);
-          setStateDetails({
-            id: marketData.state.id,
-            name: marketData.state.name,
-          });
-        }
-      }
-
-      // 4. Fetch Associated Stores for this market
+      // 2. Fetch Associated Stores for this market
       try {
         const storesRes = await storesService.getAll({ market: marketData.name });
         if (storesRes.success && Array.isArray(storesRes.data)) {
@@ -157,15 +71,10 @@ export default function MarketDetailPage() {
       } catch (err) {
         console.error("Failed to fetch stores for market:", err);
       }
-
-      if (isManualRefresh) {
-        toast.success("Market details refreshed");
-      }
     } catch (err: any) {
       toast.error(err?.message || "Something went wrong loading market");
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   };
 
@@ -218,11 +127,26 @@ export default function MarketDetailPage() {
     );
   }
 
+  // Market Manager extracted strictly from market data
+  const assignedMgr = market.assignedUsers?.[0];
+  const marketManagerName = assignedMgr?.name || (market as any).manager || "—";
+  const marketManagerEmail = (assignedMgr as any)?.email || (market as any).email || "—";
+  const marketManagerPhone = (assignedMgr as any)?.phone || (market as any).phone || "—";
+  const hasMarketManager = marketManagerName !== "—";
+
+  // State Manager extracted strictly from market data (market.state)
+  const stateObj = market.state as any;
+  const stateName = stateObj?.name || "—";
+  const stateManagerName = stateObj?.manager || stateObj?.assignedUsers?.[0]?.name || "—";
+  const stateManagerEmail = stateObj?.email || stateObj?.assignedUsers?.[0]?.email || "—";
+  const stateManagerPhone = stateObj?.phone || stateObj?.assignedUsers?.[0]?.phone || "—";
+  const hasStateManager = stateManagerName !== "—";
+
   const assignedUsersCount = market.assignedUsers?.length ?? 0;
 
   return (
     <div className="w-full space-y-6 pb-12">
-      {/* Top Navigation & Action Header */}
+      {/* Top Navigation Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -251,75 +175,64 @@ export default function MarketDetailPage() {
         </div>
       </div>
 
-      {/* Highlights Summary Row */}
+      {/* Highlights Summary Row - 4 Distinct Soft Background Tints */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* KPI 1: Market Name */}
-        <Card className="shadow-xs border-border/60">
+        {/* KPI 1: Market Name - Soft Blue Tint */}
+        <Card className="shadow-xs bg-blue-50/70 dark:bg-blue-950/20 border-blue-200/60 dark:border-blue-900/40 transition-all hover:shadow-sm">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-              <Building2 className="h-5 w-5 text-primary" />
+            <div className="h-10 w-10 rounded-lg bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+              <Building2 className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+              <p className="text-[11px] font-semibold text-blue-700/80 dark:text-blue-300/80 uppercase tracking-wider">
                 Market Name
               </p>
-              <p className="text-sm font-semibold truncate text-foreground">{market.name}</p>
+              <p className="text-sm font-bold truncate text-foreground mt-0.5">{market.name}</p>
             </div>
           </CardContent>
         </Card>
 
-        {/* KPI 2: Operating State */}
-        <Card className="shadow-xs border-border/60">
+        {/* KPI 2: Operating State - Soft Emerald Tint */}
+        <Card className="shadow-xs bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-900/40 transition-all hover:shadow-sm">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-              <MapPin className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <div className="h-10 w-10 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <MapPin className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+              <p className="text-[11px] font-semibold text-emerald-700/80 dark:text-emerald-300/80 uppercase tracking-wider">
                 Operating State
               </p>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <p className="text-sm font-semibold truncate text-foreground">
-                  {market.state?.name || "Not Assigned"}
-                </p>
-                {stateDetails?.symbol && (
-                  <Badge variant="secondary" className="font-mono text-[10px] px-1.5 py-0 h-4">
-                    {stateDetails.symbol}
-                  </Badge>
-                )}
-              </div>
+              <p className="text-sm font-bold truncate text-foreground mt-0.5">{stateName}</p>
             </div>
           </CardContent>
         </Card>
 
-        {/* KPI 3: Market Manager Status */}
-        <Card className="shadow-xs border-border/60">
+        {/* KPI 3: Market Manager - Soft Purple Tint */}
+        <Card className="shadow-xs bg-purple-50/70 dark:bg-purple-950/20 border-purple-200/60 dark:border-purple-900/40 transition-all hover:shadow-sm">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-              <User className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+            <div className="h-10 w-10 rounded-lg bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
+              <User className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+              <p className="text-[11px] font-semibold text-purple-700/80 dark:text-purple-300/80 uppercase tracking-wider">
                 Market Manager
               </p>
-              <p className="text-sm font-semibold truncate text-foreground">
-                {managerDetails?.name || "Unassigned"}
-              </p>
+              <p className="text-sm font-bold truncate text-foreground mt-0.5">{marketManagerName}</p>
             </div>
           </CardContent>
         </Card>
 
-        {/* KPI 4: Associated Stores */}
-        <Card className="shadow-xs border-border/60">
+        {/* KPI 4: Associated Stores - Soft Amber Tint */}
+        <Card className="shadow-xs bg-amber-50/70 dark:bg-amber-950/20 border-amber-200/60 dark:border-amber-900/40 transition-all hover:shadow-sm">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0">
-              <Store className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            <div className="h-10 w-10 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+              <Store className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+              <p className="text-[11px] font-semibold text-amber-700/80 dark:text-amber-300/80 uppercase tracking-wider">
                 Associated Stores
               </p>
-              <p className="text-sm font-semibold text-foreground">
+              <p className="text-sm font-bold text-foreground mt-0.5">
                 {associatedStores.length} {associatedStores.length === 1 ? "Store" : "Stores"}
               </p>
             </div>
@@ -327,239 +240,198 @@ export default function MarketDetailPage() {
         </Card>
       </div>
 
-      {/* Main 2-Column Detail Cards Grid */}
+      {/* Main 2-Column Detail Cards Grid: Identical Structure for Market Manager & State Manager */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* CARD 1: Market Manager Details */}
-        <Card className="border-border/60 shadow-xs">
-          <CardHeader className="pb-3 border-b bg-muted/20">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                <User className="h-4 w-4 text-primary" /> Market Manager
-              </CardTitle>
-              {managerDetails ? (
+        <Card className="border-border/60 shadow-xs flex flex-col justify-between">
+          <div>
+            <CardHeader className="pb-3 border-b bg-muted/20">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                  <User className="h-4 w-4 text-primary" /> Market Manager
+                </CardTitle>
                 <Badge
                   variant="outline"
-                  className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[11px]"
+                  className={
+                    hasMarketManager
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[11px]"
+                      : "text-muted-foreground text-[11px]"
+                  }
                 >
-                  Assigned
+                  {hasMarketManager ? "Assigned" : "Unassigned"}
                 </Badge>
-              ) : (
-                <Badge variant="outline" className="text-muted-foreground text-[11px]">
-                  Unassigned
-                </Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="p-5 space-y-4">
-            {managerDetails ? (
-              <>
-                <div className="flex items-center gap-3 pb-3 border-b border-border/50">
-                  <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-base uppercase shrink-0">
-                    {managerDetails.name?.slice(0, 2) || "MM"}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-base text-foreground">
-                      {managerDetails.name}
-                    </h3>
-                    {managerDetails.department && (
-                      <p className="text-xs text-muted-foreground">{managerDetails.department}</p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
-                      <Mail className="h-3.5 w-3.5 text-muted-foreground" /> Email Address
-                    </span>
-                    {managerDetails.email ? (
-                      <a
-                        href={`mailto:${managerDetails.email}`}
-                        className="text-xs font-medium text-primary hover:underline block truncate"
-                        title={managerDetails.email}
-                      >
-                        {managerDetails.email}
-                      </a>
-                    ) : (
-                      <p className="text-xs text-muted-foreground italic">No email on record</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
-                      <Phone className="h-3.5 w-3.5 text-muted-foreground" /> Phone Number
-                    </span>
-                    {managerDetails.phone ? (
-                      <a
-                        href={`tel:${managerDetails.phone}`}
-                        className="text-xs font-mono font-medium text-foreground hover:underline block truncate"
-                      >
-                        {managerDetails.phone}
-                      </a>
-                    ) : (
-                      <p className="text-xs text-muted-foreground italic">No phone on record</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Additional Assigned Team Members list if any */}
-                {assignedUsersCount > 1 && (
-                  <div className="pt-3 border-t border-border/50">
-                    <span className="text-[11px] font-medium text-muted-foreground block mb-2">
-                      Additional Assigned Team ({assignedUsersCount - 1})
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {market.assignedUsers?.slice(1).map((u) => (
-                        <Badge
-                          key={u.id}
-                          variant="secondary"
-                          className="text-[11px] font-normal py-0.5"
-                        >
-                          {u.name}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="py-8 text-center space-y-2">
-                <User className="h-8 w-8 text-muted-foreground/40 mx-auto" />
-                <p className="text-xs text-muted-foreground">
-                  No manager currently assigned to this market.
-                </p>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setEditOpen(true)}
-                  className="cursor-pointer text-xs h-8"
-                >
-                  <Pencil className="mr-1.5 h-3 w-3" /> Assign Manager
-                </Button>
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="p-5 space-y-4">
+              {/* Profile Top Row */}
+              <div className="flex items-center gap-3.5 pb-4 border-b border-border/50">
+                <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-base uppercase shrink-0 border border-primary/20">
+                  {hasMarketManager ? marketManagerName.slice(0, 2) : "MM"}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-base text-foreground truncate">
+                    {marketManagerName}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Market: <span className="font-medium text-foreground">{market.name}</span>
+                  </p>
+                </div>
+              </div>
 
-        {/* CARD 2: Operating State & State Manager Details */}
-        <Card className="border-border/60 shadow-xs">
-          <CardHeader className="pb-3 border-b bg-muted/20">
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                <MapPin className="h-4 w-4 text-blue-600 dark:text-blue-400" /> Operating State &
-                Manager
-              </CardTitle>
-              {market.state ? (
-                <Badge
-                  variant="outline"
-                  className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 text-[11px]"
-                >
-                  State Linked
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-muted-foreground text-[11px]">
-                  No State
-                </Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="p-5 space-y-4">
-            {market.state ? (
-              <>
-                <div className="flex items-center justify-between pb-3 border-b border-border/50">
-                  <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-base uppercase shrink-0">
-                      {stateDetails?.symbol || "ST"}
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-base text-foreground">
-                        {stateDetails?.name || market.state.name}
-                      </h3>
-                      <p className="text-xs text-muted-foreground">State ID: {market.state.id}</p>
-                    </div>
-                  </div>
-                  {stateDetails?.symbol && (
-                    <Badge variant="secondary" className="font-mono text-xs px-2.5 py-1">
-                      {stateDetails.symbol}
-                    </Badge>
+              {/* Symmetrical Details Block */}
+              <div className="rounded-lg bg-muted/30 p-3.5 space-y-2.5 border border-border/40">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" /> Manager Name:
+                  </span>
+                  <span className="text-xs font-semibold text-foreground text-right truncate">
+                    {marketManagerName}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground" /> Email Address:
+                  </span>
+                  {marketManagerEmail !== "—" ? (
+                    <a
+                      href={`mailto:${marketManagerEmail}`}
+                      className="text-xs font-medium text-primary hover:underline text-right truncate max-w-[220px]"
+                      title={marketManagerEmail}
+                    >
+                      {marketManagerEmail}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground italic">—</span>
                   )}
                 </div>
 
-                <div className="space-y-3 pt-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-foreground">
-                      State Manager Details
-                    </span>
-                    {stateDetails?.managerName ? (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground" /> Phone Number:
+                  </span>
+                  {marketManagerPhone !== "—" ? (
+                    <a
+                      href={`tel:${marketManagerPhone}`}
+                      className="text-xs font-mono font-medium text-foreground hover:underline text-right"
+                    >
+                      {marketManagerPhone}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground italic">—</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Additional Assigned Team Members list if any */}
+              {assignedUsersCount > 1 && (
+                <div className="pt-2">
+                  <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1 mb-2">
+                    <Users className="h-3 w-3" /> Additional Assigned Team ({assignedUsersCount - 1})
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {market.assignedUsers?.slice(1).map((u) => (
                       <Badge
-                        variant="outline"
-                        className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px]"
+                        key={u.id}
+                        variant="secondary"
+                        className="text-[11px] font-normal py-0.5"
                       >
-                        Active Manager
+                        {u.name}
                       </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-muted-foreground text-[10px]">
-                        Unassigned
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="rounded-lg bg-muted/30 p-3.5 space-y-2.5 border border-border/40">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-muted-foreground">Manager Name:</span>
-                      <span className="text-xs font-semibold text-foreground">
-                        {stateDetails?.managerName || "—"}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                        <Mail className="h-3 w-3" /> Email:
-                      </span>
-                      {stateDetails?.email ? (
-                        <a
-                          href={`mailto:${stateDetails.email}`}
-                          className="text-xs font-medium text-primary hover:underline truncate max-w-[200px]"
-                          title={stateDetails.email}
-                        >
-                          {stateDetails.email}
-                        </a>
-                      ) : (
-                        <span className="text-xs text-muted-foreground italic">—</span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                        <Phone className="h-3 w-3" /> Phone:
-                      </span>
-                      {stateDetails?.phone ? (
-                        <a
-                          href={`tel:${stateDetails.phone}`}
-                          className="text-xs font-mono font-medium text-foreground hover:underline"
-                        >
-                          {stateDetails.phone}
-                        </a>
-                      ) : (
-                        <span className="text-xs text-muted-foreground italic">—</span>
-                      )}
-                    </div>
+                    ))}
                   </div>
                 </div>
-              </>
-            ) : (
-              <div className="py-8 text-center space-y-2">
-                <MapPin className="h-8 w-8 text-muted-foreground/40 mx-auto" />
-                <p className="text-xs text-muted-foreground">
-                  No operating state linked to this market.
-                </p>
+              )}
+            </CardContent>
+          </div>
+        </Card>
+
+        {/* CARD 2: State Manager Details - EXACT SAME STRUCTURE */}
+        <Card className="border-border/60 shadow-xs flex flex-col justify-between">
+          <div>
+            <CardHeader className="pb-3 border-b bg-muted/20">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                  <MapPin className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> State Manager
+                </CardTitle>
+                <Badge
+                  variant="outline"
+                  className={
+                    hasStateManager
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[11px]"
+                      : "text-muted-foreground text-[11px]"
+                  }
+                >
+                  {hasStateManager ? "Assigned" : "Unassigned"}
+                </Badge>
               </div>
-            )}
-          </CardContent>
+            </CardHeader>
+            <CardContent className="p-5 space-y-4">
+              {/* Profile Top Row */}
+              <div className="flex items-center gap-3.5 pb-4 border-b border-border/50">
+                <div className="h-12 w-12 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-base uppercase shrink-0 border border-emerald-500/20">
+                  {hasStateManager ? stateManagerName.slice(0, 2) : "SM"}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-base text-foreground truncate">
+                    {stateManagerName}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    State: <span className="font-medium text-foreground">{stateName}</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Symmetrical Details Block - Matches Market Manager Exactly */}
+              <div className="rounded-lg bg-muted/30 p-3.5 space-y-2.5 border border-border/40">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" /> Manager Name:
+                  </span>
+                  <span className="text-xs font-semibold text-foreground text-right truncate">
+                    {stateManagerName}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground" /> Email Address:
+                  </span>
+                  {stateManagerEmail !== "—" ? (
+                    <a
+                      href={`mailto:${stateManagerEmail}`}
+                      className="text-xs font-medium text-primary hover:underline text-right truncate max-w-[220px]"
+                      title={stateManagerEmail}
+                    >
+                      {stateManagerEmail}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground italic">—</span>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground" /> Phone Number:
+                  </span>
+                  {stateManagerPhone !== "—" ? (
+                    <a
+                      href={`tel:${stateManagerPhone}`}
+                      className="text-xs font-mono font-medium text-foreground hover:underline text-right"
+                    >
+                      {stateManagerPhone}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground italic">—</span>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </div>
         </Card>
       </div>
 
-      {/* CARD 3: Market Metadata & Operational Info */}
+      {/* CARD 3: Market Metadata & System Information */}
       <Card className="border-border/60 shadow-xs">
         <CardHeader className="pb-3 border-b bg-muted/20">
           <CardTitle className="flex items-center gap-2 text-base font-semibold">
@@ -598,8 +470,8 @@ export default function MarketDetailPage() {
           <CardHeader className="pb-3 border-b bg-muted/20">
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                <Store className="h-4 w-4 text-purple-600 dark:text-purple-400" /> Associated Stores
-                ({associatedStores.length})
+                <Store className="h-4 w-4 text-purple-600 dark:text-purple-400" /> Associated Stores (
+                {associatedStores.length})
               </CardTitle>
               <Button
                 variant="ghost"

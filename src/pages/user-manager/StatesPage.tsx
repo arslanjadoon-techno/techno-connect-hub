@@ -546,25 +546,27 @@ function StateForm({ initial, isSaving, onSave }: StateFormProps) {
 
       <div className="space-y-1.5">
         <Label>
-          Email <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+          Email <span className="text-xs text-muted-foreground font-normal">(Auto-populated)</span>
         </Label>
         <Input
           type="email"
           value={email}
-          disabled={isSaving}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="e.g. john.doe@example.com"
+          readOnly
+          tabIndex={-1}
+          placeholder="Auto-populated from manager selection"
+          className="bg-muted/50 text-muted-foreground cursor-not-allowed select-none"
         />
       </div>
       <div className="space-y-1.5">
         <Label>
-          Phone <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+          Phone <span className="text-xs text-muted-foreground font-normal">(Auto-populated)</span>
         </Label>
         <Input
           value={phone}
-          disabled={isSaving}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="e.g. +1 (123) 456-7890"
+          readOnly
+          tabIndex={-1}
+          placeholder="Auto-populated from manager selection"
+          className="bg-muted/50 text-muted-foreground cursor-not-allowed select-none"
         />
       </div>
 
