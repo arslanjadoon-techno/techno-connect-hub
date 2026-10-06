@@ -9,7 +9,15 @@ import {
 } from "react";
 import type { Department, Role, User } from "./types";
 import { ALL_DEPARTMENTS } from "./types";
-import { setToken, setStoredUser, getStoredUser, type BackendUser } from "./api/client";
+import {
+  setToken,
+  setStoredUser,
+  getStoredUser,
+  getStoredPermissions,
+  setStoredPermissions,
+  type BackendUser,
+  type UserPermissionEntry,
+} from "./api/client";
 import { authService } from "@/services/auth";
 
 export type LoginResult =
@@ -34,10 +42,11 @@ export type LoginResult =
 
 interface AuthCtx {
   user: User | null;
+  permissions: UserPermissionEntry[];
   /** Handles all four backend login cases: blocked, bypass-2fa, setup-2fa, verify-2fa. */
   login: (email: string, password: string) => Promise<LoginResult>;
   /** Establish session from a token + backend user (used after 2FA verification). */
-  setSession: (token: string, backendUser: any) => User;
+  setSession: (token: string, backendUser: any, permissions?: UserPermissionEntry[]) => User;
   logout: () => void;
 }
 
@@ -115,6 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const stored = getStoredUser<any>();
     return stored ? mapBackendUser(stored) : null;
   });
+  const [permissions, setPermissions] = useState<UserPermissionEntry[]>(() => getStoredPermissions());
 
   // Keep React state in sync if the stored user changes elsewhere.
   useEffect(() => {
@@ -122,13 +132,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (stored && !user) setUser(mapBackendUser(stored));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const setSession = useCallback((token: string, backendUser: any): User => {
-    setToken(token);
-    setStoredUser(backendUser);
-    const u = mapBackendUser(backendUser);
-    setUser(u);
-    return u;
-  }, []);
+  const setSession = useCallback(
+    (token: string, backendUser: any, newPermissions?: UserPermissionEntry[]): User => {
+      setToken(token);
+      setStoredUser(backendUser);
+      setStoredPermissions(newPermissions ?? []);
+      const u = mapBackendUser(backendUser);
+      setUser(u);
+      setPermissions(newPermissions ?? []);
+      return u;
+    },
+    [],
+  );
 
   const login = useCallback(
     async (email: string, password: string): Promise<LoginResult> => {
@@ -162,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Case 3: 2FA Bypassed (Direct Login)
       if (d.token) {
-        const user = setSession(d.token as string, d.user);
+        const user = setSession(d.token as string, d.user, d.permissions ?? []);
         return { kind: "authenticated", user };
       }
 
@@ -174,12 +189,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setToken(null);
     setStoredUser(null);
+    setStoredPermissions(null);
     setUser(null);
+    setPermissions([]);
   }, []);
 
   const value = useMemo(
-    () => ({ user, login, setSession, logout }),
-    [user, login, setSession, logout],
+    () => ({ user, permissions, login, setSession, logout }),
+    [user, permissions, login, setSession, logout],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

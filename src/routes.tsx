@@ -3,6 +3,7 @@ import { useAuth } from "@/lib/auth";
 import { type ReactNode } from "react";
 import { RankerUserAccessModal } from "@/components/ranker/RankerUserAccessModal";
 import { useRankerAuth } from "@/services/portals/ranker/ranker-auth";
+import { getStoredPermissions } from "@/lib/api/client";
 
 // ---------- Authentication ---------- //
 import AppLayout from "@/pages/shell/AppLayout";
@@ -230,6 +231,14 @@ function PortalRouteGuard({ portalKey, children }: { portalKey: string; children
   return <>{children}</>;
 }
 
+/** Blocks direct navigation to a page whose "show_*" permission resolves to "hide". */
+function PermissionRouteGuard({ permKey, children }: { permKey: string; children: ReactNode }) {
+  const entry = getStoredPermissions().find((p) => p.permissionKey === permKey);
+  const isAllowed = (entry?.accessLevel ?? "hide") !== "hide";
+  if (!isAllowed) return <Navigate to="/ai-chat" replace />;
+  return <>{children}</>;
+}
+
 function RankerPortalGuard() {
   const auth = useRankerAuth();
   return (
@@ -374,7 +383,9 @@ export function AppRoutes() {
           path="/lease/dashboard"
           element={
             <PortalRouteGuard portalKey="leasing">
-              <LeasingDashboardPage />
+              <PermissionRouteGuard permKey="leasing.show_leasing_dashboard">
+                <LeasingDashboardPage />
+              </PermissionRouteGuard>
             </PortalRouteGuard>
           }
         />
@@ -382,7 +393,9 @@ export function AppRoutes() {
           path="/leasing/dashboard"
           element={
             <PortalRouteGuard portalKey="leasing">
-              <LeasingDashboardPage />
+              <PermissionRouteGuard permKey="leasing.show_leasing_dashboard">
+                <LeasingDashboardPage />
+              </PermissionRouteGuard>
             </PortalRouteGuard>
           }
         />
@@ -390,7 +403,9 @@ export function AppRoutes() {
           path="/leasing/leasing-view"
           element={
             <PortalRouteGuard portalKey="leasing">
-              <LeasingViewPage />
+              <PermissionRouteGuard permKey="leasing.show_leasing_view">
+                <LeasingViewPage />
+              </PermissionRouteGuard>
             </PortalRouteGuard>
           }
         />
@@ -398,7 +413,9 @@ export function AppRoutes() {
           path="/leasing/manage-rent-payment-list"
           element={
             <PortalRouteGuard portalKey="leasing">
-              <ManageRentPaymentListPage />
+              <PermissionRouteGuard permKey="leasing.show_rentpayment_list">
+                <ManageRentPaymentListPage />
+              </PermissionRouteGuard>
             </PortalRouteGuard>
           }
         />
@@ -406,7 +423,9 @@ export function AppRoutes() {
           path="/leasing/manage-rent-payment-agreement"
           element={
             <PortalRouteGuard portalKey="leasing">
-              <ManageRentPaymentAgreementPage />
+              <PermissionRouteGuard permKey="leasing.show_rent_agreement">
+                <ManageRentPaymentAgreementPage />
+              </PermissionRouteGuard>
             </PortalRouteGuard>
           }
         />
@@ -414,7 +433,9 @@ export function AppRoutes() {
           path="/leasing/rent-agreement-to-monthly-rent"
           element={
             <PortalRouteGuard portalKey="leasing">
-              <RentAgreement2MonthlyRentPage />
+              <PermissionRouteGuard permKey="leasing.show_rent_agreement_table">
+                <RentAgreement2MonthlyRentPage />
+              </PermissionRouteGuard>
             </PortalRouteGuard>
           }
         />
@@ -422,7 +443,9 @@ export function AppRoutes() {
           path="/leasing/lease-monitor/next-month-rent-change"
           element={
             <PortalRouteGuard portalKey="leasing">
-              <UpcomingRentChangesPage />
+              <PermissionRouteGuard permKey="leasing.show_lease_monitor">
+                <UpcomingRentChangesPage />
+              </PermissionRouteGuard>
             </PortalRouteGuard>
           }
         />
@@ -430,7 +453,9 @@ export function AppRoutes() {
           path="/leasing/lease-monitor/lease-expiry-breakdown"
           element={
             <PortalRouteGuard portalKey="leasing">
-              <LeaseExpiryBreakdownPage />
+              <PermissionRouteGuard permKey="leasing.show_lease_monitor">
+                <LeaseExpiryBreakdownPage />
+              </PermissionRouteGuard>
             </PortalRouteGuard>
           }
         />
@@ -438,7 +463,9 @@ export function AppRoutes() {
           path="/leasing/reports"
           element={
             <PortalRouteGuard portalKey="leasing">
-              <LeasingReportsPage />
+              <PermissionRouteGuard permKey="leasing.show_leasing_reports">
+                <LeasingReportsPage />
+              </PermissionRouteGuard>
             </PortalRouteGuard>
           }
         />
@@ -446,7 +473,9 @@ export function AppRoutes() {
           path="/leasing/bulk-upload/rent"
           element={
             <PortalRouteGuard portalKey="leasing">
-              <BulkUploadRentPage />
+              <PermissionRouteGuard permKey="leasing.show_leasing_bulk_upload">
+                <BulkUploadRentPage />
+              </PermissionRouteGuard>
             </PortalRouteGuard>
           }
         />
@@ -454,7 +483,9 @@ export function AppRoutes() {
           path="/leasing/bulk-upload/accounting"
           element={
             <PortalRouteGuard portalKey="leasing">
-              <BulkUploadAccountingPage />
+              <PermissionRouteGuard permKey="leasing.show_leasing_bulk_upload">
+                <BulkUploadAccountingPage />
+              </PermissionRouteGuard>
             </PortalRouteGuard>
           }
         />
@@ -462,7 +493,9 @@ export function AppRoutes() {
           path="/leasing/bulk-upload/lease-details"
           element={
             <PortalRouteGuard portalKey="leasing">
-              <BulkUploadLeaseDetailsPage />
+              <PermissionRouteGuard permKey="leasing.show_leasing_bulk_upload">
+                <BulkUploadLeaseDetailsPage />
+              </PermissionRouteGuard>
             </PortalRouteGuard>
           }
         />
@@ -470,7 +503,9 @@ export function AppRoutes() {
           path="/leasing/manage-leasing"
           element={
             <PortalRouteGuard portalKey="leasing">
-              <ManageLeasingPage />
+              <PermissionRouteGuard permKey="leasing.show_manage_leasing">
+                <ManageLeasingPage />
+              </PermissionRouteGuard>
             </PortalRouteGuard>
           }
         />
@@ -478,7 +513,9 @@ export function AppRoutes() {
           path="/leasing/leasing-detail/:techId"
           element={
             <PortalRouteGuard portalKey="leasing">
-              <LeasingDetailedPage />
+              <PermissionRouteGuard permKey="leasing.show_leasing_detail">
+                <LeasingDetailedPage />
+              </PermissionRouteGuard>
             </PortalRouteGuard>
           }
         />

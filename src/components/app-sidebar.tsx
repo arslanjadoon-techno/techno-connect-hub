@@ -68,6 +68,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
+import { LEASING_PAGE_PERMISSION_KEYS } from "@/lib/leasing-permissions";
 
 type SubItem = { title: string; url: string; icon?: any };
 type Item = { title: string; url: string; icon: any; children?: SubItem[] };
@@ -414,7 +415,7 @@ function formatRoleName(roleStr: string): string {
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-  const { user: authUser, logout } = useAuth();
+  const { user: authUser, logout, permissions } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const pathname = useLocation().pathname;
@@ -521,7 +522,28 @@ export function AppSidebar() {
     return access?.roleName?.toLowerCase() ?? "";
   };
 
+  const leasingShowKeyAllows = (url: string): boolean => {
+    const permKey = LEASING_PAGE_PERMISSION_KEYS[url];
+    if (!permKey) return true;
+    const entry = permissions.find((p) => p.permissionKey === permKey);
+    return (entry?.accessLevel ?? "hide") !== "hide";
+  };
+
   const filterMasterGroup = (key: string, master: Group): Group => {
+    if (key === "leasing") {
+      const items = master.items
+        .map((item): Item | null => {
+          if (item.children) {
+            const children = item.children.filter((c) => leasingShowKeyAllows(c.url));
+            if (children.length === 0) return null;
+            return { ...item, children, url: children[0].url };
+          }
+          return leasingShowKeyAllows(item.url) ? item : null;
+        })
+        .filter((i): i is Item => i !== null);
+      return { ...master, items };
+    }
+
     // Commission Dashboard only visible to admin role in commission portal
     if (key === "commission") {
       const roleInCommission = getPortalRole("commission");
