@@ -3,15 +3,8 @@ import { AdminGuard, CrudPage } from "@/components/crud-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
 import { statesService, usersService } from "@/services";
 
 interface StateAssignedUser {
@@ -37,9 +30,9 @@ interface State {
 interface StateFormData {
   name: string;
   symbol: string;
-  email?: string;
-  phone?: string;
-  managerId?: number;
+  email?: string | null;
+  phone?: string | null;
+  managerId?: number | null;
   manager?: string;
 }
 
@@ -159,26 +152,27 @@ export default function StatesPage() {
     }
   };
 
-  // Save/Update Call - Omits managerId, email, and phone if unselected or empty
+  // Save/Update Call - Sets managerId, email, and phone to null if no manager is selected or if removed
   const handleSave = async (initial: State | null, formData: StateFormData, close: () => void) => {
     try {
       setActionLoading(true);
+      const isManagerSelected = formData.managerId && Number(formData.managerId) > 0;
+
       if (initial) {
         const payload: Record<string, any> = {
           id: initial.id,
           name: formData.name.trim(),
           symbol: formData.symbol.trim().toUpperCase(),
+          managerId: isManagerSelected ? Number(formData.managerId) : null,
+          email:
+            isManagerSelected && formData.email && formData.email.trim()
+              ? formData.email.trim()
+              : null,
+          phone:
+            isManagerSelected && formData.phone && formData.phone.trim()
+              ? formData.phone.trim()
+              : null,
         };
-
-        if (formData.email && formData.email.trim()) {
-          payload.email = formData.email.trim();
-        }
-        if (formData.phone && formData.phone.trim()) {
-          payload.phone = formData.phone.trim();
-        }
-        if (formData.managerId && Number(formData.managerId) > 0) {
-          payload.managerId = Number(formData.managerId);
-        }
 
         const res = await statesService.update(payload as any);
         if (res.success) {
@@ -193,17 +187,16 @@ export default function StatesPage() {
         const payload: Record<string, any> = {
           name: formData.name.trim(),
           symbol: formData.symbol.trim().toUpperCase(),
+          managerId: isManagerSelected ? Number(formData.managerId) : null,
+          email:
+            isManagerSelected && formData.email && formData.email.trim()
+              ? formData.email.trim()
+              : null,
+          phone:
+            isManagerSelected && formData.phone && formData.phone.trim()
+              ? formData.phone.trim()
+              : null,
         };
-
-        if (formData.email && formData.email.trim()) {
-          payload.email = formData.email.trim();
-        }
-        if (formData.phone && formData.phone.trim()) {
-          payload.phone = formData.phone.trim();
-        }
-        if (formData.managerId && Number(formData.managerId) > 0) {
-          payload.managerId = Number(formData.managerId);
-        }
 
         const res = await statesService.add(payload as any);
         if (res.success) {
@@ -334,42 +327,47 @@ function StateForm({ initial, isSaving, onSave }: StateFormProps) {
   const initialUser = initial?.assignedUsers?.[0];
   const [name, setName] = useState(initial?.name ?? "");
   const [symbol, setSymbol] = useState(initial?.symbol ?? "");
-  const [managerId, setManagerId] = useState<number>(initialUser?.id ?? initial?.managerId ?? 0);
+  const [managerId, setManagerId] = useState<number | null>(
+    initialUser?.id ?? (initial?.managerId && initial.managerId > 0 ? initial.managerId : null),
+  );
   const [manager, setManager] = useState<string>(initialUser?.name ?? initial?.manager ?? "");
   const [email, setEmail] = useState<string>(initialUser?.email ?? initial?.email ?? "");
   const [phone, setPhone] = useState<string>(initialUser?.phone ?? initial?.phone ?? "");
 
-  const [usersList, setUsersList] = useState<
-    Array<{ id: number; fullName: string; email?: string; phone?: string }>
-  >(
-    initialUser
-      ? [
-          {
-            id: initialUser.id,
-            fullName: initialUser.name,
-            email: initialUser.email || "",
-            phone: initialUser.phone || "",
-          },
-        ]
-      : [],
-  );
-  const [loadingUsers, setLoadingUsers] = useState<boolean>(false);
-  const [searchManagerQuery, setSearchManagerQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [searchResults, setSearchResults] = useState<
+    Array<{ id: number; fullName: string; email?: string; phone?: string }>
+  >([]);
+  const [loadingUsers, setLoadingUsers] = useState<boolean>(false);
+  const [isOpen, setIsOpen] = useState(false);
 
-  // Debounce the manager search query
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Close search results dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Debounce the search query
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchManagerQuery.trim());
+      setDebouncedSearchQuery(searchQuery.trim());
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchManagerQuery]);
+  }, [searchQuery]);
 
   // Search users via GET /api/users/search?search=...
   useEffect(() => {
     let active = true;
     const fetchUsers = async () => {
+      if (!isOpen && !debouncedSearchQuery) return;
       setLoadingUsers(true);
       try {
         const res = await usersService.search({ search: debouncedSearchQuery });
@@ -384,21 +382,10 @@ function StateForm({ initial, isSaving, onSave }: StateFormProps) {
             email: u.email || "",
             phone: u.phone || "",
           }));
-
-          // Preserve selected initial user so Select displays their name properly
-          if (initialUser && !mapped.some((m) => m.id === initialUser.id)) {
-            mapped.unshift({
-              id: initialUser.id,
-              fullName: initialUser.name,
-              email: initialUser.email || "",
-              phone: initialUser.phone || "",
-            });
-          }
-
-          setUsersList(mapped);
+          setSearchResults(mapped);
         }
       } catch (err) {
-        console.error("Failed to search users for manager dropdown:", err);
+        console.error("Failed to search users:", err);
       } finally {
         if (active) setLoadingUsers(false);
       }
@@ -409,21 +396,30 @@ function StateForm({ initial, isSaving, onSave }: StateFormProps) {
     return () => {
       active = false;
     };
-  }, [debouncedSearchQuery]);
+  }, [debouncedSearchQuery, isOpen]);
 
-  const handleManagerSelect = (val: string) => {
-    const numId = Number(val) || 0;
-    setManagerId(numId);
-    if (numId === 0) {
-      setManager("");
-    } else {
-      const found = usersList.find((u) => u.id === numId);
-      if (found) {
-        setManager(found.fullName);
-        setEmail(found.email || "");
-        setPhone(found.phone || "");
-      }
-    }
+  // When a user is selected from the searchbox results
+  const handleSelectUser = (user: {
+    id: number;
+    fullName: string;
+    email?: string;
+    phone?: string;
+  }) => {
+    setManagerId(user.id);
+    setManager(user.fullName);
+    setEmail(user.email || "");
+    setPhone(user.phone || "");
+    setSearchQuery("");
+    setIsOpen(false);
+  };
+
+  // When the manager is removed: automatically clear managerId, email, and phone
+  const handleRemoveManager = () => {
+    setManagerId(null);
+    setManager("");
+    setEmail("");
+    setPhone("");
+    setSearchQuery("");
   };
 
   return (
@@ -453,68 +449,101 @@ function StateForm({ initial, isSaving, onSave }: StateFormProps) {
           required
         />
       </div>
+
+      {/* MANAGER SEARCHBOX SECTION */}
       <div className="space-y-1.5">
-        <Label>
-          Manager <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
-        </Label>
-        <Select
-          value={String(managerId)}
-          onValueChange={handleManagerSelect}
-          disabled={isSaving}
-          onOpenChange={(open) => {
-            if (!open) setSearchManagerQuery("");
-            else setTimeout(() => searchInputRef.current?.focus(), 100);
-          }}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue
-              placeholder={
-                loadingUsers && usersList.length === 0
-                  ? "Loading users..."
-                  : "Select Manager (Optional)"
-              }
-            />
-          </SelectTrigger>
-          <SelectContent onKeyDown={(e) => e.stopPropagation()}>
-            {/* Embedded Search Input field connected to GET /api/users/search */}
-            <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
-              <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
-              <input
-                ref={searchInputRef}
-                placeholder="Search managers by name, email..."
-                value={searchManagerQuery}
-                onChange={(e) => setSearchManagerQuery(e.target.value)}
-                className="w-full text-xs bg-transparent outline-none h-6"
+        <div className="flex items-center justify-between">
+          <Label>
+            Manager <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+          </Label>
+          {managerId ? (
+            <button
+              type="button"
+              onClick={handleRemoveManager}
+              disabled={isSaving}
+              className="text-xs text-destructive hover:underline cursor-pointer flex items-center gap-1 font-medium"
+            >
+              <X className="h-3 w-3" /> Remove manager
+            </button>
+          ) : null}
+        </div>
+
+        {managerId ? (
+          /* Selected Manager display card */
+          <div className="flex items-center justify-between rounded-md border border-input bg-muted/40 px-3 py-2.5">
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-xs text-foreground truncate">{manager}</span>
+                <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium px-1.5 py-0.5 rounded">
+                  Assigned
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+                {email ? <span>{email}</span> : <span className="italic">No email</span>}
+                {phone ? <span>• {phone}</span> : null}
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={isSaving}
+              onClick={handleRemoveManager}
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full cursor-pointer shrink-0 ml-2"
+              title="Remove manager"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          /* Interactive Search Box */
+          <div className="relative" ref={searchContainerRef}>
+            <div className="relative flex items-center">
+              <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                value={searchQuery}
+                disabled={isSaving}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setIsOpen(true);
+                }}
+                onFocus={() => setIsOpen(true)}
+                placeholder="Search user by name, email to assign as manager..."
+                className="pl-9 pr-9"
               />
               {loadingUsers && (
-                <Loader2 className="h-3 w-3 animate-spin text-muted-foreground ml-1 shrink-0" />
+                <Loader2 className="absolute right-3 h-4 w-4 animate-spin text-muted-foreground pointer-events-none" />
               )}
             </div>
 
-            <SelectItem value="0">
-              <span className="text-muted-foreground italic text-xs">None / No Manager</span>
-            </SelectItem>
-
-            {usersList.length === 0 ? (
-              <div className="text-xs text-muted-foreground p-2 text-center">
-                {loadingUsers ? "Searching users..." : "No users found"}
-              </div>
-            ) : (
-              usersList.map((u) => (
-                <SelectItem key={u.id} value={String(u.id)}>
-                  <div className="flex flex-col text-left">
-                    <span className="font-medium text-xs">{u.fullName}</span>
-                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                      {u.email && <span>{u.email}</span>}
-                      {u.phone && <span>{u.phone}</span>}
-                    </div>
+            {/* Dropdown list of matching users */}
+            {isOpen && (
+              <div className="absolute top-full left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-lg z-50 py-1">
+                {searchResults.length === 0 ? (
+                  <div className="py-4 text-center text-xs text-muted-foreground">
+                    {loadingUsers ? "Searching users..." : "No users found"}
                   </div>
-                </SelectItem>
-              ))
+                ) : (
+                  searchResults.map((user) => (
+                    <div
+                      key={user.id}
+                      onClick={() => handleSelectUser(user)}
+                      className="flex flex-col px-3 py-2 text-xs hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors border-b last:border-b-0 border-border/40"
+                    >
+                      <span className="font-semibold">{user.fullName}</span>
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+                        {user.email && <span>{user.email}</span>}
+                        {user.phone && <span>• {user.phone}</span>}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             )}
-          </SelectContent>
-        </Select>
+          </div>
+        )}
       </div>
+
       <div className="space-y-1.5">
         <Label>
           Email <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
@@ -538,6 +567,7 @@ function StateForm({ initial, isSaving, onSave }: StateFormProps) {
           placeholder="e.g. +1 (123) 456-7890"
         />
       </div>
+
       <Button
         className="w-full flex items-center justify-center gap-2 cursor-pointer"
         disabled={!name.trim() || !symbol.trim() || isSaving}
@@ -545,9 +575,9 @@ function StateForm({ initial, isSaving, onSave }: StateFormProps) {
           onSave({
             name: name.trim(),
             symbol: symbol.trim().toUpperCase(),
-            email: email.trim() || undefined,
-            phone: phone.trim() || undefined,
-            managerId: Number(managerId) > 0 ? Number(managerId) : undefined,
+            email: email.trim() || null,
+            phone: phone.trim() || null,
+            managerId: managerId && Number(managerId) > 0 ? Number(managerId) : null,
             manager: manager.trim() || undefined,
           })
         }
