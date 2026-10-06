@@ -549,7 +549,7 @@ function MarketForm({ initial, states, isSaving, onSave }: MarketFormProps) {
         </Label>
         <Select
           value={stateId}
-          disabled={isSaving || !!initial}
+          disabled={isSaving}
           onValueChange={setStateId}
           onOpenChange={(open) => {
             if (!open) setStateSearch("");

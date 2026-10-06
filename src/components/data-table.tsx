@@ -341,7 +341,7 @@ export function DataTable<T>({
               setLocalPage(1);
             }}
             placeholder={searchPlaceholder}
-            className="pl-8 pr-8 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
+            className="pl-8 pr-8 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden [&::-ms-clear]:hidden [&::-ms-reveal]:hidden"
           />
           <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
             {isSearchingProp ? (

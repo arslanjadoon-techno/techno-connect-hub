@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   ArrowLeft,
   Building2,
@@ -17,24 +16,11 @@ import {
   Loader2,
   Mail,
   MapPin,
-  Pencil,
   Phone,
-  RefreshCw,
-  Search,
   ShieldAlert,
   Store,
   User,
-  X,
 } from "lucide-react";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 interface StateInfo {
   id: number;
@@ -72,18 +58,11 @@ export default function MarketDetailPage() {
   const [associatedStores, setAssociatedStores] = useState<StoreItem[]>([]);
 
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
 
-  // States for Edit dialog
-  const [statesList, setStatesList] = useState<Array<{ id: number; name: string }>>([]);
-
-  const loadMarketData = async (isManualRefresh = false) => {
+  const loadMarketData = async () => {
     if (!id) return;
     try {
-      if (isManualRefresh) setRefreshing(true);
-      else setLoading(true);
+      setLoading(true);
 
       // 1. Fetch Market
       const marketRes = await marketsService.get(id);
@@ -194,21 +173,6 @@ export default function MarketDetailPage() {
     loadMarketData();
   }, [id]);
 
-  // Load states for edit modal
-  useEffect(() => {
-    if (!editOpen) return;
-    (async () => {
-      try {
-        const res = await statesService.getAll();
-        if (res.success && Array.isArray(res.data)) {
-          setStatesList(res.data.map((s) => ({ id: s.id, name: s.name })));
-        }
-      } catch (err) {
-        console.error("Failed to fetch states list:", err);
-      }
-    })();
-  }, [editOpen]);
-
   const formatDate = (isoString?: string) => {
     if (!isoString) return "—";
     try {
@@ -284,26 +248,6 @@ export default function MarketDetailPage() {
               <CheckCircle2 className="mr-1 h-3 w-3" /> Active Market
             </Badge>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => loadMarketData(true)}
-            disabled={refreshing}
-            className="cursor-pointer h-9 text-xs"
-          >
-            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => setEditOpen(true)}
-            className="cursor-pointer h-9 text-xs flex items-center gap-1.5"
-          >
-            <Pencil className="h-3.5 w-3.5" /> Edit Market
-          </Button>
         </div>
       </div>
 
@@ -698,315 +642,6 @@ export default function MarketDetailPage() {
           </CardContent>
         </Card>
       )}
-
-      {/* EDIT MARKET INLINE DIALOG */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Market Details</DialogTitle>
-          </DialogHeader>
-          {market && (
-            <MarketDetailEditForm
-              market={market}
-              states={statesList}
-              isSaving={actionLoading}
-              onClose={() => setEditOpen(false)}
-              onSaved={() => {
-                setEditOpen(false);
-                loadMarketData(true);
-              }}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-// ----------------------------------------------------------------------
-// INLINE EDIT FORM FOR MARKET DETAIL
-// ----------------------------------------------------------------------
-
-interface MarketDetailEditFormProps {
-  market: Market;
-  states: Array<{ id: number; name: string }>;
-  isSaving: boolean;
-  onClose: () => void;
-  onSaved: () => void;
-}
-
-function MarketDetailEditForm({
-  market,
-  states,
-  isSaving: parentSaving,
-  onClose,
-  onSaved,
-}: MarketDetailEditFormProps) {
-  const initialUser = market.assignedUsers?.[0];
-  const [name, setName] = useState(market.name);
-  const [stateId, setStateId] = useState(market.state?.id?.toString() || "");
-
-  const [managerId, setManagerId] = useState<number | null>(
-    initialUser?.id ?? (market.managerId && market.managerId > 0 ? market.managerId : null),
-  );
-  const [manager, setManager] = useState<string>(initialUser?.name ?? market.manager ?? "");
-  const [email, setEmail] = useState<string>(initialUser?.email ?? market.email ?? "");
-  const [phone, setPhone] = useState<string>(initialUser?.phone ?? market.phone ?? "");
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<
-    Array<{ id: number; fullName: string; email?: string; phone?: string }>
-  >([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const searchContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery.trim());
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  useEffect(() => {
-    let active = true;
-    const fetchUsers = async () => {
-      if (!isOpen && !debouncedSearchQuery) return;
-      setLoadingUsers(true);
-      try {
-        const res = await usersService.search({ search: debouncedSearchQuery });
-        if (active && res.success && Array.isArray(res.data)) {
-          setSearchResults(
-            res.data.map((u: any) => ({
-              id: u.id,
-              fullName:
-                u.fullName ||
-                u.name ||
-                `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
-                `User #${u.id}`,
-              email: u.email || "",
-              phone: u.phone || "",
-            })),
-          );
-        }
-      } catch (err) {
-        console.error("Failed to search users:", err);
-      } finally {
-        if (active) setLoadingUsers(false);
-      }
-    };
-    fetchUsers();
-    return () => {
-      active = false;
-    };
-  }, [debouncedSearchQuery, isOpen]);
-
-  const handleSelectUser = (user: {
-    id: number;
-    fullName: string;
-    email?: string;
-    phone?: string;
-  }) => {
-    setManagerId(user.id);
-    setManager(user.fullName);
-    setEmail(user.email || "");
-    setPhone(user.phone || "");
-    setSearchQuery("");
-    setIsOpen(false);
-  };
-
-  const handleRemoveManager = () => {
-    setManagerId(null);
-    setManager("");
-    setEmail("");
-    setPhone("");
-    setSearchQuery("");
-  };
-
-  const handleUpdate = async () => {
-    try {
-      setSaving(true);
-      const isManagerSelected = managerId && Number(managerId) > 0;
-      const payload = {
-        id: market.id,
-        name: name.trim(),
-        stateId: stateId ? Number(stateId) : market.state?.id || 0,
-        districtId: market.district?.id,
-        managerId: isManagerSelected ? Number(managerId) : null,
-        email: isManagerSelected && email && email.trim() ? email.trim() : null,
-        phone: isManagerSelected && phone && phone.trim() ? phone.trim() : null,
-      };
-
-      const res = await marketsService.update(payload);
-      if (res.success) {
-        toast.success(res.message || "Market updated successfully");
-        onSaved();
-      } else {
-        toast.error(res.message || "Failed to update market");
-      }
-    } catch (err: any) {
-      toast.error(err?.message || "Operation failed");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const isSaving = saving || parentSaving;
-
-  return (
-    <div className="space-y-4 pt-2">
-      <div className="space-y-1.5">
-        <Label>Market Name</Label>
-        <Input
-          value={name}
-          disabled={isSaving}
-          onChange={(e) => setName(e.target.value)}
-          required
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label>Operating State</Label>
-        <Select value={stateId} onValueChange={setStateId} disabled={isSaving}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select State" />
-          </SelectTrigger>
-          <SelectContent>
-            {states.map((s) => (
-              <SelectItem key={s.id} value={s.id.toString()}>
-                {s.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* MANAGER SEARCHBOX */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <Label>Manager (Optional)</Label>
-          {managerId && (
-            <button
-              type="button"
-              onClick={handleRemoveManager}
-              disabled={isSaving}
-              className="text-xs text-destructive hover:underline cursor-pointer flex items-center gap-1 font-medium"
-            >
-              <X className="h-3 w-3" /> Remove manager
-            </button>
-          )}
-        </div>
-
-        {managerId ? (
-          <div className="flex items-center justify-between rounded-md border border-input bg-muted/40 px-3 py-2">
-            <div className="flex flex-col min-w-0">
-              <span className="font-semibold text-xs text-foreground truncate">{manager}</span>
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-                {email ? <span>{email}</span> : <span className="italic">No email</span>}
-                {phone && <span>• {phone}</span>}
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={isSaving}
-              onClick={handleRemoveManager}
-              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full cursor-pointer ml-2"
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ) : (
-          <div className="relative" ref={searchContainerRef}>
-            <div className="relative flex items-center">
-              <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
-              <Input
-                value={searchQuery}
-                disabled={isSaving}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setIsOpen(true);
-                }}
-                onFocus={() => setIsOpen(true)}
-                placeholder="Search user to assign as manager..."
-                className="pl-9 pr-9"
-              />
-              {loadingUsers && (
-                <Loader2 className="absolute right-3 h-4 w-4 animate-spin text-muted-foreground pointer-events-none" />
-              )}
-            </div>
-
-            {isOpen && (
-              <div className="absolute top-full left-0 right-0 mt-1 max-h-56 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-lg z-50 py-1">
-                {searchResults.length === 0 ? (
-                  <div className="py-4 text-center text-xs text-muted-foreground">
-                    {loadingUsers ? "Searching users..." : "No users found"}
-                  </div>
-                ) : (
-                  searchResults.map((user) => (
-                    <div
-                      key={user.id}
-                      onClick={() => handleSelectUser(user)}
-                      className="flex flex-col px-3 py-2 text-xs hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors border-b last:border-b-0 border-border/40"
-                    >
-                      <span className="font-semibold">{user.fullName}</span>
-                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-                        {user.email && <span>{user.email}</span>}
-                        {user.phone && <span>• {user.phone}</span>}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-1.5">
-        <Label>Manager Email (Optional)</Label>
-        <Input
-          type="email"
-          value={email}
-          disabled={isSaving}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="e.g. manager@email.com"
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label>Manager Phone (Optional)</Label>
-        <Input
-          value={phone}
-          disabled={isSaving}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="e.g. +1 234 567 8900"
-        />
-      </div>
-
-      <div className="flex items-center justify-end gap-2 pt-2">
-        <Button variant="outline" type="button" onClick={onClose} disabled={isSaving}>
-          Cancel
-        </Button>
-        <Button type="button" onClick={handleUpdate} disabled={!name.trim() || isSaving}>
-          {isSaving && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-          Save Changes
-        </Button>
-      </div>
     </div>
   );
 }
