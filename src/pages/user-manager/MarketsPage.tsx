@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { AdminGuard, CrudPage } from "@/components/crud-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Search, X, XCircle } from "lucide-react";
+import { Eye, Loader2, Search, X, XCircle } from "lucide-react";
 import { marketsService, statesService, usersService, districtsService } from "@/services";
 import type { Market } from "@/lib/api/client";
 
@@ -41,6 +42,7 @@ interface MarketFormData {
 }
 
 export default function MarketsPage() {
+  const navigate = useNavigate();
   const [markets, setMarkets] = useState<Market[]>([]);
   const [states, setStates] = useState<State[]>([]);
   const [districtsList, setDistrictsList] = useState<District[]>([]);
@@ -380,6 +382,17 @@ export default function MarketsPage() {
                 searchValue: (m) => m.assignedUsers?.[0]?.phone || m.phone || "",
               },
             ]}
+            extraRowActions={(m) => (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer"
+                title="View Market Details"
+                onClick={() => navigate(`/admin/markets/${m.id}`)}
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            )}
             onDelete={handleDelete}
             renderForm={(initial, close) => (
               <MarketForm

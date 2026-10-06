@@ -72,6 +72,7 @@ import DepartmentsPage from "@/pages/user-manager/DepartmentsPage";
 import DistrictsPage from "@/pages/user-manager/DistrictsPage";
 import StatesPage from "@/pages/user-manager/StatesPage";
 import MarketsPage from "@/pages/user-manager/MarketsPage";
+import MarketDetailPage from "@/pages/user-manager/MarketDetailPage";
 import StoresPage from "@/pages/user-manager/StoresPage";
 import CreatePermissionPage from "@/pages/user-manager/permissions/CreatePermissionPage";
 import AssignPermissionsPage from "@/pages/user-manager/permissions/AssignPermissionsPage";
@@ -345,10 +346,7 @@ export function AppRoutes() {
             </PortalRouteGuard>
           }
         />
-        <Route
-          path="/commission/home"
-          element={<Navigate to="/commission/houses" replace />}
-        />
+        <Route path="/commission/home" element={<Navigate to="/commission/houses" replace />} />
         {/* ---------- Ranker Portal ---------- */}
         <Route
           element={
@@ -678,9 +676,14 @@ export function AppRoutes() {
           }
         />
         <Route
-          path="/admin/houses"
-          element={<Navigate to="/commission/houses" replace />}
+          path="/admin/markets/:id"
+          element={
+            <UserManagementOnly>
+              <MarketDetailPage />
+            </UserManagementOnly>
+          }
         />
+        <Route path="/admin/houses" element={<Navigate to="/commission/houses" replace />} />
         <Route
           path="/admin/stores"
           element={
