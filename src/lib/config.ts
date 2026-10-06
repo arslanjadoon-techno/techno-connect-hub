@@ -115,7 +115,7 @@ export const USER_PERMISSION_API_PATHS = {
 
 export const PAYSLIP_API_PATHS = {
   getUnviewedByUserId: (userId: string | number) =>
-    `/api/payslips/GetUnviewedPaySlipByUserId/${userId}`,
+    `/api/payslips/GetUserPaySlipByUserId/${userId}`,
 } as const;
 
 export const COMMISSION_API_BASE_URL =
