@@ -390,17 +390,29 @@ export const DistrictsApi = {
 
 // ---------- Markets ---------- //
 
+export interface MarketAssignedUser {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
 export interface Market {
   id: number;
   name: string;
-  state: {
+  state?: {
     id: number;
     name: string;
-  };
-  district: {
+  } | null;
+  district?: {
     id: number;
     name: string;
-  };
+  } | null;
+  assignedUsers?: MarketAssignedUser[];
+  manager?: string;
+  managerId?: number;
+  email?: string;
+  phone?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -423,7 +435,6 @@ export const MarketsApi = {
         queryParts.push(`state=${params.state}`);
       }
 
-      // FIX: District parameter was missing here. Added now!
       if (params.district !== undefined && params.district !== "all") {
         queryParts.push(`district=${params.district}`);
       }
@@ -435,11 +446,24 @@ export const MarketsApi = {
 
   get: (id: string | number) => apiRequest<Market>(MARKET_API_PATHS.market(id)),
 
-  add: (payload: { name: string; stateId: number; districtId: number }) =>
-    apiRequest<Market>(MARKET_API_PATHS.addMarket, { method: "POST", body: payload }),
+  add: (payload: {
+    name: string;
+    stateId: number;
+    districtId?: number;
+    managerId?: number | null;
+    email?: string | null;
+    phone?: string | null;
+  }) => apiRequest<Market>(MARKET_API_PATHS.addMarket, { method: "POST", body: payload }),
 
-  update: (payload: { id: number; name: string; districtId: number }) =>
-    apiRequest<Market>(MARKET_API_PATHS.updateMarket, { method: "PUT", body: payload }),
+  update: (payload: {
+    id: number;
+    name: string;
+    stateId?: number;
+    districtId?: number;
+    managerId?: number | null;
+    email?: string | null;
+    phone?: string | null;
+  }) => apiRequest<Market>(MARKET_API_PATHS.updateMarket, { method: "PUT", body: payload }),
 
   delete: (id: number | string | { id: number | string }) => {
     const numericId = typeof id === "object" && id !== null ? (id as any).id : id;

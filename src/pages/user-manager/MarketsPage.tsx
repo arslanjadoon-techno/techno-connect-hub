@@ -11,23 +11,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Search, XCircle } from "lucide-react"; // XCircle added for reset icon
-import { MarketsApi, StatesApi, DistrictsApi } from "@/lib/api/client";
-
-interface Market {
-  id: number;
-  name: string;
-  state: {
-    id: number;
-    name: string;
-  };
-  district: {
-    id: number;
-    name: string;
-  };
-  createdAt?: string;
-  updatedAt?: string;
-}
+import { Loader2, Search, X, XCircle } from "lucide-react";
+import { marketsService, statesService, usersService, districtsService } from "@/services";
+import type { Market } from "@/lib/api/client";
 
 interface State {
   id: number;
@@ -38,27 +24,33 @@ interface State {
 interface District {
   id: number;
   name: string;
+  state?: {
+    id: number;
+    name: string;
+  } | null;
+}
+
+interface MarketFormData {
+  name: string;
   stateId: number;
+  districtId?: number;
+  managerId?: number | null;
+  manager?: string;
+  email?: string | null;
+  phone?: string | null;
 }
 
 export default function MarketsPage() {
   const [markets, setMarkets] = useState<Market[]>([]);
   const [states, setStates] = useState<State[]>([]);
-  const [districtsForFilter, setDistrictsForFilter] = useState<District[]>([]);
+  const [districtsList, setDistrictsList] = useState<District[]>([]);
 
   const [selectedStateFilter, setSelectedStateFilter] = useState<string>("all");
-  const [selectedDistrictFilter, setSelectedDistrictFilter] = useState<string>("all");
-
   const [mainStateSearch, setMainStateSearch] = useState("");
-  const [mainDistrictSearch, setMainDistrictSearch] = useState("");
-  const [allDistrictsForLookup, setAllDistrictsForLookup] = useState<District[]>([]);
-
   const mainStateSearchRef = useRef<HTMLInputElement>(null);
-  const mainDistrictSearchRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [filterDistrictsLoading, setFilterDistrictsLoading] = useState(false);
 
   // Pagination tracking states
   const [page, setPage] = useState<number>(0);
@@ -71,13 +63,8 @@ export default function MarketsPage() {
   const initialLookupsFetchedRef = useRef<boolean>(false);
 
   // Dynamic fetch handler
-  const fetchMarkets = async (
-    targetPage: number,
-    targetSize: number,
-    targetState: string,
-    targetDistrict: string,
-  ) => {
-    const currentRequestKey = `${targetPage}-${targetSize}-${targetState}-${targetDistrict}`;
+  const fetchMarkets = async (targetPage: number, targetSize: number, targetState: string) => {
+    const currentRequestKey = `${targetPage}-${targetSize}-${targetState}`;
 
     if (lastFetchedKey.current === currentRequestKey || isFetchingRef.current) {
       return;
@@ -90,23 +77,22 @@ export default function MarketsPage() {
 
       if (!initialLookupsFetchedRef.current) {
         const [statesRes, districtsRes] = await Promise.all([
-          StatesApi.getAll(),
-          DistrictsApi.getAll(),
+          statesService.getAll(),
+          districtsService.getAll(),
         ]);
 
         if (statesRes.success) setStates(statesRes.data);
-        if (districtsRes.success) setAllDistrictsForLookup(districtsRes.data);
+        if (districtsRes.success) setDistrictsList(districtsRes.data);
 
         if (statesRes.success && districtsRes.success) {
           initialLookupsFetchedRef.current = true;
         }
       }
 
-      const res = await MarketsApi.getAll({
+      const res = await marketsService.getAll({
         page: targetPage,
         size: targetSize,
         state: targetState !== "all" ? targetState : undefined,
-        district: targetDistrict !== "all" ? targetDistrict : undefined,
       });
 
       if (res.success) {
@@ -141,66 +127,31 @@ export default function MarketsPage() {
   };
 
   useEffect(() => {
-    fetchMarkets(page, size, selectedStateFilter, selectedDistrictFilter);
-  }, [page, size, selectedStateFilter, selectedDistrictFilter]);
-
-  // FIX: Added dynamic blocker guard condition to prevent eager api hit when state is "all" or unselected
-  useEffect(() => {
-    if (!selectedStateFilter || selectedStateFilter === "all") {
-      setDistrictsForFilter([]);
-      return;
-    }
-
-    const loadDistrictsForToolbarFilter = async () => {
-      try {
-        setFilterDistrictsLoading(true);
-        const apiClient = DistrictsApi.getAll as any;
-        const res = await apiClient({ state: selectedStateFilter });
-        if (res.success) {
-          setDistrictsForFilter(res.data);
-        }
-      } catch (err) {
-        console.error("Failed to load cascading filter options", err);
-      } finally {
-        setFilterDistrictsLoading(false);
-      }
-    };
-
-    loadDistrictsForToolbarFilter();
-  }, [selectedStateFilter]);
+    fetchMarkets(page, size, selectedStateFilter);
+  }, [page, size, selectedStateFilter]);
 
   const handleStateFilterChange = (newState: string) => {
     lastFetchedKey.current = "";
     setPage(0);
-    setSelectedDistrictFilter("all"); // Reset child selection instantly
     setSelectedStateFilter(newState);
   };
 
-  const handleDistrictFilterChange = (newDistrict: string) => {
-    lastFetchedKey.current = "";
-    setPage(0);
-    setSelectedDistrictFilter(newDistrict);
-  };
-
-  // FEATURE IMPLEMENTED: Reset Filters Action with dynamic trigger locks clearing
   const handleResetFilters = () => {
-    if (selectedStateFilter === "all" && selectedDistrictFilter === "all") return;
+    if (selectedStateFilter === "all") return;
     lastFetchedKey.current = "";
     setPage(0);
     setSelectedStateFilter("all");
-    setSelectedDistrictFilter("all");
-    setDistrictsForFilter([]);
     toast.success("Filters cleared successfully");
   };
 
   const handleDelete = async (m: Market) => {
     try {
       setActionLoading(true);
-      const res = await MarketsApi.delete(m.id);
+      const res = await marketsService.delete(m.id);
       if (res.success) {
         toast.success(res.message || "Market deleted successfully");
         lastFetchedKey.current = "";
-        fetchMarkets(page, size, selectedStateFilter, selectedDistrictFilter);
+        fetchMarkets(page, size, selectedStateFilter);
       } else {
         toast.error(res.message || "Could not delete market");
       }
@@ -213,32 +164,65 @@ export default function MarketsPage() {
 
   const handleSave = async (
     initial: Market | null,
-    formData: { name: string; stateId: number; districtId: number },
+    formData: MarketFormData,
     close: () => void,
   ) => {
     try {
       setActionLoading(true);
+      const isManagerSelected = formData.managerId && Number(formData.managerId) > 0;
+
       if (initial) {
-        const res = await MarketsApi.update({
+        const payload = {
           id: initial.id,
-          name: formData.name,
-          districtId: formData.districtId,
-        });
+          name: formData.name.trim(),
+          stateId: formData.stateId,
+          districtId: initial.district?.id ?? formData.districtId,
+          managerId: isManagerSelected ? Number(formData.managerId) : null,
+          email:
+            isManagerSelected && formData.email && formData.email.trim()
+              ? formData.email.trim()
+              : null,
+          phone:
+            isManagerSelected && formData.phone && formData.phone.trim()
+              ? formData.phone.trim()
+              : null,
+        };
+
+        const res = await marketsService.update(payload);
         if (res.success) {
           toast.success(res.message || "Market updated successfully");
           lastFetchedKey.current = "";
-          initialLookupsFetchedRef.current = false;
-          fetchMarkets(page, size, selectedStateFilter, selectedDistrictFilter);
+          fetchMarkets(page, size, selectedStateFilter);
           close();
         } else {
           toast.error(res.message || "Update failed");
         }
       } else {
-        const res = await MarketsApi.add(formData);
+        // Resolve districtId for backend requirement if needed
+        const matchedDistrict =
+          districtsList.find((d) => d.state?.id === formData.stateId) || districtsList[0];
+        const effectiveDistrictId = formData.districtId || matchedDistrict?.id || 6;
+
+        const payload = {
+          name: formData.name.trim(),
+          stateId: formData.stateId,
+          districtId: effectiveDistrictId,
+          managerId: isManagerSelected ? Number(formData.managerId) : null,
+          email:
+            isManagerSelected && formData.email && formData.email.trim()
+              ? formData.email.trim()
+              : null,
+          phone:
+            isManagerSelected && formData.phone && formData.phone.trim()
+              ? formData.phone.trim()
+              : null,
+        };
+
+        const res = await marketsService.add(payload);
         if (res.success) {
           toast.success(res.message || "Market added successfully");
           lastFetchedKey.current = "";
-          fetchMarkets(page, size, selectedStateFilter, selectedDistrictFilter);
+          fetchMarkets(page, size, selectedStateFilter);
           close();
         } else {
           toast.error(res.message || "Failed to create market");
@@ -251,19 +235,9 @@ export default function MarketsPage() {
     }
   };
 
-  const getStateName = (id: number) => states.find((s) => s.id === id)?.name ?? "—";
-  const getDistrictName = (id: number) =>
-    allDistrictsForLookup.find((d) => d.id === id)?.name ?? `—`;
-
   const filteredMainStatesOptions = useMemo(() => {
     return states.filter((s) => s.name.toLowerCase().includes(mainStateSearch.toLowerCase()));
   }, [states, mainStateSearch]);
-
-  const filteredMainDistrictsOptions = useMemo(() => {
-    return districtsForFilter.filter((d) =>
-      d.name.toLowerCase().includes(mainDistrictSearch.toLowerCase()),
-    );
-  }, [districtsForFilter, mainDistrictSearch]);
 
   if (loading && markets.length === 0) {
     return (
@@ -280,18 +254,17 @@ export default function MarketsPage() {
         <div className="[&_.flex-col]:flex-row [&_.flex-col]:items-center [&_.flex-col]:justify-between [&_.max-w-sm]:order-last [&_.max-w-sm]:ml-auto">
           <CrudPage<Market>
             title="Markets"
-            subtitle="Manage markets, assign states, and link specific active operational districts."
+            subtitle="Manage regional market definitions, zones, and assigned team managers."
             rows={markets}
             rowKey={(m) => m.id.toString()}
             isSaving={actionLoading}
             isLoading={loading}
-
             rowCount={totalRecords}
             page={page}
             pageSize={size}
             onPageChange={(newPage) => setPage(newPage)}
             onPageSizeChange={(newSize) => setSize(newSize)}
-
+            searchPlaceholder="Search markets..."
             extraToolbar={
               <div className="flex items-end gap-3 pb-0.5">
                 {/* 1. STATE TOOLBAR FILTER */}
@@ -337,62 +310,12 @@ export default function MarketsPage() {
                   </Select>
                 </div>
 
-                {/* 2. CASCADING DEPENDENT DISTRICT TOOLBAR FILTER */}
-                <div className="relative flex flex-col pt-2.5">
-                  <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">
-                    District
-                  </span>
-                  <Select
-                    value={selectedDistrictFilter}
-                    disabled={selectedStateFilter === "all" || filterDistrictsLoading}
-                    onValueChange={handleDistrictFilterChange}
-                    onOpenChange={(open) => {
-                      if (!open) setMainDistrictSearch("");
-                      else setTimeout(() => mainDistrictSearchRef.current?.focus(), 100);
-                    }}
-                  >
-                    <SelectTrigger className="w-[180px] h-9 focus:ring-0 border-muted-foreground/40 disabled:bg-zinc-100 dark:disabled:bg-zinc-900 disabled:opacity-60 disabled:cursor-not-allowed">
-                      {filterDistrictsLoading ? (
-                        <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
-                          <Loader2 className="h-3 w-3 animate-spin" /> Loading...
-                        </div>
-                      ) : (
-                        <SelectValue placeholder="All Districts" />
-                      )}
-                    </SelectTrigger>
-                    <SelectContent
-                      onKeyDown={(e) => e.stopPropagation()}
-                      onKeyUp={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
-                        <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
-                        <input
-                          ref={mainDistrictSearchRef}
-                          placeholder="Search districts..."
-                          value={mainDistrictSearch}
-                          onChange={(e) => {
-                            setMainDistrictSearch(e.target.value);
-                            setTimeout(() => mainDistrictSearchRef.current?.focus(), 0);
-                          }}
-                          className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
-                        />
-                      </div>
-                      <SelectItem value="all">All Districts</SelectItem>
-                      {filteredMainDistrictsOptions.map((d) => (
-                        <SelectItem key={d.id} value={d.id.toString()}>
-                          {d.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* 3. FEATURE IMPLEMENTED: ANIMATED RESET FILTERS BUTTON */}
+                {/* 2. RESET FILTERS BUTTON */}
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
-                  disabled={selectedStateFilter === "all" && selectedDistrictFilter === "all"}
+                  disabled={selectedStateFilter === "all"}
                   onClick={handleResetFilters}
                   className="h-9 px-3 text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-dashed border-muted-foreground/30 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground transition-all duration-300 ease-out group active:scale-95"
                 >
@@ -401,7 +324,6 @@ export default function MarketsPage() {
                 </Button>
               </div>
             }
-
             columns={[
               {
                 key: "name",
@@ -414,18 +336,48 @@ export default function MarketsPage() {
                 header: "State",
                 accessor: (m) => (
                   <div className="py-2 text-left text-muted-foreground">{m.state?.name ?? "—"}</div>
-                ), // ✅ Direct object read
+                ),
                 searchValue: (m) => m.state?.name ?? "",
               },
               {
-                key: "district",
-                header: "District",
-                accessor: (m) => (
-                  <div className="py-2 text-left text-zinc-700 dark:text-zinc-300 font-medium">
-                    {m.district?.name ?? "—"}
-                  </div>
-                ), // ✅ Direct object read
-                searchValue: (m) => m.district?.name ?? "",
+                key: "manager",
+                header: "Manager",
+                accessor: (m) => {
+                  const assigned = m.assignedUsers?.[0];
+                  const mgrName = assigned?.name || m.manager || "—";
+                  return (
+                    <div className="py-2 text-left text-zinc-800 dark:text-zinc-200 font-medium">
+                      {mgrName}
+                    </div>
+                  );
+                },
+                searchValue: (m) => m.assignedUsers?.[0]?.name || m.manager || "",
+              },
+              {
+                key: "email",
+                header: "Email",
+                accessor: (m) => {
+                  const assigned = m.assignedUsers?.[0];
+                  const mgrEmail = assigned?.email || m.email || "—";
+                  return (
+                    <div className="py-2 text-left text-xs text-muted-foreground">{mgrEmail}</div>
+                  );
+                },
+                searchValue: (m) => m.assignedUsers?.[0]?.email || m.email || "",
+              },
+              {
+                key: "phone",
+                header: "Phone",
+                accessor: (m) => {
+                  const assigned = m.assignedUsers?.[0];
+                  const mgrPhone = assigned?.phone || m.phone || "—";
+                  return (
+                    <div className="py-2 text-left text-xs text-zinc-600 dark:text-zinc-400 font-mono">
+                      {mgrPhone}
+                    </div>
+                  );
+                },
+                searchValue: (m) => m.assignedUsers?.[0]?.phone || m.phone || "",
               },
             ]}
             onDelete={handleDelete}
@@ -448,78 +400,140 @@ interface MarketFormProps {
   initial: Market | null;
   states: State[];
   isSaving: boolean;
-  onSave: (data: { name: string; stateId: number; districtId: number }) => void;
+  onSave: (data: MarketFormData) => void;
 }
 
 function MarketForm({ initial, states, isSaving, onSave }: MarketFormProps) {
+  const initialUser = initial?.assignedUsers?.[0];
   const [name, setName] = useState(initial?.name ?? "");
   const [stateId, setStateId] = useState<string>(
     initial?.state?.id ? initial.state.id.toString() : "",
   );
-  const [districtId, setDistrictId] = useState<string>(
-    initial?.district?.id ? initial.district.id.toString() : "",
+
+  const [managerId, setManagerId] = useState<number | null>(
+    initialUser?.id ?? (initial?.managerId && initial.managerId > 0 ? initial.managerId : null),
   );
+  const [manager, setManager] = useState<string>(initialUser?.name ?? initial?.manager ?? "");
+  const [email, setEmail] = useState<string>(initialUser?.email ?? initial?.email ?? "");
+  const [phone, setPhone] = useState<string>(initialUser?.phone ?? initial?.phone ?? "");
 
-  const [districts, setDistricts] = useState<District[]>([]);
-  const [districtsLoading, setDistrictsLoading] = useState(false);
+  // Searchbox states for Manager
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<
+    Array<{ id: number; fullName: string; email?: string; phone?: string }>
+  >([]);
+  const [loadingUsers, setLoadingUsers] = useState<boolean>(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
 
+  // State search input state
   const [stateSearch, setStateSearch] = useState("");
-  const [districtSearch, setDistrictSearch] = useState("");
-
   const stateSearchRef = useRef<HTMLInputElement>(null);
-  const districtSearchRef = useRef<HTMLInputElement>(null);
 
+  // Close search results dropdown on outside click
   useEffect(() => {
-    if (!stateId) {
-      setDistricts([]);
-      return;
-    }
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
-    const loadStateSpecificDistricts = async () => {
+  // Debounce the manager search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Search users via GET /api/users/search?search=...
+  useEffect(() => {
+    let active = true;
+    const fetchUsers = async () => {
+      if (!isOpen && !debouncedSearchQuery) return;
+      setLoadingUsers(true);
       try {
-        setDistrictsLoading(true);
-        const apiClient = DistrictsApi.getAll as any;
-        const res = await apiClient({ state: stateId });
-        if (res.success) {
-          setDistricts(res.data);
-          if (initial && initial.state?.id?.toString() === stateId) {
-            setDistrictId(initial.district?.id?.toString() ?? "");
-          } else {
-            setDistrictId("");
-          }
+        const res = await usersService.search({ search: debouncedSearchQuery });
+        if (active && res.success && Array.isArray(res.data)) {
+          const mapped = res.data.map((u: any) => ({
+            id: u.id,
+            fullName:
+              u.fullName ||
+              u.name ||
+              `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
+              `User #${u.id}`,
+            email: u.email || "",
+            phone: u.phone || "",
+          }));
+          setSearchResults(mapped);
         }
       } catch (err) {
-        console.error(err);
+        console.error("Failed to search users:", err);
       } finally {
-        setDistrictsLoading(false);
+        if (active) setLoadingUsers(false);
       }
     };
 
-    loadStateSpecificDistricts();
-  }, [stateId, initial]);
+    fetchUsers();
+
+    return () => {
+      active = false;
+    };
+  }, [debouncedSearchQuery, isOpen]);
+
+  // When a user is selected from the searchbox results
+  const handleSelectUser = (user: {
+    id: number;
+    fullName: string;
+    email?: string;
+    phone?: string;
+  }) => {
+    setManagerId(user.id);
+    setManager(user.fullName);
+    setEmail(user.email || "");
+    setPhone(user.phone || "");
+    setSearchQuery("");
+    setIsOpen(false);
+  };
+
+  // When the manager is removed: automatically clear managerId, email, and phone
+  const handleRemoveManager = () => {
+    setManagerId(null);
+    setManager("");
+    setEmail("");
+    setPhone("");
+    setSearchQuery("");
+  };
 
   const filteredStates = useMemo(() => {
     return states.filter((s) => s.name.toLowerCase().includes(stateSearch.toLowerCase()));
   }, [states, stateSearch]);
 
-  const filteredDistricts = useMemo(() => {
-    return districts.filter((d) => d.name.toLowerCase().includes(districtSearch.toLowerCase()));
-  }, [districts, districtSearch]);
-
   return (
     <div className="space-y-4">
+      {/* 1. Market Name */}
       <div className="space-y-1.5">
-        <Label>Market Name</Label>
+        <Label>
+          Market Name <span className="text-destructive">*</span>
+        </Label>
         <Input
           value={name}
           disabled={isSaving}
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g. Downtown Central Market"
+          required
         />
       </div>
 
+      {/* 2. State Selection */}
       <div className="space-y-1.5">
-        <Label>State</Label>
+        <Label>
+          State <span className="text-destructive">*</span>
+        </Label>
         <Select
           value={stateId}
           disabled={isSaving || !!initial}
@@ -558,65 +572,139 @@ function MarketForm({ initial, states, isSaving, onSave }: MarketFormProps) {
         </Select>
       </div>
 
+      {/* 3. MANAGER SEARCHBOX */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
-          <Label>District</Label>
-          {districtsLoading && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+          <Label>
+            Manager <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+          </Label>
+          {managerId ? (
+            <button
+              type="button"
+              onClick={handleRemoveManager}
+              disabled={isSaving}
+              className="text-xs text-destructive hover:underline cursor-pointer flex items-center gap-1 font-medium"
+            >
+              <X className="h-3 w-3" /> Remove manager
+            </button>
+          ) : null}
         </div>
-        <Select
-          value={districtId}
-          disabled={isSaving || !stateId || districtsLoading || !!initial}
-          onValueChange={setDistrictId}
-          onOpenChange={(open) => {
-            if (!open) setDistrictSearch("");
-            else setTimeout(() => districtSearchRef.current?.focus(), 100);
-          }}
-        >
-          <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
-            <SelectValue
-              placeholder={!stateId ? "Please choose state first" : "Select mapped district"}
-            />
-          </SelectTrigger>
-          <SelectContent
-            onKeyDown={(e) => e.stopPropagation()}
-            onKeyUp={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
-              <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
-              <input
-                ref={districtSearchRef}
-                placeholder="Search districts..."
-                value={districtSearch}
-                onChange={(e) => {
-                  setDistrictSearch(e.target.value);
-                  setTimeout(() => districtSearchRef.current?.focus(), 0);
-                }}
-                className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
-              />
+
+        {managerId ? (
+          /* Selected Manager display card */
+          <div className="flex items-center justify-between rounded-md border border-input bg-muted/40 px-3 py-2.5">
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-xs text-foreground truncate">{manager}</span>
+                <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium px-1.5 py-0.5 rounded">
+                  Assigned
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+                {email ? <span>{email}</span> : <span className="italic">No email</span>}
+                {phone ? <span>• {phone}</span> : null}
+              </div>
             </div>
-            {filteredDistricts.length === 0 ? (
-              <p className="text-[11px] text-center text-muted-foreground p-2">
-                {districtsLoading ? "Fetching records..." : "No districts found"}
-              </p>
-            ) : (
-              filteredDistricts.map((d) => (
-                <SelectItem key={d.id} value={d.id.toString()}>
-                  {d.name}
-                </SelectItem>
-              ))
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={isSaving}
+              onClick={handleRemoveManager}
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full cursor-pointer shrink-0 ml-2"
+              title="Remove manager"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          /* Interactive Search Box */
+          <div className="relative" ref={searchContainerRef}>
+            <div className="relative flex items-center">
+              <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                value={searchQuery}
+                disabled={isSaving}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setIsOpen(true);
+                }}
+                onFocus={() => setIsOpen(true)}
+                placeholder="Search user by name, email to assign as manager..."
+                className="pl-9 pr-9"
+              />
+              {loadingUsers && (
+                <Loader2 className="absolute right-3 h-4 w-4 animate-spin text-muted-foreground pointer-events-none" />
+              )}
+            </div>
+
+            {/* Dropdown list of matching users */}
+            {isOpen && (
+              <div className="absolute top-full left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-lg z-50 py-1">
+                {searchResults.length === 0 ? (
+                  <div className="py-4 text-center text-xs text-muted-foreground">
+                    {loadingUsers ? "Searching users..." : "No users found"}
+                  </div>
+                ) : (
+                  searchResults.map((user) => (
+                    <div
+                      key={user.id}
+                      onClick={() => handleSelectUser(user)}
+                      className="flex flex-col px-3 py-2 text-xs hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors border-b last:border-b-0 border-border/40"
+                    >
+                      <span className="font-semibold">{user.fullName}</span>
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+                        {user.email && <span>{user.email}</span>}
+                        {user.phone && <span>• {user.phone}</span>}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             )}
-          </SelectContent>
-        </Select>
+          </div>
+        )}
+      </div>
+
+      {/* 4. Email */}
+      <div className="space-y-1.5">
+        <Label>
+          Email <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+        </Label>
+        <Input
+          type="email"
+          value={email}
+          disabled={isSaving}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="e.g. john.doe@example.com"
+        />
+      </div>
+
+      {/* 5. Phone */}
+      <div className="space-y-1.5">
+        <Label>
+          Phone <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+        </Label>
+        <Input
+          value={phone}
+          disabled={isSaving}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="e.g. +1 (123) 456-7890"
+        />
       </div>
 
       <Button
-        className="w-full flex items-center justify-center gap-2"
-        disabled={!name.trim() || !stateId || !districtId || isSaving || districtsLoading}
+        className="w-full flex items-center justify-center gap-2 cursor-pointer"
+        disabled={!name.trim() || !stateId || isSaving}
         onClick={() =>
           onSave({
             name: name.trim(),
             stateId: Number(stateId),
-            districtId: Number(districtId),
+            districtId: initial?.district?.id,
+            managerId: managerId && Number(managerId) > 0 ? Number(managerId) : null,
+            manager: manager.trim() || undefined,
+            email: email.trim() || null,
+            phone: phone.trim() || null,
           })
         }
       >

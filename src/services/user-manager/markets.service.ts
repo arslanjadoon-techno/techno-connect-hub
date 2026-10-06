@@ -14,10 +14,25 @@ export class MarketsService {
   get(id: string | number) {
     return http.get<Market>(MARKET_API_PATHS.market(id));
   }
-  add(payload: { name: string; stateId: number }) {
+  add(payload: {
+    name: string;
+    stateId: number;
+    districtId?: number;
+    managerId?: number | null;
+    email?: string | null;
+    phone?: string | null;
+  }) {
     return http.post<Market>(MARKET_API_PATHS.addMarket, payload);
   }
-  update(payload: { id: number; name: string; stateId: number }) {
+  update(payload: {
+    id: number;
+    name: string;
+    stateId?: number;
+    districtId?: number;
+    managerId?: number | null;
+    email?: string | null;
+    phone?: string | null;
+  }) {
     return http.put<Market>(MARKET_API_PATHS.updateMarket, payload);
   }
   delete(id: number | string | { id: number | string }) {
