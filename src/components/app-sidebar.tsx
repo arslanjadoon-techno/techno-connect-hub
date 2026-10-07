@@ -636,7 +636,9 @@ export function AppSidebar() {
               <div className="truncate font-display text-[13px] font-semibold text-sidebar-foreground">
                 Company Portal
               </div>
-              <div className="truncate text-[10px] text-sidebar-foreground/70">Management Information System</div>
+              <div className="truncate text-[10px] text-sidebar-foreground/70">
+                Management Information System
+              </div>
             </div>
           )}
         </div>
@@ -704,6 +706,43 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         )}
+
+        {/* MIS Static Pages - Below User Management */}
+        <SidebarGroup>
+          {!collapsed && <SidebarGroupLabel>MIS</SidebarGroupLabel>}
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={isActive("/mis/privacy")} tooltip="Privacy">
+                  <Link
+                    to="/mis/privacy"
+                    onClick={() => {
+                      if (isMobile) setOpenMobile(false);
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <LockKeyhole className="h-4 w-4" />
+                    {!collapsed && <span>Privacy</span>}
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={isActive("/mis/support")} tooltip="Support">
+                  <Link
+                    to="/mis/support"
+                    onClick={() => {
+                      if (isMobile) setOpenMobile(false);
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <Contact className="h-4 w-4" />
+                    {!collapsed && <span>Support</span>}
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border/60 py-2.5 px-3">

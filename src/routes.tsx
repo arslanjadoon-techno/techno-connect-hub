@@ -78,6 +78,8 @@ import MarketDetailPage from "@/pages/user-manager/MarketDetailPage";
 import StoresPage from "@/pages/user-manager/StoresPage";
 import CreatePermissionPage from "@/pages/user-manager/permissions/CreatePermissionPage";
 import AssignPermissionsPage from "@/pages/user-manager/permissions/AssignPermissionsPage";
+import MisPrivacyPage from "@/pages/mis/MisPrivacyPage";
+import MisSupportPage from "@/pages/mis/MisSupportPage";
 import NotFoundInApp from "@/pages/shell/NotFoundInApp";
 import ComingSoon from "@/pages/shell/ComingSoon";
 import ReportingApp from "./pages/portals/reporting/ReportingApp";
@@ -746,6 +748,11 @@ export function AppRoutes() {
             </UserManagementOnly>
           }
         />
+        {/* MIS Information Routes */}
+        <Route path="/mis/privacy" element={<MisPrivacyPage />} />
+        <Route path="/mis/support" element={<MisSupportPage />} />
+        <Route path="/privacy" element={<Navigate to="/mis/privacy" replace />} />
+        <Route path="/support" element={<Navigate to="/mis/support" replace />} />
         {/* Custom 404 page — keeps sidebar + header visible */}
         <Route path="*" element={<NotFoundInApp />} />
       </Route>
