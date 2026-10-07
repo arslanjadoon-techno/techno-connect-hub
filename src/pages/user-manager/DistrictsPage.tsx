@@ -12,8 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Eye, Loader2, Search } from "lucide-react";
+import { Eye, Loader2, Search, X } from "lucide-react";
 import { DistrictsApi, StatesApi } from "@/lib/api/client";
+import { usersService } from "@/services";
 
 interface District {
   id: number;
@@ -188,19 +189,42 @@ export default function DistrictsPage() {
     }
   };
 
+  interface DistrictFormData {
+    name: string;
+    marketId: string | number;
+    market?: string;
+    stateId: number;
+    managerId: number | null;
+    manager?: string;
+    email: string | null;
+    phone: string | null;
+  }
+
   // Save/Update Call
   const handleSave = async (
     initial: District | null,
-    formData: { name: string; stateId: number },
+    formData: DistrictFormData,
     close: () => void,
   ) => {
     try {
       setActionLoading(true);
+      const payload: any = {
+        name: formData.name,
+        stateId: Number(formData.stateId),
+        marketId:
+          typeof formData.marketId === "number"
+            ? formData.marketId
+            : Number(formData.marketId) || 1,
+        managerId:
+          formData.managerId && Number(formData.managerId) > 0 ? Number(formData.managerId) : null,
+        manager: formData.manager?.trim() || undefined,
+        email: formData.email?.trim() || null,
+        phone: formData.phone?.trim() || null,
+      };
+
       if (initial) {
-        const res = await DistrictsApi.update({
-          id: initial.id,
-          name: formData.name,
-        });
+        payload.id = initial.id;
+        const res = await DistrictsApi.update(payload);
         if (res.success) {
           toast.success(res.message || "District updated successfully");
           lastFetchedKey.current = "";
@@ -210,7 +234,7 @@ export default function DistrictsPage() {
           toast.error(res.message || "Update failed");
         }
       } else {
-        const res = await DistrictsApi.add(formData);
+        const res = await DistrictsApi.add(payload);
         if (res.success) {
           toast.success(res.message || "District added successfully");
           lastFetchedKey.current = "";
@@ -391,14 +415,6 @@ export default function DistrictsPage() {
                 searchValue: (d) => d.name,
               },
               {
-                key: "state",
-                header: "State",
-                accessor: (d) => (
-                  <div className="py-2 text-left text-muted-foreground">{d.state?.name ?? "—"}</div>
-                ),
-                searchValue: (d) => d.state?.name ?? "",
-              },
-              {
                 key: "market",
                 header: "Market",
                 accessor: (d) => (
@@ -407,6 +423,14 @@ export default function DistrictsPage() {
                   </div>
                 ),
                 searchValue: (d) => getDistrictMarket(d),
+              },
+              {
+                key: "state",
+                header: "State",
+                accessor: (d) => (
+                  <div className="py-2 text-left text-muted-foreground">{d.state?.name ?? "—"}</div>
+                ),
+                searchValue: (d) => d.state?.name ?? "",
               },
               {
                 key: "manager",
@@ -481,53 +505,182 @@ interface DistrictFormProps {
   initial: District | null;
   states: State[];
   isSaving: boolean;
-  onSave: (data: { name: string; stateId: number }) => void;
+  onSave: (data: DistrictFormData) => void;
 }
 
 function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) {
+  const initialUser = initial?.assignedUsers?.[0];
   const [name, setName] = useState(initial?.name ?? "");
-
+  const [marketId, setMarketId] = useState<string>(
+    initial?.market?.id
+      ? initial.market.id.toString()
+      : initial?.id
+        ? initial.id % 3 === 1
+          ? "1"
+          : initial.id % 3 === 2
+            ? "2"
+            : "3"
+        : "1",
+  );
   const [stateId, setStateId] = useState<string>(
     initial?.state?.id ? initial.state.id.toString() : "",
   );
 
-  const [formFilterSearch, setFormFilterSearch] = useState("");
-  const formSearchInputRef = useRef<HTMLInputElement>(null);
+  const [managerId, setManagerId] = useState<number | null>(
+    initialUser?.id ??
+      (initial?.managerId && (initial as any).managerId > 0 ? (initial as any).managerId : null),
+  );
+  const [manager, setManager] = useState<string>(initialUser?.name ?? initial?.manager ?? "");
+  const [email, setEmail] = useState<string>(initialUser?.email ?? initial?.email ?? "");
+  const [phone, setPhone] = useState<string>(initialUser?.phone ?? initial?.phone ?? "");
 
-  const filteredFormStatesOptions = useMemo(() => {
-    return states.filter((s) => s.name.toLowerCase().includes(formFilterSearch.toLowerCase()));
-  }, [states, formFilterSearch]);
+  // Searchbox states for District Manager
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<
+    Array<{ id: number; fullName: string; email?: string; phone?: string }>
+  >([]);
+  const [loadingUsers, setLoadingUsers] = useState<boolean>(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Search states for dropdowns
+  const [stateSearch, setStateSearch] = useState("");
+  const stateSearchRef = useRef<HTMLInputElement>(null);
+  const [marketSearch, setMarketSearch] = useState("");
+  const marketSearchRef = useRef<HTMLInputElement>(null);
+
+  // Close search results dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Debounce manager search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Fetch users from API
+  useEffect(() => {
+    let active = true;
+    const fetchUsers = async () => {
+      if (!isOpen && !debouncedSearchQuery) return;
+      setLoadingUsers(true);
+      try {
+        const res = await usersService.search({ search: debouncedSearchQuery });
+        if (active && res.success && Array.isArray(res.data)) {
+          const mapped = res.data.map((u: any) => ({
+            id: u.id,
+            fullName:
+              u.fullName ||
+              u.name ||
+              `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
+              `User #${u.id}`,
+            email: u.email || "",
+            phone: u.phone || "",
+          }));
+          setSearchResults(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to search users:", err);
+      } finally {
+        if (active) setLoadingUsers(false);
+      }
+    };
+
+    fetchUsers();
+
+    return () => {
+      active = false;
+    };
+  }, [debouncedSearchQuery, isOpen]);
+
+  const handleSelectUser = (user: {
+    id: number;
+    fullName: string;
+    email?: string;
+    phone?: string;
+  }) => {
+    setManagerId(user.id);
+    setManager(user.fullName);
+    setEmail(user.email || "");
+    setPhone(user.phone || "");
+    setSearchQuery("");
+    setIsOpen(false);
+  };
+
+  const handleRemoveManager = () => {
+    setManagerId(null);
+    setManager("");
+    setEmail("");
+    setPhone("");
+    setSearchQuery("");
+  };
+
+  const filteredStates = useMemo(() => {
+    return states.filter((s) => s.name.toLowerCase().includes(stateSearch.toLowerCase()));
+  }, [states, stateSearch]);
+
+  const formMarketOptions = useMemo(() => {
+    const opts = [
+      { id: "1", name: "Market 1" },
+      { id: "2", name: "Market 2" },
+      { id: "3", name: "Market 3" },
+    ];
+    return opts.filter((m) => m.name.toLowerCase().includes(marketSearch.toLowerCase()));
+  }, [marketSearch]);
+
+  // All fields required check: name, market, state, manager, email, phone
+  const isFormValid =
+    Boolean(name.trim()) &&
+    Boolean(marketId) &&
+    Boolean(stateId) &&
+    Boolean(managerId || manager.trim()) &&
+    Boolean(email.trim()) &&
+    Boolean(phone.trim());
 
   return (
     <div className="space-y-4">
+      {/* 1. District Name (Required) */}
       <div className="space-y-1.5">
-        <Label>Name</Label>
+        <Label>
+          District Name <span className="text-destructive">*</span>
+        </Label>
         <Input
           value={name}
           disabled={isSaving}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Jefferson"
+          placeholder="e.g. Central District"
+          required
         />
       </div>
 
+      {/* 2. Market (Required) */}
       <div className="space-y-1.5">
-        <Label>State</Label>
+        <Label>
+          Market <span className="text-destructive">*</span>
+        </Label>
         <Select
-          value={stateId}
-          disabled={isSaving || !!initial}
-          onValueChange={setStateId}
+          value={marketId}
+          disabled={isSaving}
+          onValueChange={setMarketId}
           onOpenChange={(open) => {
-            if (!open) {
-              setFormFilterSearch("");
-            } else {
-              setTimeout(() => formSearchInputRef.current?.focus(), 100);
-            }
+            if (!open) setMarketSearch("");
+            else setTimeout(() => marketSearchRef.current?.focus(), 100);
           }}
         >
           <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
-            <SelectValue placeholder="Select operating state" />
+            <SelectValue placeholder="Select associated market" />
           </SelectTrigger>
-
           <SelectContent
             onKeyDown={(e) => e.stopPropagation()}
             onKeyUp={(e) => e.stopPropagation()}
@@ -535,36 +688,209 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
             <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
               <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
               <input
-                ref={formSearchInputRef}
-                placeholder="Search states..."
-                value={formFilterSearch}
+                ref={marketSearchRef}
+                placeholder="Search markets..."
+                value={marketSearch}
                 onChange={(e) => {
-                  setFormFilterSearch(e.target.value);
-                  setTimeout(() => formSearchInputRef.current?.focus(), 0);
+                  setMarketSearch(e.target.value);
+                  setTimeout(() => marketSearchRef.current?.focus(), 0);
                 }}
                 className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
               />
             </div>
-
-            {filteredFormStatesOptions.length === 0 ? (
-              <p className="text-[11px] text-center text-muted-foreground p-2">
-                No matching states
-              </p>
-            ) : (
-              filteredFormStatesOptions.map((s) => (
-                <SelectItem key={s.id} value={s.id.toString()}>
-                  {s.name}
-                </SelectItem>
-              ))
-            )}
+            {formMarketOptions.map((m) => (
+              <SelectItem key={m.id} value={m.id}>
+                {m.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
 
+      {/* 3. State (Required) */}
+      <div className="space-y-1.5">
+        <Label>
+          State <span className="text-destructive">*</span>
+        </Label>
+        <Select
+          value={stateId}
+          disabled={isSaving}
+          onValueChange={setStateId}
+          onOpenChange={(open) => {
+            if (!open) setStateSearch("");
+            else setTimeout(() => stateSearchRef.current?.focus(), 100);
+          }}
+        >
+          <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
+            <SelectValue placeholder="Select operating state" />
+          </SelectTrigger>
+          <SelectContent
+            onKeyDown={(e) => e.stopPropagation()}
+            onKeyUp={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
+              <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
+              <input
+                ref={stateSearchRef}
+                placeholder="Search states..."
+                value={stateSearch}
+                onChange={(e) => {
+                  setStateSearch(e.target.value);
+                  setTimeout(() => stateSearchRef.current?.focus(), 0);
+                }}
+                className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
+              />
+            </div>
+            {filteredStates.map((s) => (
+              <SelectItem key={s.id} value={s.id.toString()}>
+                {s.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* 4. District Manager (Required - User Search API) */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <Label>
+            District Manager <span className="text-destructive">*</span>
+          </Label>
+          {managerId ? (
+            <button
+              type="button"
+              onClick={handleRemoveManager}
+              disabled={isSaving}
+              className="text-xs text-destructive hover:underline cursor-pointer flex items-center gap-1 font-medium"
+            >
+              <X className="h-3 w-3" /> Change manager
+            </button>
+          ) : null}
+        </div>
+
+        {managerId ? (
+          /* Selected Manager display card */
+          <div className="flex items-center justify-between rounded-md border border-input bg-muted/40 px-3 py-2.5">
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-xs text-foreground truncate">{manager}</span>
+                <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium px-1.5 py-0.5 rounded">
+                  Assigned
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+                {email ? <span>{email}</span> : <span className="italic">No email</span>}
+                {phone ? <span>• {phone}</span> : null}
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={isSaving}
+              onClick={handleRemoveManager}
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full cursor-pointer shrink-0 ml-2"
+              title="Remove manager"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          /* Interactive Search Box */
+          <div className="relative" ref={searchContainerRef}>
+            <div className="relative flex items-center">
+              <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                value={searchQuery}
+                disabled={isSaving}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setIsOpen(true);
+                }}
+                onFocus={() => setIsOpen(true)}
+                placeholder="Search user by name, email to assign as district manager..."
+                className="pl-9 pr-9"
+              />
+              {loadingUsers && (
+                <Loader2 className="absolute right-3 h-4 w-4 animate-spin text-muted-foreground pointer-events-none" />
+              )}
+            </div>
+
+            {/* Dropdown list of matching users */}
+            {isOpen && (
+              <div className="absolute top-full left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-lg z-50 py-1">
+                {searchResults.length === 0 ? (
+                  <div className="py-4 text-center text-xs text-muted-foreground">
+                    {loadingUsers ? "Searching users..." : "No users found"}
+                  </div>
+                ) : (
+                  searchResults.map((user) => (
+                    <div
+                      key={user.id}
+                      onClick={() => handleSelectUser(user)}
+                      className="flex flex-col px-3 py-2 text-xs hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors border-b last:border-b-0 border-border/40"
+                    >
+                      <span className="font-semibold">{user.fullName}</span>
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+                        {user.email && <span>{user.email}</span>}
+                        {user.phone && <span>• {user.phone}</span>}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 5. Manager Email (Required - Auto-populated, Non-editable) */}
+      <div className="space-y-1.5">
+        <Label>
+          Manager Email <span className="text-destructive">*</span>{" "}
+          <span className="text-xs text-muted-foreground font-normal">(Auto-populated)</span>
+        </Label>
+        <Input
+          type="email"
+          value={email}
+          readOnly
+          tabIndex={-1}
+          placeholder="Auto-populated from manager selection"
+          className="bg-muted/50 text-muted-foreground cursor-not-allowed select-none"
+        />
+      </div>
+
+      {/* 6. Manager Phone (Required - Auto-populated, Non-editable) */}
+      <div className="space-y-1.5">
+        <Label>
+          Manager Phone <span className="text-destructive">*</span>{" "}
+          <span className="text-xs text-muted-foreground font-normal">(Auto-populated)</span>
+        </Label>
+        <Input
+          value={phone}
+          readOnly
+          tabIndex={-1}
+          placeholder="Auto-populated from manager selection"
+          className="bg-muted/50 text-muted-foreground cursor-not-allowed select-none"
+        />
+      </div>
+
       <Button
-        className="w-full flex items-center justify-center gap-2"
-        disabled={!name.trim() || !stateId || isSaving}
-        onClick={() => onSave({ name: name.trim(), stateId: Number(stateId) })}
+        className="w-full flex items-center justify-center gap-2 cursor-pointer"
+        disabled={!isFormValid || isSaving}
+        onClick={() => {
+          const selectedMarketObj = formMarketOptions.find((m) => m.id === marketId);
+          onSave({
+            name: name.trim(),
+            marketId: Number(marketId),
+            market: selectedMarketObj?.name,
+            stateId: Number(stateId),
+            managerId: managerId && Number(managerId) > 0 ? Number(managerId) : null,
+            manager: manager.trim() || undefined,
+            email: email.trim() || null,
+            phone: phone.trim() || null,
+          });
+        }}
       >
         {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
         {initial ? "Update District" : "Save District"}

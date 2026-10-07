@@ -150,24 +150,7 @@ export default function DistrictDetailPage() {
           </CardContent>
         </Card>
 
-        {/* KPI 2: Operating State - Soft Emerald Tint */}
-        <Card className="shadow-xs bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-900/40 transition-all hover:shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-              <Globe className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold text-emerald-700/80 dark:text-emerald-300/80 uppercase tracking-wider">
-                Operating State
-              </p>
-              <p className="text-sm font-bold truncate text-foreground mt-0.5">
-                {districtData.state.name} ({districtData.state.code})
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* KPI 3: Parent Market - Soft Purple Tint */}
+        {/* KPI 2: Associated Market - Soft Purple Tint */}
         <Card className="shadow-xs bg-purple-50/70 dark:bg-purple-950/20 border-purple-200/60 dark:border-purple-900/40 transition-all hover:shadow-sm">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
@@ -179,6 +162,23 @@ export default function DistrictDetailPage() {
               </p>
               <p className="text-sm font-bold truncate text-foreground mt-0.5">
                 {districtData.market.name}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* KPI 3: Operating State - Soft Emerald Tint */}
+        <Card className="shadow-xs bg-emerald-50/70 dark:bg-emerald-950/20 border-emerald-200/60 dark:border-emerald-900/40 transition-all hover:shadow-sm">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+              <Globe className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold text-emerald-700/80 dark:text-emerald-300/80 uppercase tracking-wider">
+                Operating State
+              </p>
+              <p className="text-sm font-bold truncate text-foreground mt-0.5">
+                {districtData.state.name} ({districtData.state.code})
               </p>
             </div>
           </CardContent>
@@ -202,7 +202,7 @@ export default function DistrictDetailPage() {
         </Card>
       </div>
 
-      {/* Main 3 Detail Cards Grid: Identical Symmetrical Structure for District Manager, State Manager, Market Manager */}
+      {/* Main 3 Detail Cards Grid: 1st District, 2nd Market, 3rd State */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* CARD 1: District Manager Details */}
         <Card className="border-border/60 shadow-xs flex flex-col justify-between">
@@ -277,80 +277,7 @@ export default function DistrictDetailPage() {
           </div>
         </Card>
 
-        {/* CARD 2: State Manager & Operating State Details */}
-        <Card className="border-border/60 shadow-xs flex flex-col justify-between">
-          <div>
-            <CardHeader className="pb-3 border-b bg-muted/20">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                  <Globe className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> State Details
-                </CardTitle>
-                <Badge
-                  variant="outline"
-                  className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[11px]"
-                >
-                  Assigned
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="p-5 space-y-4">
-              {/* Profile Top Row */}
-              <div className="flex items-center gap-3.5 pb-4 border-b border-border/50">
-                <div className="h-12 w-12 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-base uppercase shrink-0 border border-emerald-500/20">
-                  {districtData.state.manager.slice(0, 2)}
-                </div>
-                <div className="min-w-0">
-                  <h3 className="font-semibold text-base text-foreground truncate">
-                    {districtData.state.manager}
-                  </h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    State:{" "}
-                    <span className="font-medium text-foreground">{districtData.state.name}</span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Symmetrical Details Block */}
-              <div className="rounded-lg bg-muted/30 p-3.5 space-y-2.5 border border-border/40">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
-                    <User className="h-3.5 w-3.5 text-muted-foreground" /> State Manager:
-                  </span>
-                  <span className="text-xs font-semibold text-foreground text-right truncate">
-                    {districtData.state.manager}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
-                    <Mail className="h-3.5 w-3.5 text-muted-foreground" /> Email Address:
-                  </span>
-                  <a
-                    href={`mailto:${districtData.state.email}`}
-                    className="text-xs font-medium text-primary hover:underline text-right truncate max-w-[200px]"
-                    title={districtData.state.email}
-                  >
-                    {districtData.state.email}
-                  </a>
-                </div>
-
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
-                    <Phone className="h-3.5 w-3.5 text-muted-foreground" /> Phone Number:
-                  </span>
-                  <a
-                    href={`tel:${districtData.state.phone}`}
-                    className="text-xs font-mono font-medium text-foreground hover:underline text-right"
-                  >
-                    {districtData.state.phone}
-                  </a>
-                </div>
-              </div>
-            </CardContent>
-          </div>
-        </Card>
-
-        {/* CARD 3: Market Manager & Associated Market Details */}
+        {/* CARD 2: Market Manager & Associated Market Details */}
         <Card className="border-border/60 shadow-xs flex flex-col justify-between">
           <div>
             <CardHeader className="pb-3 border-b bg-muted/20">
@@ -417,6 +344,79 @@ export default function DistrictDetailPage() {
                     className="text-xs font-mono font-medium text-foreground hover:underline text-right"
                   >
                     {districtData.market.phone}
+                  </a>
+                </div>
+              </div>
+            </CardContent>
+          </div>
+        </Card>
+
+        {/* CARD 3: State Manager & Operating State Details */}
+        <Card className="border-border/60 shadow-xs flex flex-col justify-between">
+          <div>
+            <CardHeader className="pb-3 border-b bg-muted/20">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                  <Globe className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> State Details
+                </CardTitle>
+                <Badge
+                  variant="outline"
+                  className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[11px]"
+                >
+                  Assigned
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-5 space-y-4">
+              {/* Profile Top Row */}
+              <div className="flex items-center gap-3.5 pb-4 border-b border-border/50">
+                <div className="h-12 w-12 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-base uppercase shrink-0 border border-emerald-500/20">
+                  {districtData.state.manager.slice(0, 2)}
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-base text-foreground truncate">
+                    {districtData.state.manager}
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    State:{" "}
+                    <span className="font-medium text-foreground">{districtData.state.name}</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Symmetrical Details Block */}
+              <div className="rounded-lg bg-muted/30 p-3.5 space-y-2.5 border border-border/40">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" /> State Manager:
+                  </span>
+                  <span className="text-xs font-semibold text-foreground text-right truncate">
+                    {districtData.state.manager}
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
+                    <Mail className="h-3.5 w-3.5 text-muted-foreground" /> Email Address:
+                  </span>
+                  <a
+                    href={`mailto:${districtData.state.email}`}
+                    className="text-xs font-medium text-primary hover:underline text-right truncate max-w-[200px]"
+                    title={districtData.state.email}
+                  >
+                    {districtData.state.email}
+                  </a>
+                </div>
+
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground" /> Phone Number:
+                  </span>
+                  <a
+                    href={`tel:${districtData.state.phone}`}
+                    className="text-xs font-mono font-medium text-foreground hover:underline text-right"
+                  >
+                    {districtData.state.phone}
                   </a>
                 </div>
               </div>
