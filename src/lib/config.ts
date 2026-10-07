@@ -88,7 +88,7 @@ export const DEPARTMENT_API_PATHS = {
   department: (id: string | number) => `/api/departments/${id}`,
   addDepartment: "/api/departments/add",
   updateDepartment: "/api/departments/update",
-  deleteDepartment: "/api/departments/delete",
+  deleteDepartment: (id: string | number) => `/api/departments/delete/${id}`,
 } as const;
 
 export const HIRARCHY_API_PATHS = {
@@ -115,7 +115,7 @@ export const USER_PERMISSION_API_PATHS = {
 
 export const PAYSLIP_API_PATHS = {
   getUnviewedByUserId: (userId: string | number) =>
-    `/api/payslips/GetUserPaySlipByUserId/${userId}`,
+    `/api/payslips/GetUnviewedPaySlipByUserId/${userId}`,
 } as const;
 
 export const COMMISSION_API_BASE_URL =
