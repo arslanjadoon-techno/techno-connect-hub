@@ -382,8 +382,7 @@ export const DistrictsApi = {
     manager?: string;
     email?: string | null;
     phone?: string | null;
-  }) =>
-    apiRequest<District>(DISTRICT_API_PATHS.addDistrict, { method: "POST", body: payload }),
+  }) => apiRequest<District>(DISTRICT_API_PATHS.addDistrict, { method: "POST", body: payload }),
 
   // 4. Update District
   update: (payload: {
@@ -395,8 +394,7 @@ export const DistrictsApi = {
     manager?: string;
     email?: string | null;
     phone?: string | null;
-  }) =>
-    apiRequest<District>(DISTRICT_API_PATHS.updateDistrict, { method: "PUT", body: payload }),
+  }) => apiRequest<District>(DISTRICT_API_PATHS.updateDistrict, { method: "PUT", body: payload }),
 
   // 5. Delete District
   delete: (id: number | string | { id: number | string }) => {

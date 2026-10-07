@@ -664,50 +664,7 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
         />
       </div>
 
-      {/* 2. Market (Required) */}
-      <div className="space-y-1.5">
-        <Label>
-          Market <span className="text-destructive">*</span>
-        </Label>
-        <Select
-          value={marketId}
-          disabled={isSaving}
-          onValueChange={setMarketId}
-          onOpenChange={(open) => {
-            if (!open) setMarketSearch("");
-            else setTimeout(() => marketSearchRef.current?.focus(), 100);
-          }}
-        >
-          <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
-            <SelectValue placeholder="Select associated market" />
-          </SelectTrigger>
-          <SelectContent
-            onKeyDown={(e) => e.stopPropagation()}
-            onKeyUp={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
-              <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
-              <input
-                ref={marketSearchRef}
-                placeholder="Search markets..."
-                value={marketSearch}
-                onChange={(e) => {
-                  setMarketSearch(e.target.value);
-                  setTimeout(() => marketSearchRef.current?.focus(), 0);
-                }}
-                className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
-              />
-            </div>
-            {formMarketOptions.map((m) => (
-              <SelectItem key={m.id} value={m.id}>
-                {m.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* 3. State (Required) */}
+      {/* 2. State (Required) */}
       <div className="space-y-1.5">
         <Label>
           State <span className="text-destructive">*</span>
@@ -744,6 +701,49 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
             {filteredStates.map((s) => (
               <SelectItem key={s.id} value={s.id.toString()}>
                 {s.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* 3. Market (Required) */}
+      <div className="space-y-1.5">
+        <Label>
+          Market <span className="text-destructive">*</span>
+        </Label>
+        <Select
+          value={marketId}
+          disabled={isSaving}
+          onValueChange={setMarketId}
+          onOpenChange={(open) => {
+            if (!open) setMarketSearch("");
+            else setTimeout(() => marketSearchRef.current?.focus(), 100);
+          }}
+        >
+          <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
+            <SelectValue placeholder="Select associated market" />
+          </SelectTrigger>
+          <SelectContent
+            onKeyDown={(e) => e.stopPropagation()}
+            onKeyUp={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
+              <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
+              <input
+                ref={marketSearchRef}
+                placeholder="Search markets..."
+                value={marketSearch}
+                onChange={(e) => {
+                  setMarketSearch(e.target.value);
+                  setTimeout(() => marketSearchRef.current?.focus(), 0);
+                }}
+                className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
+              />
+            </div>
+            {formMarketOptions.map((m) => (
+              <SelectItem key={m.id} value={m.id}>
+                {m.name}
               </SelectItem>
             ))}
           </SelectContent>
