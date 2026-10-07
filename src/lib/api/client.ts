@@ -735,7 +735,10 @@ export const DepartmentsApi = {
     }),
   delete: (id: number | string | { id: number | string }) => {
     const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
-    return apiRequest<null>(DEPARTMENT_API_PATHS.deleteDepartment(numericId), { method: "DELETE" });
+    return apiRequest<null>(DEPARTMENT_API_PATHS.deleteDepartment, {
+      method: "DELETE",
+      body: { id: Number(numericId) },
+    });
   },
 };
 

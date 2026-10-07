@@ -88,7 +88,7 @@ export const DEPARTMENT_API_PATHS = {
   department: (id: string | number) => `/api/departments/${id}`,
   addDepartment: "/api/departments/add",
   updateDepartment: "/api/departments/update",
-  deleteDepartment: (id: string | number) => `/api/departments/delete/${id}`,
+  deleteDepartment: "/api/departments/delete",
 } as const;
 
 export const HIRARCHY_API_PATHS = {

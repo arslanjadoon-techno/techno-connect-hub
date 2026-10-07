@@ -344,7 +344,10 @@ function DepartmentForm({
     setSearchQuery("");
   };
 
-  const canSave = name.trim().length > 0;
+  const canSave =
+    name.trim().length > 0 &&
+    email.trim().length > 0 &&
+    Boolean(managerId && Number(managerId) > 0);
 
   return (
     <div className="space-y-4">
@@ -365,7 +368,7 @@ function DepartmentForm({
       {/* 2. Department Email */}
       <div className="space-y-1.5">
         <Label>
-          Department Email <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+          Department Email <span className="text-destructive">*</span>
         </Label>
         <Input
           type="email"
@@ -373,6 +376,7 @@ function DepartmentForm({
           disabled={isSaving}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="dept@company.com"
+          required
         />
       </div>
 
@@ -393,7 +397,7 @@ function DepartmentForm({
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <Label>
-            Manager <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+            Manager Name <span className="text-destructive">*</span>
           </Label>
           {managerId ? (
             <button
@@ -402,7 +406,7 @@ function DepartmentForm({
               disabled={isSaving}
               className="text-xs text-destructive hover:underline cursor-pointer flex items-center gap-1 font-medium"
             >
-              <X className="h-3 w-3" /> Remove manager
+              <X className="h-3 w-3" /> Change manager
             </button>
           ) : null}
         </div>

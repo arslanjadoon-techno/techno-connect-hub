@@ -29,7 +29,7 @@ export class DepartmentsService {
   }
   delete(id: number | string | { id: number | string }) {
     const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
-    return http.delete<null>(DEPARTMENT_API_PATHS.deleteDepartment(numericId));
+    return http.delete<null>(DEPARTMENT_API_PATHS.deleteDepartment, { id: Number(numericId) });
   }
 }
 
