@@ -103,7 +103,7 @@ export default function StoresPage() {
 
   // Pagination states
   const [page, setPage] = useState<number>(0);
-  const [size, setSize] = useState<number>(15);
+  const [size, setSize] = useState<number>(50);
   const [totalRecords, setTotalRecords] = useState<number>(0);
 
   // Synchronous atomic state blockers

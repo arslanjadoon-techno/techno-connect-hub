@@ -43,7 +43,7 @@ export default function StatesPage() {
 
   // States for tracking server side pagination parameters
   const [page, setPage] = useState<number>(0);
-  const [size, setSize] = useState<number>(15);
+  const [size, setSize] = useState<number>(50);
   const [totalRecords, setTotalRecords] = useState<number>(0);
 
   // Server-side backend search states

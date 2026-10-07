@@ -59,15 +59,7 @@ interface Props<T> {
   isSearching?: boolean;
 }
 
-const PAGE_SIZE_KEY = "app-table-page-size";
-const PAGE_SIZE_EVENT = "app-table-page-size-change";
 const PAGE_SIZE_OPTIONS = [15, 25, 50, 100];
-
-function getStoredPageSize(fallback: number) {
-  if (typeof window === "undefined") return fallback;
-  const v = Number(window.localStorage.getItem(PAGE_SIZE_KEY));
-  return PAGE_SIZE_OPTIONS.includes(v) ? v : PAGE_SIZE_OPTIONS.includes(fallback) ? fallback : 15;
-}
 
 function extractSearchableStrings(val: unknown, depth = 0, set = new Set<string>()): string[] {
   if (depth > 4 || val === null || val === undefined) return [];
@@ -192,7 +184,11 @@ export function DataTable<T>({
   const [query, setQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [localPage, setLocalPage] = useState(1);
-  const [pageSize, setPageSize] = useState<number>(() => getStoredPageSize(pageSizeProp));
+  const [pageSize, setPageSize] = useState<number>(pageSizeProp);
+
+  useEffect(() => {
+    setPageSize(pageSizeProp);
+  }, [pageSizeProp]);
 
   const isControlledSearch = searchValueProp !== undefined && onSearchChange !== undefined;
   const currentQuery = isControlledSearch ? searchValueProp : query;
@@ -223,38 +219,8 @@ export function DataTable<T>({
     return null;
   };
 
-  // Listen for cross-table size changes
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const ev = e as CustomEvent<number>;
-      if (typeof ev.detail === "number" && ev.detail !== pageSize) {
-        setPageSize(ev.detail);
-        if (onPageSizeChange) onPageSizeChange(ev.detail);
-        if (isServerPagination && onPageChange) onPageChange(0);
-        else setLocalPage(1);
-      }
-    };
-    window.addEventListener(PAGE_SIZE_EVENT, handler as EventListener);
-    return () => window.removeEventListener(PAGE_SIZE_EVENT, handler as EventListener);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageSize, onPageSizeChange, onPageChange]);
-
-  // Propagate initial size to server-paginated parents
-  useEffect(() => {
-    if (onPageSizeChange && pageSize !== pageSizeProp) {
-      onPageSizeChange(pageSize);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const changePageSize = (next: number) => {
     setPageSize(next);
-    try {
-      window.localStorage.setItem(PAGE_SIZE_KEY, String(next));
-    } catch {
-      // Ignore storage errors
-    }
-    window.dispatchEvent(new CustomEvent(PAGE_SIZE_EVENT, { detail: next }));
     if (onPageSizeChange) onPageSizeChange(next);
     if (isServerPagination && onPageChange) onPageChange(0);
     else setLocalPage(1);

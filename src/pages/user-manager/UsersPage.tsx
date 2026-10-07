@@ -107,7 +107,7 @@ function UsersPage() {
   const [isSearchingUsers, setIsSearchingUsers] = useState<boolean>(false);
 
   const [page, setPage] = useState<number>(0);
-  const [size, setSize] = useState<number>(15);
+  const [size, setSize] = useState<number>(50);
   const [totalRecords, setTotalRecords] = useState<number>(0);
 
   const lastFetchedKey = useRef<string>("");
