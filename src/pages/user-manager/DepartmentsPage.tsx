@@ -1,22 +1,40 @@
-import { useState, useEffect, useRef, useMemo } from "react";
-import { AdminGuard, CrudPage } from "@/components/crud-page";
+import { useState, useEffect, useRef } from "react";
+import { CrudPage } from "@/components/crud-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Search } from "lucide-react";
-// 🌟 usersApi ko import kiya manager searchable dropdown ke liye
-import { DepartmentsApi, usersApi, type DepartmentEntity } from "@/lib/api/client";
+import { Loader2, Search, X } from "lucide-react";
+import { departmentsService, usersService } from "@/services";
+
+interface DepartmentManager {
+  id: number;
+  fullName?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+}
+
+interface DepartmentItem {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+  manager?: DepartmentManager | null;
+  managerId?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface DepartmentFormData {
+  name: string;
+  email: string;
+  phone: string;
+  managerId: number | null;
+}
 
 export default function DepartmentsPage() {
-  const [rows, setRows] = useState<any[]>([]);
+  const [rows, setRows] = useState<DepartmentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -35,7 +53,7 @@ export default function DepartmentsPage() {
       setLoading(true);
       isFetchingRef.current = true;
       lastFetchedKey.current = key;
-      const res = await DepartmentsApi.getAll({ page: targetPage, size: targetSize });
+      const res = await departmentsService.getAll({ page: targetPage, size: targetSize });
       if (res.success) {
         if (
           res.data.length === 0 &&
@@ -49,7 +67,7 @@ export default function DepartmentsPage() {
           setPage(fallback);
           return;
         }
-        setRows(res.data);
+        setRows(res.data as DepartmentItem[]);
         setTotalRecords(res.pagination?.totalRecords ?? res.data.length);
       } else {
         toast.error(res.message || "Failed to load departments");
@@ -68,10 +86,10 @@ export default function DepartmentsPage() {
     fetchRows(page, size);
   }, [page, size]);
 
-  const handleDelete = async (d: any) => {
+  const handleDelete = async (d: DepartmentItem) => {
     try {
       setActionLoading(true);
-      const res = await DepartmentsApi.delete(d.id);
+      const res = await departmentsService.delete(d.id);
       if (res.success) {
         toast.success(res.message || "Department deleted successfully");
         lastFetchedKey.current = "";
@@ -87,23 +105,23 @@ export default function DepartmentsPage() {
   };
 
   const handleSave = async (
-    initial: any | null,
-    formData: { name: string; email: string; phone: string; managerId: number | null },
+    initial: DepartmentItem | null,
+    formData: DepartmentFormData,
     close: () => void,
   ) => {
     try {
       setActionLoading(true);
 
       const payload = {
-        name: formData.name,
-        email: formData.email || null,
-        phone: formData.phone || null,
+        name: formData.name.trim(),
+        email: formData.email.trim() || null,
+        phone: formData.phone.trim() || null,
         managerId: formData.managerId ? Number(formData.managerId) : null,
       };
 
       const res = initial
-        ? await DepartmentsApi.update({ id: initial.id, ...payload })
-        : await DepartmentsApi.add(payload);
+        ? await departmentsService.update({ id: initial.id, ...payload })
+        : await departmentsService.add(payload);
 
       if (res.success) {
         toast.success(
@@ -114,7 +132,7 @@ export default function DepartmentsPage() {
         fetchRows(page, size);
         close();
       } else {
-        toast.error(res.message);
+        toast.error(res.message || "Failed to save department");
       }
     } catch (err: any) {
       toast.error(err?.message || "Operation failed");
@@ -135,7 +153,7 @@ export default function DepartmentsPage() {
   return (
     <div className="w-full">
       <div className="w-full border-0 shadow-none bg-transparent [&_input]:bg-white dark:[&_input]:bg-zinc-950 [&_thead]:bg-zinc-200 dark:[&_thead]:bg-zinc-800 [&_thead]:border-b-2 [&_thead]:border-border [&_th]:font-bold [&_th]:text-zinc-900 dark:[&_th]:text-zinc-100 [&_th]:h-12 [&_tbody_tr]:bg-background [&_tbody_tr]:even:bg-zinc-50/50 dark:[&_tbody_tr]:even:bg-zinc-900/30 [&_tbody_tr]:hover:bg-muted/40 [&_th:last-child]:text-right [&_th:last-child]:pr-10 [&_td:last-child]:text-right">
-        <CrudPage<any>
+        <CrudPage<DepartmentItem>
           title="Departments"
           subtitle="Manage company departments used across portals."
           rows={rows}
@@ -148,7 +166,6 @@ export default function DepartmentsPage() {
           onPageChange={(p) => setPage(p)}
           onPageSizeChange={(s) => setSize(s)}
           columns={[
-            // 🌟 Naye Columns response ke mutabik add kiye gaye hain
             {
               key: "name",
               header: "Department Name",
@@ -173,11 +190,11 @@ export default function DepartmentsPage() {
               key: "managerName",
               header: "Manager Name",
               accessor: (d) => (
-                <div className="py-2 font-medium text-indigo-600 dark:text-indigo-400">
-                  {d.manager?.fullName || "—"}
+                <div className="py-2 font-medium text-foreground">
+                  {d.manager?.fullName || d.manager?.name || "—"}
                 </div>
               ),
-              searchValue: (d) => d.manager?.fullName || "",
+              searchValue: (d) => d.manager?.fullName || d.manager?.name || "",
             },
             {
               key: "managerEmail",
@@ -186,6 +203,16 @@ export default function DepartmentsPage() {
                 <div className="py-2 text-xs text-muted-foreground">{d.manager?.email || "—"}</div>
               ),
               searchValue: (d) => d.manager?.email || "",
+            },
+            {
+              key: "managerPhone",
+              header: "Manager Phone",
+              accessor: (d) => (
+                <div className="py-2 text-xs text-muted-foreground font-mono">
+                  {d.manager?.phone || "—"}
+                </div>
+              ),
+              searchValue: (d) => d.manager?.phone || "",
             },
           ]}
           onDelete={handleDelete}
@@ -203,55 +230,125 @@ export default function DepartmentsPage() {
 }
 
 // =======================================================
-// SEARCHABLE DROPDOWN FORM COMPONENT
+// DEPARTMENT FORM COMPONENT WITH SEARCHBAR MANAGER
 // =======================================================
 function DepartmentForm({
   initial,
   isSaving,
   onSave,
 }: {
-  initial: any | null;
+  initial: DepartmentItem | null;
   isSaving: boolean;
-  onSave: (data: { name: string; email: string; phone: string; managerId: number | null }) => void;
+  onSave: (data: DepartmentFormData) => void;
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [email, setEmail] = useState(initial?.email ?? "");
   const [phone, setPhone] = useState(initial?.phone ?? "");
 
-  // States for Manager Dropdown API implementation
-  const [managerId, setManagerId] = useState<string>(
-    initial?.manager?.id ? initial.manager.id.toString() : "placeholder",
+  // Manager state
+  const initialManager = initial?.manager;
+  const [managerId, setManagerId] = useState<number | null>(
+    initialManager?.id ? initialManager.id : initial?.managerId ? initial.managerId : null,
   );
-  const [usersList, setUsersList] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [managerName, setManagerName] = useState<string>(
+    initialManager?.fullName || initialManager?.name || "",
+  );
+  const [managerEmail, setManagerEmail] = useState<string>(initialManager?.email || "");
+  const [managerPhone, setManagerPhone] = useState<string>(initialManager?.phone || "");
 
-  // Users list fetch karne ke liye effect
+  // Manager Searchbox state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<
+    Array<{ id: number; fullName: string; email?: string; phone?: string }>
+  >([]);
+  const [loadingUsers, setLoadingUsers] = useState<boolean>(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
+  // Close search dropdown on click outside
   useEffect(() => {
-    usersApi
-      .getAll({ page: 0, size: 200 })
-      .then((res) => {
-        if (res.success && Array.isArray(res.data)) {
-          setUsersList(res.data);
-        }
-      })
-      .catch((err) => console.error("Error loading users for dropdown:", err));
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Inline dynamic filter framework execution
-  const filteredUsers = useMemo(() => {
-    return usersList.filter(
-      (u) =>
-        (u.fullName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (u.email || "").toLowerCase().includes(searchQuery.toLowerCase()),
-    );
-  }, [usersList, searchQuery]);
+  // Debounce the search query
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
-  const canSave = name.trim().length > 0 && managerId !== "placeholder" && !!managerId;
+  // Search users via GET /api/users/search?search=...
+  useEffect(() => {
+    let active = true;
+    const fetchUsers = async () => {
+      if (!isOpen && !debouncedSearchQuery) return;
+      setLoadingUsers(true);
+      try {
+        const res = await usersService.search({ search: debouncedSearchQuery });
+        if (active && res.success && Array.isArray(res.data)) {
+          const mapped = res.data.map((u: any) => ({
+            id: u.id,
+            fullName:
+              u.fullName ||
+              u.name ||
+              `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
+              `User #${u.id}`,
+            email: u.email || "",
+            phone: u.phone || "",
+          }));
+          setSearchResults(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to search users:", err);
+      } finally {
+        if (active) setLoadingUsers(false);
+      }
+    };
+
+    fetchUsers();
+
+    return () => {
+      active = false;
+    };
+  }, [debouncedSearchQuery, isOpen]);
+
+  // When a user is selected from the searchbox results
+  const handleSelectUser = (user: {
+    id: number;
+    fullName: string;
+    email?: string;
+    phone?: string;
+  }) => {
+    setManagerId(user.id);
+    setManagerName(user.fullName);
+    setManagerEmail(user.email || "");
+    setManagerPhone(user.phone || "");
+    setSearchQuery("");
+    setIsOpen(false);
+  };
+
+  // When manager is removed
+  const handleRemoveManager = () => {
+    setManagerId(null);
+    setManagerName("");
+    setManagerEmail("");
+    setManagerPhone("");
+    setSearchQuery("");
+  };
+
+  const canSave = name.trim().length > 0;
 
   return (
     <div className="space-y-4">
-      {/* Name Input */}
+      {/* 1. Department Name */}
       <div className="space-y-1.5">
         <Label>
           Department Name <span className="text-destructive">*</span>
@@ -260,13 +357,16 @@ function DepartmentForm({
           value={name}
           disabled={isSaving}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. IT, HR, Finance"
+          placeholder="e.g. IT, HR, Finance, Operations"
+          required
         />
       </div>
 
-      {/* Email Input */}
+      {/* 2. Department Email */}
       <div className="space-y-1.5">
-        <Label>Department Email</Label>
+        <Label>
+          Department Email <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+        </Label>
         <Input
           type="email"
           value={email}
@@ -276,65 +376,140 @@ function DepartmentForm({
         />
       </div>
 
-      {/* Phone Input */}
+      {/* 3. Department Phone */}
       <div className="space-y-1.5">
-        <Label>Phone Number</Label>
+        <Label>
+          Department Phone <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+        </Label>
         <Input
           value={phone}
           disabled={isSaving}
           onChange={(e) => setPhone(e.target.value)}
-          placeholder="e.g. +1 (555) 123 432"
+          placeholder="e.g. +1 (555) 123-4567"
         />
       </div>
 
-      {/* 🌟 SEARCHABLE MANAGER DROPDOWN COMPONENT */}
+      {/* 4. Manager Searchbar Section */}
       <div className="space-y-1.5">
-        <Label>
-          Assigned Manager <span className="text-destructive">*</span>
-        </Label>
-        <Select
-          value={managerId}
-          disabled={isSaving}
-          onValueChange={setManagerId}
-          onOpenChange={(open) => {
-            if (!open) setSearchQuery("");
-            else setTimeout(() => searchInputRef.current?.focus(), 100);
-          }}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select Manager" />
-          </SelectTrigger>
-          <SelectContent onKeyDown={(e) => e.stopPropagation()}>
-            {/* Embedded Search Input field */}
-            <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
-              <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
-              <input
-                ref={searchInputRef}
-                placeholder="Search managers by name..."
+        <div className="flex items-center justify-between">
+          <Label>
+            Manager <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+          </Label>
+          {managerId ? (
+            <button
+              type="button"
+              onClick={handleRemoveManager}
+              disabled={isSaving}
+              className="text-xs text-destructive hover:underline cursor-pointer flex items-center gap-1 font-medium"
+            >
+              <X className="h-3 w-3" /> Remove manager
+            </button>
+          ) : null}
+        </div>
+
+        {managerId ? (
+          /* Selected Manager display card */
+          <div className="flex items-center justify-between rounded-md border border-input bg-muted/40 px-3 py-2.5">
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-xs text-foreground truncate">{managerName}</span>
+                <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium px-1.5 py-0.5 rounded">
+                  Assigned
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+                {managerEmail ? <span>{managerEmail}</span> : <span className="italic">No email</span>}
+                {managerPhone ? <span>• {managerPhone}</span> : null}
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={isSaving}
+              onClick={handleRemoveManager}
+              className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full cursor-pointer shrink-0 ml-2"
+              title="Remove manager"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          /* Interactive Search Box */
+          <div className="relative" ref={searchContainerRef}>
+            <div className="relative flex items-center">
+              <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full text-xs bg-transparent outline-none h-6"
+                disabled={isSaving}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setIsOpen(true);
+                }}
+                onFocus={() => setIsOpen(true)}
+                placeholder="Search user by name, email to assign as manager..."
+                className="pl-9 pr-9"
               />
+              {loadingUsers && (
+                <Loader2 className="absolute right-3 h-4 w-4 animate-spin text-muted-foreground pointer-events-none" />
+              )}
             </div>
 
-            <SelectItem value="placeholder" disabled>
-              Choose a Manager
-            </SelectItem>
-
-            {filteredUsers.length === 0 ? (
-              <div className="text-xs text-muted-foreground p-2 text-center">No users found</div>
-            ) : (
-              filteredUsers.map((u) => (
-                <SelectItem key={u.id} value={u.id.toString()}>
-                  <div className="flex flex-col text-left">
-                    <span className="font-medium text-xs">{u.fullName}</span>
-                    <span className="text-[10px] text-muted-foreground">{u.email}</span>
+            {/* Dropdown list of matching users */}
+            {isOpen && (
+              <div className="absolute top-full left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded-md border bg-popover text-popover-foreground shadow-lg z-50 py-1">
+                {searchResults.length === 0 ? (
+                  <div className="py-4 text-center text-xs text-muted-foreground">
+                    {loadingUsers ? "Searching users..." : "No users found"}
                   </div>
-                </SelectItem>
-              ))
+                ) : (
+                  searchResults.map((user) => (
+                    <div
+                      key={user.id}
+                      onClick={() => handleSelectUser(user)}
+                      className="flex flex-col px-3 py-2 text-xs hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors border-b last:border-b-0 border-border/40"
+                    >
+                      <span className="font-semibold">{user.fullName}</span>
+                      <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
+                        {user.email && <span>{user.email}</span>}
+                        {user.phone && <span>• {user.phone}</span>}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             )}
-          </SelectContent>
-        </Select>
+          </div>
+        )}
+      </div>
+
+      {/* 5. Non-editable Manager Email */}
+      <div className="space-y-1.5">
+        <Label>
+          Manager Email <span className="text-xs text-muted-foreground font-normal">(Auto-populated)</span>
+        </Label>
+        <Input
+          type="email"
+          value={managerEmail}
+          readOnly
+          tabIndex={-1}
+          placeholder="Auto-populated from manager selection"
+          className="bg-muted/50 text-muted-foreground cursor-not-allowed select-none"
+        />
+      </div>
+
+      {/* 6. Non-editable Manager Phone */}
+      <div className="space-y-1.5">
+        <Label>
+          Manager Phone <span className="text-xs text-muted-foreground font-normal">(Auto-populated)</span>
+        </Label>
+        <Input
+          value={managerPhone}
+          readOnly
+          tabIndex={-1}
+          placeholder="Auto-populated from manager selection"
+          className="bg-muted/50 text-muted-foreground cursor-not-allowed select-none"
+        />
       </div>
 
       {/* Save Button */}
@@ -346,7 +521,7 @@ function DepartmentForm({
             name: name.trim(),
             email: email.trim(),
             phone: phone.trim(),
-            managerId: managerId !== "placeholder" ? Number(managerId) : null,
+            managerId: managerId ? Number(managerId) : null,
           })
         }
       >

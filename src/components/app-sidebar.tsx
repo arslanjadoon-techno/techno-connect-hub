@@ -228,6 +228,7 @@ function CollapsibleGroupItem({
   item: Item;
   isActive: (p: string) => boolean;
 }) {
+  const { isMobile, setOpenMobile } = useSidebar();
   const isChildActive =
     isActive(item.url) || (item.children?.some((c) => isActive(c.url)) ?? false);
 
@@ -238,6 +239,12 @@ function CollapsibleGroupItem({
       setSubOpen(true);
     }
   }, [isChildActive]);
+
+  const handleLinkClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   if (item.children && item.children.length > 0) {
     return (
@@ -269,7 +276,11 @@ function CollapsibleGroupItem({
             {item.children.map((child) => (
               <SidebarMenuItem key={child.url}>
                 <SidebarMenuButton asChild isActive={isActive(child.url)} size="sm">
-                  <Link to={child.url} className="flex items-center gap-2 text-xs py-1">
+                  <Link
+                    to={child.url}
+                    onClick={handleLinkClick}
+                    className="flex items-center gap-2 text-xs py-1"
+                  >
                     {child.icon && <child.icon className="h-3.5 w-3.5" />}
                     <span>{child.title}</span>
                   </Link>
@@ -285,7 +296,7 @@ function CollapsibleGroupItem({
   return (
     <SidebarMenuItem key={item.url}>
       <SidebarMenuButton asChild isActive={isActive(item.url)} size="sm">
-        <Link to={item.url} className="flex items-center gap-2">
+        <Link to={item.url} onClick={handleLinkClick} className="flex items-center gap-2">
           <item.icon className="h-4 w-4" />
           <span>{item.title}</span>
         </Link>
@@ -309,7 +320,14 @@ function CollapsibleGroup({
   open: boolean;
   onToggle: () => void;
 }) {
+  const { isMobile, setOpenMobile } = useSidebar();
   const Icon = group.icon;
+
+  const handleLinkClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   if (collapsed) {
     return (
@@ -322,6 +340,7 @@ function CollapsibleGroup({
               <SidebarMenuButton asChild isActive={isItemActive} tooltip={item.title}>
                 <Link
                   to={item.children ? item.children[0].url : item.url}
+                  onClick={handleLinkClick}
                   className="flex items-center gap-2"
                 >
                   <item.icon className="h-4 w-4" />
@@ -412,13 +431,21 @@ function formatRoleName(roleStr: string): string {
 }
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const { user: authUser, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
-  const pathname = useLocation().pathname;
+  const location = useLocation();
+  const pathname = location.pathname;
   const [openGroup, setOpenGroup] = useState<string | null>(null);
+
+  // Auto-hide mobile sidebar when navigation occurs
+  useEffect(() => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  }, [location.pathname, location.key, isMobile, setOpenMobile]);
 
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
   const groupActive = (g: Group) =>
@@ -602,7 +629,13 @@ export function AppSidebar() {
               {topItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={isActive(item.url)} tooltip={item.title}>
-                    <Link to={item.url} className="flex items-center gap-2">
+                    <Link
+                      to={item.url}
+                      onClick={() => {
+                        if (isMobile) setOpenMobile(false);
+                      }}
+                      className="flex items-center gap-2"
+                    >
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
                     </Link>

@@ -2,6 +2,18 @@ import { http } from "../http";
 import { DEPARTMENT_API_PATHS } from "@/lib/config";
 import type { Department } from "@/lib/api/client";
 
+export interface DepartmentPayload {
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  managerId?: number | null;
+  description?: string;
+}
+
+export interface DepartmentUpdatePayload extends DepartmentPayload {
+  id: number;
+}
+
 export class DepartmentsService {
   getAll(params?: { page?: number; size?: number }) {
     return http.get<Department[]>(DEPARTMENT_API_PATHS.getAll, params);
@@ -9,10 +21,10 @@ export class DepartmentsService {
   get(id: string | number) {
     return http.get<Department>(DEPARTMENT_API_PATHS.department(id));
   }
-  add(payload: { name: string; description?: string }) {
+  add(payload: DepartmentPayload) {
     return http.post<Department>(DEPARTMENT_API_PATHS.addDepartment, payload);
   }
-  update(payload: { id: number; name: string; description?: string }) {
+  update(payload: DepartmentUpdatePayload) {
     return http.put<Department>(DEPARTMENT_API_PATHS.updateDepartment, payload);
   }
   delete(id: number | string | { id: number | string }) {
