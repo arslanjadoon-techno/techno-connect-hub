@@ -99,7 +99,7 @@ export default function LoginPage() {
       const token = data.token;
       const userData = data.user;
       if (token && userData) {
-        setSession(token, userData);
+        setSession(token, userData, data.permissions ?? []);
         toast.success(result.message || "Login successful.");
         navigate("/ai-chat");
         return;
@@ -107,7 +107,7 @@ export default function LoginPage() {
 
       // Fallback if token is present
       if (data.token) {
-        setSession(data.token, data.user || {});
+        setSession(data.token, data.user || {}, data.permissions ?? []);
         toast.success(result.message || "Login successful.");
         navigate("/ai-chat");
         return;

@@ -109,7 +109,13 @@ export default function AppLayout() {
               <UserMenu />
             </div>
           </header>
-          <main className="flex-1 overflow-x-hidden p-3 sm:p-4 lg:p-6">
+          {/* No overflow-x-hidden here: setting only one axis forces the CSS spec to
+              compute the other as "auto", silently turning <main> into its own scroll
+              container - which breaks position:sticky for anything inside it (sticky
+              binds to the nearest such container, and this one never actually scrolls,
+              since the window does). Wide content should scope its own overflow-x-auto
+              locally (tables already do this) rather than relying on this element. */}
+          <main className="flex-1 p-3 sm:p-4 lg:p-6">
             <Outlet />
           </main>
         </div>

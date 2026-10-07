@@ -17,10 +17,45 @@ import {
  * LocalStorage keys.
  *  - `token` — raw JWT returned by the login API.
  *  - `user`  — full user object exactly as returned by the login API.
+ *  - `permissions` — the user's permission catalog entries, also from the login response.
  * These keys are intentionally short / generic so other tooling can read them.
  */
 export const TOKEN_KEY = "token";
 export const USER_KEY = "user";
+export const PERMISSIONS_KEY = "permissions";
+
+/** Mirrors TechnoComm.DTO.UserPermissionResponse (camelCased). */
+export interface UserPermissionEntry {
+  permissionId: number;
+  permissionKey: string;
+  permissionName: string;
+  permissionDescription?: string | null;
+  portalId: number;
+  portalName?: string | null;
+  accessLevel: "hide" | "read" | "write";
+}
+
+export function getStoredPermissions(): UserPermissionEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(PERMISSIONS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function setStoredPermissions(permissions: UserPermissionEntry[] | null | undefined) {
+  if (typeof window === "undefined") return;
+  try {
+    if (permissions && permissions.length > 0)
+      window.localStorage.setItem(PERMISSIONS_KEY, JSON.stringify(permissions));
+    else window.localStorage.removeItem(PERMISSIONS_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;

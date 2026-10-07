@@ -12,6 +12,7 @@ import {
   type LeaseRentAgreement,
 } from "@/services/portals/leasing";
 import EditableField from "./components/EditableField";
+import { useCanShow, useCanWrite } from "@/lib/leasing-permissions";
 
 const ENTITY_OPTIONS = [
   "Texas Mobile PCS LLC",
@@ -98,6 +99,34 @@ export default function LeasingDetailedPage() {
   });
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [savingRemarks, setSavingRemarks] = useState(false);
+
+  // Section-level permissions. Each section's Card is omitted entirely when
+  // "hide"; its fields stay read-only (even while the page is in Edit mode)
+  // unless the user specifically has "write" for that section.
+  const canShowGeneralInfo = useCanShow("leasing.edit_general_information");
+  const canWriteGeneralInfo = useCanWrite("leasing.edit_general_information");
+  const canWriteLeaseStatus = useCanWrite("leasing.edit_lease_status");
+  const canShowRemarks = useCanShow("leasing.edit_lease_expiration_remarks");
+  const canWriteRemarks = useCanWrite("leasing.edit_lease_expiration_remarks");
+  const canShowLandlordInfo = useCanShow("leasing.edit_landlord_information");
+  const canWriteLandlordInfo = useCanWrite("leasing.edit_landlord_information");
+  const canShowPropertyMgmt = useCanShow("leasing.edit_property_management_information");
+  const canWritePropertyMgmt = useCanWrite("leasing.edit_property_management_information");
+  const canShowBilling = useCanShow("leasing.edit_landlord_billing_details");
+  const canWriteBilling = useCanWrite("leasing.edit_landlord_billing_details");
+  const canShowFinancial = useCanShow("leasing.edit_lease_agreement_and_financial_details");
+  const canWriteFinancial = useCanWrite("leasing.edit_lease_agreement_and_financial_details");
+  const canShowClauses = useCanShow("leasing.edit_agreement_clauses");
+  const canWriteClauses = useCanWrite("leasing.edit_agreement_clauses");
+  const anyWriteAccess =
+    canWriteGeneralInfo ||
+    canWriteLeaseStatus ||
+    canWriteRemarks ||
+    canWriteLandlordInfo ||
+    canWritePropertyMgmt ||
+    canWriteBilling ||
+    canWriteFinancial ||
+    canWriteClauses;
 
   const leaseData = useMemo(
     () => allLeases.find((l) => l.techId === techId) ?? null,
@@ -281,308 +310,342 @@ export default function LeasingDetailedPage() {
 
   return (
     <div className="w-full space-y-4 animate-fade-in pb-8">
-      <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
-        <ArrowLeft className="h-4 w-4" />
-      </Button>
+      {/* Frozen on scroll - sits just below the app header (h-12 / z-30) */}
+      <div className="sticky top-12 z-20 bg-background pb-3">
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
 
-      {/* Hero */}
-      <Card className="p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-bold">{leaseData.storeName}</h1>
-              {leaseData.tier && <Badge className="uppercase">{leaseData.tier}</Badge>}
-              <span className="text-sm font-medium text-muted-foreground">{leaseData.techId}</span>
+        {/* Hero */}
+        <Card className="mt-2 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-xl font-bold">{leaseData.storeName}</h1>
+                {leaseData.tier && <Badge className="uppercase">{leaseData.tier}</Badge>}
+                <span className="text-sm font-medium text-muted-foreground">
+                  {leaseData.techId}
+                </span>
+              </div>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {leaseData.marketName} &bull; {leaseData.storeAddress ?? "—"}
+              </p>
+              {daysLeft !== null && (
+                <Badge
+                  variant="outline"
+                  className={`mt-2 ${yesNoTone(daysLeft < 0 ? "Not Allowed" : daysLeft <= 45 ? "" : "Allowed")}`}
+                >
+                  Lease expiring in {daysLeft} days
+                </Badge>
+              )}
             </div>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {leaseData.marketName} &bull; {leaseData.storeAddress ?? "—"}
-            </p>
-            {daysLeft !== null && (
-              <Badge
-                variant="outline"
-                className={`mt-2 ${yesNoTone(daysLeft < 0 ? "Not Allowed" : daysLeft <= 45 ? "" : "Allowed")}`}
-              >
-                Lease expiring in {daysLeft} days
-              </Badge>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className={isEditing ? "text-destructive" : ""}
-              onClick={() => {
-                if (isEditing && leaseData) setFormData({ ...leaseData });
-                setIsEditing((v) => !v);
-              }}
-            >
-              {isEditing ? <X className="mr-1.5 h-4 w-4" /> : <Pencil className="mr-1.5 h-4 w-4" />}
-              {isEditing ? "Cancel" : "Edit"}
-            </Button>
-            {isEditing && (
-              <Button size="sm" onClick={handleSave} disabled={saving}>
-                {saving ? (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                ) : (
-                  <Check className="mr-1.5 h-4 w-4" />
+            {anyWriteAccess && (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={isEditing ? "text-destructive" : ""}
+                  onClick={() => {
+                    if (isEditing && leaseData) setFormData({ ...leaseData });
+                    setIsEditing((v) => !v);
+                  }}
+                >
+                  {isEditing ? (
+                    <X className="mr-1.5 h-4 w-4" />
+                  ) : (
+                    <Pencil className="mr-1.5 h-4 w-4" />
+                  )}
+                  {isEditing ? "Cancel" : "Edit"}
+                </Button>
+                {isEditing && (
+                  <Button size="sm" onClick={handleSave} disabled={saving}>
+                    {saving ? (
+                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="mr-1.5 h-4 w-4" />
+                    )}
+                    Save Changes
+                  </Button>
                 )}
-                Save Changes
-              </Button>
+              </div>
             )}
           </div>
-        </div>
-      </Card>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        {/* General Information */}
-        <Card className="p-4 lg:col-span-2">
-          <h2 className="mb-3 text-base font-bold">General Information</h2>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <EditableField
-              label="Lease Start Date"
-              value={f.start_Date ?? ""}
-              editing={isEditing}
-              type="date"
-              onChange={(v) => set("start_Date", v)}
-            />
-            <EditableField
-              label="Lease Expiry Date"
-              value={f.expiry_Due ?? ""}
-              editing={isEditing}
-              type="date"
-              onChange={(v) => set("expiry_Due", v)}
-            />
-            <EditableField
-              label="Assignment Date"
-              value={f.assignmentDate ?? ""}
-              editing={isEditing}
-              type="date"
-              onChange={(v) => set("assignmentDate", v)}
-            />
-            <EditableField
-              label="Take Over Date"
-              value={f.takeOverDate ?? ""}
-              editing={isEditing}
-              type="date"
-              onChange={(v) => set("takeOverDate", v)}
-            />
-            <EditableField
-              label="Rent Commencement Date"
-              value={f.commencementDateRent ?? ""}
-              editing={isEditing}
-              type="date"
-              onChange={(v) => set("commencementDateRent", v)}
-            />
-            <EditableField
-              label="Lease Type"
-              value={f.lease_Term ?? ""}
-              editing={isEditing}
-              type="select"
-              options={LEASE_TYPE_OPTIONS}
-              onChange={(v) => set("lease_Term", v)}
-            />
-            <EditableField
-              label="Tenant / Entity Name"
-              value={f.entityName ?? ""}
-              editing={isEditing}
-              type="select"
-              options={ENTITY_OPTIONS}
-              onChange={(v) => set("entityName", v)}
-            />
-            <EditableField
-              label="Lease Signed By"
-              value={f.leaseSignedBy ?? ""}
-              editing={isEditing}
-              onChange={(v) => set("leaseSignedBy", v)}
-            />
-            <EditableField
-              label="Market Manager"
-              value={f.marketManager ?? ""}
-              editing={isEditing}
-              onChange={(v) => set("marketManager", v)}
-            />
-            <EditableField label="Store Email" value={leaseData.storeEmail ?? ""} editing={false} />
-            <EditableField
-              label="Store Number"
-              value={leaseData.storePhoneNumber ?? ""}
-              editing={false}
-            />
-            <EditableField
-              label="Store Full Address"
-              value={leaseData.storeAddress ?? ""}
-              editing={false}
-            />
-            <EditableField label="Tier" value={leaseData.tier ?? ""} editing={false} />
-            <EditableField
-              label="Lease Status"
-              value={f.leaseStatus ?? ""}
-              editing={isEditing}
-              type="select"
-              options={["Active", "InActive", "Door Closure"]}
-              onChange={(v) => set("leaseStatus", v)}
-              badgeTone={!isEditing ? statusTone(leaseData.leaseStatus) : undefined}
-              displayValue={!isEditing ? leaseData.leaseStatus || "Not Set" : undefined}
-            />
-          </div>
-        </Card>
-
-        {/* Remarks */}
-        <Card className="p-4">
-          <h2 className="mb-3 text-base font-bold">Lease Expiration Remarks</h2>
-          <Textarea
-            value={remarks}
-            onChange={(e) => setRemarks(e.target.value)}
-            rows={6}
-            placeholder="Add remarks about this lease's expiration..."
-          />
-          <Button size="sm" className="mt-2" onClick={saveRemarks} disabled={savingRemarks}>
-            {savingRemarks ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Remarks"}
-          </Button>
         </Card>
       </div>
 
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* General Information */}
+        {canShowGeneralInfo && (
+          <Card className="p-4 lg:col-span-2">
+            <h2 className="mb-3 text-base font-bold">General Information</h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <EditableField
+                label="Lease Start Date"
+                value={f.start_Date ?? ""}
+                editing={isEditing && canWriteGeneralInfo}
+                type="date"
+                onChange={(v) => set("start_Date", v)}
+              />
+              <EditableField
+                label="Lease Expiry Date"
+                value={f.expiry_Due ?? ""}
+                editing={isEditing && canWriteGeneralInfo}
+                type="date"
+                onChange={(v) => set("expiry_Due", v)}
+              />
+              <EditableField
+                label="Assignment Date"
+                value={f.assignmentDate ?? ""}
+                editing={isEditing && canWriteGeneralInfo}
+                type="date"
+                onChange={(v) => set("assignmentDate", v)}
+              />
+              <EditableField
+                label="Take Over Date"
+                value={f.takeOverDate ?? ""}
+                editing={isEditing && canWriteGeneralInfo}
+                type="date"
+                onChange={(v) => set("takeOverDate", v)}
+              />
+              <EditableField
+                label="Rent Commencement Date"
+                value={f.commencementDateRent ?? ""}
+                editing={isEditing && canWriteGeneralInfo}
+                type="date"
+                onChange={(v) => set("commencementDateRent", v)}
+              />
+              <EditableField
+                label="Lease Type"
+                value={f.lease_Term ?? ""}
+                editing={isEditing && canWriteGeneralInfo}
+                type="select"
+                options={LEASE_TYPE_OPTIONS}
+                onChange={(v) => set("lease_Term", v)}
+              />
+              <EditableField
+                label="Tenant / Entity Name"
+                value={f.entityName ?? ""}
+                editing={isEditing && canWriteGeneralInfo}
+                type="select"
+                options={ENTITY_OPTIONS}
+                onChange={(v) => set("entityName", v)}
+              />
+              <EditableField
+                label="Lease Signed By"
+                value={f.leaseSignedBy ?? ""}
+                editing={isEditing && canWriteGeneralInfo}
+                onChange={(v) => set("leaseSignedBy", v)}
+              />
+              <EditableField
+                label="Market Manager"
+                value={f.marketManager ?? ""}
+                editing={isEditing && canWriteGeneralInfo}
+                onChange={(v) => set("marketManager", v)}
+              />
+              <EditableField
+                label="Store Email"
+                value={leaseData.storeEmail ?? ""}
+                editing={false}
+              />
+              <EditableField
+                label="Store Number"
+                value={leaseData.storePhoneNumber ?? ""}
+                editing={false}
+              />
+              <EditableField
+                label="Store Full Address"
+                value={leaseData.storeAddress ?? ""}
+                editing={false}
+              />
+              <EditableField label="Tier" value={leaseData.tier ?? ""} editing={false} />
+              <EditableField
+                label="Lease Status"
+                value={f.leaseStatus ?? ""}
+                editing={isEditing && canWriteLeaseStatus}
+                type="select"
+                options={["Active", "InActive", "Door Closure"]}
+                onChange={(v) => set("leaseStatus", v)}
+                badgeTone={!isEditing ? statusTone(leaseData.leaseStatus) : undefined}
+                displayValue={!isEditing ? leaseData.leaseStatus || "Not Set" : undefined}
+              />
+            </div>
+          </Card>
+        )}
+
+        {/* Remarks */}
+        {canShowRemarks && (
+          <Card className="p-4">
+            <h2 className="mb-3 text-base font-bold">Lease Expiration Remarks</h2>
+            {canWriteRemarks ? (
+              <>
+                <Textarea
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  rows={6}
+                  placeholder="Add remarks about this lease's expiration..."
+                />
+                <Button size="sm" className="mt-2" onClick={saveRemarks} disabled={savingRemarks}>
+                  {savingRemarks ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Remarks"}
+                </Button>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">{remarks || "No remarks added."}</p>
+            )}
+          </Card>
+        )}
+      </div>
+
       {/* Landlord Information */}
-      <Card className="p-4">
-        <h2 className="mb-3 text-base font-bold">Landlord Information</h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <EditableField
-            label="Landlord Name"
-            value={f.landLordName ?? ""}
-            editing={isEditing}
-            onChange={(v) => set("landLordName", v)}
-          />
-          <EditableField
-            label="Point of Contact"
-            value={f.landLordPointOfContact ?? ""}
-            editing={isEditing}
-            onChange={(v) => set("landLordPointOfContact", v)}
-          />
-          <EditableField
-            label="Phone Number"
-            value={f.landLordContactNumber ?? ""}
-            editing={isEditing}
-            onChange={(v) => set("landLordContactNumber", v)}
-          />
-          <EditableField
-            label="Email"
-            value={f.landLordEmail ?? ""}
-            editing={isEditing}
-            type="email"
-            onChange={(v) => set("landLordEmail", v)}
-          />
-          <EditableField
-            label="Address"
-            value={f.landLordAddress ?? ""}
-            editing={isEditing}
-            type="textarea"
-            onChange={(v) => set("landLordAddress", v)}
-          />
-        </div>
-      </Card>
+      {canShowLandlordInfo && (
+        <Card className="p-4">
+          <h2 className="mb-3 text-base font-bold">Landlord Information</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <EditableField
+              label="Landlord Name"
+              value={f.landLordName ?? ""}
+              editing={isEditing && canWriteLandlordInfo}
+              onChange={(v) => set("landLordName", v)}
+            />
+            <EditableField
+              label="Point of Contact"
+              value={f.landLordPointOfContact ?? ""}
+              editing={isEditing && canWriteLandlordInfo}
+              onChange={(v) => set("landLordPointOfContact", v)}
+            />
+            <EditableField
+              label="Phone Number"
+              value={f.landLordContactNumber ?? ""}
+              editing={isEditing && canWriteLandlordInfo}
+              onChange={(v) => set("landLordContactNumber", v)}
+            />
+            <EditableField
+              label="Email"
+              value={f.landLordEmail ?? ""}
+              editing={isEditing && canWriteLandlordInfo}
+              type="email"
+              onChange={(v) => set("landLordEmail", v)}
+            />
+            <EditableField
+              label="Address"
+              value={f.landLordAddress ?? ""}
+              editing={isEditing && canWriteLandlordInfo}
+              type="textarea"
+              onChange={(v) => set("landLordAddress", v)}
+            />
+          </div>
+        </Card>
+      )}
 
       {/* Property Management Information */}
-      <Card className="p-4">
-        <h2 className="mb-3 text-base font-bold">Property Management Information</h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <EditableField
-            label="Property Management Name"
-            value={f.propertyMgtName ?? ""}
-            editing={isEditing}
-            onChange={(v) => set("propertyMgtName", v)}
-          />
-          <EditableField
-            label="Point of Contact"
-            value={f.propertyMgtPointOfContact ?? ""}
-            editing={isEditing}
-            onChange={(v) => set("propertyMgtPointOfContact", v)}
-          />
-          <EditableField
-            label="Email"
-            value={f.propertyMgtEmail ?? ""}
-            editing={isEditing}
-            type="email"
-            onChange={(v) => set("propertyMgtEmail", v)}
-          />
-          <EditableField
-            label="Phone Number"
-            value={f.propertyMgtPhoneNumber ?? ""}
-            editing={isEditing}
-            onChange={(v) => set("propertyMgtPhoneNumber", v)}
-          />
-          <EditableField
-            label="Address"
-            value={f.propertyMgtAddress ?? ""}
-            editing={isEditing}
-            type="textarea"
-            onChange={(v) => set("propertyMgtAddress", v)}
-          />
-        </div>
-      </Card>
+      {canShowPropertyMgmt && (
+        <Card className="p-4">
+          <h2 className="mb-3 text-base font-bold">Property Management Information</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+            <EditableField
+              label="Property Management Name"
+              value={f.propertyMgtName ?? ""}
+              editing={isEditing && canWritePropertyMgmt}
+              onChange={(v) => set("propertyMgtName", v)}
+            />
+            <EditableField
+              label="Point of Contact"
+              value={f.propertyMgtPointOfContact ?? ""}
+              editing={isEditing && canWritePropertyMgmt}
+              onChange={(v) => set("propertyMgtPointOfContact", v)}
+            />
+            <EditableField
+              label="Email"
+              value={f.propertyMgtEmail ?? ""}
+              editing={isEditing && canWritePropertyMgmt}
+              type="email"
+              onChange={(v) => set("propertyMgtEmail", v)}
+            />
+            <EditableField
+              label="Phone Number"
+              value={f.propertyMgtPhoneNumber ?? ""}
+              editing={isEditing && canWritePropertyMgmt}
+              onChange={(v) => set("propertyMgtPhoneNumber", v)}
+            />
+            <EditableField
+              label="Address"
+              value={f.propertyMgtAddress ?? ""}
+              editing={isEditing && canWritePropertyMgmt}
+              type="textarea"
+              onChange={(v) => set("propertyMgtAddress", v)}
+            />
+          </div>
+        </Card>
+      )}
 
       {/* Landlord Billing Details */}
-      <Card className="p-4">
-        <h2 className="mb-3 text-base font-bold">Landlord Billing Details</h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          <EditableField
-            label="Bank Name"
-            value={f.ownerBankName ?? ""}
-            editing={isEditing}
-            onChange={(v) => set("ownerBankName", v)}
-          />
-          <EditableField
-            label="Account Title"
-            value={f.ownerAccountTitle ?? ""}
-            editing={isEditing}
-            onChange={(v) => set("ownerAccountTitle", v)}
-          />
-          <EditableField
-            label="Routing Number"
-            value={f.ownerRoutingNumber ?? ""}
-            editing={isEditing}
-            onChange={(v) => set("ownerRoutingNumber", v)}
-          />
-          <EditableField
-            label="Account Number"
-            value={f.ownerAccountNumber ?? ""}
-            editing={isEditing}
-            onChange={(v) => set("ownerAccountNumber", v)}
-          />
-          <EditableField
-            label="Billing / Cheque Address"
-            value={f.ownerCheckAddress ?? ""}
-            editing={isEditing}
-            type="textarea"
-            onChange={(v) => set("ownerCheckAddress", v)}
-          />
-          <EditableField
-            label="Payment Mode"
-            value={f.ownerPaymentMode ?? ""}
-            editing={isEditing}
-            type="select"
-            options={PAYMENT_MODE_OPTIONS}
-            onChange={(v) => set("ownerPaymentMode", v)}
-          />
-          <EditableField
-            label="Remarks"
-            value={f.landLordRemarks ?? ""}
-            editing={isEditing}
-            type="textarea"
-            colSpan="sm:col-span-2"
-            onChange={(v) => set("landLordRemarks", v)}
-          />
-        </div>
-      </Card>
+      {canShowBilling && (
+        <Card className="p-4">
+          <h2 className="mb-3 text-base font-bold">Landlord Billing Details</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            <EditableField
+              label="Bank Name"
+              value={f.ownerBankName ?? ""}
+              editing={isEditing && canWriteBilling}
+              onChange={(v) => set("ownerBankName", v)}
+            />
+            <EditableField
+              label="Account Title"
+              value={f.ownerAccountTitle ?? ""}
+              editing={isEditing && canWriteBilling}
+              onChange={(v) => set("ownerAccountTitle", v)}
+            />
+            <EditableField
+              label="Routing Number"
+              value={f.ownerRoutingNumber ?? ""}
+              editing={isEditing && canWriteBilling}
+              onChange={(v) => set("ownerRoutingNumber", v)}
+            />
+            <EditableField
+              label="Account Number"
+              value={f.ownerAccountNumber ?? ""}
+              editing={isEditing && canWriteBilling}
+              onChange={(v) => set("ownerAccountNumber", v)}
+            />
+            <EditableField
+              label="Billing / Cheque Address"
+              value={f.ownerCheckAddress ?? ""}
+              editing={isEditing && canWriteBilling}
+              type="textarea"
+              onChange={(v) => set("ownerCheckAddress", v)}
+            />
+            <EditableField
+              label="Payment Mode"
+              value={f.ownerPaymentMode ?? ""}
+              editing={isEditing && canWriteBilling}
+              type="select"
+              options={PAYMENT_MODE_OPTIONS}
+              onChange={(v) => set("ownerPaymentMode", v)}
+            />
+            <EditableField
+              label="Remarks"
+              value={f.landLordRemarks ?? ""}
+              editing={isEditing && canWriteBilling}
+              type="textarea"
+              colSpan="sm:col-span-2"
+              onChange={(v) => set("landLordRemarks", v)}
+            />
+          </div>
+        </Card>
+      )}
 
       {/* Financial Details - Rent Agreements */}
+      {canShowFinancial && (
       <Card className="p-4">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-base font-bold">Lease Agreement &mdash; Financial Details</h2>
-          <Button size="sm" variant="outline" onClick={() => setAddingAgreement(true)}>
-            <Plus className="mr-1.5 h-4 w-4" /> Add Agreement
-          </Button>
+          {canWriteFinancial && (
+            <Button size="sm" variant="outline" onClick={() => setAddingAgreement(true)}>
+              <Plus className="mr-1.5 h-4 w-4" /> Add Agreement
+            </Button>
+          )}
         </div>
 
-        {addingAgreement && (
+        {addingAgreement && canWriteFinancial && (
           <Card className="mb-3 grid grid-cols-2 gap-2 p-3 sm:grid-cols-3 lg:grid-cols-6">
             <EditableField
               label="Monthly Rent"
@@ -776,29 +839,31 @@ export default function LeasingDetailedPage() {
                             {(a.comments as string) || "—"}
                           </td>
                           <td className="px-3 py-2">
-                            <div className="flex gap-1">
-                              <Button
-                                size="icon"
-                                variant="outline"
-                                className="h-7 w-7"
-                                onClick={() => startAgreementEdit(a)}
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                size="icon"
-                                variant="outline"
-                                className="h-7 w-7 text-destructive"
-                                onClick={() => deleteAgreement(a)}
-                                disabled={deletingKey === key}
-                              >
-                                {deletingKey === key ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                )}
-                              </Button>
-                            </div>
+                            {canWriteFinancial && (
+                              <div className="flex gap-1">
+                                <Button
+                                  size="icon"
+                                  variant="outline"
+                                  className="h-7 w-7"
+                                  onClick={() => startAgreementEdit(a)}
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="outline"
+                                  className="h-7 w-7 text-destructive"
+                                  onClick={() => deleteAgreement(a)}
+                                  disabled={deletingKey === key}
+                                >
+                                  {deletingKey === key ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                              </div>
+                            )}
                           </td>
                         </>
                       )}
@@ -810,15 +875,17 @@ export default function LeasingDetailedPage() {
           </table>
         </div>
       </Card>
+      )}
 
       {/* Agreement Clauses */}
+      {canShowClauses && (
       <Card className="p-4">
         <h2 className="mb-3 text-base font-bold">Agreement Clauses</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           <EditableField
             label="HVAC"
             value={f.hvac ?? ""}
-            editing={isEditing}
+            editing={isEditing && canWriteClauses}
             type="select"
             options={["Tenants Responsibility", "Landlord Responsibility", "Not Found"]}
             onChange={(v) => set("hvac", v)}
@@ -828,7 +895,7 @@ export default function LeasingDetailedPage() {
           <EditableField
             label="Exclusivity"
             value={f.exclusivity ?? ""}
-            editing={isEditing}
+            editing={isEditing && canWriteClauses}
             type="select"
             options={["Yes", "No", "Not Found"]}
             onChange={(v) => set("exclusivity", v)}
@@ -838,7 +905,7 @@ export default function LeasingDetailedPage() {
           <EditableField
             label="Termination"
             value={f.termination ?? ""}
-            editing={isEditing}
+            editing={isEditing && canWriteClauses}
             type="select"
             options={YES_NO_UNKNOWN}
             onChange={(v) => set("termination", v)}
@@ -848,13 +915,13 @@ export default function LeasingDetailedPage() {
           <EditableField
             label="Notice Period before Termination"
             value={f.noticePeriodBeforeTermination ?? ""}
-            editing={isEditing}
+            editing={isEditing && canWriteClauses}
             onChange={(v) => set("noticePeriodBeforeTermination", v)}
           />
           <EditableField
             label="Right to Sublease"
             value={f.rightToSublease ?? ""}
-            editing={isEditing}
+            editing={isEditing && canWriteClauses}
             type="select"
             options={YES_NO_UNKNOWN}
             onChange={(v) => set("rightToSublease", v)}
@@ -863,13 +930,13 @@ export default function LeasingDetailedPage() {
           <EditableField
             label="Sub Lease"
             value={f.subLease ?? ""}
-            editing={isEditing}
+            editing={isEditing && canWriteClauses}
             onChange={(v) => set("subLease", v)}
           />
           <EditableField
             label="Option Period"
             value={f.optionPeriod === true ? "Yes" : f.optionPeriod === false ? "No" : ""}
-            editing={isEditing}
+            editing={isEditing && canWriteClauses}
             type="select"
             options={["Yes", "No"]}
             onChange={(v) => set("optionPeriod", v === "Yes")}
@@ -877,26 +944,26 @@ export default function LeasingDetailedPage() {
           <EditableField
             label="Option Period Duration"
             value={f.optionPeriodDuration ?? ""}
-            editing={isEditing}
+            editing={isEditing && canWriteClauses}
             onChange={(v) => set("optionPeriodDuration", v)}
           />
           <EditableField
             label="Option Notice Date"
             value={f.optionNoticeDate ?? ""}
-            editing={isEditing}
+            editing={isEditing && canWriteClauses}
             type="date"
             onChange={(v) => set("optionNoticeDate", v)}
           />
           <EditableField
             label="Guarantor"
             value={f.guarantor ?? ""}
-            editing={isEditing}
+            editing={isEditing && canWriteClauses}
             onChange={(v) => set("guarantor", v)}
           />
           <EditableField
             label="Guaranty Type"
             value={f.guarantyType ?? ""}
-            editing={isEditing}
+            editing={isEditing && canWriteClauses}
             type="select"
             options={GUARANTY_TYPE_OPTIONS}
             onChange={(v) => set("guarantyType", v)}
@@ -904,7 +971,7 @@ export default function LeasingDetailedPage() {
           <EditableField
             label="Relocation"
             value={f.relocation ?? ""}
-            editing={isEditing}
+            editing={isEditing && canWriteClauses}
             type="select"
             options={YES_NO_UNKNOWN}
             onChange={(v) => set("relocation", v)}
@@ -914,12 +981,13 @@ export default function LeasingDetailedPage() {
           <EditableField
             label="Security Deposit"
             value={String(f.securityDeposit ?? "")}
-            editing={isEditing}
+            editing={isEditing && canWriteClauses}
             type="number"
             onChange={(v) => set("securityDeposit", v)}
           />
         </div>
       </Card>
+      )}
 
       {/* Deferred sub-features */}
       <Card className="p-4 text-sm text-muted-foreground">

@@ -33,6 +33,7 @@ import {
   type RentalPaymentDetail,
   type FinancialMonthlyFiguresUpdate,
 } from "@/services/portals/leasing";
+import { useCanShow, LEASING_EXPORT_BUTTON_PERMISSION_KEY } from "@/lib/leasing-permissions";
 
 interface GroupedPayment extends RentalPaymentDetail {
   total_due: number;
@@ -71,6 +72,7 @@ function computeTotalDue(item: RentalPaymentDetail): number {
 }
 
 export default function ManageRentPaymentListPage() {
+  const canShowExport = useCanShow(LEASING_EXPORT_BUTTON_PERMISSION_KEY);
   const now = new Date();
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
@@ -221,13 +223,15 @@ export default function ManageRentPaymentListPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => toast.message("Excel export coming soon for this page.")}
-          >
-            <Download className="mr-1.5 h-4 w-4" /> Export Excel
-          </Button>
+          {canShowExport && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => toast.message("Excel export coming soon for this page.")}
+            >
+              <Download className="mr-1.5 h-4 w-4" /> Export Excel
+            </Button>
+          )}
           <Button size="sm" onClick={() => toast.message("Add missing store form coming soon.")}>
             <Plus className="mr-1.5 h-4 w-4" /> Add missing store
           </Button>
