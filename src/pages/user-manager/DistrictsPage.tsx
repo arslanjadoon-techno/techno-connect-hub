@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { AdminGuard, CrudPage } from "@/components/crud-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Search } from "lucide-react";
+import { Eye, Loader2, Search } from "lucide-react";
 import { DistrictsApi, StatesApi } from "@/lib/api/client";
 
 interface District {
@@ -21,6 +22,19 @@ interface District {
     id: number;
     name: string;
   };
+  market?: {
+    id: number;
+    name: string;
+  };
+  assignedUsers?: Array<{
+    id: number;
+    name: string;
+    email?: string;
+    phone?: string;
+  }>;
+  manager?: string;
+  email?: string;
+  phone?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -31,16 +45,34 @@ interface State {
   symbol: string;
 }
 
+const STATIC_MARKETS = [
+  { id: "all", name: "All Markets" },
+  { id: "market-1", name: "Market 1" },
+  { id: "market-2", name: "Market 2" },
+  { id: "market-3", name: "Market 3" },
+];
+
+const getDistrictMarket = (d: District) => {
+  if (d.market?.name) return d.market.name;
+  if (typeof (d as any).market === "string" && (d as any).market) return (d as any).market;
+  const staticNames = ["Market 1", "Market 2", "Market 3"];
+  return staticNames[d.id % staticNames.length];
+};
+
 export default function DistrictsPage() {
+  const navigate = useNavigate();
   const [districts, setDistricts] = useState<District[]>([]);
   const [states, setStates] = useState<State[]>([]);
   const [selectedStateFilter, setSelectedStateFilter] = useState<string>("all");
+  const [selectedMarketFilter, setSelectedMarketFilter] = useState<string>("all");
 
-  // Search text state
+  // Search text states
   const [mainFilterSearch, setMainFilterSearch] = useState("");
+  const [marketFilterSearch, setMarketFilterSearch] = useState("");
 
-  // Ref for auto-focusing input on open
+  // Refs for auto-focusing input on open
   const mainSearchInputRef = useRef<HTMLInputElement>(null);
+  const marketSearchInputRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -201,6 +233,19 @@ export default function DistrictsPage() {
     return states.filter((s) => s.name.toLowerCase().includes(mainFilterSearch.toLowerCase()));
   }, [states, mainFilterSearch]);
 
+  const filteredMarketOptions = useMemo(() => {
+    return STATIC_MARKETS.filter((m) =>
+      m.name.toLowerCase().includes(marketFilterSearch.toLowerCase()),
+    );
+  }, [marketFilterSearch]);
+
+  const displayedDistricts = useMemo(() => {
+    if (selectedMarketFilter === "all") return districts;
+    const matchMarket = STATIC_MARKETS.find((m) => m.id === selectedMarketFilter);
+    if (!matchMarket) return districts;
+    return districts.filter((d) => getDistrictMarket(d) === matchMarket.name);
+  }, [districts, selectedMarketFilter]);
+
   if (loading && districts.length === 0) {
     return (
       <div className="flex h-[50vh] w-full flex-col items-center justify-center gap-2 text-muted-foreground">
@@ -217,70 +262,124 @@ export default function DistrictsPage() {
           <CrudPage<District>
             title="Districts"
             subtitle="Manage districts and map them to operating states."
-            rows={districts} // UPDATED: Passing the pure direct network states array now!
+            rows={displayedDistricts}
             rowKey={(d) => d.id.toString()}
             isSaving={actionLoading}
             isLoading={loading}
 
-            rowCount={totalRecords}
+            rowCount={selectedMarketFilter === "all" ? totalRecords : displayedDistricts.length}
             page={page}
             pageSize={size}
             onPageChange={(newPage) => setPage(newPage)}
             onPageSizeChange={(newSize) => setSize(newSize)}
 
             extraToolbar={
-              <div className="relative flex flex-col pt-2.5">
-                <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">
-                  State
-                </span>
+              <div className="flex flex-wrap items-center gap-3">
+                {/* State Filter */}
+                <div className="relative flex flex-col pt-2.5">
+                  <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">
+                    State
+                  </span>
 
-                <Select
-                  value={selectedStateFilter}
-                  onValueChange={handleStateFilterChange} // UPDATED: Uses state reset wrapper trigger
-                  onOpenChange={(open) => {
-                    if (!open) {
-                      setMainFilterSearch("");
-                    } else {
-                      setTimeout(() => mainSearchInputRef.current?.focus(), 100);
-                    }
-                  }}
-                >
-                  <SelectTrigger className="w-[180px] h-9 focus:ring-0 border-muted-foreground/40">
-                    <SelectValue placeholder="Filter by State" />
-                  </SelectTrigger>
-
-                  <SelectContent
-                    onKeyDown={(e) => e.stopPropagation()}
-                    onKeyUp={(e) => e.stopPropagation()}
+                  <Select
+                    value={selectedStateFilter}
+                    onValueChange={handleStateFilterChange}
+                    onOpenChange={(open) => {
+                      if (!open) {
+                        setMainFilterSearch("");
+                      } else {
+                        setTimeout(() => mainSearchInputRef.current?.focus(), 100);
+                      }
+                    }}
                   >
-                    <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
-                      <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
-                      <input
-                        ref={mainSearchInputRef}
-                        placeholder="Search states..."
-                        value={mainFilterSearch}
-                        onChange={(e) => {
-                          setMainFilterSearch(e.target.value);
-                          setTimeout(() => mainSearchInputRef.current?.focus(), 0);
-                        }}
-                        className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
-                      />
-                    </div>
+                    <SelectTrigger className="w-[180px] h-9 focus:ring-0 border-muted-foreground/40 bg-white dark:bg-zinc-950">
+                      <SelectValue placeholder="Filter by State" />
+                    </SelectTrigger>
 
-                    <SelectItem value="all">All States</SelectItem>
-                    {filteredMainStatesOptions.length === 0 ? (
-                      <p className="text-[11px] text-center text-muted-foreground p-2">
-                        No matching states
-                      </p>
-                    ) : (
-                      filteredMainStatesOptions.map((s) => (
-                        <SelectItem key={s.id} value={s.id.toString()}>
-                          {s.name}
+                    <SelectContent
+                      onKeyDown={(e) => e.stopPropagation()}
+                      onKeyUp={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
+                        <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
+                        <input
+                          ref={mainSearchInputRef}
+                          placeholder="Search states..."
+                          value={mainFilterSearch}
+                          onChange={(e) => {
+                            setMainFilterSearch(e.target.value);
+                            setTimeout(() => mainSearchInputRef.current?.focus(), 0);
+                          }}
+                          className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
+                        />
+                      </div>
+
+                      <SelectItem value="all">All States</SelectItem>
+                      {filteredMainStatesOptions.length === 0 ? (
+                        <p className="text-[11px] text-center text-muted-foreground p-2">
+                          No matching states
+                        </p>
+                      ) : (
+                        filteredMainStatesOptions.map((s) => (
+                          <SelectItem key={s.id} value={s.id.toString()}>
+                            {s.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Market Filter (Static options, no API calls) */}
+                <div className="relative flex flex-col pt-2.5">
+                  <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">
+                    Market
+                  </span>
+
+                  <Select
+                    value={selectedMarketFilter}
+                    onValueChange={(newMarket) => {
+                      setSelectedMarketFilter(newMarket);
+                      setPage(0);
+                    }}
+                    onOpenChange={(open) => {
+                      if (!open) {
+                        setMarketFilterSearch("");
+                      } else {
+                        setTimeout(() => marketSearchInputRef.current?.focus(), 100);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-[180px] h-9 focus:ring-0 border-muted-foreground/40 bg-white dark:bg-zinc-950">
+                      <SelectValue placeholder="Filter by Market" />
+                    </SelectTrigger>
+
+                    <SelectContent
+                      onKeyDown={(e) => e.stopPropagation()}
+                      onKeyUp={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
+                        <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
+                        <input
+                          ref={marketSearchInputRef}
+                          placeholder="Search markets..."
+                          value={marketFilterSearch}
+                          onChange={(e) => {
+                            setMarketFilterSearch(e.target.value);
+                            setTimeout(() => marketSearchInputRef.current?.focus(), 0);
+                          }}
+                          className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed"
+                        />
+                      </div>
+
+                      {filteredMarketOptions.map((m) => (
+                        <SelectItem key={m.id} value={m.id}>
+                          {m.name}
                         </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             }
 
@@ -299,7 +398,69 @@ export default function DistrictsPage() {
                 ),
                 searchValue: (d) => d.state?.name ?? "",
               },
+              {
+                key: "market",
+                header: "Market",
+                accessor: (d) => (
+                  <div className="py-2 text-left text-zinc-700 dark:text-zinc-300 font-medium">
+                    {getDistrictMarket(d)}
+                  </div>
+                ),
+                searchValue: (d) => getDistrictMarket(d),
+              },
+              {
+                key: "manager",
+                header: "Manager",
+                accessor: (d) => {
+                  const assigned = d.assignedUsers?.[0];
+                  const mgrName =
+                    assigned?.name || (d as any).manager || (d as any).districtManager || "—";
+                  return (
+                    <div className="py-2 text-left text-zinc-800 dark:text-zinc-200 font-medium">
+                      {mgrName}
+                    </div>
+                  );
+                },
+                searchValue: (d) => d.assignedUsers?.[0]?.name || (d as any).manager || "",
+              },
+              {
+                key: "email",
+                header: "Email",
+                accessor: (d) => {
+                  const assigned = d.assignedUsers?.[0];
+                  const mgrEmail = assigned?.email || (d as any).email || "—";
+                  return (
+                    <div className="py-2 text-left text-xs text-muted-foreground">{mgrEmail}</div>
+                  );
+                },
+                searchValue: (d) => d.assignedUsers?.[0]?.email || (d as any).email || "",
+              },
+              {
+                key: "phone",
+                header: "Phone",
+                accessor: (d) => {
+                  const assigned = d.assignedUsers?.[0];
+                  const mgrPhone = assigned?.phone || (d as any).phone || "—";
+                  return (
+                    <div className="py-2 text-left text-xs text-zinc-600 dark:text-zinc-400 font-mono">
+                      {mgrPhone}
+                    </div>
+                  );
+                },
+                searchValue: (d) => d.assignedUsers?.[0]?.phone || (d as any).phone || "",
+              },
             ]}
+            extraRowActions={(d) => (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer"
+                title="View District Details"
+                onClick={() => navigate(`/admin/districts/${d.id}`)}
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            )}
             onDelete={handleDelete}
             renderForm={(initial, close) => (
               <DistrictForm

@@ -70,6 +70,7 @@ import UsersPage from "@/pages/user-manager/UsersPage";
 import UserDetailPage from "@/pages/user-manager/UserDetailPage";
 import DepartmentsPage from "@/pages/user-manager/DepartmentsPage";
 import DistrictsPage from "@/pages/user-manager/DistrictsPage";
+import DistrictDetailPage from "@/pages/user-manager/DistrictDetailPage";
 import StatesPage from "@/pages/user-manager/StatesPage";
 import MarketsPage from "@/pages/user-manager/MarketsPage";
 import MarketDetailPage from "@/pages/user-manager/MarketDetailPage";
@@ -656,6 +657,14 @@ export function AppRoutes() {
           element={
             <UserManagementOnly>
               <DistrictsPage />
+            </UserManagementOnly>
+          }
+        />
+        <Route
+          path="/admin/districts/:id"
+          element={
+            <UserManagementOnly>
+              <DistrictDetailPage />
             </UserManagementOnly>
           }
         />
