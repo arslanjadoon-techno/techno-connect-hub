@@ -453,6 +453,23 @@ export default function LoginPage() {
               <span>Secure &bull; Reliable &bull; Built for You</span>
               <span className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
             </div>
+
+            {/* Public Legal & Support Links */}
+            <div className="pt-2 flex items-center justify-center gap-3 text-[11px] text-slate-500 dark:text-slate-400">
+              <Link
+                to="/privacy"
+                className="hover:underline transition-colors hover:text-foreground"
+              >
+                Privacy Policy
+              </Link>
+              <span>&bull;</span>
+              <Link
+                to="/contact-us"
+                className="hover:underline transition-colors hover:text-foreground"
+              >
+                Contact Us
+              </Link>
+            </div>
           </form>
         </Card>
       </div>

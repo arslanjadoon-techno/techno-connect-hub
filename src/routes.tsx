@@ -1,9 +1,11 @@
-import { Navigate, Route, Routes, Outlet } from "react-router-dom";
+import { Navigate, Route, Routes, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { type ReactNode } from "react";
 import { RankerUserAccessModal } from "@/components/ranker/RankerUserAccessModal";
 import { useRankerAuth } from "@/services/portals/ranker/ranker-auth";
 import { getStoredPermissions } from "@/lib/api/client";
+import PublicPrivacyPage from "@/pages/public/PublicPrivacyPage";
+import PublicContactPage from "@/pages/public/PublicContactPage";
 
 // ---------- Authentication ---------- //
 import AppLayout from "@/pages/shell/AppLayout";
@@ -89,7 +91,12 @@ import ProfitabilityPage from "./pages/portals/reporting/profitability/page";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
+  const location = useLocation();
+  if (!user) {
+    if (location.pathname === "/mis/privacy") return <Navigate to="/privacy" replace />;
+    if (location.pathname === "/mis/support") return <Navigate to="/contact-us" replace />;
+    return <Navigate to="/login" replace />;
+  }
   return <>{children}</>;
 }
 
@@ -278,6 +285,12 @@ export function AppRoutes() {
       <Route path="/setup-2fa" element={<Setup2FAPage />} />
       <Route path="/verify-2fa" element={<Verify2FAPage />} />
       <Route path="/reset-2fa" element={<Reset2FAPage />} />
+
+      {/* ---------- Public Pages (Accessible without login) ---------- */}
+      <Route path="/privacy" element={<PublicPrivacyPage />} />
+      <Route path="/contact-us" element={<PublicContactPage />} />
+      <Route path="/contact" element={<Navigate to="/contact-us" replace />} />
+      <Route path="/support" element={<Navigate to="/contact-us" replace />} />
       <Route
         element={
           <ProtectedRoute>
@@ -751,8 +764,6 @@ export function AppRoutes() {
         {/* MIS Information Routes */}
         <Route path="/mis/privacy" element={<MisPrivacyPage />} />
         <Route path="/mis/support" element={<MisSupportPage />} />
-        <Route path="/privacy" element={<Navigate to="/mis/privacy" replace />} />
-        <Route path="/support" element={<Navigate to="/mis/support" replace />} />
         {/* Custom 404 page — keeps sidebar + header visible */}
         <Route path="*" element={<NotFoundInApp />} />
       </Route>

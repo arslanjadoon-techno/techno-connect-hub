@@ -41,8 +41,8 @@ const sections = [
   },
   {
     icon: ShieldCheck,
-    title: "Your Rights",
-    body: "You may request access to, correction of, or deletion of your personal data by contacting your manager or the support team. Certain data may be retained where required for legal or business purposes.",
+    title: "Account & Data Deletion Rights",
+    body: "You may request full access to, correction of, or permanent deletion of your personal data or account by contacting admin@techno.com. Verified deletion requests are processed within 30 calendar days.",
     cardBg: "bg-rose-50/80 dark:bg-rose-950/25 border-rose-200/80 dark:border-rose-900/40",
     iconBg: "bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-300",
     titleColor: "text-rose-950 dark:text-rose-100",
@@ -50,8 +50,8 @@ const sections = [
   },
   {
     icon: Mail,
-    title: "Contact Us",
-    body: "For any privacy-related questions, please email reporting@texasmobilepcs.com. We aim to respond within 5 business days.",
+    title: "Official Contact Information",
+    body: "For privacy questions, account deletion requests, or data handling inquiries, email admin@techno.com or call +92 (335) 8914611.",
     cardBg: "bg-teal-50/80 dark:bg-teal-950/25 border-teal-200/80 dark:border-teal-900/40",
     iconBg: "bg-teal-100 dark:bg-teal-900/60 text-teal-600 dark:text-teal-300",
     titleColor: "text-teal-950 dark:text-teal-100",

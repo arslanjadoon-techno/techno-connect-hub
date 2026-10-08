@@ -1,4 +1,5 @@
 import { useState, FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,6 +27,8 @@ import {
   Send,
   CheckCircle2,
   ShieldAlert,
+  Trash2,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
@@ -81,15 +84,55 @@ export default function MisSupportPage() {
 
   return (
     <div className="space-y-6 max-w-6xl animate-fade-in pb-10">
-      <div>
-        <h1 className="font-display text-2xl font-semibold tracking-tight">
-          MIS Support & Help Desk
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Get assistance with Active8 Wireless MIS, portal access, system troubleshooting, or
-          account management.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/60 pb-4">
+        <div>
+          <h1 className="font-display text-2xl font-semibold tracking-tight">
+            MIS Support & Help Desk
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+            Get assistance with Active8 Wireless MIS, portal access, system troubleshooting, or
+            account management.
+          </p>
+        </div>
+        <Button asChild variant="outline" size="sm" className="gap-1.5 self-start sm:self-auto">
+          <Link to="/contact-us" target="_blank" rel="noreferrer">
+            <span>Public Support URL</span>
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
+        </Button>
       </div>
+
+      {/* Account Deletion Callout Card */}
+      <Card className="border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/25">
+        <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="h-9 w-9 rounded-lg bg-rose-100 dark:bg-rose-900/60 text-rose-600 dark:text-rose-300 flex items-center justify-center shrink-0">
+              <Trash2 className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="font-semibold text-sm text-rose-950 dark:text-rose-100">
+                User Account & Personal Data Deletion Request
+              </div>
+              <p className="text-xs text-rose-900/80 dark:text-rose-200/80 mt-0.5">
+                Users can request deletion of their account or personal data by emailing{" "}
+                <strong className="text-foreground">admin@techno.com</strong>. Include your Employee
+                ID and full name.
+              </p>
+            </div>
+          </div>
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="shrink-0 border-rose-300 dark:border-rose-800 text-rose-900 dark:text-rose-100"
+          >
+            <a href="mailto:admin@techno.com?subject=Account%20Deletion%20Request">
+              <Mail className="h-3.5 w-3.5 mr-1" />
+              admin@techno.com
+            </a>
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Top 3 Highlights / Quick Contacts */}
       <div className="grid gap-4 md:grid-cols-3">
@@ -103,7 +146,7 @@ export default function MisSupportPage() {
                 MIS Helpdesk Email
               </div>
               <div className="font-semibold text-sm mt-0.5 text-sky-950 dark:text-sky-100">
-                support@active8wireless.com
+                reporting@texasmobilepcs.com
               </div>
               <div className="text-xs text-sky-800/70 dark:text-sky-300/70 mt-0.5">
                 Avg. response: &lt; 2 business hours
@@ -122,7 +165,7 @@ export default function MisSupportPage() {
                 Direct Hotline
               </div>
               <div className="font-semibold text-sm mt-0.5 text-emerald-950 dark:text-emerald-100">
-                +1 (800) 555-MIS8 &middot; ext. 104
+                +92 (335) 8914611
               </div>
               <div className="text-xs text-emerald-800/70 dark:text-emerald-300/70 mt-0.5">
                 Toll-free internal support
