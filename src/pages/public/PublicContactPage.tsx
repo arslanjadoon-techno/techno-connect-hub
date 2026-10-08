@@ -350,10 +350,10 @@ export default function PublicContactPage() {
                   <Building2 className="h-4 w-4 text-primary" />
                   Headquarters & Operations Center
                 </div>
-                <p>Active8 Wireless / T-Communications LLC</p>
+                <p>Active8 Wireless LLC</p>
                 <p className="flex items-center gap-1.5">
                   <MapPin className="h-3.5 w-3.5" />
-                  Dallas, Texas, United States
+                  Karachi, Pakistan
                 </p>
                 <div className="pt-2 border-t border-border/40 flex items-center justify-between">
                   <Link to="/privacy" className="text-primary hover:underline font-medium">

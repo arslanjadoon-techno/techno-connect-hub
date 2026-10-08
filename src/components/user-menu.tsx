@@ -242,7 +242,7 @@ export function UserMenu() {
         <DropdownMenuItem
           onClick={() => {
             logout();
-            navigate("/login");
+            navigate("/login", { replace: true });
           }}
           className="cursor-pointer text-destructive focus:text-destructive"
         >

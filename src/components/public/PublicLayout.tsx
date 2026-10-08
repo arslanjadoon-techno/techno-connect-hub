@@ -117,7 +117,7 @@ export default function PublicLayout({ children }: PublicLayoutProps) {
           <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-center sm:text-left">
             <div className="font-semibold text-foreground flex items-center gap-1.5">
               <Lock className="h-3.5 w-3.5 text-primary" />
-              Active8 Wireless MIS &middot; T-Communications LLC
+              Active8 Wireless MIS
             </div>
             <span className="hidden sm:inline text-muted-foreground/50">&bull;</span>
             <div className="flex items-center gap-1.5">

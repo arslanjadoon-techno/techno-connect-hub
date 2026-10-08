@@ -56,7 +56,7 @@ export default function PrivacyPolicyContent() {
         <CardContent className="space-y-3 text-sm text-foreground/90 leading-relaxed">
           <p>
             <strong>Application Name:</strong> Active8 Wireless Management Information System (MIS)
-            / Techno MIS Portal (operated by T-Communications LLC & Active8 Wireless).
+            / Techno MIS Portal (operated by Active8 Wireless LLC).
           </p>
           <p>
             If you have questions, feedback, privacy inquiries, or account management requests,

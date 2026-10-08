@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes, Outlet, useLocation } from "react-router-dom";
+import { Navigate, Route, Routes, Outlet } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { type ReactNode } from "react";
 import { RankerUserAccessModal } from "@/components/ranker/RankerUserAccessModal";
@@ -91,12 +91,7 @@ import ProfitabilityPage from "./pages/portals/reporting/profitability/page";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const location = useLocation();
-  if (!user) {
-    if (location.pathname === "/mis/privacy") return <Navigate to="/privacy" replace />;
-    if (location.pathname === "/mis/support") return <Navigate to="/contact-us" replace />;
-    return <Navigate to="/login" replace />;
-  }
+  if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
