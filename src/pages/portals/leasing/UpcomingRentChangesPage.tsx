@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Download, TrendingUp, TrendingDown, Minus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { leasingService, type UpcomingRentChange } from "@/services/portals/leasing";
+import { exportToExcel } from "@/lib/excel-export";
+import { useCanShow, LEASING_EXPORT_BUTTON_PERMISSION_KEY } from "@/lib/leasing-permissions";
 
 interface Row extends UpcomingRentChange {
   curTotal: number;
@@ -33,6 +35,7 @@ const total = (r: UpcomingRentChange, prefix: "current" | "new") =>
 
 export default function UpcomingRentChangesPage() {
   const navigate = useNavigate();
+  const canShowExport = useCanShow(LEASING_EXPORT_BUTTON_PERMISSION_KEY);
   const [data, setData] = useState<UpcomingRentChange[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -70,6 +73,39 @@ export default function UpcomingRentChangesPage() {
     window.scrollTo(0, 0);
   };
 
+  const handleExport = () => {
+    if (rows.length === 0) {
+      toast.message("Nothing to export.");
+      return;
+    }
+    exportToExcel(
+      rows as unknown as Record<string, unknown>[],
+      [
+        "techId",
+        "storeName",
+        "marketName",
+        "tier",
+        "curTotal",
+        "newTotal",
+        "diff",
+        "pct",
+        "effectiveDate",
+      ],
+      {
+        techId: "Tech ID",
+        storeName: "Store",
+        marketName: "Market",
+        tier: "Tier",
+        curTotal: "Current Total",
+        newTotal: "New Total",
+        diff: "Change",
+        pct: "Change %",
+        effectiveDate: "Effective Date",
+      },
+      { sheetName: "Rent Changes", fileName: `Rent_Changes_${nextMonthName().replace(/\s+/g, "_")}` },
+    );
+  };
+
   return (
     <div className="w-full space-y-4 animate-fade-in pb-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -93,13 +129,11 @@ export default function UpcomingRentChangesPage() {
               className="h-9 w-64 pl-8"
             />
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => toast.message("Excel export coming soon for this page.")}
-          >
-            <Download className="mr-1.5 h-4 w-4" /> Export Excel
-          </Button>
+          {canShowExport && (
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="mr-1.5 h-4 w-4" /> Export Excel
+            </Button>
+          )}
         </div>
       </div>
 

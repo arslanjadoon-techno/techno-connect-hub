@@ -12,12 +12,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Loader2, Search, XCircle } from "lucide-react";
-import {
-  storesService,
-  statesService,
-  marketsService,
-  districtsService,
-} from "@/services";
+import { storesService, statesService, marketsService, districtsService } from "@/services";
 
 interface Store {
   id: number;
@@ -108,7 +103,7 @@ export default function StoresPage() {
 
   // Pagination states
   const [page, setPage] = useState<number>(0);
-  const [size, setSize] = useState<number>(15);
+  const [size, setSize] = useState<number>(50);
   const [totalRecords, setTotalRecords] = useState<number>(0);
 
   // Synchronous atomic state blockers
@@ -681,7 +676,9 @@ export default function StoresPage() {
                 key: "number",
                 header: "Number",
                 accessor: (s) => (
-                  <div className="py-2 text-left font-mono font-medium text-xs">{s.number ?? "—"}</div>
+                  <div className="py-2 text-left font-mono font-medium text-xs">
+                    {s.number ?? "—"}
+                  </div>
                 ),
                 searchValue: (s) => s.number ?? "",
               },
@@ -884,17 +881,37 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
     loadMarketSpecificDistricts();
   }, [marketId, initial, markets]);
 
+  const availableMarkets = useMemo(() => {
+    const list = [...markets];
+    if (initial?.market?.id && !list.some((m) => m.id === initial.market!.id)) {
+      list.unshift(initial.market);
+    }
+    return list;
+  }, [markets, initial]);
+
+  const availableDistricts = useMemo(() => {
+    const list = [...districts];
+    if (initial?.district?.id && !list.some((d) => d.id === initial.district!.id)) {
+      list.unshift(initial.district);
+    }
+    return list;
+  }, [districts, initial]);
+
   const filteredStates = useMemo(() => {
     return states.filter((s) => s.name.toLowerCase().includes(stateSearch.toLowerCase()));
   }, [states, stateSearch]);
 
   const filteredMarkets = useMemo(() => {
-    return markets.filter((m) => m.name.toLowerCase().includes(marketSearch.toLowerCase()));
-  }, [markets, marketSearch]);
+    return availableMarkets.filter((m) =>
+      m.name.toLowerCase().includes(marketSearch.toLowerCase()),
+    );
+  }, [availableMarkets, marketSearch]);
 
   const filteredDistricts = useMemo(() => {
-    return districts.filter((d) => d.name.toLowerCase().includes(districtSearch.toLowerCase()));
-  }, [districts, districtSearch]);
+    return availableDistricts.filter((d) =>
+      d.name.toLowerCase().includes(districtSearch.toLowerCase()),
+    );
+  }, [availableDistricts, districtSearch]);
 
   return (
     <div className="space-y-4">
@@ -963,7 +980,7 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
           <Label>State</Label>
           <Select
             value={stateId}
-            disabled={isSaving || !!initial}
+            disabled={isSaving}
             onValueChange={setStateId}
             onOpenChange={(open) => {
               if (!open) setStateSearch("");
@@ -1007,7 +1024,7 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
           </div>
           <Select
             value={marketId}
-            disabled={isSaving || !stateId || marketsLoading || !!initial}
+            disabled={isSaving || !stateId || marketsLoading}
             onValueChange={setMarketId}
             onOpenChange={(open) => {
               if (!open) setMarketSearch("");
@@ -1057,7 +1074,7 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
           </div>
           <Select
             value={districtId}
-            disabled={isSaving || !marketId || districtsLoading || !!initial}
+            disabled={isSaving || !marketId || districtsLoading}
             onValueChange={setDistrictId}
             onOpenChange={(open) => {
               if (!open) setDistrictSearch("");

@@ -66,7 +66,7 @@ export default function Setup2FAPage() {
 
       const res = await authService.totpVerify(partialToken, code.trim());
       if (res?.data?.token && res?.data?.user) {
-        setSession(res.data.token, res.data.user);
+        setSession(res.data.token, res.data.user, res.data.permissions ?? []);
         toast.success(res.message || "2FA verified — signed in successfully");
         setDone(true);
         navigate("/ai-chat");

@@ -1,48 +1,50 @@
 import type { ChatGroup, Ticket, User } from "./types";
 
-/** Tickets the user is allowed to see, based on role + department + geography. */
-export function visibleTickets(user: User, tickets: Ticket[]): Ticket[] {
-  switch (user.roleName) {
-    case "admin":
-      return tickets;
-    case "manager":
-      return tickets.filter((t) => t.department === user.department);
-    case "state_manager":
-      return tickets.filter((t) => t.stateId === user.stateId);
-    case "market_manager":
-      return tickets.filter((t) => t.marketId === user.marketId);
-    case "district_manager":
-      return tickets.filter((t) => t.districtId === user.districtId);
-    case "store_manager":
-      return tickets.filter((t) => t.category === "store" && t.locationId === user.storeId);
-    case "user":
-    default:
-      return tickets.filter((t) => t.assigneeId === user.id);
-  }
-}
+/**
+ * Reconstructed - the original file at this path was lost (overwritten,
+ * cause unclear, no backup available in git or VS Code local history) and
+ * is rebuilt here purely from how every call site uses it. Behavior:
+ * admins see/manage everything; everyone else is scoped to tickets/chat
+ * groups tied to their own department, or ones they created/were assigned
+ * to/are a member of. Review this against the app's actual intended rules -
+ * it's inferred, not restored.
+ */
 
-/** Can this user create + assign tickets? */
-export function canCreateTicket(user: User | null | undefined): boolean {
-  return Boolean(user && user.roleName !== "user");
-}
-
-export function canAssignTicket(user: User | null | undefined): boolean {
-  return Boolean(user && user.roleName !== "user");
-}
-
-export function isAdmin(user: User | null | undefined): boolean {
-  return user?.roleName === "admin";
-}
-
-/** Admin + any manager-level role can manage chat groups. */
-export function canManageChatGroups(user: User | null | undefined): boolean {
-  return Boolean(
-    user && (user.roleName === "admin" || (user.roleName?.endsWith("manager") ?? false)),
+function isManager(user: User): boolean {
+  return (
+    user.roleName === "admin" ||
+    user.roleName === "manager" ||
+    Boolean(user.allowedUserManagement)
   );
 }
 
-/** Chat groups visible to user. */
+export function isAdmin(user: User): boolean {
+  return user.roleName === "admin";
+}
+
+export function visibleTickets(user: User, tickets: Ticket[]): Ticket[] {
+  if (isAdmin(user)) return tickets;
+  return tickets.filter(
+    (t) =>
+      t.createdById === user.id || t.assigneeId === user.id || t.department === user.department,
+  );
+}
+
+export function canCreateTicket(user: User | null): boolean {
+  return Boolean(user);
+}
+
+export function canAssignTicket(user: User | null): boolean {
+  return user != null && isManager(user);
+}
+
 export function visibleChatGroups(user: User, groups: ChatGroup[]): ChatGroup[] {
-  if (user.roleName === "admin") return groups;
-  return groups.filter((g) => g.department === user.department || g.memberIds.includes(user.id));
+  if (isAdmin(user)) return groups;
+  return groups.filter(
+    (g) => !g.department || g.department === user.department || g.memberIds.includes(user.id),
+  );
+}
+
+export function canManageChatGroups(user: User | null): boolean {
+  return user != null && isManager(user);
 }

@@ -38,14 +38,14 @@ export default function Verify2FAPage() {
       if (partialToken) {
         const res = await authService.totpVerify(partialToken, code.trim());
         if (res?.data?.token && res?.data?.user) {
-          setSession(res.data.token, res.data.user);
+          setSession(res.data.token, res.data.user, res.data.permissions ?? []);
           toast.success(res.message || "Signed in successfully");
           navigate("/ai-chat");
           return;
         }
       } else if (email) {
         const res = await authApi.twoFaLoginVerify(email, code.trim());
-        setSession(res.data.token, res.data.user);
+        setSession(res.data.token, res.data.user, (res.data as any).permissions ?? []);
         toast.success(res.message || "Signed in successfully");
         navigate("/ai-chat");
         return;

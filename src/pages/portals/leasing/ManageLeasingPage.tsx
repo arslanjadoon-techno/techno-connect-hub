@@ -16,6 +16,7 @@ import { Store, Download, RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { leasingService, type LeaseRecord } from "@/services/portals/leasing";
 import { exportToExcel } from "@/lib/excel-export";
+import { useCanShow, LEASING_EXPORT_BUTTON_PERMISSION_KEY } from "@/lib/leasing-permissions";
 
 const LEASE_STATUS_OPTIONS = [
   { label: "All status", value: "all" },
@@ -111,6 +112,7 @@ interface Row extends LeaseRecord {
 
 export default function ManageLeasingPage() {
   const navigate = useNavigate();
+  const canShowExport = useCanShow(LEASING_EXPORT_BUTTON_PERMISSION_KEY);
   const [allLeases, setAllLeases] = useState<LeaseRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -296,10 +298,8 @@ export default function ManageLeasingPage() {
   };
 
   const handleRefresh = () => {
-    setSearch("");
-    setMarket("all");
-    setTier("all");
-    setStatus("all");
+    // Reload data only - search/market/tier/status filters stay as the user set them
+    // until they clear them manually.
     fetchData();
   };
 
@@ -318,9 +318,11 @@ export default function ManageLeasingPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleExport}>
-            <Download className="mr-1.5 h-4 w-4" /> Export Excel
-          </Button>
+          {canShowExport && (
+            <Button variant="outline" size="sm" onClick={handleExport}>
+              <Download className="mr-1.5 h-4 w-4" /> Export Excel
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={handleRefresh}>
             <RefreshCw className="mr-1.5 h-4 w-4" /> Refresh
           </Button>

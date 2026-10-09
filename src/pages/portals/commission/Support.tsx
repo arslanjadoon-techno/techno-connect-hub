@@ -60,10 +60,10 @@ export default function Support() {
             </div>
             <div>
               <div className="text-xs text-sky-700/80 dark:text-sky-400 font-semibold uppercase tracking-wide">
-                Email
+                Email / Admin
               </div>
               <div className="font-semibold text-sm mt-0.5 text-sky-950 dark:text-sky-100">
-                reporting@texasmobilepcs.com
+                admin@techno.com
               </div>
             </div>
           </CardContent>

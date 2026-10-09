@@ -68,6 +68,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
+import { LEASING_PAGE_PERMISSION_KEYS } from "@/lib/leasing-permissions";
 import SidebarRail from "@/pages/team-chat/sidebar/SidebarRail";
 
 type SubItem = { title: string; url: string; icon?: any };
@@ -229,6 +230,7 @@ function CollapsibleGroupItem({
   item: Item;
   isActive: (p: string) => boolean;
 }) {
+  const { isMobile, setOpenMobile } = useSidebar();
   const isChildActive =
     isActive(item.url) || (item.children?.some((c) => isActive(c.url)) ?? false);
 
@@ -239,6 +241,12 @@ function CollapsibleGroupItem({
       setSubOpen(true);
     }
   }, [isChildActive]);
+
+  const handleLinkClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   if (item.children && item.children.length > 0) {
     return (
@@ -270,7 +278,11 @@ function CollapsibleGroupItem({
             {item.children.map((child) => (
               <SidebarMenuItem key={child.url}>
                 <SidebarMenuButton asChild isActive={isActive(child.url)} size="sm">
-                  <Link to={child.url} className="flex items-center gap-2 text-xs py-1">
+                  <Link
+                    to={child.url}
+                    onClick={handleLinkClick}
+                    className="flex items-center gap-2 text-xs py-1"
+                  >
                     {child.icon && <child.icon className="h-3.5 w-3.5" />}
                     <span>{child.title}</span>
                   </Link>
@@ -286,7 +298,7 @@ function CollapsibleGroupItem({
   return (
     <SidebarMenuItem key={item.url}>
       <SidebarMenuButton asChild isActive={isActive(item.url)} size="sm">
-        <Link to={item.url} className="flex items-center gap-2">
+        <Link to={item.url} onClick={handleLinkClick} className="flex items-center gap-2">
           <item.icon className="h-4 w-4" />
           <span>{item.title}</span>
         </Link>
@@ -310,7 +322,14 @@ function CollapsibleGroup({
   open: boolean;
   onToggle: () => void;
 }) {
+  const { isMobile, setOpenMobile } = useSidebar();
   const Icon = group.icon;
+
+  const handleLinkClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   if (collapsed) {
     return (
@@ -323,6 +342,7 @@ function CollapsibleGroup({
               <SidebarMenuButton asChild isActive={isItemActive} tooltip={item.title}>
                 <Link
                   to={item.children ? item.children[0].url : item.url}
+                  onClick={handleLinkClick}
                   className="flex items-center gap-2"
                 >
                   <item.icon className="h-4 w-4" />
@@ -413,12 +433,13 @@ function formatRoleName(roleStr: string): string {
 }
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, isMobile, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
-  const { user: authUser, logout } = useAuth();
+  const { user: authUser, logout, permissions } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
-  const pathname = useLocation().pathname;
+  const location = useLocation();
+  const pathname = location.pathname;
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [teamChatOpen, setTeamChatOpen] = useState(() => pathname.startsWith("/chat"));
 
@@ -523,7 +544,28 @@ export function AppSidebar() {
     return access?.roleName?.toLowerCase() ?? "";
   };
 
+  const leasingShowKeyAllows = (url: string): boolean => {
+    const permKey = LEASING_PAGE_PERMISSION_KEYS[url];
+    if (!permKey) return true;
+    const entry = permissions.find((p) => p.permissionKey === permKey);
+    return (entry?.accessLevel ?? "hide") !== "hide";
+  };
+
   const filterMasterGroup = (key: string, master: Group): Group => {
+    if (key === "leasing") {
+      const items = master.items
+        .map((item): Item | null => {
+          if (item.children) {
+            const children = item.children.filter((c) => leasingShowKeyAllows(c.url));
+            if (children.length === 0) return null;
+            return { ...item, children, url: children[0].url };
+          }
+          return leasingShowKeyAllows(item.url) ? item : null;
+        })
+        .filter((i): i is Item => i !== null);
+      return { ...master, items };
+    }
+
     // Commission Dashboard only visible to admin role in commission portal
     if (key === "commission") {
       const roleInCommission = getPortalRole("commission");
@@ -589,7 +631,9 @@ export function AppSidebar() {
               <div className="truncate font-display text-[13px] font-semibold text-sidebar-foreground">
                 Company Portal
               </div>
-              <div className="truncate text-[10px] text-sidebar-foreground/70">Management Information System</div>
+              <div className="truncate text-[10px] text-sidebar-foreground/70">
+                Management Information System
+              </div>
             </div>
           )}
         </div>
@@ -690,16 +734,53 @@ export function AppSidebar() {
             </SidebarGroupContent>
           </SidebarGroup>
         )}
+
+        {/* MIS Static Pages - Below User Management */}
+        <SidebarGroup>
+          {!collapsed && <SidebarGroupLabel>MIS</SidebarGroupLabel>}
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={isActive("/mis/privacy")} tooltip="Privacy">
+                  <Link
+                    to="/mis/privacy"
+                    onClick={() => {
+                      if (isMobile) setOpenMobile(false);
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <LockKeyhole className="h-4 w-4" />
+                    {!collapsed && <span>Privacy</span>}
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={isActive("/mis/support")} tooltip="Support">
+                  <Link
+                    to="/mis/support"
+                    onClick={() => {
+                      if (isMobile) setOpenMobile(false);
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <Contact className="h-4 w-4" />
+                    {!collapsed && <span>Support</span>}
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border/60 py-2.5 px-3">
         <div className="flex items-center justify-center select-none tracking-tight">
           {collapsed ? (
-            <span title="Version 3.0.3" className="text-[10px]">
-              v3.0.3
+            <span title="Version 3.0.6" className="text-[10px]">
+              v3.0.6
             </span>
           ) : (
-            <span className="text-[14px] text-white font-medium">Version - 3.0.3</span>
+            <span className="text-[14px] text-white font-medium">Version - 3.0.6</span>
           )}
         </div>
       </SidebarFooter>

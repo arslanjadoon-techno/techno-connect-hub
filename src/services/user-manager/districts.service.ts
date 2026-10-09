@@ -14,10 +14,27 @@ export class DistrictsService {
   get(id: string | number) {
     return http.get<District>(DISTRICT_API_PATHS.district(id));
   }
-  add(payload: { name: string; marketId: number }) {
+  add(payload: {
+    name: string;
+    stateId?: number;
+    marketId?: number;
+    managerId?: number | null;
+    manager?: string;
+    email?: string | null;
+    phone?: string | null;
+  }) {
     return http.post<District>(DISTRICT_API_PATHS.addDistrict, payload);
   }
-  update(payload: { id: number; name: string; marketId: number }) {
+  update(payload: {
+    id: number;
+    name: string;
+    stateId?: number;
+    marketId?: number;
+    managerId?: number | null;
+    manager?: string;
+    email?: string | null;
+    phone?: string | null;
+  }) {
     return http.put<District>(DISTRICT_API_PATHS.updateDistrict, payload);
   }
   delete(id: number | string | { id: number | string }) {

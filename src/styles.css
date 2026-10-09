@@ -574,3 +574,21 @@ table tbody tr:hover {
 .shadow-glow {
   box-shadow: 0 0 20px -4px color-mix(in oklab, var(--primary-glow) 40%, transparent);
 }
+
+/* Disable native browser clear/cancel buttons on inputs to avoid duplicate X icons */
+input::-webkit-search-cancel-button,
+input::-webkit-search-decoration,
+input::-webkit-search-results-button,
+input::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none !important;
+}
+
+input::-ms-clear,
+input::-ms-reveal {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+

@@ -17,10 +17,45 @@ import {
  * LocalStorage keys.
  *  - `token` — raw JWT returned by the login API.
  *  - `user`  — full user object exactly as returned by the login API.
+ *  - `permissions` — the user's permission catalog entries, also from the login response.
  * These keys are intentionally short / generic so other tooling can read them.
  */
 export const TOKEN_KEY = "token";
 export const USER_KEY = "user";
+export const PERMISSIONS_KEY = "permissions";
+
+/** Mirrors TechnoComm.DTO.UserPermissionResponse (camelCased). */
+export interface UserPermissionEntry {
+  permissionId: number;
+  permissionKey: string;
+  permissionName: string;
+  permissionDescription?: string | null;
+  portalId: number;
+  portalName?: string | null;
+  accessLevel: "hide" | "read" | "write";
+}
+
+export function getStoredPermissions(): UserPermissionEntry[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(PERMISSIONS_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function setStoredPermissions(permissions: UserPermissionEntry[] | null | undefined) {
+  if (typeof window === "undefined") return;
+  try {
+    if (permissions && permissions.length > 0)
+      window.localStorage.setItem(PERMISSIONS_KEY, JSON.stringify(permissions));
+    else window.localStorage.removeItem(PERMISSIONS_KEY);
+  } catch {
+    /* ignore */
+  }
+}
 
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -301,9 +336,9 @@ export interface StateQueryParams {
 export interface StatePayload {
   name: string;
   symbol: string;
-  email: string;
-  phone: string;
-  managerId: number;
+  email?: string | null;
+  phone?: string | null;
+  managerId?: number | null;
 }
 
 export const StatesApi = {
@@ -374,12 +409,27 @@ export const DistrictsApi = {
   get: (id: string | number) => apiRequest<District>(DISTRICT_API_PATHS.district(id)),
 
   // 3. Add District
-  add: (payload: { name: string; stateId: number }) =>
-    apiRequest<District>(DISTRICT_API_PATHS.addDistrict, { method: "POST", body: payload }),
+  add: (payload: {
+    name: string;
+    stateId?: number;
+    marketId?: number;
+    managerId?: number | null;
+    manager?: string;
+    email?: string | null;
+    phone?: string | null;
+  }) => apiRequest<District>(DISTRICT_API_PATHS.addDistrict, { method: "POST", body: payload }),
 
   // 4. Update District
-  update: (payload: { id: number; name: string }) =>
-    apiRequest<District>(DISTRICT_API_PATHS.updateDistrict, { method: "PUT", body: payload }),
+  update: (payload: {
+    id: number;
+    name: string;
+    stateId?: number;
+    marketId?: number;
+    managerId?: number | null;
+    manager?: string;
+    email?: string | null;
+    phone?: string | null;
+  }) => apiRequest<District>(DISTRICT_API_PATHS.updateDistrict, { method: "PUT", body: payload }),
 
   // 5. Delete District
   delete: (id: number | string | { id: number | string }) => {
@@ -390,17 +440,29 @@ export const DistrictsApi = {
 
 // ---------- Markets ---------- //
 
+export interface MarketAssignedUser {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
 export interface Market {
   id: number;
   name: string;
-  state: {
+  state?: {
     id: number;
     name: string;
-  };
-  district: {
+  } | null;
+  district?: {
     id: number;
     name: string;
-  };
+  } | null;
+  assignedUsers?: MarketAssignedUser[];
+  manager?: string;
+  managerId?: number;
+  email?: string;
+  phone?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -423,7 +485,6 @@ export const MarketsApi = {
         queryParts.push(`state=${params.state}`);
       }
 
-      // FIX: District parameter was missing here. Added now!
       if (params.district !== undefined && params.district !== "all") {
         queryParts.push(`district=${params.district}`);
       }
@@ -435,11 +496,24 @@ export const MarketsApi = {
 
   get: (id: string | number) => apiRequest<Market>(MARKET_API_PATHS.market(id)),
 
-  add: (payload: { name: string; stateId: number; districtId: number }) =>
-    apiRequest<Market>(MARKET_API_PATHS.addMarket, { method: "POST", body: payload }),
+  add: (payload: {
+    name: string;
+    stateId: number;
+    districtId?: number;
+    managerId?: number | null;
+    email?: string | null;
+    phone?: string | null;
+  }) => apiRequest<Market>(MARKET_API_PATHS.addMarket, { method: "POST", body: payload }),
 
-  update: (payload: { id: number; name: string; districtId: number }) =>
-    apiRequest<Market>(MARKET_API_PATHS.updateMarket, { method: "PUT", body: payload }),
+  update: (payload: {
+    id: number;
+    name: string;
+    stateId?: number;
+    districtId?: number;
+    managerId?: number | null;
+    email?: string | null;
+    phone?: string | null;
+  }) => apiRequest<Market>(MARKET_API_PATHS.updateMarket, { method: "PUT", body: payload }),
 
   delete: (id: number | string | { id: number | string }) => {
     const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
@@ -711,7 +785,10 @@ export const DepartmentsApi = {
     }),
   delete: (id: number | string | { id: number | string }) => {
     const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
-    return apiRequest<null>(DEPARTMENT_API_PATHS.deleteDepartment(numericId), { method: "DELETE" });
+    return apiRequest<null>(DEPARTMENT_API_PATHS.deleteDepartment, {
+      method: "DELETE",
+      body: { id: Number(numericId) },
+    });
   },
 };
 
