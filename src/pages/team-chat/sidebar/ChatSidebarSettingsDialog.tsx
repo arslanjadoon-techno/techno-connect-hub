@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Bell, Camera, Circle, MessageSquareText, Settings, UserRound } from "lucide-react";
+import { Bell, Camera, Circle, MessageSquareText, Settings, UserRound, ShieldBan } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,11 +19,13 @@ interface Props {
   currentStatus: string;
   currentUser?: UserRecord;
   currentUserName: string;
+  blockedUsers?: UserRecord[];
   enterToSend?: boolean;
   mentionNotifications?: boolean;
   notificationPermission: string;
   notificationsEnabled: boolean;
   onAvatarPick?: () => void;
+  onUnblockUser?: (user: UserRecord) => void;
   onClose: () => void;
   onStatusPick: (status: string) => void;
   onTestNotification: () => void;
@@ -56,6 +58,8 @@ export default function ChatSidebarSettingsDialog({
   settingsNotice,
   statusSaving = false,
   page = false,
+  blockedUsers = [],
+  onUnblockUser,
 }: Props) {
   const [profileOpen, setProfileOpen] = useState(false);
   const availability = getAvailability({ presence: currentStatus });
@@ -96,7 +100,7 @@ export default function ChatSidebarSettingsDialog({
                 onClick={() => setProfileOpen(true)}
               >
                 <Avatar className="h-14 w-14 bg-primary text-xl font-bold text-primary-foreground">
-                  <AvatarImage src={getImageUrl(currentUser)} />
+                  <AvatarImage key={getImageUrl(currentUser)} src={getImageUrl(currentUser)} />
                   <AvatarFallback>{getInitial(currentUserName)}</AvatarFallback>
                 </Avatar>
               </button>
@@ -211,6 +215,24 @@ export default function ChatSidebarSettingsDialog({
           </div>
         </div>
       </section>
+      <section className={cardSurface}>
+        {sectionHeading(<ShieldBan className="h-4 w-4" />, "Blocked users", "Manage people you have blocked.")}
+        {blockedUsers.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No blocked users.</p>
+        ) : (
+          <div className="space-y-2">
+            {blockedUsers.map((user) => {
+              const label = user.name || user.display_name || user.email || user.id;
+              return (
+                <div key={user.id} className="flex items-center justify-between gap-3 rounded-lg border p-2">
+                  <span className="truncate text-sm font-medium">{label}</span>
+                  <Button size="sm" variant="outline" onClick={() => onUnblockUser?.(String(user.id))}>Unblock</Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
       {settingsNotice && (
         <p
           role="status"
@@ -271,7 +293,7 @@ export default function ChatSidebarSettingsDialog({
           </DialogHeader>
           <div className="text-center">
             <Avatar className="mx-auto h-24 w-24">
-              <AvatarImage src={getImageUrl(currentUser)} />
+              <AvatarImage key={getImageUrl(currentUser)} src={getImageUrl(currentUser)} />
               <AvatarFallback>{getInitial(currentUserName)}</AvatarFallback>
             </Avatar>
             <p className="mt-2 font-bold">{currentUserName}</p>

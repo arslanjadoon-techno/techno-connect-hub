@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { EMOJI_OPTIONS } from "@/constants/team-chat-constants";
 
@@ -13,6 +13,24 @@ interface EmojiPickerProps {
 export default function EmojiPicker({ anchorEl, onClose, onSelect }: EmojiPickerProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const open = Boolean(anchorEl);
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!(target instanceof Node) || !document.querySelector('[role="dialog"][aria-label="Emoji picker"]')?.contains(target)) {
+        onClose?.();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [open, onClose]);
   const emojis = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     return (EMOJI_OPTIONS as unknown as readonly EmojiOption[]).filter(([, name]) =>
@@ -36,15 +54,23 @@ export default function EmojiPicker({ anchorEl, onClose, onSelect }: EmojiPicker
       }}
       onMouseDown={(event) => event.stopPropagation()}
     >
-      <div className="relative mb-3">
+      <div className="relative mb-3 flex items-center gap-1">
         <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
           autoFocus
           value={searchTerm}
           placeholder="Search emoji"
           onChange={(event) => setSearchTerm(event.target.value)}
-          className="h-9 pl-8"
+          className="h-9 pl-8 pr-8"
         />
+        <button
+          type="button"
+          aria-label="Close emoji picker"
+          className="absolute right-1 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+          onClick={closePicker}
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
       <div className="grid max-h-[250px] grid-cols-7 gap-1 overflow-y-auto">
         {emojis.map(([emoji, name]) => (

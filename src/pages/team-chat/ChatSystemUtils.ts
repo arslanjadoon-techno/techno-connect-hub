@@ -121,6 +121,15 @@ export function getConversationIdFromResponse(
   const root = response?.data;
   const payload = root?.data;
   const candidates = [
+    response?.conversationId,
+    response?.conversation_id,
+    response?.chatId,
+    response?.chat_id,
+    response?.id,
+    root?.conversationId,
+    root?.conversation_id,
+    root?.chatId,
+    root?.chat_id,
     payload?.chat_id,
     payload?.chatId,
     payload?.conversation_id,

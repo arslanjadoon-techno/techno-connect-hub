@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Archive,
   ArrowRightLeft,
@@ -39,6 +39,7 @@ interface GroupActionsProps {
   onTransferOwnership?: (chatId: string | number, memberId: string | number) => Promise<void>;
   onRemoveMember?: (chatId: string | number, memberId: string | number) => Promise<void>;
   onOpenInfo?: () => void;
+  onOpenAddMembers?: () => void;
   onOpenMedia?: () => void;
   onClearChat?: () => void;
   onOpenLeaveConfirm?: () => void;
@@ -72,11 +73,13 @@ const PersonRow = ({
   member,
   current,
   removable,
+  isAdmin,
   onRemove,
 }: {
   member: Person;
   current: boolean;
   removable?: boolean;
+  isAdmin?: boolean;
   onRemove?: () => void;
 }) => (
   <div className="flex items-center gap-3 rounded-md px-2 py-2">
@@ -86,7 +89,14 @@ const PersonRow = ({
     </Avatar>
     <div className="min-w-0 flex-1">
       <p className="truncate text-sm font-semibold">{current ? "You" : getBuddyName(member)}</p>
-      <p className="truncate text-xs text-muted-foreground">{getBuddyEmail(member)}</p>
+      <div className="flex items-center gap-2">
+        <p className="truncate text-xs text-muted-foreground">{getBuddyEmail(member)}</p>
+        {isAdmin && (
+          <span className="shrink-0 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+            Admin
+          </span>
+        )}
+      </div>
     </div>
     {removable && (
       <Button size="icon" variant="ghost" className="text-destructive" onClick={onRemove}>
@@ -97,6 +107,7 @@ const PersonRow = ({
 );
 
 export default function GroupActions({
+  anchorEl,
   currentUser,
   groupInfoOpen,
   groupMembers = [],
@@ -110,6 +121,7 @@ export default function GroupActions({
   onTransferOwnership,
   onRemoveMember,
   onOpenInfo,
+  onOpenAddMembers,
   onOpenMedia,
   onClearChat,
   onOpenLeaveConfirm,
@@ -120,12 +132,30 @@ export default function GroupActions({
 }: GroupActionsProps) {
   const [transferOpen, setTransferOpen] = useState(false);
   const [removeMember, setRemoveMember] = useState<Person | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onCloseMenu?.();
+    };
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!menuRef.current?.contains(target) && target !== anchorEl) onCloseMenu?.();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+    };
+  }, [anchorEl, onCloseMenu, open]);
   if (selectedChat?.type !== "channel") return null;
   const closeMenu = () => onCloseMenu?.();
   const memberId = (member: Person) => getBuddySendId(member) || getBuddyEmail(member);
   return (
     <>
       <div
+        ref={menuRef}
         className={`absolute right-2 top-12 z-40 w-60 overflow-hidden rounded-lg border bg-popover shadow-lg ${open ? "block" : "hidden"}`}
       >
         <Action
@@ -167,7 +197,7 @@ export default function GroupActions({
         />
       </div>
       <Dialog open={groupInfoOpen} onOpenChange={(value) => !value && onCloseInfo?.()}>
-        <DialogContent>
+        <DialogContent className="flex h-[min(80vh,620px)] max-h-[80vh] flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
               <Avatar className="h-12 w-12 bg-primary/10 text-primary">
@@ -182,13 +212,37 @@ export default function GroupActions({
           <p className="text-sm text-muted-foreground">
             {groupMembers.length} members{isGroupMuted ? " · Notifications muted" : ""}
           </p>
-          <div>
-            <h3 className="mb-2 text-xs font-bold tracking-wide text-muted-foreground">MEMBERS</h3>
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-xs font-bold tracking-wide text-muted-foreground">MEMBERS</h3>
+              <Button size="sm" variant="outline" onClick={onOpenAddMembers}>
+                Add people
+              </Button>
+            </div>
             {groupMembers.map((member) => (
               <PersonRow
                 key={memberId(member) || getBuddyName(member)}
                 member={member}
                 current={isSamePerson(member, currentUser)}
+                isAdmin={Boolean(
+                  member.isAdmin ||
+                  member.is_admin ||
+                  member.isOwner ||
+                  member.is_owner ||
+                  String(getBuddyEmail(member)).toLowerCase() === "admin@techno.com" ||
+                  ["owner", "admin", "administrator"].includes(
+                    String(
+                      member.conversationRole ||
+                        member.conversation_role ||
+                        member.memberRole ||
+                        member.member_role ||
+                        member.role ||
+                        member.roleName ||
+                        member.role_name ||
+                        "",
+                    ).toLowerCase(),
+                  ),
+                )}
                 removable={isGroupAdmin && !isSamePerson(member, currentUser)}
                 onRemove={() => setRemoveMember(member)}
               />

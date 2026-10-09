@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Bell, CalendarClock, Edit3, FileText, Plus, StickyNote, Trash2 } from "lucide-react";
+import { Archive, Bell, CalendarClock, Edit3, FileText, Pin, Plus, StickyNote, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,6 +19,8 @@ interface Note {
   body?: string;
   reminderAt?: string | null;
   updatedAt?: string;
+  isPinned?: boolean;
+  isArchived?: boolean;
 }
 interface NoteDraft {
   id: string | number | null;
@@ -31,6 +33,9 @@ interface Props {
   onClose: () => void;
   onDelete: (id: Note["id"]) => void;
   onSave: (draft: NoteDraft) => void;
+  onToggleNote?: (note: Note, field: "isPinned" | "isArchived") => void;
+  loading?: boolean;
+  error?: string;
   open: boolean;
   page?: boolean;
 }
@@ -48,20 +53,25 @@ export default function NotesDialog({
   onSave,
   open,
   page = false,
+  onToggleNote,
+  loading = false,
+  error = "",
 }: Props) {
   const [editingId, setEditingId] = useState<string | number | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [reminderAt, setReminderAt] = useState("");
   const [editorOpen, setEditorOpen] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const sortedNotes = useMemo(
     () =>
-      [...notes].sort(
+      notes.filter((note) => Boolean(note.isArchived) === showArchived).sort(
         (a, b) =>
-          new Date(a.reminderAt || a.updatedAt || 0).getTime() -
-          new Date(b.reminderAt || b.updatedAt || 0).getTime(),
+          Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) ||
+          new Date(b.updatedAt || b.reminderAt || 0).getTime() -
+          new Date(a.updatedAt || a.reminderAt || 0).getTime(),
       ),
-    [notes],
+    [notes, showArchived],
   );
   useEffect(() => {
     if (open) {
@@ -93,6 +103,10 @@ export default function NotesDialog({
   };
   const editor = (
     <div className="space-y-5">
+      {loading && <p className="text-sm text-muted-foreground">Loading notes…</p>}
+      {error && (
+        <p className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</p>
+      )}
       <div className="space-y-2">
         <Label htmlFor="note-title">Title</Label>
         <Input
@@ -151,6 +165,10 @@ export default function NotesDialog({
           </Button>
         )}
       </div>
+      <div className="flex gap-2 border-b pb-3">
+        <Button size="sm" variant={!showArchived ? "default" : "outline"} onClick={() => setShowArchived(false)}>Active</Button>
+        <Button size="sm" variant={showArchived ? "default" : "outline"} onClick={() => setShowArchived(true)}>Archived</Button>
+      </div>
       {sortedNotes.length === 0 ? (
         <div className="rounded-xl border border-dashed bg-muted/20 px-5 py-10 text-center">
           <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -178,6 +196,11 @@ export default function NotesDialog({
                       {note.body}
                     </p>
                   )}
+                  {note.updatedAt && (
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      Updated {new Date(note.updatedAt).toLocaleString()}
+                    </p>
+                  )}
                   {note.reminderAt && (
                     <p className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
                       <CalendarClock className="h-3.5 w-3.5" />
@@ -186,6 +209,8 @@ export default function NotesDialog({
                   )}
                 </div>
                 <div className="flex shrink-0 gap-1">
+                  <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Pin note" onClick={() => onToggleNote?.(note, "isPinned")}><Pin className={note.isPinned ? "h-4 w-4 fill-current text-primary" : "h-4 w-4"} /></Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={note.isArchived ? "Unarchive note" : "Archive note"} title={note.isArchived ? "Unarchive" : "Archive"} onClick={() => onToggleNote?.(note, "isArchived")}><Archive className={note.isArchived ? "h-4 w-4 text-primary" : "h-4 w-4"} /></Button>
                   <Button
                     size="icon"
                     variant="ghost"

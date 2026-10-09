@@ -36,17 +36,17 @@ import {
   getChatSettingsService,
   clearChatHistoryService,
   getChatStatusService,
+  getNotes,
+  createNote,
+  updateNote,
+  deleteNote as deleteNoteService,
   getChatUsersService,
   getChatConversationsService,
   searchChatMessagesService,
-  addGroupMembersService,
+  
   addMessageReactionService,
-  createGroupChatService,
   deleteConversationMessageService,
   editConversationMessageService,
-  leaveGroupConversationService,
-  removeGroupMemberService,
-  transferGroupOwnershipService,
   markConversationReadService,
   openDirectChatService,
   pinConversationMessageService,
@@ -55,6 +55,7 @@ import {
   sendDirectMessageService,
   shareConversationFileService,
   startConversationCallService,
+  startCallService,
   endConversationCallService,
   getActiveConversationCallsService,
   respondConversationCallService,
@@ -63,7 +64,15 @@ import {
   updateChatStatusService,
   updateChatSettingsService,
 } from "@/services/Team-chat/chat.service";
+import {
+  addGroupMembersService,
+  createGroupChatService,
+  leaveGroupConversationService,
+  removeGroupMemberService,
+  transferGroupOwnershipService,
+} from "@/services/Team-chat/group.service";
 import { getStoredUser } from "@/lib/api/client";
+import { usersService } from "@/services/user-manager/users.service";
 import { getInitial } from "./sidebar/chatSidebarUtils";
 import {
   AddMembersDialog,
@@ -73,6 +82,9 @@ import {
 import AdminPage from "./AdminPage";
 import { ChatConfirmationDialog, ChatNotice } from "./ChatSystemOverlays";
 import ChatCallOverlay from "./ChatCallOverlay";
+
+// Calls are temporarily disabled in the frontend.
+const CALLS_ENABLED = false;
 import {
   PENDING_CALL_STORAGE_KEY,
   getMessageTimestamp,
@@ -84,6 +96,12 @@ import {
   isMessageReadByUser,
   getConversationIdFromResponse,
 } from "./ChatSystemUtils";
+
+const normalizePresence = (value: unknown) => {
+  const status = String(value || "").trim().toLowerCase();
+  return status === "available" || status === "active" ? "online" :
+    ["online", "away", "busy", "dnd", "offline"].includes(status) ? status : "online";
+};
 
 export default function ChatSystem({ standalone = false, adminPage = false }) {
   const navigate = useNavigate();
@@ -102,6 +120,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
   const chatBoxRef = useRef(null);
   const initialFetchStartedRef = useRef(false);
   const loadedChatHistoryRef = useRef(new Set());
+  const loadingChatHistoryRef = useRef(new Set());
   const handledRealtimeMessageKeysRef = useRef(new Set());
   const chatClearVersionsRef = useRef(new Map());
   const realtimeStartedAtRef = useRef(Date.now());
@@ -111,7 +130,11 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
   const [libraryError, setLibraryError] = useState("");
   const [libraryMessages, setLibraryMessages] = useState([]);
   const [notes, setNotes] = useState<ChatNote[]>([]);
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesError, setNotesError] = useState("");
   const [buddies, setBuddies] = useState([]);
+  const [managedUsers, setManagedUsers] = useState([]);
+  const [managedUsersLoading, setManagedUsersLoading] = useState(false);
   const [channels, setChannels] = useState([]);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -138,6 +161,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
   const [groupDialogOpen, setGroupDialogOpen] = useState(false);
   const [groupTitle, setGroupTitle] = useState("");
   const [groupUserIds, setGroupUserIds] = useState([]);
+  const groupUserCacheRef = useRef(new Map());
   const [groupSearch, setGroupSearch] = useState("");
   const [groupError, setGroupError] = useState("");
   const [creatingGroup, setCreatingGroup] = useState(false);
@@ -146,7 +170,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
   const [addMembersError, setAddMembersError] = useState("");
   const [addingMembers, setAddingMembers] = useState(false);
   const [currentStatus, setCurrentStatus] = useState(
-    () => localStorage.getItem("chat_presence") || "online",
+    () => normalizePresence(localStorage.getItem("chat_presence")),
   );
   const [statusSaving, setStatusSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -211,16 +235,40 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
   const currentUserEmail = String(
     currentUser?.email || currentUser?.email_id || currentUser?.mailid || "",
   ).toLowerCase();
-  const notesStorageKey = `pingly_notes_${currentUserId || "guest"}`;
-
   useEffect(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(notesStorageKey) || "[]");
-      setNotes(Array.isArray(saved) ? saved : []);
-    } catch {
-      setNotes([]);
-    }
-  }, [notesStorageKey]);
+    if (bodyView !== "notes") return undefined;
+    let cancelled = false;
+    setNotesLoading(true);
+    setNotesError("");
+    getNotes(true)
+      .then((response: any) => {
+        if (cancelled) return;
+        const raw = response?.data?.data || response?.data || response || [];
+        const items = Array.isArray(raw) ? raw : raw.notes || raw.items || [];
+        setNotes(
+          items.map((note: any) => ({
+            id: note.id,
+            title: note.title || "",
+            body: note.content || note.body || "",
+            reminderAt: note.reminderAt || "",
+            isPinned: Boolean(note.isPinned),
+            isArchived: Boolean(note.isArchived),
+            createdAt: note.createdAt,
+            updatedAt: note.updatedAt,
+          })),
+        );
+      })
+      .catch((error) => {
+        if (!cancelled)
+          setNotesError(error instanceof Error ? error.message : "Unable to load notes.");
+      })
+      .finally(() => {
+        if (!cancelled) setNotesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [bodyView]);
 
   useEffect(() => {
     if (bodyView !== "calls" && bodyView !== "media") return undefined;
@@ -262,44 +310,60 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
       body: string;
       reminderAt: string;
     }) => {
-      const now = new Date().toISOString();
-      const next: ChatNote = {
-        id: id || globalThis.crypto?.randomUUID?.() || `${Date.now()}`,
+      const existingNote = id ? notes.find((item) => item.id === id) : null;
+      const payload = {
         title: title.trim(),
-        body: body.trim(),
-        reminderAt: reminderAt ? new Date(reminderAt).toISOString() : "",
-        updatedAt: now,
+        content: body.trim(),
+        isPinned: Boolean(existingNote?.isPinned),
+        isArchived: Boolean(existingNote?.isArchived),
       };
-      setNotes((previous) => {
-        const nextNotes = id
-          ? previous.map((note) => (note.id === id ? { ...note, ...next } : note))
-          : [next, ...previous];
-        localStorage.setItem(notesStorageKey, JSON.stringify(nextNotes));
-        return nextNotes;
-      });
+      setNotesError("");
+      const request = id ? updateNote(id, payload) : createNote(payload);
+      request
+        .then((response: any) => {
+          const note = response?.data?.data || response?.data || response;
+          const mapped = {
+            id: note.id || id,
+            title: note.title || payload.title,
+            body: note.content || payload.content,
+            reminderAt: note.reminderAt || reminderAt || "",
+            isPinned: Boolean(note.isPinned),
+            isArchived: Boolean(note.isArchived),
+            createdAt: note.createdAt,
+            updatedAt: note.updatedAt,
+          };
+          setNotes((previous) =>
+            id
+              ? previous.map((item) => (item.id === id ? { ...item, ...mapped } : item))
+              : [mapped, ...previous],
+          );
+        })
+        .catch((error) =>
+          setNotesError(error instanceof Error ? error.message : "Unable to save note."),
+        );
     },
-    [notesStorageKey],
+    [notes],
   );
 
-  const deleteNote = useCallback(
-    (id: ChatNote["id"]) => {
-      setNotes((previous) => {
-        const nextNotes = previous.filter((note) => note.id !== id);
-        localStorage.setItem(notesStorageKey, JSON.stringify(nextNotes));
-        return nextNotes;
-      });
-    },
-    [notesStorageKey],
-  );
+  const deleteNote = useCallback((id: ChatNote["id"]) => {
+    setNotesError("");
+    setNotes((previous) => previous.filter((note) => String(note.id) !== String(id)));
+    deleteNoteService(id)
+      .catch((error) =>
+        setNotesError(error instanceof Error ? error.message : "Unable to delete note."),
+      );
+  }, []);
 
   useEffect(() => {
+    if (!CALLS_ENABLED) return undefined;
     if (!currentUserId) return undefined;
     let cancelled = false;
 
     getActiveConversationCallsService()
       .then((response) => {
         if (cancelled) return;
-        const calls = response.data?.data?.calls || response.data?.data || [];
+        const payload = response?.data?.data || response?.data || response;
+        const calls = payload?.calls || payload || [];
         const call = Array.isArray(calls)
           ? calls.find((candidate) =>
               ["ringing", "connecting", "accepted"].includes(
@@ -308,7 +372,19 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
             )
           : null;
         const normalizedCall = normalizeCall(call);
-        if (!normalizedCall?.id) return;
+        if (!normalizedCall?.id) {
+          try {
+            const savedCall = normalizeCall(
+              JSON.parse(localStorage.getItem(PENDING_CALL_STORAGE_KEY) || "null"),
+            );
+            if (savedCall?.id && String(savedCall.status || "").toLowerCase() === "ringing") {
+              setIncomingCall(savedCall);
+            }
+          } catch {
+            localStorage.removeItem(PENDING_CALL_STORAGE_KEY);
+          }
+          return;
+        }
         const status = String(normalizedCall.status || "").toLowerCase();
         const startedById =
           normalizedCall.startedBy?.id ||
@@ -349,6 +425,8 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
 
   const isCurrentUserRecord = useCallback(
     (item) => {
+      if (item?.isCurrentUser === true || item?.is_current_user === true) return true;
+      if (item?.isCurrentUser === false || item?.is_current_user === false) return false;
       const itemIds = [
         item?.id,
         item?.userId,
@@ -358,6 +436,9 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         item?.identityId,
         item?.chatIdentityId,
         item?.chat_identity_id,
+        item?.username,
+        item?.userName,
+        item?.user_name,
       ]
         .filter(Boolean)
         .map(String);
@@ -371,12 +452,20 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         .filter(Boolean)
         .map((value) => String(value).toLowerCase());
 
+      const currentUserAliases = [
+        currentUser?.username,
+        currentUser?.userName,
+        currentUser?.user_name,
+        currentUser?.login,
+      ].filter(Boolean).map((value) => String(value));
+
       return (
         (currentUserId && itemIds.includes(currentUserId)) ||
-        (currentUserEmail && itemEmails.includes(currentUserEmail))
+        (currentUserEmail && itemEmails.includes(currentUserEmail)) ||
+        currentUserAliases.some((alias) => itemIds.includes(alias))
       );
     },
-    [currentUserEmail, currentUserId],
+    [currentUser, currentUserEmail, currentUserId],
   );
 
   const getUserIdentityKey = useCallback((user) => {
@@ -517,8 +606,12 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     );
   }, [buddies, channels, isCurrentUserRecord, isSelfConversation, uniqueUsersByIdentity]);
   const allVisibleBuddies = useMemo(
-    () => uniqueUsersByIdentity(buddies.filter((buddy) => !isCurrentUserRecord(buddy))),
-    [buddies, isCurrentUserRecord, uniqueUsersByIdentity],
+    () =>
+      uniqueUsersByIdentity([
+        ...buddies.filter((buddy) => !isCurrentUserRecord(buddy)),
+        ...managedUsers.filter((user) => !isCurrentUserRecord(user)),
+      ]),
+    [buddies, isCurrentUserRecord, managedUsers, uniqueUsersByIdentity],
   );
   const visibleChannels = useMemo(
     () => channels.filter((channel) => !isSelfConversation(channel)),
@@ -547,7 +640,9 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
   const legacyConversationItems = useMemo(() => {
     // The Chats tab is a recent-conversations list. Do not show users until
     // a conversation/history record exists for them.
-    const buddiesForList = searchTerm.trim() ? allVisibleBuddies : visibleBuddies;
+    // Chats is history only. Searching must filter that history, not add new
+    // User Management users that have never had a conversation.
+    const buddiesForList = visibleBuddies;
     const directRows = buddiesForList.map((buddy) => {
       const buddyId = String(getBuddySendId(buddy));
       const buddyEmail = String(getBuddyEmail(buddy)).toLowerCase();
@@ -880,6 +975,10 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     return Array.from(countsByConversation.values()).reduce((total, count) => total + count, 0);
   }, [conversationItems]);
 
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("chat:unread-count", { detail: totalUnreadCount }));
+  }, [totalUnreadCount]);
+
   const handleRealtimeMessage = useCallback(
     ({ chatId, message }) => {
       if (!chatId || !message) return;
@@ -1035,7 +1134,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
       const shouldNotify =
         !isOwnMessage &&
         currentStatus !== "dnd" &&
-        (!isActiveChat || document.hidden) &&
         !isAlreadyLoaded &&
         isNewSinceRealtimeStarted &&
         !isReadByCurrentUser;
@@ -1219,7 +1317,18 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
   const handleRealtimePresence = useCallback(({ userId, presence, user }) => {
     if (!userId) return;
 
-    const nextPresence = presence || user?.presence || user?.status;
+    const nextPresence = normalizePresence(presence || user?.presence || user?.status);
+
+    if (String(userId) === String(currentUserId)) {
+      setCurrentStatus(nextPresence);
+      setProfileUser((previous) => ({
+        ...(previous || {}),
+        ...(user || {}),
+        presence: nextPresence,
+        status: nextPresence,
+      }));
+      localStorage.setItem("chat_presence", nextPresence);
+    }
 
     setBuddies((prev) =>
       prev.map((buddy) =>
@@ -1255,7 +1364,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         },
       };
     });
-  }, []);
+  }, [currentUserId]);
 
   const handleRealtimeAvatar = useCallback(
     ({ userId, avatarUrl, user }) => {
@@ -1395,10 +1504,27 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
       const isCurrentUserRemoved = removedUserId === currentUserId;
 
       if (systemMessage && !isCurrentUserRemoved) {
-        const normalizedMessage = normalizeRealtimeMessage(systemMessage, {
+        const actorName =
+          getBuddyName(systemMessage.removedBy || systemMessage.removed_by) ||
+          getBuddyName(systemMessage.actor || systemMessage.performedBy) ||
+          "Admin";
+        const removedName = getBuddyName(removedUser) || "the member";
+        const normalizedMessage = normalizeRealtimeMessage(
+          {
+            ...systemMessage,
+            text: `${actorName} removed ${removedName} from the group.`,
+            metadata: {
+              ...(systemMessage.metadata || {}),
+              kind: "group_member_removed",
+              actorName,
+              memberName: removedName,
+            },
+          },
+          {
           id: selectedChat?.id || chatId,
           currentUserId,
-        });
+          },
+        );
         if (normalizedMessage) {
           setMessagesByChat((prev) => ({
             ...prev,
@@ -1539,6 +1665,8 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
       if (!chat || chat.type !== "person" || !chat.id) return;
 
       const chatKey = String(chat.id);
+      if (loadingChatHistoryRef.current.has(chatKey)) return;
+      loadingChatHistoryRef.current.add(chatKey);
       const requestClearVersion = chatClearVersionsRef.current.get(chatKey) || 0;
 
       loadedChatHistoryRef.current.add(chatKey);
@@ -1549,37 +1677,38 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
       });
 
       try {
-        const openResponse = await openDirectChatService(chat.id);
-        const chatId = getConversationIdFromResponse(openResponse);
-
+        // Opening a user must not create a conversation. A direct conversation
+        // is created only by the first outgoing message.
+        const chatId = chat.chatId || null;
         if (!chatId) return;
 
         setSelectedChat((prev) => (prev?.id === chat.id ? { ...prev, chatId } : prev));
-        await markChatAsRead({
-          chatId,
-          userId: chat.id,
-          email: chat.subtitle || getBuddyEmail(chat.raw),
-        });
-        const messagesResponse = await getChatMessagesService(chatId);
-        // Loading history also updates the participant's lastReadAt in the
-        // database. Fetch the conversation list once more so the badge reflects
-        // that persisted state, even if an earlier refresh was still in flight.
-        await markChatAsRead({ chatId });
+        const messagesResponse = await getChatMessagesService(chatId, { limit: 100 });
         if ((chatClearVersionsRef.current.get(chatKey) || 0) !== requestClearVersion) return;
-        const normalizedMessages = filterBlockedMessages(
-          normalizeChatMessages(messagesResponse.data?.data, chat),
-        );
+        const historyPayload =
+          messagesResponse?.data?.data?.messages
+            ? messagesResponse.data.data
+            : messagesResponse?.data?.messages
+              ? messagesResponse.data
+              : messagesResponse?.data?.data?.data?.messages
+                ? messagesResponse.data.data.data
+                : messagesResponse?.data?.data || messagesResponse?.data || {};
+        const normalizedMessages = normalizeChatMessages(historyPayload, { ...chat, chatId });
 
         setMessagesByChat((prev) => ({
           ...prev,
           [chat.id]: normalizedMessages,
+          [chatId]: normalizedMessages,
         }));
         setMessagePaginationByChat((prev) => ({
           ...prev,
-          [chat.id]: messagesResponse.data?.data?.pagination || { hasMore: false },
+          [chat.id]: historyPayload?.pagination || { hasMore: false },
+          [chatId]: historyPayload?.pagination || { hasMore: false },
         }));
       } catch (error) {
         setSendError(normalizeChatError(error));
+      } finally {
+        loadingChatHistoryRef.current.delete(chatKey);
       }
     },
     [clearUnreadForChat, filterBlockedMessages, markChatAsRead],
@@ -1595,13 +1724,17 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
       loadedChatHistoryRef.current.add(chatKey);
 
       try {
-        await markChatAsRead({ chatId: chat.id });
-        const messagesResponse = await getChatMessagesService(chat.id);
-        await markChatAsRead({ chatId: chat.id });
+        const messagesResponse = await getChatMessagesService(chat.id, { limit: 100 });
         if ((chatClearVersionsRef.current.get(chatKey) || 0) !== requestClearVersion) return;
-        const normalizedMessages = filterBlockedMessages(
-          normalizeChatMessages(messagesResponse.data?.data, chat),
-        );
+        const historyPayload =
+          messagesResponse?.data?.data?.messages
+            ? messagesResponse.data.data
+            : messagesResponse?.data?.messages
+              ? messagesResponse.data
+              : messagesResponse?.data?.data?.data?.messages
+                ? messagesResponse.data.data.data
+                : messagesResponse?.data?.data || messagesResponse?.data || {};
+        const normalizedMessages = normalizeChatMessages(historyPayload, { ...chat, chatId: chat.id });
 
         setMessagesByChat((prev) => ({
           ...prev,
@@ -1609,7 +1742,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         }));
         setMessagePaginationByChat((prev) => ({
           ...prev,
-          [chat.id]: messagesResponse.data?.data?.pagination || { hasMore: false },
+          [chat.id]: historyPayload?.pagination || { hasMore: false },
         }));
       } catch (error) {
         setSendError(normalizeChatError(error));
@@ -1671,14 +1804,16 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     setLoadError("");
 
     try {
-      const [buddyResponse, channelResponse, statusResponse, settingsResponse] = await Promise.all([
+      const [buddyResponse, channelResponse, statusResponse, settingsResponse, managedUsersResponse] = await Promise.all([
         getChatUsersService({ excludeSelf: true }),
         getChatConversationsService(),
         getChatStatusService().catch(() => null),
         getChatSettingsService().catch(() => null),
+        usersService.getAll({ page: 1, size: 1000 }).catch(() => null),
       ]);
 
-      const persistedSettings = settingsResponse?.data?.data || settingsResponse?.data || {};
+      const persistedSettings =
+        settingsResponse?.data?.data || settingsResponse?.data || settingsResponse || {};
       if (typeof persistedSettings.enterToSend === "boolean") {
         const savedEnterToSend = localStorage.getItem("chat_enter_to_send");
         const restoredEnterToSend =
@@ -1705,11 +1840,12 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
 
       // ChatUsersController returns a plain array; conversation endpoints return { data }.
       const chatUsers = getArrayPayload(buddyResponse.data?.data ?? buddyResponse.data);
+      const usersFromManagement = getArrayPayload(
+        managedUsersResponse?.data?.data ?? managedUsersResponse?.data ?? managedUsersResponse,
+      );
       const chatConversations = getArrayPayload(channelResponse.data?.data ?? channelResponse.data);
       if (import.meta.env.DEV) {
         console.groupCollapsed("[Pingly chat] conversation sources");
-        console.log("GET /api/v1/chat/users", chatUsers);
-        console.log("GET /api/v1/chat/conversations", chatConversations);
         console.groupEnd();
       }
       const otherChatUsers = chatUsers.filter((user) => !isCurrentUserRecord(user));
@@ -1717,11 +1853,12 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         (conversation) => !isSelfConversation(conversation),
       );
       setBuddies(chatUsers);
+      setManagedUsers(usersFromManagement.filter((user) => !isCurrentUserRecord(user)));
       setChannels(chatConversations);
       const statusPayload = statusResponse?.data?.data || statusResponse?.data || {};
       const backendUser = statusPayload.user || statusPayload;
-      const savedPresence = localStorage.getItem("chat_presence");
-      const serverPresence = backendUser?.presence || backendUser?.status;
+      const savedPresence = normalizePresence(localStorage.getItem("chat_presence"));
+      const serverPresence = normalizePresence(backendUser?.presence || backendUser?.status);
       const restoredPresence =
         savedPresence && savedPresence !== "online" && serverPresence === "online"
           ? savedPresence
@@ -1876,36 +2013,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
           markConversationReadService(restoredChannelId).catch(() => {});
           setTab("conversations");
         }
-      } else if (!id && !selectedChat) {
-        const firstBuddy = otherChatUsers.find((user) => getBuddySendId(user));
-        const firstChannel = otherConversations.find((conversation) => getChannelId(conversation));
-
-        if (firstBuddy) {
-          setSelectedChat({
-            type: "person",
-            source: "local",
-            id: getBuddySendId(firstBuddy),
-            chatId:
-              firstBuddy.directConversationId || firstBuddy.chat_id || firstBuddy.chatId || null,
-            title: getBuddyName(firstBuddy),
-            subtitle: getBuddyEmail(firstBuddy),
-            imageUrl: getImageUrl(firstBuddy),
-            currentUserId,
-            raw: firstBuddy,
-          });
-        } else if (firstChannel) {
-          const firstChannelId = getChannelId(firstChannel);
-          setSelectedChat({
-            type: "channel",
-            source: "local",
-            id: firstChannelId,
-            title: getChannelName(firstChannel),
-            subtitle: firstChannelId,
-            imageUrl: getImageUrl(firstChannel),
-            currentUserId,
-            raw: firstChannel,
-          });
-        }
       }
     } catch (error) {
       setLoadError(normalizeChatError(error));
@@ -1942,9 +2049,17 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
   }, [loadChannelHistory, selectedChat]);
 
   useEffect(() => {
-    if (chatBoxRef.current) {
-      chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
-    }
+    const scrollToLatest = () => {
+      if (chatBoxRef.current) {
+        chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+      }
+    };
+    const frame = requestAnimationFrame(scrollToLatest);
+    const timer = window.setTimeout(scrollToLatest, 50);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
   }, [messagesByChat, selectedChat]);
 
   useEffect(() => {
@@ -1980,7 +2095,22 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     console.groupEnd();
   }, [filteredItems]);
 
-  const currentMessages = selectedChat ? messagesByChat[selectedChat.id] || [] : [];
+  const selectedLastMessage =
+    selectedChat?.lastMessage ||
+    selectedChat?.last_message ||
+    selectedChat?.raw?.lastMessage ||
+    selectedChat?.raw?.last_message;
+  const messageStateKeys = [selectedChat?.chatId, selectedChat?.id]
+    .filter(Boolean)
+    .map(String);
+  const storedMessages = messageStateKeys
+    .map((key) => messagesByChat[key])
+    .filter(Array.isArray)
+    .sort((a, b) => b.length - a.length)[0];
+  const currentMessages = selectedChat
+    ? (storedMessages?.length ? storedMessages : undefined) ||
+      (selectedLastMessage ? normalizeChatMessages([selectedLastMessage], selectedChat) : [])
+    : [];
   const activeCallIsAccepted = activeCall?.status === "accepted";
 
   useEffect(() => {
@@ -1993,16 +2123,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     if (!sendId) return;
 
     let directConversationId = buddy?.directConversationId || buddy?.chat_id || buddy?.chatId;
-    if (!directConversationId) {
-      try {
-        const response = await openDirectChatService(sendId);
-        directConversationId = getConversationIdFromResponse(response);
-      } catch (error) {
-        setSendError(normalizeChatError(error));
-        return;
-      }
-    }
-
     const chat = {
       type: "person",
       source: "local",
@@ -2013,6 +2133,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
       raw: buddy,
       imageUrl: getImageUrl(buddy),
       currentUserId,
+      currentUserEmail,
     };
 
     setSelectedChat(chat);
@@ -2022,7 +2143,9 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     if (directConversationId) {
       markChatAsRead({ chatId: directConversationId, userId: sendId, email }).catch(() => {});
     }
-    navigate(`${CHAT_APP_BASE_PATH}/${encodeURIComponent(directConversationId || sendId)}`);
+    if (directConversationId) {
+      navigate(`${CHAT_APP_BASE_PATH}/${encodeURIComponent(directConversationId)}`);
+    }
   };
 
   const selectChannel = (channel) => {
@@ -2035,9 +2158,12 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
       id: channelId,
       title: getChannelName(channel),
       subtitle: channelId,
+      lastMessage: channel.lastMessage || channel.last_message,
+      participants: channel.participants || channel.members || [],
       raw: channel,
       imageUrl: getImageUrl(channel),
       currentUserId,
+      currentUserEmail,
     };
 
     setSelectedChat(chat);
@@ -2049,10 +2175,12 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
   };
 
   const toggleGroupUser = (userId) => {
+    const selectedUser = managedUsers.find((user) => String(getBuddySendId(user)) === String(userId));
+    if (selectedUser) groupUserCacheRef.current.set(String(userId), selectedUser);
     setGroupUserIds((prev) =>
-      prev.includes(userId)
-        ? prev.filter((selectedId) => selectedId !== userId)
-        : [...prev, userId],
+      prev.some((selectedId) => String(selectedId) === String(userId))
+        ? prev.filter((selectedId) => String(selectedId) !== String(userId))
+        : [...prev, String(userId)],
     );
   };
 
@@ -2071,11 +2199,8 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     setGroupError("");
 
     try {
-      const response = await createGroupChatService({
-        title: groupTitle.trim(),
-        userIds: groupUserIds,
-      });
-      const conversation = response.data?.data;
+      const response = await createGroupChatService(groupTitle.trim(), groupUserIds);
+      const conversation = response?.data?.data ?? response?.data ?? response;
       const channelId = getChannelId(conversation);
 
       setChannels((prev) => [conversation, ...prev]);
@@ -2104,35 +2229,90 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
 
   const groupMembers = useMemo(
     () =>
-      allVisibleBuddies.filter((buddy) => {
+      managedUsers.filter((buddy) => {
         const search = groupSearch.trim().toLowerCase();
         if (!search) return true;
         return `${getBuddyName(buddy)} ${getBuddyEmail(buddy)}`.toLowerCase().includes(search);
       }),
-    [allVisibleBuddies, groupSearch],
+    [managedUsers, groupSearch],
   );
 
+  useEffect(() => {
+    if (!groupPage && !groupDialogOpen && !addMembersDialogOpen) return;
+
+    const query = groupSearch.trim();
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setManagedUsersLoading(true);
+      // Search through User Management so users outside the first page, such
+      // as Arslan, are included in the results.
+      const request = query
+        ? usersService.search({ search: query })
+        : Promise.all([
+            usersService.getAll({ page: 1, size: 1000 }),
+            usersService.getAll({ page: 2, size: 1000 }),
+          ]);
+
+      request
+        .then(async (response) => {
+          if (cancelled) return;
+          let users;
+          if (query) {
+            users = getArrayPayload(response?.data?.data ?? response?.data ?? response);
+          } else {
+            const pages = Array.isArray(response) ? response : [response];
+            users = pages.flatMap((page) =>
+              getArrayPayload(page?.data?.data ?? page?.data ?? page),
+            );
+          }
+          setManagedUsers(users.filter((user) => !isCurrentUserRecord(user)));
+        })
+        .catch(() => {
+          // Keep the last successful user list visible if loading fails.
+        })
+        .finally(() => {
+          if (!cancelled) setManagedUsersLoading(false);
+        });
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [addMembersDialogOpen, groupDialogOpen, groupPage, groupSearch, isCurrentUserRecord]);
+
   const selectedGroupMembers = useMemo(
-    () => allVisibleBuddies.filter((buddy) => groupUserIds.includes(String(getBuddySendId(buddy)))),
-    [allVisibleBuddies, groupUserIds],
+    () =>
+      groupUserIds
+        .map((id) =>
+          managedUsers.find((buddy) => String(getBuddySendId(buddy)) === String(id)) ||
+          groupUserCacheRef.current.get(String(id)),
+        )
+        .filter(Boolean),
+    [managedUsers, groupUserIds],
   );
 
   const selectedGroupParticipantIds = useMemo(() => {
-    const participants = Array.isArray(selectedChat?.raw?.participants)
-      ? selectedChat.raw.participants
-      : [];
+    const refreshedChannel = visibleChannels.find(
+      (channel) => getChannelId(channel) === selectedChat?.id,
+    );
+    const participants = Array.isArray(refreshedChannel?.participants)
+      ? refreshedChannel.participants
+      : Array.isArray(selectedChat?.raw?.participants)
+        ? selectedChat.raw.participants
+        : [];
 
     return new Set(
       participants.map((participant) => String(getBuddySendId(participant) || "")).filter(Boolean),
     );
-  }, [selectedChat]);
+  }, [selectedChat, visibleChannels]);
 
   const addableGroupMembers = useMemo(
     () =>
-      allVisibleBuddies.filter(
+      managedUsers.filter(
         (buddy) => !selectedGroupParticipantIds.has(String(getBuddySendId(buddy))),
       ),
-    [allVisibleBuddies, selectedGroupParticipantIds],
+    [managedUsers, selectedGroupParticipantIds],
   );
   const selectedMentionableUsers = useMemo(() => {
     if (!selectedChat) return [];
@@ -2141,8 +2321,13 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
       return selectedChat.raw ? [selectedChat.raw] : [];
     }
 
-    const participants = Array.isArray(selectedChat.raw?.participants)
-      ? selectedChat.raw.participants
+    const refreshedChannel = visibleChannels.find(
+      (channel) => getChannelId(channel) === selectedChat.id,
+    );
+    const participants = Array.isArray(refreshedChannel?.participants)
+      ? refreshedChannel.participants
+      : Array.isArray(selectedChat.raw?.participants)
+        ? selectedChat.raw.participants
       : [];
     const participantIds = new Set(
       participants.map((participant) => String(getBuddySendId(participant) || "")).filter(Boolean),
@@ -2151,9 +2336,9 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     return uniqueUsersByIdentity(
       allVisibleBuddies.filter((user) => participantIds.has(String(getBuddySendId(user)))),
     );
-  }, [allVisibleBuddies, selectedChat, uniqueUsersByIdentity]);
+  }, [allVisibleBuddies, selectedChat, uniqueUsersByIdentity, visibleChannels]);
 
-  const openAddMembersDialog = () => {
+  const openAddMembersDialog = async () => {
     setAddMemberUserIds([]);
     setAddMembersError("");
     setAddMembersDialogOpen(true);
@@ -2171,6 +2356,13 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     if (!selectedChat || selectedChat.type !== "channel" || addingMembers) return;
     if (addMemberUserIds.length === 0) {
       setAddMembersError("Select at least one person.");
+      return;
+    }
+    const alreadyInGroup = addMemberUserIds.some((userId) =>
+      selectedGroupParticipantIds.has(String(userId)),
+    );
+    if (alreadyInGroup) {
+      setAddMembersError("User is already in this group.");
       return;
     }
 
@@ -2192,12 +2384,20 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
           ? {
               ...prev,
               title: getChannelName(updatedConversation),
+              participants:
+                updatedConversation?.participants ||
+                updatedConversation?.members ||
+                updatedConversation?.raw?.participants ||
+                prev.participants,
+              members:
+                updatedConversation?.members || updatedConversation?.participants || prev.members,
               raw: updatedConversation,
               imageUrl: getImageUrl(updatedConversation),
             }
           : prev,
       );
       setAddMembersDialogOpen(false);
+      await loadChannelHistory({ ...selectedChat, id: selectedChat.id, chatId: selectedChat.id });
     } catch (error) {
       setAddMembersError(normalizeChatError(error));
     } finally {
@@ -2335,10 +2535,49 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
 
   const handleRemoveGroupMember = async (chatId, userId) => {
     if (!chatId || !userId) return;
+    const removedMember = (selectedChat?.raw?.participants || []).find(
+      (participant) => String(getBuddySendId(participant)) === String(userId),
+    );
+    const removedName = getBuddyName(removedMember) || "A member";
+    const actorName = getBuddyName(currentUser) || "You";
     try {
       await removeGroupMemberService(chatId, userId);
+      setSelectedChat((previous) => {
+        if (!previous || String(previous.id) !== String(chatId)) return previous;
+        const participants = Array.isArray(previous.raw?.participants)
+          ? previous.raw.participants
+          : [];
+        const remaining = participants.filter(
+          (participant) => String(getBuddySendId(participant)) !== String(userId),
+        );
+        return {
+          ...previous,
+          participants: remaining,
+          raw: { ...(previous.raw || {}), participants: remaining },
+        };
+      });
+      const systemMessage = normalizeRealtimeMessage(
+        {
+          id: `member-removed-${userId}-${Date.now()}`,
+          text: `${actorName} removed ${removedName} from the group.`,
+          sentAt: new Date().toISOString(),
+          systemEventType: "group_member_removed",
+          metadata: {
+            kind: "group_member_removed",
+            memberName: removedName,
+            actorName,
+          },
+        },
+        { id: chatId, currentUserId },
+      );
+      if (systemMessage) {
+        setMessagesByChat((previous) => ({
+          ...previous,
+          [String(chatId)]: [...(previous[String(chatId)] || []), systemMessage],
+        }));
+      }
       await fetchChatData();
-      setSendError("");
+      setSendError(`${actorName} removed ${removedName} from the group.`);
     } catch (error) {
       setSendError(normalizeChatError(error));
       throw error;
@@ -2348,18 +2587,19 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
   const handleStatusChange = async (presence) => {
     if (statusSaving) return;
 
+    const normalizedPresence = normalizePresence(presence);
     setStatusSaving(true);
-    setCurrentStatus(presence);
-    localStorage.setItem("chat_presence", presence);
+    setCurrentStatus(normalizedPresence);
+    localStorage.setItem("chat_presence", normalizedPresence);
 
     try {
-      const response = await updateChatStatusService(presence);
+      const response = await updateChatStatusService(normalizedPresence);
       const savedUser = response.data?.data || response.data || {};
       setProfileUser((previous) => ({
         ...(previous || {}),
         ...savedUser,
-        presence,
-        status: presence,
+        presence: normalizedPresence,
+        status: normalizedPresence,
       }));
       if (selectedChat?.type === "channel") {
         clearUnreadForChat({ chatId: selectedChat.id });
@@ -2382,12 +2622,18 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
 
     setAvatarUploading(true);
     setLoadError("");
+    const localPreviewUrl = URL.createObjectURL(file);
+    setProfileUser((prev) => ({
+      ...(prev || {}),
+      avatarUrl: localPreviewUrl,
+      imageUrl: localPreviewUrl,
+    }));
 
     try {
       const response = await updateChatAvatarService(file);
       // ChatUsersController returns the user DTO directly (not { data: { user } }).
-      const updatedUser = response.data?.data?.user || response.data?.data || response.data;
-      const nextAvatarUrl = getImageUrl(updatedUser);
+      const updatedUser = response?.data?.data?.user || response?.data?.data || response?.data || response;
+      const nextAvatarUrl = getImageUrl(updatedUser) || localPreviewUrl;
 
       setProfileUser((prev) => {
         const nextUser = {
@@ -2410,8 +2656,8 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
             reader.readAsDataURL(file);
           });
           const response = await updateChatAvatarUrlService(dataUrl);
-          const updatedUser = response.data?.data?.user || response.data?.data || response.data;
-          const nextAvatarUrl = getImageUrl(updatedUser);
+          const updatedUser = response?.data?.data?.user || response?.data?.data || response?.data || response;
+          const nextAvatarUrl = getImageUrl(updatedUser) || localPreviewUrl;
           setProfileUser((prev) => {
             const nextUser = {
               ...(prev || {}),
@@ -2436,6 +2682,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
   };
 
   const handleStartConversationCall = async (type, options = {}) => {
+    if (!CALLS_ENABLED) return;
     if ((!selectedChat && !options.chatId) || callStarting) return;
     if (selectedChat?.type === "person" && blockedUserIds.includes(String(selectedChat.id))) {
       setCallNotice("Unblock this user before starting a call.");
@@ -2450,23 +2697,31 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
       let chatId =
         options.chatId ||
         (selectedChat?.type === "channel" ? selectedChat.id : selectedChat?.chatId);
-
-      if (!chatId && selectedChat?.type === "person") {
-        const openResponse = await openDirectChatService(selectedChat.id);
-        chatId = getConversationIdFromResponse(openResponse);
-
-        if (chatId) {
-          setSelectedChat((prev) => (prev?.id === selectedChat.id ? { ...prev, chatId } : prev));
-        }
-      }
-
-      if (!chatId) {
-        setSendError("Open this conversation before starting a call.");
+      // For person calls, resolve by the selected User Management/chat user ID.
+      // This avoids stale conversation IDs after identity migrations. The
+      // backend finds the existing direct conversation or creates one in the
+      // same transactional call flow.
+      const userId = selectedChat?.type === "person" ? selectedChat.id : undefined;
+      const conversationId = selectedChat?.type === "person" ? undefined : chatId;
+      if (!conversationId && !userId) {
+        setSendError("Select a conversation or user before starting a call.");
         return;
       }
 
-      const response = await startConversationCallService(chatId, type);
-      const call = response.data?.data;
+      let response;
+      try {
+        response = await startCallService({ conversationId, userId, type });
+      } catch (error) {
+        // A stale conversation ID or legacy participant mapping can return 404.
+        // Retry by User Management ID so the backend can resolve/reuse the
+        // canonical direct conversation before starting the call.
+        if (conversationId && userId && error?.response?.status === 404) {
+          response = await startCallService({ userId, type });
+        } else {
+          throw error;
+        }
+      }
+      const call = response?.data?.data || response?.data || response;
       if (call?.status === "missed") {
         setActiveCall(null);
         setCallNotice("The user is offline, busy, or in Do Not Disturb. A missed call was saved.");
@@ -2495,7 +2750,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     setCallError("");
     try {
       const response = await respondConversationCallService(chatId, incomingCall.id, action);
-      const call = normalizeCall(response.data?.data);
+      const call = normalizeCall(response?.data?.data || response?.data || response);
       setIncomingCall(null);
       localStorage.removeItem(PENDING_CALL_STORAGE_KEY);
       if (action === "accept") {
@@ -2554,13 +2809,16 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
   const refreshSelectedChatMessages = async (chatId) => {
     if (!chatId || !selectedChat) return;
 
-    const messagesResponse = await getChatMessagesService(chatId);
-    setMessagesByChat((prev) => ({
-      ...prev,
-      [selectedChat.id]: filterBlockedMessages(
-        normalizeChatMessages(messagesResponse.data?.data, selectedChat),
-      ),
-    }));
+    const messagesResponse = await getChatMessagesService(chatId, { limit: 100 });
+    const normalizedMessages = normalizeChatMessages(
+      messagesResponse?.data?.data ?? messagesResponse?.data ?? messagesResponse,
+      selectedChat,
+    );
+    setMessagesByChat((prev) => {
+      const existing = prev[chatId] || prev[selectedChat.id] || [];
+      const merged = normalizedMessages.length >= existing.length ? normalizedMessages : existing;
+      return { ...prev, [selectedChat.id]: merged, [chatId]: merged };
+    });
   };
 
   const handleSend = async () => {
@@ -2604,31 +2862,34 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         return;
       }
 
+      if (selectedChat.type !== "channel" && !chatId) {
+        const openResponse = await openDirectChatService(selectedChat.id);
+        chatId = getConversationIdFromResponse(openResponse);
+        if (chatId) setSelectedChat((prev) => (prev?.id === selectedChat.id ? { ...prev, chatId } : prev));
+      }
+
+      let attachmentIds = [];
+      if (filesToSend.length > 0 && chatId) {
+        const uploaded = await Promise.all(filesToSend.map((file) => shareConversationFileService(chatId, file)));
+        attachmentIds = uploaded
+          .map((response) => response?.attachmentId || response?.data?.attachmentId || response?.data?.data?.attachmentId)
+          .filter(Boolean);
+      }
+      const sendOptions = attachmentIds.length ? { ...messageOptions, attachmentIds } : messageOptions;
+      const messageText = text || (attachmentIds.length ? "[Attachment]" : "");
+
       if (selectedChat.type === "channel") {
-        if (text) {
-          await sendConversationMessageService(selectedChat.id, text, messageOptions);
-        }
-      } else if (text) {
+        if (messageText) await sendConversationMessageService(selectedChat.id, messageText, sendOptions);
+      } else if (messageText) {
         const response = chatId
-          ? await sendConversationMessageService(chatId, text, messageOptions)
-          : await sendDirectMessageService(selectedChat.id, text, messageOptions);
+          ? await sendConversationMessageService(chatId, messageText, sendOptions)
+          : await sendDirectMessageService(selectedChat.id, messageText, sendOptions);
         const data = response.data?.data || {};
         chatId = data?.chatId || data?.chat?.chat_id || data?.chat?.data?.chat_id || chatId || null;
 
         if (chatId) {
           setSelectedChat((prev) => (prev?.id === selectedChat.id ? { ...prev, chatId } : prev));
         }
-      } else if (!chatId) {
-        const openResponse = await openDirectChatService(selectedChat.id);
-        chatId = getConversationIdFromResponse(openResponse);
-
-        if (chatId) {
-          setSelectedChat((prev) => (prev?.id === selectedChat.id ? { ...prev, chatId } : prev));
-        }
-      }
-
-      if (filesToSend.length > 0 && chatId) {
-        await Promise.all(filesToSend.map((file) => shareConversationFileService(chatId, file)));
       }
 
       if (chatId) {
@@ -2700,7 +2961,9 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     );
     if (targetMessage?.direction === "outbound") return;
 
-    const chatId = selectedChat.type === "channel" ? selectedChat.id : selectedChat.chatId;
+    const chatId = selectedChat.type === "channel"
+      ? selectedChat.id || selectedChat.chatId
+      : selectedChat.chatId || selectedChat.directConversationId || selectedChat.id;
 
     if (!chatId) return;
 
@@ -2753,17 +3016,20 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
 
     try {
       const response = await pinConversationMessageService(chatId, message.id, pinned);
-      const updatedMessage = normalizeRealtimeMessage(response.data?.data, {
+      const responsePayload = response?.data?.data || response?.data || response;
+      const updatedMessage = normalizeRealtimeMessage(responsePayload, {
         ...selectedChat,
         currentUserId,
       });
-
-      if (!updatedMessage) return;
+      const messageUpdate = updatedMessage || {
+        ...message,
+        metadata: { ...(message.metadata || {}), pinned },
+      };
 
       setMessagesByChat((prev) => ({
         ...prev,
         [selectedChat.id]: (prev[selectedChat.id] || []).map((item) =>
-          String(item.id) === String(updatedMessage.id) ? { ...item, ...updatedMessage } : item,
+          String(item.id) === String(messageUpdate.id) ? { ...item, ...messageUpdate } : item,
         ),
       }));
     } catch (error) {
@@ -2805,7 +3071,8 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         if (result.status !== "fulfilled") return;
         const messageId = messageIds[index];
         successfulIds.add(messageId);
-        const deletedMessage = normalizeRealtimeMessage(result.value.data?.data, {
+        const deletePayload = result.value?.data?.data || result.value?.data || result.value;
+        const deletedMessage = normalizeRealtimeMessage(deletePayload, {
           ...selectedChat,
           currentUserId,
         });
@@ -2902,23 +3169,26 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
 
   const handleForwardMessage = async (message, target) => {
     const text = String(message?.text || "").trim();
-    if (!text || !target) return;
+    const hasAttachments = Array.isArray(message?.attachments) && message.attachments.length > 0;
+    if ((!text && !hasAttachments) || !target) return;
 
     const isChannelTarget = target.__conversationType === "channel";
-    const targetChatId = isChannelTarget
-      ? getChannelId(target)
-      : target.directConversationId || target.chat_id || target.chatId;
+    const targetChatId = isChannelTarget ? getChannelId(target) : target.directConversationId;
 
     try {
-      if (isChannelTarget || targetChatId) {
-        await sendConversationMessageService(targetChatId, text, {
+      const forwardedText = text || "[Attachment]";
+      if (isChannelTarget) {
+        await sendConversationMessageService(targetChatId, forwardedText, {
           metadata: { forwardedFrom: message.id },
         });
       } else {
-        await sendDirectMessageService(getBuddySendId(target), text, {
+        const recipientId = getBuddySendId(target);
+        if (!recipientId) throw new Error("The selected recipient is missing an identity ID.");
+        await sendDirectMessageService(recipientId, forwardedText, {
           metadata: { forwardedFrom: message.id },
         });
       }
+      setSendError("");
     } catch (error) {
       setSendError(normalizeChatError(error));
     }
@@ -2927,11 +3197,11 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
   return (
     <>
       <div
-        className={`chat-shell grid w-full min-w-0 overflow-hidden bg-background text-foreground ${
+        className={`chat-shell grid h-full min-h-0 w-full min-w-0 grid-rows-1 overflow-hidden bg-background text-foreground ${
           standalone
             ? "h-[100dvh] min-h-[100dvh]"
-            : "h-[calc(100dvh-48px)] min-h-0 md:min-h-[620px]"
-        } ${showConversationSidebar ? "grid-cols-1 sm:grid-cols-[280px_minmax(0,1fr)] md:grid-cols-[320px_minmax(0,1fr)]" : "grid-cols-1"}`}
+            : "-mx-3 -mt-3 -mb-3 w-[calc(100%+1.5rem)] h-[calc(100%+1.5rem)] min-h-0 sm:-mx-4 sm:-mt-4 sm:-mb-4 sm:w-[calc(100%+2rem)] sm:h-[calc(100%+2rem)] lg:-mx-6 lg:-mt-6 lg:-mb-6 lg:w-[calc(100%+3rem)] lg:h-[calc(100%+3rem)]"
+        } ${showConversationSidebar ? "grid-cols-1 sm:grid-cols-[250px_minmax(0,1fr)] md:grid-cols-[280px_minmax(0,1fr)]" : "grid-cols-1"}`}
       >
         {showConversationSidebar && (
           <ChatSidebar
@@ -2951,6 +3221,13 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
             onSelectBuddy={selectBuddy}
             onSelectChannel={selectChannel}
             onStatusChange={handleStatusChange}
+            blockedUsers={[...buddies, ...conversationItems].filter((user, index, all) => {
+              const id = String(getBuddySendId(user) || user.id || user.userId || "");
+              return blockedUserIds.includes(id) && all.findIndex((item) =>
+                String(getBuddySendId(item) || item.id || item.userId || "") === id,
+              ) === index;
+            })}
+            onUnblockUser={(userId) => handleBlockUser({ authorId: userId })}
             searchTerm={searchTerm}
             selectedChat={selectedChat}
             statusSaving={statusSaving}
@@ -2958,7 +3235,9 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
             setSearchTerm={setSearchTerm}
           />
         )}
-        {adminPage ? (
+        {settingsPage ? (
+          <div aria-hidden="true" className="hidden" />
+        ) : adminPage ? (
           <AdminPage embedded />
         ) : groupPage ? (
           <GroupCreationPage
@@ -2967,6 +3246,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
             onSearchChange={setGroupSearch}
             onSelectMember={toggleGroupUser}
             members={groupMembers}
+            loading={managedUsersLoading}
             selectedMembers={selectedGroupMembers}
             search={groupSearch}
             title={groupTitle}
@@ -2978,6 +3258,8 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
           <ChatBodyPanels
             view={bodyView}
             notes={notes}
+            notesLoading={notesLoading}
+            notesError={notesError}
             libraryMessages={libraryMessages}
             libraryLoading={libraryLoading}
             libraryError={libraryError}
@@ -2986,6 +3268,22 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
             onCloseNotes={() => navigate(CHAT_APP_BASE_PATH)}
             onSaveNote={saveNote}
             onDeleteNote={deleteNote}
+            onToggleNote={(note, field) => {
+              const payload = {
+                title: note.title || "",
+                content: note.body || "",
+                isPinned: field === "isPinned" ? !note.isPinned : Boolean(note.isPinned),
+                isArchived: field === "isArchived" ? !note.isArchived : Boolean(note.isArchived),
+              };
+              setNotes((previous) => previous.map((item) => String(item.id) === String(note.id)
+                ? { ...item, isPinned: payload.isPinned, isArchived: payload.isArchived, updatedAt: new Date().toISOString() }
+                : item));
+              updateNote(note.id, payload).then((response: any) => {
+                const updated = response?.data?.data || response?.data || response;
+                if (!updated?.id) return;
+                setNotes((previous) => previous.map((item) => String(item.id) === String(note.id) ? { ...item, isPinned: payload.isPinned, isArchived: payload.isArchived, updatedAt: updated.updatedAt || item.updatedAt } : item));
+              }).catch((error) => setNotesError(error instanceof Error ? error.message : "Unable to update note."));
+            }}
             onStartCallFromHistory={({ chatId, type }) =>
               handleStartConversationCall(type === "video" ? "video" : "audio", { chatId })
             }
@@ -3038,8 +3336,9 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
             sendError={sendError}
             sending={sending}
             replyToMessage={replyToMessage}
-            onStartConversationCall={handleStartConversationCall}
+            onStartConversationCall={CALLS_ENABLED ? handleStartConversationCall : undefined}
             onOpenAddMembers={openAddMembersDialog}
+            onOpenMedia={() => navigate(`${CHAT_APP_BASE_PATH}/media`)}
             onToggleGroupMute={handleToggleChatMute}
             onClearChat={handleClearChat}
             setInputValue={setInputValue}
@@ -3048,21 +3347,25 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
           />
         )}
       </div>
-      <IncomingCallDialog
-        call={incomingCall}
-        error={callError}
-        responding={callResponding}
-        onAccept={() => handleRespondToCall("accept")}
-        onDecline={() => handleRespondToCall("decline")}
-      />
-      <ChatCallOverlay
-        activeCall={activeCall}
-        accepted={activeCallIsAccepted}
-        minimized={callMinimized}
-        onMinimize={() => setCallMinimized(true)}
-        onRestore={() => setCallMinimized(false)}
-        onEnd={handleEndActiveCall}
-      />
+      {CALLS_ENABLED && (
+        <>
+          <IncomingCallDialog
+            call={incomingCall}
+            error={callError}
+            responding={callResponding}
+            onAccept={() => handleRespondToCall("accept")}
+            onDecline={() => handleRespondToCall("decline")}
+          />
+          <ChatCallOverlay
+            activeCall={activeCall}
+            accepted={activeCallIsAccepted}
+            minimized={callMinimized}
+            onMinimize={() => setCallMinimized(true)}
+            onRestore={() => setCallMinimized(false)}
+            onEnd={handleEndActiveCall}
+          />
+        </>
+      )}
       <ChatNotice message={callNotice} onClose={() => setCallNotice("")} />
       <ChatConfirmationDialog
         dialog={confirmationDialog}
@@ -3081,6 +3384,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         onSelectMember={toggleGroupUser}
         onTitleChange={setGroupTitle}
         members={groupMembers}
+        loading={managedUsersLoading}
         selectedMembers={selectedGroupMembers}
         search={groupSearch}
         title={groupTitle}
@@ -3096,6 +3400,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         selectedIds={addMemberUserIds}
         error={addMembersError}
         adding={addingMembers}
+        onSearchChange={setGroupSearch}
       />
     </>
   );

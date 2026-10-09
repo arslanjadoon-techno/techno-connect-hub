@@ -1,6 +1,5 @@
-import { API_BASE_URL, AUTH_PATHS } from "@/lib/config";
+import { AUTH_PATHS, CHAT_API_BASE_URL } from "@/lib/config";
 import { getStoredUser, getToken } from "@/lib/api/client";
-
 type RequestConfig = {
   headers?: Record<string, string>;
   params?: ChatParams;
@@ -12,7 +11,7 @@ const apiRequest = async <T>(
   body?: unknown,
   config: RequestConfig = {},
 ): Promise<T> => {
-  const url = new URL(`${API_BASE_URL}${path}`, window.location.origin);
+  const url = new URL(`${CHAT_API_BASE_URL}${path}`, window.location.origin);
   Object.entries(config.params ?? {}).forEach(([key, value]) => {
     if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
   });
@@ -30,7 +29,15 @@ const apiRequest = async <T>(
     body: body === undefined ? undefined : isFormData ? (body as FormData) : JSON.stringify(body),
   });
 
-  if (!response.ok) throw new Error(`Chat request failed (${response.status})`);
+  if (!response.ok) {
+    const error = new Error(
+      response.status === 429
+        ? "Too many chat requests. Please wait a moment and try again."
+        : `Chat request failed (${response.status})`,
+    );
+    (error as Error & { status?: number }).status = response.status;
+    throw error;
+  }
   return (await response.json()) as T;
 };
 
@@ -51,6 +58,13 @@ type ChatId = string | number;
 type ChatParams = Record<string, unknown>;
 type ChatPayload = Record<string, unknown>;
 type UserIdList = Array<string | number>;
+
+export type ChatNotePayload = {
+  title: string;
+  content: string;
+  isPinned?: boolean;
+  isArchived?: boolean;
+};
 
 interface LoginCredentials {
   login?: string;
@@ -73,32 +87,43 @@ const withPersonEmail = (params: ChatParams = {}): ChatParams => {
 export const loginChatService = ({ login, email, password }: LoginCredentials) =>
   api.post(AUTH_PATHS.login, { email: email || login, password });
 
-export const getAdminDashboardService = () =>
-  api.get("/chat-service/admin/dashboard", getChatHeaders());
+// export const getAdminDashboardService = () =>
+//   api.get("/chat-service/admin/dashboard", getChatHeaders());
 
-export const getAdminUsersService = (params: ChatParams = {}) =>
-  api.get("/chat-service/admin/users", { ...getChatHeaders(), params });
+// export const getAdminUsersService = (params: ChatParams = {}) =>
+//   api.get("/chat-service/admin/users", { ...getChatHeaders(), params });
 
-export const getAdminUserService = (userId: ChatId) =>
-  api.get(`/chat-service/admin/users/${encodeURIComponent(userId)}`, getChatHeaders());
+// export const getAdminUserService = (userId: ChatId) =>
+//   api.get(`/chat-service/admin/users/${encodeURIComponent(userId)}`, getChatHeaders());
 
-export const createAdminUserService = (payload: ChatPayload) =>
-  api.post("/chat-service/admin/users", payload, getChatHeaders());
+// export const createAdminUserService = (payload: ChatPayload) =>
+//   api.post("/chat-service/admin/users", payload, getChatHeaders());
 
-export const bulkCreateAdminUsersService = (users: ChatPayload[]) =>
-  api.post("/chat-service/admin/users/bulk", { users }, getChatHeaders());
+// export const bulkCreateAdminUsersService = (users: ChatPayload[]) =>
+//   api.post("/chat-service/admin/users/bulk", { users }, getChatHeaders());
 
-export const updateAdminUserService = (userId: ChatId, payload: ChatPayload) =>
-  api.patch(`/chat-service/admin/users/${encodeURIComponent(userId)}`, payload, getChatHeaders());
+// export const updateAdminUserService = (userId: ChatId, payload: ChatPayload) =>
+//   api.patch(`/chat-service/admin/users/${encodeURIComponent(userId)}`, payload, getChatHeaders());
 
-export const changeAdminUserPasswordService = (userId: ChatId, password: string) =>
-  api.patch(
-    `/chat-service/admin/users/${encodeURIComponent(userId)}/password`,
-    { password },
-    getChatHeaders(),
-  );
+// export const changeAdminUserPasswordService = (userId: ChatId, password: string) =>
+//   api.patch(
+//     `/chat-service/admin/users/${encodeURIComponent(userId)}/password`,
+//     { password },
+//     getChatHeaders(),
+//   );
 
 export const getChatStatusService = () => api.get("/api/v1/chat/users/me", getChatHeaders());
+
+export const getNotes = (includeArchived = false) =>
+  api.get("/api/v1/notes", { ...getChatHeaders(), params: { includeArchived } });
+export const getNote = (id: ChatId) =>
+  api.get(`/api/v1/notes/${encodeURIComponent(id)}`, getChatHeaders());
+export const createNote = (note: ChatNotePayload) =>
+  api.post("/api/v1/notes", note, getChatHeaders());
+export const updateNote = (id: ChatId, note: ChatNotePayload) =>
+  api.put(`/api/v1/notes/${encodeURIComponent(id)}`, note, getChatHeaders());
+export const deleteNote = (id: ChatId) =>
+  api.delete(`/api/v1/notes/${encodeURIComponent(id)}`, getChatHeaders());
 
 export const getChatSettingsService = () =>
   api.get("/api/v1/chat/preferences/settings", getChatHeaders());
@@ -182,7 +207,7 @@ export const getChatMessageInfoService = (chatId: ChatId, messageId: ChatId) =>
   );
 
 export const clearChatHistoryService = (chatId: ChatId) =>
-  api.delete(`/api/v1/chat/${encodeURIComponent(chatId)}/messages`, getChatHeaders());
+  api.post(`/api/v1/chat/${encodeURIComponent(chatId)}/clear-history`, {}, getChatHeaders());
 
 export const sendConversationMessageService = (
   chatId: ChatId,
@@ -221,12 +246,41 @@ export const searchChatMessagesService = (params: ChatParams = {}) =>
     params,
   });
 
-export const sendDirectMessageService = (userId: ChatId, text: string, options: ChatPayload = {}) =>
-  api.post(
-    `/api/v1/chat/direct/${encodeURIComponent(userId)}`,
+export const sendDirectMessageService = async (
+  userId: ChatId,
+  text: string,
+  options: ChatPayload = {},
+) => {
+  const directResponse = await openDirectChatService(userId);
+  const data = directResponse.data?.data || directResponse.data || {};
+  const chatId =
+    data.chatId || data.chat_id || data.id || data.conversationId || data.conversation_id;
+
+  if (!chatId) {
+    throw new Error("Unable to create direct conversation");
+  }
+
+  const messageResponse = await api.post(
+    `/api/v1/chat/${encodeURIComponent(chatId)}/messages`,
     { text, ...options },
     getChatHeaders(),
   );
+
+  // Keep the conversation id available to callers. The message endpoint
+  // returns the message, while the UI also needs the conversation id to
+  // refresh the message body after sending.
+  return {
+    ...messageResponse,
+    data: {
+      ...messageResponse.data,
+      data: {
+        ...(messageResponse.data?.data || {}),
+        chatId,
+        conversationId: chatId,
+      },
+    },
+  };
+};
 
 export const markConversationReadService = (chatId: ChatId) =>
   api.post(`/api/v1/chat/${encodeURIComponent(chatId)}/read`, {}, getChatHeaders());
@@ -245,6 +299,9 @@ export const shareConversationFileService = (chatId: ChatId, file: File) => {
 
 export const startConversationCallService = (chatId: ChatId, type: string) =>
   api.post(`/api/v1/chat/${encodeURIComponent(chatId)}/calls`, { type }, getChatHeaders());
+
+export const startCallService = (payload: { conversationId?: ChatId; userId?: ChatId; type: string }) =>
+  api.post("/api/v1/chat/calls/start", payload, getChatHeaders());
 
 export const getActiveConversationCallsService = () =>
   api.get("/api/v1/chat/calls/active", getChatHeaders());

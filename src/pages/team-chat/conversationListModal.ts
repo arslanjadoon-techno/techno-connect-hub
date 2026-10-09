@@ -46,7 +46,10 @@ const activityTime = (conversation) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const toDirectRow = ({ buddy, conversation, isCurrentUserRecord, getUnreadCount: unread }) => {
+const toDirectRow = ({ buddy, conversation, isCurrentUserRecord, getUnreadCount: unread, messagesByChat = {} }) => {
+  const directId = conversationId(conversation) || buddy?.directConversationId || buddy?.chatId;
+  const cachedMessages = messagesByChat[directId] || messagesByChat[getBuddySendId(buddy)] || [];
+  const cachedLastMessage = cachedMessages.at(-1);
   const peer = conversation?.participants?.find((participant) => !isCurrentUserRecord(participant));
   const sender = conversation?.lastMessage?.sender || conversation?.last_message?.sender;
   const displayName =
@@ -70,6 +73,7 @@ const toDirectRow = ({ buddy, conversation, isCurrentUserRecord, getUnreadCount:
       "",
     unreadCount: conversation ? unread(conversation) : unread(buddy),
     lastMessage:
+      cachedLastMessage ||
       conversation?.lastMessage ||
       conversation?.last_message ||
       buddy?.lastMessage ||
@@ -83,6 +87,8 @@ const toDirectRow = ({ buddy, conversation, isCurrentUserRecord, getUnreadCount:
       buddy?.lastMessageTime ||
       buddy?.last_message_time,
     lastMessageAt:
+      cachedLastMessage?.sentAt ||
+      cachedLastMessage?.createdAt ||
       conversation?.lastMessageAt ||
       conversation?.last_message_at ||
       buddy?.lastMessageAt ||
@@ -112,7 +118,7 @@ export function buildConversationItems({
         valuesFor(participant).some((value) => buddyValues.includes(value)),
       ),
     );
-    return toDirectRow({ buddy, conversation, isCurrentUserRecord, getUnreadCount: unread });
+    return toDirectRow({ buddy, conversation, isCurrentUserRecord, getUnreadCount: unread, messagesByChat });
   });
 
   if (!searchTerm.trim()) {
@@ -131,7 +137,7 @@ export function buildConversationItems({
           valuesFor(candidate).some((value) => peerValues.includes(value)),
         ) || peer;
       directRows.push(
-        toDirectRow({ buddy, conversation: channel, isCurrentUserRecord, getUnreadCount: unread }),
+        toDirectRow({ buddy, conversation: channel, isCurrentUserRecord, getUnreadCount: unread, messagesByChat }),
       );
     });
   }

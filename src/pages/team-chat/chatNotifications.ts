@@ -51,7 +51,7 @@ export const showChatNotification = ({
   // Keep incoming-call alerts on the page's Notification object. A service
   // worker notification click can navigate/reload the client, which would
   // interrupt the WebRTC call before the user presses End.
-  if (!preserveCall && "serviceWorker" in navigator) {
+  if (!preserveCall && "serviceWorker" in navigator && navigator.serviceWorker.controller) {
     return navigator.serviceWorker.ready
       .then((registration) => registration.showNotification(title || "New message", {
         body: body || "",

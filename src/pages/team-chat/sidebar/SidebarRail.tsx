@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Paperclip,
@@ -5,7 +6,6 @@ import {
   Shield,
   MessageCircle,
   UsersRound,
-  Phone,
   StickyNote,
   Loader2,
 } from "lucide-react";
@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { getImageUrl } from "../chatHealper";
 import { appRailItems, getInitial } from "./chatSidebarUtils";
 import { CHAT_APP_BASE_PATH } from "../chatRoutes";
+import { getUnreadCount } from "../chatHealper";
+import { getChatConversationsService } from "@/services/Team-chat/chat.service";
 
 interface Props {
   avatarUploading?: boolean;
@@ -45,6 +47,22 @@ export default function SidebarRail({
   embedded = false,
 }: Props) {
   const navigate = useNavigate();
+  const [liveUnreadCount, setLiveUnreadCount] = useState(totalUnreadCount);
+  useEffect(() => {
+    const update = (event: Event) => {
+      const value = Number((event as CustomEvent).detail);
+      if (Number.isFinite(value)) setLiveUnreadCount(value);
+    };
+    window.addEventListener("chat:unread-count", update);
+    getChatConversationsService()
+      .then((response: any) => {
+        const payload = response?.data?.data ?? response?.data ?? [];
+        const rows = Array.isArray(payload) ? payload : payload?.conversations || [];
+        setLiveUnreadCount(rows.reduce((sum: number, row: any) => sum + getUnreadCount(row), 0));
+      })
+      .catch(() => {});
+    return () => window.removeEventListener("chat:unread-count", update);
+  }, []);
   const isAdmin = [...(currentUser?.roles || []), currentUser?.role].some(
     (role) => String(role).toLowerCase() === "chatadmin",
   );
@@ -89,9 +107,9 @@ export default function SidebarRail({
         >
           <MessageCircle />
           {embedded && <span className={labelClass}>Conversations</span>}
-          {totalUnreadCount > 0 && (
+          {liveUnreadCount > 0 && (
             <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-destructive px-1 text-[10px] leading-4 text-destructive-foreground">
-              {totalUnreadCount}
+              {liveUnreadCount > 99 ? "99+" : liveUnreadCount}
             </span>
           )}
         </Button>
@@ -106,16 +124,12 @@ export default function SidebarRail({
         <UsersRound />
         {embedded && <span className={labelClass}>Groups</span>}
       </Button>
-      <Button
-        title="Calls"
-        variant="ghost"
-        size="icon"
-        className={buttonClass}
-        onClick={onOpenCalls}
-      >
+      {/* Call navigation temporarily disabled.
+      <Button title="Calls" variant="ghost" size="icon" className={buttonClass} onClick={onOpenCalls}>
         <Phone />
         {embedded && <span className={labelClass}>Calls</span>}
       </Button>
+      */}
       <Button
         title="Media"
         variant="ghost"

@@ -37,6 +37,9 @@ export const getBuddyEmail = (buddy: ChatRecord | null | undefined): string =>
   buddy?.email_id ||
   buddy?.provider_email ||
   buddy?.providerEmail ||
+  buddy?.userName ||
+  buddy?.username ||
+  buddy?.login ||
   buddy?.mailid ||
   buddy?.primary_email ||
   buddy?.emailid ||
@@ -58,6 +61,9 @@ export const getBuddyName = (buddy: ChatRecord | null | undefined): string => {
     buddy?.displayName,
     buddy?.provider_display_name,
     buddy?.providerDisplayName,
+    buddy?.userName,
+    buddy?.username,
+    buddy?.user_name,
     buddy?.full_name,
     buddy?.fullName,
     buddy?.first_name,
@@ -248,6 +254,10 @@ const getFileUrl = (file: ChatRecord | null | undefined): string =>
   file?.Url ||
   file?.fileUrl ||
   file?.file_url ||
+  file?.attachmentUrl ||
+  file?.attachment_url ||
+  file?.path ||
+  file?.filePath ||
   file?.downloadUrl ||
   file?.download_url ||
   file?.publicUrl ||
@@ -260,6 +270,8 @@ export const getMessageAttachments = (message: ChatRecord | null | undefined): C
   const candidates = [
     metadata.file,
     metadata.attachment,
+    message?.file,
+    message?.attachment,
     content.file,
     content.attachment,
     ...(Array.isArray(message?.attachments) ? message.attachments : []),
@@ -349,8 +361,19 @@ export const getMessageTime = (message: ChatRecord | null | undefined): string =
   message?.timestamp ||
   new Date().toISOString();
 
+export const parseChatDate = (value: string | number | Date): Date => {
+  if (typeof value === "number" || value instanceof Date) {
+    const numeric = typeof value === "number" && value < 1e12 ? value * 1000 : value;
+    return new Date(numeric);
+  }
+  const raw = String(value || "").trim();
+  // API timestamps without an offset are UTC; make that explicit before parsing.
+  const normalized = raw && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(raw) ? `${raw}Z` : raw;
+  return new Date(normalized);
+};
+
 export const formatMessageTime = (value: string | number | Date): string => {
-  const date = new Date(value);
+  const date = parseChatDate(value);
   if (Number.isNaN(date.getTime())) return "";
 
   return new Intl.DateTimeFormat(undefined, {
@@ -360,14 +383,14 @@ export const formatMessageTime = (value: string | number | Date): string => {
 };
 
 export const getMessageDayKey = (value: string | number | Date): string => {
-  const date = new Date(value);
+  const date = parseChatDate(value);
   if (Number.isNaN(date.getTime())) return "";
 
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 };
 
 export const formatMessageDateLabel = (value: string | number | Date): string => {
-  const date = new Date(value);
+  const date = parseChatDate(value);
   if (Number.isNaN(date.getTime())) return "";
 
   const today = new Date();
@@ -421,9 +444,18 @@ const normalizeMessageReactions = (reactions = [], currentUserId = "") => {
 };
 
 export const normalizeChatMessages = (payload, selectedChat) => {
-  const messages = getArrayPayload(payload?.messages ? payload.messages : payload);
+  const findMessages = (value, depth = 0): any[] => {
+    if (depth > 5 || value == null) return [];
+    if (Array.isArray(value)) return value;
+    if (typeof value !== "object") return [];
+    if (Array.isArray(value.messages)) return value.messages;
+    if (Array.isArray(value.items)) return value.items;
+    return findMessages(value.data, depth + 1);
+  };
+  const messages = findMessages(payload);
   const selectedId = String(selectedChat?.id || "");
   const currentUserId = String(selectedChat?.currentUserId || "");
+  const currentUserEmail = String(selectedChat?.currentUserEmail || "").toLowerCase();
 
   return messages
     .map((message, index) => {
@@ -432,8 +464,8 @@ export const normalizeChatMessages = (payload, selectedChat) => {
       const attachments = getMessageAttachments(message);
       const deletedAt = message?.deletedAt || message?.deleted_at || null;
       const direction =
-        senderId && currentUserId
-          ? senderId === currentUserId
+        senderId && (currentUserId || currentUserEmail)
+          ? senderId === currentUserId || senderId.toLowerCase() === currentUserEmail
             ? "outbound"
             : "inbound"
           : message?.direction ||
@@ -464,6 +496,18 @@ export const normalizeChatMessages = (payload, selectedChat) => {
         reactions: normalizeMessageReactions(message?.reactions || [], currentUserId),
         metadata:
           message?.metadata ||
+          (message?.systemEventType === "group_member_added" ||
+          message?.systemEventType === "group_member_joined" ||
+          message?.systemEventType === "group_member_removed"
+            ? {
+                kind: message.systemEventType,
+                memberName:
+                  message.memberName ||
+                  message.member_name ||
+                  message.userName ||
+                  message.user_name,
+              }
+            :
           (message?.callHistory ||
           message?.call_history ||
           message?.systemEventType === "call_history"
@@ -479,7 +523,9 @@ export const normalizeChatMessages = (payload, selectedChat) => {
                     durationSeconds: message.callDurationSeconds || 0,
                   },
               }
-            : {}),
+            : message?.isPinned || message?.is_pinned
+              ? { pinned: true }
+              : {})),
         mentions: message?.metadata?.mentions || message?.mentions || [],
         replyTo: message?.replyTo || message?.reply_to || message?.replyToMessageId || null,
         edited: Boolean(message?.metadata?.edited || message?.edited),

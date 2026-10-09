@@ -1,6 +1,15 @@
-import { Download, FileText, Phone, Video } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  FileText,
+  Image as ImageIcon,
+  Link2,
+  Phone,
+  Video,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getMessageAttachments } from "./chatHealper";
 import NotesDialog from "./sidebar/NotesDialog";
 
@@ -14,6 +23,8 @@ export type ChatNote = {
   notifiedAt?: string;
   updatedAt?: string;
   createdAt?: string;
+  isPinned?: boolean;
+  isArchived?: boolean;
 };
 
 type ChatRecord = Record<string, any>;
@@ -24,6 +35,8 @@ interface ChatBodyPanelsProps {
   libraryMessages: ChatRecord[];
   libraryLoading: boolean;
   libraryError: string;
+  notesLoading?: boolean;
+  notesError?: string;
   callStarting?: boolean;
   onBack: () => void;
   onCloseNotes: () => void;
@@ -34,6 +47,7 @@ interface ChatBodyPanelsProps {
     reminderAt: string;
   }) => void;
   onDeleteNote: (id: ChatNote["id"]) => void;
+  onToggleNote?: (note: ChatNote, field: "isPinned" | "isArchived") => void;
   onStartCallFromHistory?: (value: { chatId: string | number; type: string }) => void;
 }
 
@@ -49,11 +63,14 @@ export default function ChatBodyPanels({
   libraryMessages,
   libraryLoading,
   libraryError,
+  notesLoading = false,
+  notesError = "",
   callStarting = false,
   onBack,
   onCloseNotes,
   onSaveNote,
   onDeleteNote,
+  onToggleNote,
   onStartCallFromHistory,
 }: ChatBodyPanelsProps) {
   const callMessages = libraryMessages.filter(
@@ -65,12 +82,17 @@ export default function ChatBodyPanels({
       message,
     })),
   );
+  const visualItems = mediaItems.filter((file) => {
+    const type = String(file.contentType || file.content_type || file.mimeType || "").toLowerCase();
+    return type.startsWith("image/") || type.startsWith("video/");
+  });
+  const documentItems = mediaItems.filter((file) => !visualItems.includes(file));
 
   return (
     <section className="relative flex min-h-0 min-w-0 flex-1 flex-col bg-background">
       <header className="flex min-h-16 items-center gap-3 border-b border-border bg-background px-4 py-3">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          Back to conversations
+        <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to conversations">
+          <ArrowLeft className="h-5 w-5" />
         </Button>
         <h2 className="font-display text-lg font-semibold text-foreground">{panelTitles[view]}</h2>
       </header>
@@ -78,16 +100,19 @@ export default function ChatBodyPanels({
       {view === "notes" && (
         <NotesDialog
           notes={notes}
+          loading={notesLoading}
+          error={notesError}
           open
           page
           onClose={onCloseNotes}
           onSave={onSaveNote}
           onDelete={onDeleteNote}
+          onToggleNote={onToggleNote}
         />
       )}
 
       {view !== "notes" && (
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-4">
           {libraryLoading && (
             <p className="py-10 text-center text-sm text-muted-foreground">
               Loading {panelTitles[view].toLowerCase()}…
@@ -101,26 +126,52 @@ export default function ChatBodyPanels({
           {!libraryLoading && !libraryError && view === "calls" && (
             <div className="mx-auto max-w-4xl space-y-3">
               {callMessages.map((message) => (
-                <Card
-                  key={message.id}
-                  className="border-border/80 shadow-xs transition-shadow hover:shadow-md"
-                >
+                <Card key={message.id} className="border-border/80 shadow-xs transition-shadow hover:shadow-md">
                   <CardContent className="flex items-center gap-3 p-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      {message.metadata?.callHistory?.type === "video" ? (
+                    {(() => {
+                      const history = message.callHistory || message.metadata?.callHistory || {};
+                      const status = String(history.status || "").toLowerCase();
+                      const error = status === "missed" || status === "declined";
+                      const complete = status === "ended";
+                      const color = error
+                        ? "bg-red-500/15 text-red-500"
+                        : complete
+                          ? "bg-green-500/15 text-green-600 dark:text-green-400"
+                          : "bg-muted text-muted-foreground";
+                      return (
+                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${color}`}>
+                          {String(history.type || "").toLowerCase() === "video" ? (
                         <Video className="h-5 w-5" />
                       ) : (
                         <Phone className="h-5 w-5" />
                       )}
-                    </div>
+                        </div>
+                      );
+                    })()}
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-foreground">
-                        {message.text || "Call"}
-                      </p>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {message.authorName || "Chat"} ·{" "}
+                      {(() => {
+                        const history = message.callHistory || message.metadata?.callHistory || {};
+                        const status = String(history.status || "ended").toLowerCase();
+                        const error = status === "missed" || status === "declined";
+                        const complete = status === "ended";
+                        return (
+                          <p className={`truncate text-sm font-semibold ${error ? "text-red-500" : complete ? "text-green-600 dark:text-green-400" : "text-foreground"}`}>
+                            {status === "missed"
+                              ? `Missed call from ${history.startedBy?.name || message.authorName || "Unknown user"}`
+                              : `${history.type || "audio"} call ${status}`}
+                          </p>
+                        );
+                      })()}
+                      <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                        <Avatar className="h-5 w-5">
+                          <AvatarImage src={(message.callHistory || message.metadata?.callHistory)?.startedBy?.avatarUrl} />
+                          <AvatarFallback>{String((message.callHistory || message.metadata?.callHistory)?.startedBy?.name || message.authorName || "C").charAt(0).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <span className="truncate">
+                        {(message.callHistory || message.metadata?.callHistory)?.startedBy?.name || message.authorName || "Chat"} ·{" "}
                         {new Date(message.sentAt || Date.now()).toLocaleString()}
-                      </p>
+                        </span>
+                      </div>
                     </div>
                     <Button
                       size="icon"
@@ -129,7 +180,7 @@ export default function ChatBodyPanels({
                       aria-label="Start audio call"
                       onClick={() =>
                         onStartCallFromHistory?.({
-                          chatId: message.chatId || message.chat_id,
+                          chatId: message.chatId || message.chat_id || message.conversationId || message.conversation_id,
                           type: "audio",
                         })
                       }
@@ -143,7 +194,7 @@ export default function ChatBodyPanels({
                       aria-label="Start video call"
                       onClick={() =>
                         onStartCallFromHistory?.({
-                          chatId: message.chatId || message.chat_id,
+                          chatId: message.chatId || message.chat_id || message.conversationId || message.conversation_id,
                           type: "video",
                         })
                       }
@@ -169,15 +220,62 @@ export default function ChatBodyPanels({
             </div>
           )}
           {!libraryLoading && !libraryError && view === "media" && (
-            <div className="mx-auto max-w-4xl">
-              {mediaItems.map((file, index) => (
+            <div className="w-full">
+              {visualItems.length > 0 && (
+                <section className="mb-6">
+                  <h3 className="mb-3 text-sm font-semibold">Media</h3>
+                  <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,160px))] justify-start gap-2">
+                    {visualItems.map((file, index) => {
+                      const type = String(
+                        file.contentType || file.content_type || file.mimeType || "",
+                      ).toLowerCase();
+                      const isVideo = type.startsWith("video/");
+                      return (
+                        <div
+                          key={`${file.message?.id || "message"}-${file.id || index}`}
+                          className="group relative aspect-square overflow-hidden rounded-xl border bg-muted"
+                        >
+                          <a href={file.url} target="_blank" rel="noreferrer">
+                            {isVideo ? (
+                              <video src={file.url} muted className="h-full w-full object-cover" />
+                            ) : (
+                              <img
+                                src={file.url}
+                                alt={file.name || "Shared media"}
+                                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                              />
+                            )}
+                          </a>
+                          {file.url && (
+                            <a
+                              href={file.url}
+                              download={file.name || "shared-media"}
+                              className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-1 text-xs font-medium text-white hover:bg-black/80"
+                            >
+                              Download
+                            </a>
+                          )}
+                          <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-2 py-1 text-xs text-white">
+                            {file.name || (isVideo ? "Video" : "Photo")}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+              {documentItems.map((file, index) => (
                 <Card
                   key={`${file.message?.id || "message"}-${file.id || index}`}
                   className="mb-3 border-border/80 shadow-xs transition-shadow hover:shadow-md"
                 >
                   <CardContent className="flex min-w-0 items-center gap-3 p-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <FileText className="h-5 w-5" />
+                      {file.url && /https?:\/\//i.test(file.url) ? (
+                        <Link2 className="h-5 w-5" />
+                      ) : (
+                        <FileText className="h-5 w-5" />
+                      )}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-foreground">
@@ -191,7 +289,7 @@ export default function ChatBodyPanels({
                       <Button variant="outline" size="sm" asChild>
                         <a href={file.url} target="_blank" rel="noreferrer">
                           <Download className="h-4 w-4" />
-                          Open
+                          Download
                         </a>
                       </Button>
                     )}

@@ -11,6 +11,7 @@ import {
   Reply,
   Trash2,
 } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { REACTION_OPTIONS } from "@/constants/team-chat-constants";
 
 type MessageRecord = Record<string, any>;
@@ -61,8 +62,31 @@ export default function MessageActions({
   onReply,
   onSelect,
 }: MessageActionsProps) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!anchorEl) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose?.();
+    };
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!menuRef.current?.contains(target) && target !== anchorEl) onClose?.();
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+    };
+  }, [anchorEl, onClose]);
   if (!anchorEl) return null;
   const rect = anchorEl.getBoundingClientRect();
+  const estimatedMenuHeight = 360;
+  const preferredTop = rect.bottom + 4;
+  const top =
+    preferredTop + estimatedMenuHeight > window.innerHeight
+      ? Math.max(8, rect.top - estimatedMenuHeight - 4)
+      : preferredTop;
   const close = () => onClose?.();
   const run = (callback?: (message: MessageRecord) => void) => {
     callback?.(message);
@@ -78,8 +102,9 @@ export default function MessageActions({
   };
   return (
     <div
+      ref={menuRef}
       className={`fixed z-50 min-w-[190px] overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-lg ${isMe ? "-translate-x-full" : ""}`}
-      style={{ left: isMe ? rect.right : rect.left, top: rect.bottom + 4 }}
+      style={{ left: isMe ? rect.right : rect.left, top }}
       onMouseDown={(event) => event.stopPropagation()}
     >
       {!isMe && (
@@ -113,6 +138,7 @@ export default function MessageActions({
       <div className="py-1">
         {actions
           .filter((action) => action.key !== "edit" || canEdit)
+          .filter((action) => action.key !== "info" || isMe)
           .map(({ key, label, icon: Icon }) => (
             <button
               type="button"
@@ -121,7 +147,7 @@ export default function MessageActions({
               onClick={() => run(callbacks[key])}
             >
               <Icon className="h-4 w-4 text-muted-foreground" />
-              <span>{key === "pin" && message.metadata?.pinned ? "Unpin" : label}</span>
+            <span>{key === "pin" && message.metadata?.pinned ? "Unpin" : key === "delete" ? "Delete for everyone" : label}</span>
             </button>
           ))}
         {isMe && (
@@ -141,7 +167,7 @@ export default function MessageActions({
             onClick={() => run(onDelete)}
           >
             <Trash2 className="h-4 w-4" />
-            Delete
+            Delete for everyone
           </button>
         )}
         {!isMe && onBlock && (

@@ -1,9 +1,9 @@
 import { useEffect, useRef } from "react";
 import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
 import { getToken } from "@/lib/api/client";
+import { CHAT_API_BASE_URL } from "@/lib/config";
 
-const getHubUrl = () =>
-  `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/hubs/chat?appName=chat`;
+const getHubUrl = () => `${CHAT_API_BASE_URL}/hubs/chat?appName=chat`;
 
 export function useChatRealtime({
   enabled = true,

@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -5,7 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { UsersRound } from "lucide-react";
+import { Loader2, UsersRound } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getBuddyEmail, getBuddyName, getBuddySendId, getImageUrl } from "../chatHealper";
 import { getInitial } from "../sidebar/chatSidebarUtils";
@@ -95,6 +96,7 @@ interface GroupCreationDialogProps {
   title: string;
   onTitleChange: (value: string) => void;
   creating: boolean;
+  loading?: boolean;
   page?: boolean;
 }
 
@@ -111,6 +113,7 @@ export function GroupCreationDialog({
   title,
   onTitleChange,
   creating,
+  loading = false,
   page = false,
 }: GroupCreationDialogProps) {
   return (
@@ -216,7 +219,8 @@ export function GroupCreationDialog({
 
           {/* Member list */}
           <div className="mt-3 max-h-[360px] overflow-y-auto p-0.5">
-            {members.map((buddy) => {
+            {loading && <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" aria-label="Loading users" /></div>}
+            {!loading && members.map((buddy) => {
               const userId = String(getBuddySendId(buddy));
               const checked = selectedMembers.some(
                 (member) => String(getBuddySendId(member)) === userId,
@@ -225,7 +229,7 @@ export function GroupCreationDialog({
                 <BuddyRow key={userId} buddy={buddy} checked={checked} onToggle={onSelectMember} />
               );
             })}
-            {members.length === 0 && (
+            {!loading && members.length === 0 && (
               <p className="py-6 text-center text-sm text-muted-foreground">No people found.</p>
             )}
           </div>
@@ -267,6 +271,7 @@ export function GroupCreationPage({
   title,
   onTitleChange,
   creating,
+  loading = false,
 }: Omit<GroupCreationDialogProps, "open" | "page">) {
   return (
     <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-background text-foreground">
@@ -365,7 +370,7 @@ export function GroupCreationPage({
               )}
 
               <div className="mt-3 max-h-[420px] overflow-y-auto rounded-lg border border-border/80 p-2">
-                {members.map((buddy) => {
+              {loading ? <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" aria-label="Loading users" /></div> : members.map((buddy) => {
                   const userId = String(getBuddySendId(buddy));
                   const checked = selectedMembers.some(
                     (member) => String(getBuddySendId(member)) === userId,
@@ -379,7 +384,7 @@ export function GroupCreationPage({
                     />
                   );
                 })}
-                {members.length === 0 && (
+              {!loading && members.length === 0 && (
                   <p className="py-6 text-center text-sm text-muted-foreground">No people found.</p>
                 )}
               </div>
@@ -422,6 +427,7 @@ interface AddMembersDialogProps {
   open: boolean;
   selectedIds: string[];
   adding: boolean;
+  onSearchChange?: (value: string) => void;
 }
 
 export function AddMembersDialog({
@@ -433,9 +439,31 @@ export function AddMembersDialog({
   open,
   selectedIds,
   adding,
+  onSearchChange,
 }: AddMembersDialogProps) {
+  const [search, setSearch] = useState("");
+  const filteredMembers = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return members;
+    return members.filter((buddy) =>
+      [getBuddyName(buddy), getBuddyEmail(buddy), getBuddySendId(buddy)].some((value) =>
+        String(value || "")
+          .toLowerCase()
+          .includes(query),
+      ),
+    );
+  }, [members, search]);
+
   return (
-    <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
+    <Dialog
+      open={open}
+      onOpenChange={(value) => {
+        if (!value) {
+          setSearch("");
+          onClose();
+        }
+      }}
+    >
       <DialogContent>
         <DialogTitle className="!text-lg !font-bold">Add people to group</DialogTitle>
         <div>
@@ -445,8 +473,20 @@ export function AddMembersDialog({
             </div>
           )}
 
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => {
+              const value = event.target.value;
+              setSearch(value);
+              onSearchChange?.(value);
+            }}
+            placeholder="Search people"
+            className="mb-3 h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+          />
+
           <div className="max-h-[360px] overflow-y-auto p-0.5">
-            {members.map((buddy) => {
+            {filteredMembers.map((buddy) => {
               const userId = String(getBuddySendId(buddy));
               const checked = selectedIds.includes(userId);
               return <BuddyRow key={userId} buddy={buddy} checked={checked} onToggle={onSelect} />;
@@ -457,6 +497,9 @@ export function AddMembersDialog({
             <p className="text-sm text-muted-foreground">
               Everyone available is already in this group.
             </p>
+          )}
+          {members.length > 0 && filteredMembers.length === 0 && (
+            <p className="text-sm text-muted-foreground">No people found.</p>
           )}
         </div>
 
@@ -471,7 +514,7 @@ export function AddMembersDialog({
           <button
             type="button"
             onClick={onAdd}
-            disabled={adding || members.length === 0}
+            disabled={adding || selectedIds.length === 0}
             className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {adding ? "Adding…" : "Add"}

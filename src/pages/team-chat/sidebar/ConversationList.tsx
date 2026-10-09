@@ -3,7 +3,7 @@ import { MessageCircle } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { getBuddyName, getBuddySendId, getChannelId, getChannelName } from "../chatHealper";
-import LoadingRows from "./LoadingRows";
+import { Loader2 } from "lucide-react";
 import ConversationListItem from "./ConversationListItem";
 
 type Conversation = Record<string, any>;
@@ -67,7 +67,9 @@ export default function ConversationList({
         </button>
       </div>
       {loading ? (
-        <LoadingRows />
+        <div className="flex items-center justify-center py-10 text-primary">
+          <Loader2 className="h-6 w-6 animate-spin" aria-label="Loading conversations" />
+        </div>
       ) : (
         visibleItems.map((item) => {
           const channel = item.__conversationType === "channel";

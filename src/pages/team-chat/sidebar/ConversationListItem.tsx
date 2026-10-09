@@ -19,6 +19,32 @@ import {
 
 type Conversation = Record<string, any>;
 
+function formatConversationTime(item: Conversation) {
+  const value =
+    item?.lastMessage?.createdAt ||
+    item?.lastMessage?.created_at ||
+    item?.last_message?.createdAt ||
+    item?.last_message?.created_at ||
+    item?.lastMessageAt ||
+    item?.last_message_at ||
+    item?.lastMessageTime ||
+    item?.last_message_time;
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  if (sameDay) return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(date);
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    ...(date.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
+  }).format(date);
+}
+
 interface Props {
   item: Conversation;
   isChannel: boolean;
@@ -90,7 +116,7 @@ export default function ConversationListItem({
         type="button"
         disabled={disabled}
         aria-pressed={selected}
-        onPointerDown={() => {
+        onClick={() => {
           if (disabled) return;
           if (isChannel) onSelectChannel(item);
           else onSelectBuddy(item);
@@ -106,7 +132,7 @@ export default function ConversationListItem({
               {title}
             </span>
             <span className="shrink-0 text-[11px] text-muted-foreground">
-              {item?.lastMessageTime || item?.last_message_time || ""}
+              {formatConversationTime(item)}
             </span>
           </span>
           <span className="mt-0.5 flex min-w-0 items-center gap-1.5">

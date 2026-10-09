@@ -1,4 +1,4 @@
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
@@ -13,6 +13,8 @@ export default function AppLayout() {
   const { user } = useAuth();
   const { data, set } = useData();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isChatRoute = location.pathname.startsWith("/chat");
 
   useEffect(() => {
     if (!user) navigate("/login");
@@ -44,9 +46,9 @@ export default function AppLayout() {
 
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-background">
+      <div className={`flex w-full bg-background ${isChatRoute ? "h-screen overflow-hidden" : "min-h-screen"}`}>
         <AppSidebar />
-        <div className="flex flex-1 flex-col min-w-0">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-30 flex h-12 items-center gap-2 border-b border-border bg-card/95 px-3.5 shadow-xs backdrop-blur supports-[backdrop-filter]:bg-card/80">
             <SidebarTrigger />
             <div className="ml-2 flex-1" />
@@ -109,13 +111,7 @@ export default function AppLayout() {
               <UserMenu />
             </div>
           </header>
-          {/* No overflow-x-hidden here: setting only one axis forces the CSS spec to
-              compute the other as "auto", silently turning <main> into its own scroll
-              container - which breaks position:sticky for anything inside it (sticky
-              binds to the nearest such container, and this one never actually scrolls,
-              since the window does). Wide content should scope its own overflow-x-auto
-              locally (tables already do this) rather than relying on this element. */}
-          <main className="flex-1 p-3 sm:p-4 lg:p-6">
+          <main className={`min-h-0 flex-1 overflow-x-hidden p-3 sm:p-4 lg:p-6 ${isChatRoute ? "overflow-hidden" : ""}`}>
             <Outlet />
           </main>
         </div>

@@ -1,6 +1,8 @@
 import type { MouseEvent, PointerEvent, ReactNode } from "react";
+import { useState } from "react";
 import { Loader2, Pin, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Dialog,
@@ -65,13 +67,15 @@ export function ToolBtn({ title, icon, disabled, onClick, onPointerDown }: ToolB
 export function PinnedMessageBanner({
   latestPinnedMessage,
   pinnedCount,
+  onClick,
 }: {
   latestPinnedMessage?: PinnedMessage | null;
   pinnedCount: number;
+  onClick?: () => void;
 }) {
   if (!latestPinnedMessage) return null;
   return (
-    <div className="flex items-center gap-2 border-b border-orange-200 bg-orange-50 px-5 py-2 text-orange-900 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-200">
+    <button type="button" onClick={onClick} className="sticky top-0 z-20 flex w-full items-center gap-2 border-b border-orange-200 bg-orange-50 px-5 py-2 text-left text-orange-900 shadow-sm hover:bg-orange-100 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-200 dark:hover:bg-orange-950/50">
       <Pin className="h-4 w-4 shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs font-bold">Pinned message</p>
@@ -80,7 +84,7 @@ export function PinnedMessageBanner({
         </p>
       </div>
       {pinnedCount > 1 && <span className="shrink-0 text-xs font-bold">+{pinnedCount - 1}</span>}
-    </div>
+    </button>
   );
 }
 
@@ -91,13 +95,19 @@ export function ForwardMessageDialog({
   onForwardToChat,
   selectedChat,
 }: ForwardMessageDialogProps) {
+  const [search, setSearch] = useState("");
   const targets = availableChats.filter((chat) => {
     const id =
       chat.__conversationType === "channel"
         ? getChannelId(chat)
         : getBuddySendId(chat) || chat.directConversationId || chat.chat_id || chat.chatId;
     const selectedId = selectedChat?.id;
-    return String(id || "") !== String(selectedId || "");
+    if (String(id || "") === String(selectedId || "")) return false;
+    const query = search.trim().toLowerCase();
+    if (!query) return true;
+    return `${getBuddyName(chat)} ${getChannelName(chat)} ${getBuddyEmail(chat)}`
+      .toLowerCase()
+      .includes(query);
   });
   return (
     <Dialog open={Boolean(forwardMessage)} onOpenChange={(open) => !open && onClose()}>
@@ -105,6 +115,12 @@ export function ForwardMessageDialog({
         <DialogHeader>
           <DialogTitle>Forward to</DialogTitle>
         </DialogHeader>
+        <Input
+          autoFocus
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search people or conversations"
+        />
         <ScrollArea className="max-h-[360px] pr-2">
           <div className="space-y-1">
             {targets.map((chat) => {

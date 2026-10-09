@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { MessageCircle, Phone, UsersRound, Video } from "lucide-react";
+import { MessageCircle, UsersRound } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -21,7 +21,6 @@ import {
   getChatConversationsService,
   getChatUsersService,
   openDirectChatService,
-  startConversationCallService,
 } from "@/services/Team-chat/chat.service";
 
 type ChatRecord = Record<string, any>;
@@ -77,18 +76,7 @@ export default function ChatLauncher() {
     [channels],
   );
 
-  const openCall = async (buddy: ChatRecord, type: "audio" | "video") => {
-    const sendId = getBuddySendId(buddy);
-    if (!sendId) return openChatInNewTab();
-    try {
-      const response: any = await openDirectChatService(sendId);
-      const chatId = response?.data?.data?.chat_id || response?.data?.data?.data?.chat_id;
-      if (chatId) await startConversationCallService(chatId, type);
-    } catch {
-      // Opening the conversation is still useful when calling is unavailable.
-    }
-    openChatInNewTab(sendId);
-  };
+  // const openCall = (buddy: ChatRecord) => openChatInNewTab(getBuddySendId(buddy));
 
   return (
     <div className="flex items-center gap-2">
@@ -168,20 +156,14 @@ export default function ChatLauncher() {
                         {availability.label}
                       </span>
                     </button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => void openCall(buddy, "audio")}
-                    >
+                    {/* Call controls temporarily disabled.
+                    <Button size="icon" variant="ghost" onClick={() => openCall(buddy)}>
                       <Phone />
                     </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => void openCall(buddy, "video")}
-                    >
+                    <Button size="icon" variant="ghost" onClick={() => openCall(buddy)}>
                       <Video />
                     </Button>
+                    */}
                   </div>
                 );
               })}

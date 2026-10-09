@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Mic, MicOff, MonitorDown, PhoneOff, Video, VideoOff } from "lucide-react";
+import { Mic, MicOff, MonitorDown, PhoneOff, Video, VideoOff } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { API_BASE_URL } from "@/lib/config";
@@ -156,12 +156,13 @@ export default function InternalCallPanel({
 function ParticipantTile({ participant }: { participant: RemoteParticipant }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
+    const videoElement = ref.current;
     const publication = Array.from(participant.videoTrackPublications.values()).find(
       (p) => p.isSubscribed && p.track,
     );
-    if (publication?.track && ref.current) publication.track.attach(ref.current);
+    if (publication?.track && videoElement) publication.track.attach(videoElement);
     return () => {
-      if (publication?.track && ref.current) publication.track.detach(ref.current);
+      if (publication?.track && videoElement) publication.track.detach(videoElement);
     };
   }, [participant]);
   return (

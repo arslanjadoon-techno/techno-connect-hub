@@ -26,7 +26,7 @@ export interface SelectedChat {
   raw?: ChatParticipant & { participants?: ChatParticipant[] };
 }
 
-export interface CurrentUser extends ChatParticipant {}
+export type CurrentUser = ChatParticipant;
 
 export interface CallPanelProps {
   activeCall: ChatCall | null;

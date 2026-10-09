@@ -21,6 +21,7 @@ type ChatRecord = Record<string, any>;
 interface ChatSidebarProps {
   avatarUploading?: boolean;
   currentUser?: ChatRecord;
+  blockedUsers?: ChatRecord[];
   filteredItems?: ChatRecord[];
   loadError?: string;
   loading?: boolean;
@@ -34,6 +35,7 @@ interface ChatSidebarProps {
   onSelectBuddy: (item: ChatRecord) => void;
   onSelectChannel: (item: ChatRecord) => void;
   onStatusChange?: (status: string) => void;
+  onUnblockUser?: (userId: string) => void;
   searchTerm?: string;
   selectedChat?: ChatRecord | null;
   statusSaving?: boolean;
@@ -60,12 +62,14 @@ export default function ChatSidebar({
   onSelectBuddy,
   onSelectChannel,
   onStatusChange,
+  onUnblockUser,
   searchTerm = "",
   selectedChat,
   statusSaving = false,
   connectUrl,
   setSearchTerm,
   settingsPage = false,
+  blockedUsers = [],
   onSettingsClose,
   onSettingsOpen,
 }: ChatSidebarProps) {
@@ -164,7 +168,7 @@ export default function ChatSidebar({
 
   return (
     <aside
-      className={`grid h-full min-h-0 min-w-0 grid-cols-1 bg-background ${selectedChat ? "hidden md:grid" : "grid"}`}
+      className={`grid h-full min-h-0 min-w-0 grid-cols-1 border-r border-border bg-background ${selectedChat ? "hidden md:grid" : "grid"}`}
     >
       <input
         ref={avatarInputRef}
@@ -191,6 +195,7 @@ export default function ChatSidebar({
         avatarUploading={avatarUploading}
         currentStatus={currentStatus}
         currentUser={currentUser}
+        blockedUsers={blockedUsers}
         currentUserName={currentUserName}
         notificationPermission={notificationPermission}
         enterToSend={enterToSend}
@@ -199,6 +204,7 @@ export default function ChatSidebar({
         onAvatarPick={() => avatarInputRef.current?.click()}
         onClose={settingsPage ? onSettingsClose || (() => undefined) : () => setSettingsOpen(false)}
         onStatusPick={onStatusChange || (() => undefined)}
+        onUnblockUser={onUnblockUser}
         onTestNotification={handleTestNotification}
         onToggleNotifications={handleToggleNotifications}
         onToggleMentionNotifications={handleToggleMentionNotifications}
