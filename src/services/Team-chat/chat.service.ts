@@ -16,11 +16,13 @@ const apiRequest = async <T>(
     if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
   });
 
-  const token = getToken();
+  // The login API normally stores a raw JWT, but normalize defensively in
+  // case a token was persisted with the scheme included.
+  const token = getToken()?.replace(/^Bearer\s+/i, "").trim();
   const isFormData = body instanceof FormData;
   const headers: Record<string, string> = {
     ...(isFormData ? {} : { "Content-Type": "application/json" }),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(token ? { token } : {}),
     ...(config.headers ?? {}),
   };
   const response = await fetch(url, {
@@ -339,5 +341,6 @@ export const removeMessageReactionService = (chatId: ChatId, messageId: ChatId, 
 
 export const getAllMessageServices = (userId: ChatId, currentUserId?: ChatId) =>
   api.get(`/chat-service/conversations/${encodeURIComponent(userId)}/messages`, {
+    ...getChatHeaders(),
     params: currentUserId ? { currentUserId } : undefined,
   });

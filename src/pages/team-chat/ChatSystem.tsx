@@ -1410,12 +1410,16 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         setActiveCall(normalizedCall);
         return;
       }
+      const callerProfile = buddies.find(
+        (buddy) => String(getBuddySendId(buddy)) === String(callerId),
+      );
       setCallError("");
       setIncomingCall(normalizedCall);
       localStorage.setItem(PENDING_CALL_STORAGE_KEY, JSON.stringify(normalizedCall));
       showChatNotification({
         title: `Incoming ${normalizedCall.type === "video" ? "video" : "audio"} call`,
         body: `${normalizedCall.startedBy?.name || "A chat user"} is calling you`,
+        icon: getImageUrl(callerProfile || normalizedCall.startedBy),
         tag: `chat-call-${normalizedCall.id}`,
         url: `${CHAT_APP_BASE_PATH}/${encodeURIComponent(normalizedCall.chatId || "")}`,
         preserveCall: true,
@@ -1423,7 +1427,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
       });
       playCallNotificationSound();
     },
-    [activeCall?.id, blockedUserIds, currentUserId, incomingCall?.id],
+    [activeCall?.id, blockedUserIds, buddies, currentUserId, incomingCall?.id],
   );
 
   const handleRealtimeCallAccepted = useCallback(
@@ -1498,40 +1502,10 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
   }, []);
 
   const handleRealtimeMemberRemoved = useCallback(
-    ({ chatId, removedUser, systemMessage }) => {
+    ({ chatId, removedUser }) => {
       if (!chatId || !removedUser) return;
       const removedUserId = String(getBuddySendId(removedUser) || removedUser.userId || "");
       const isCurrentUserRemoved = removedUserId === currentUserId;
-
-      if (systemMessage && !isCurrentUserRemoved) {
-        const actorName =
-          getBuddyName(systemMessage.removedBy || systemMessage.removed_by) ||
-          getBuddyName(systemMessage.actor || systemMessage.performedBy) ||
-          "Admin";
-        const removedName = getBuddyName(removedUser) || "the member";
-        const normalizedMessage = normalizeRealtimeMessage(
-          {
-            ...systemMessage,
-            text: `${actorName} removed ${removedName} from the group.`,
-            metadata: {
-              ...(systemMessage.metadata || {}),
-              kind: "group_member_removed",
-              actorName,
-              memberName: removedName,
-            },
-          },
-          {
-          id: selectedChat?.id || chatId,
-          currentUserId,
-          },
-        );
-        if (normalizedMessage) {
-          setMessagesByChat((prev) => ({
-            ...prev,
-            [String(chatId)]: [...(prev[String(chatId)] || []), normalizedMessage],
-          }));
-        }
-      }
 
       setChannels((prev) =>
         prev
@@ -1572,7 +1546,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         );
       }
 
-      setSendError(`${getBuddyName(removedUser)} was removed from the group.`);
     },
     [currentUserId, navigate, selectedChat?.chatId, selectedChat?.id],
   );
@@ -2535,11 +2508,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
 
   const handleRemoveGroupMember = async (chatId, userId) => {
     if (!chatId || !userId) return;
-    const removedMember = (selectedChat?.raw?.participants || []).find(
-      (participant) => String(getBuddySendId(participant)) === String(userId),
-    );
-    const removedName = getBuddyName(removedMember) || "A member";
-    const actorName = getBuddyName(currentUser) || "You";
     try {
       await removeGroupMemberService(chatId, userId);
       setSelectedChat((previous) => {
@@ -2556,28 +2524,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
           raw: { ...(previous.raw || {}), participants: remaining },
         };
       });
-      const systemMessage = normalizeRealtimeMessage(
-        {
-          id: `member-removed-${userId}-${Date.now()}`,
-          text: `${actorName} removed ${removedName} from the group.`,
-          sentAt: new Date().toISOString(),
-          systemEventType: "group_member_removed",
-          metadata: {
-            kind: "group_member_removed",
-            memberName: removedName,
-            actorName,
-          },
-        },
-        { id: chatId, currentUserId },
-      );
-      if (systemMessage) {
-        setMessagesByChat((previous) => ({
-          ...previous,
-          [String(chatId)]: [...(previous[String(chatId)] || []), systemMessage],
-        }));
-      }
-      await fetchChatData();
-      setSendError(`${actorName} removed ${removedName} from the group.`);
     } catch (error) {
       setSendError(normalizeChatError(error));
       throw error;
@@ -2892,16 +2838,27 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         }
       }
 
+      // Clear the composer as soon as the upload/message request succeeds.
+      // Message and sidebar reconciliation can happen in the background and
+      // should not make the sender wait before seeing the updated composer.
+      setInputValue("");
+      setPendingFiles([]);
+      setReplyToMessage(null);
+      setEditingMessage(null);
+
       if (chatId) {
-        await refreshSelectedChatMessages(chatId);
+        const refreshTasks = [refreshSelectedChatMessages(chatId)];
+
         // A newly created direct conversation is not present in the initial
         // sidebar snapshot. Reconcile the conversation list after the first
-        // message so it immediately appears under Chats.
-        const conversationResponse = await getChatConversationsService();
-        const refreshedConversations = getArrayPayload(
-          conversationResponse.data?.data ?? conversationResponse.data,
-        );
-        setChannels(() => {
+        // message, without blocking the composer update above.
+        if (selectedChat.type !== "channel") {
+          refreshTasks.push(
+            getChatConversationsService().then((conversationResponse) => {
+              const refreshedConversations = getArrayPayload(
+                conversationResponse.data?.data ?? conversationResponse.data,
+              );
+              setChannels(() => {
           const conversations = [...refreshedConversations];
           if (selectedChat.type !== "person") return conversations;
 
@@ -2930,14 +2887,17 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
               sender: currentUser,
             },
           });
-          return conversations;
+                return conversations;
+              });
+            }),
+          );
+        }
+
+        Promise.allSettled(refreshTasks).catch(() => {
+          // The send already succeeded; a stale refresh must not show an
+          // upload failure or put the sent files back in the composer.
         });
       }
-
-      setInputValue("");
-      setPendingFiles([]);
-      setReplyToMessage(null);
-      setEditingMessage(null);
     } catch (error) {
       setSendError(normalizeChatError(error));
     } finally {

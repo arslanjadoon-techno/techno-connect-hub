@@ -4,6 +4,7 @@ import {
   ArrowRightLeft,
   FileText,
   Info,
+  Loader2,
   LogOut,
   MessageSquareOff,
   UserMinus,
@@ -132,6 +133,7 @@ export default function GroupActions({
 }: GroupActionsProps) {
   const [transferOpen, setTransferOpen] = useState(false);
   const [removeMember, setRemoveMember] = useState<Person | null>(null);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -268,19 +270,38 @@ export default function GroupActions({
             {selectedChat.title}?
           </p>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setRemoveMember(null)}>
+            <Button
+              variant="ghost"
+              disabled={Boolean(removingMemberId)}
+              onClick={() => setRemoveMember(null)}
+            >
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={async () => {
                 if (!removeMember) return;
-                await onRemoveMember?.(selectedChat.id, memberId(removeMember));
-                setRemoveMember(null);
-                onCloseInfo?.();
+                const id = String(memberId(removeMember));
+                if (!onRemoveMember || removingMemberId) return;
+                setRemovingMemberId(id);
+                try {
+                  await onRemoveMember(selectedChat.id, memberId(removeMember));
+                  setRemoveMember(null);
+                  onCloseInfo?.();
+                } finally {
+                  setRemovingMemberId(null);
+                }
               }}
+              disabled={Boolean(removingMemberId)}
             >
-              Remove
+              {removingMemberId ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Removing…
+                </>
+              ) : (
+                "Remove"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

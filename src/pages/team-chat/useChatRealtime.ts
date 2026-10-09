@@ -3,7 +3,10 @@ import { HubConnectionBuilder, LogLevel } from "@microsoft/signalr";
 import { getToken } from "@/lib/api/client";
 import { CHAT_API_BASE_URL } from "@/lib/config";
 
-const getHubUrl = () => `${CHAT_API_BASE_URL}/hubs/chat?appName=chat`;
+const getHubUrl = () => {
+  const token = encodeURIComponent(getToken()?.replace(/^Bearer\s+/i, "").trim() || "");
+  return `${CHAT_API_BASE_URL}/hubs/chat?appName=chat&token=${token}`;
+};
 
 export function useChatRealtime({
   enabled = true,
@@ -58,8 +61,9 @@ export function useChatRealtime({
     let disposed = false;
     const connection = new HubConnectionBuilder()
       .withUrl(getHubUrl(), {
-        accessTokenFactory: () => getToken() || "",
         headers: { "X-App-Name": "chat" },
+        // Authenticate SignalR with the Bearer token, not cookies.
+        withCredentials: false,
       })
       .withAutomaticReconnect()
       .configureLogging(LogLevel.Warning)

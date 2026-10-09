@@ -2,13 +2,13 @@ import { CHAT_API_BASE_URL } from "@/lib/config";
 import { getToken } from "@/lib/api/client";
 
 const request = async <T>(path: string, method: string, body?: unknown): Promise<T> => {
-  const token = getToken();
+  const token = getToken()?.replace(/^Bearer\s+/i, "").trim();
   const response = await fetch(`${CHAT_API_BASE_URL}${path}`, {
     method,
     headers: {
       "Content-Type": "application/json",
       "X-App-Name": "chat",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(token ? { token } : {}),
     },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
