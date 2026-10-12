@@ -981,36 +981,38 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
         )}
       </div>
 
-      {/* 5. Manager Email (Optional) */}
+      {/* 5. Non-editable Manager Email */}
       <div className="space-y-1.5">
         <Label>
           Manager Email{" "}
           <span className="text-xs text-muted-foreground font-normal">
-            (Auto-populated / Optional)
+            (Auto-populated)
           </span>
         </Label>
         <Input
           type="email"
           value={email}
-          disabled={isSaving}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Auto-populated or enter email"
+          readOnly
+          tabIndex={-1}
+          placeholder="Auto-populated from manager selection"
+          className="bg-muted/50 text-muted-foreground cursor-not-allowed select-none"
         />
       </div>
 
-      {/* 6. Manager Phone (Optional) */}
+      {/* 6. Non-editable Manager Phone */}
       <div className="space-y-1.5">
         <Label>
           Manager Phone{" "}
           <span className="text-xs text-muted-foreground font-normal">
-            (Auto-populated / Optional)
+            (Auto-populated)
           </span>
         </Label>
         <Input
           value={phone}
-          disabled={isSaving}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="Auto-populated or enter phone"
+          readOnly
+          tabIndex={-1}
+          placeholder="Auto-populated from manager selection"
+          className="bg-muted/50 text-muted-foreground cursor-not-allowed select-none"
         />
       </div>
 
