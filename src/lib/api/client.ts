@@ -459,6 +459,8 @@ export interface Market {
     name: string;
   } | null;
   assignedUsers?: MarketAssignedUser[];
+  stores?: any[];
+  storeCount?: number;
   manager?: string;
   managerId?: number;
   email?: string;
@@ -482,11 +484,16 @@ export const MarketsApi = {
       if (params.size !== undefined) queryParts.push(`size=${params.size}`);
 
       if (params.state !== undefined && params.state !== "all") {
-        queryParts.push(`state=${params.state}`);
+        queryParts.push(`state=${encodeURIComponent(String(params.state))}`);
       }
 
       if (params.district !== undefined && params.district !== "all") {
-        queryParts.push(`district=${params.district}`);
+        queryParts.push(`district=${encodeURIComponent(String(params.district))}`);
+      }
+
+      const searchVal = (params as any).Search || (params as any).search;
+      if (searchVal) {
+        queryParts.push(`Search=${encodeURIComponent(String(searchVal))}`);
       }
     }
 
@@ -516,8 +523,11 @@ export const MarketsApi = {
   }) => apiRequest<Market>(MARKET_API_PATHS.updateMarket, { method: "PUT", body: payload }),
 
   delete: (id: number | string | { id: number | string }) => {
-    const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
-    return apiRequest<null>(MARKET_API_PATHS.deleteMarket(numericId), { method: "DELETE" });
+    const numericId = typeof id === "object" && id !== null ? (id as any).id : Number(id);
+    return apiRequest<null>(MARKET_API_PATHS.deleteMarket, {
+      method: "DELETE",
+      body: { id: numericId },
+    });
   },
 };
 

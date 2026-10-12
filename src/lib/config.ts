@@ -56,7 +56,7 @@ export const MARKET_API_PATHS = {
   market: (id: string | number) => `/api/markets/${id}`,
   addMarket: "/api/markets/add",
   updateMarket: "/api/markets/update",
-  deleteMarket: (id: string | number) => `/api/markets/delete/${id}`,
+  deleteMarket: "/api/markets/delete",
 } as const;
 
 export const STORE_API_PATHS = {
