@@ -13,22 +13,13 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Eye, Loader2, Search, X, XCircle } from "lucide-react";
-import { marketsService, statesService, usersService, districtsService } from "@/services";
+import { marketsService, statesService, usersService } from "@/services";
 import type { Market } from "@/lib/api/client";
 
 interface State {
   id: number;
   name: string;
   symbol: string;
-}
-
-interface District {
-  id: number;
-  name: string;
-  state?: {
-    id: number;
-    name: string;
-  } | null;
 }
 
 interface MarketFormData {
@@ -45,7 +36,6 @@ export default function MarketsPage() {
   const navigate = useNavigate();
   const [markets, setMarkets] = useState<Market[]>([]);
   const [states, setStates] = useState<State[]>([]);
-  const [districtsList, setDistrictsList] = useState<District[]>([]);
 
   const [selectedStateFilter, setSelectedStateFilter] = useState<string>("all");
   const [mainStateSearch, setMainStateSearch] = useState("");
@@ -103,15 +93,9 @@ export default function MarketsPage() {
       lastFetchedKey.current = currentRequestKey;
 
       if (!initialLookupsFetchedRef.current) {
-        const [statesRes, districtsRes] = await Promise.all([
-          statesService.getAll(),
-          districtsService.getAll(),
-        ]);
-
-        if (statesRes.success) setStates(statesRes.data);
-        if (districtsRes.success) setDistrictsList(districtsRes.data);
-
-        if (statesRes.success && districtsRes.success) {
+        const statesRes = await statesService.getAll();
+        if (statesRes.success) {
+          setStates(statesRes.data);
           initialLookupsFetchedRef.current = true;
         }
       }
@@ -233,15 +217,10 @@ export default function MarketsPage() {
           toast.error(res.message || "Update failed");
         }
       } else {
-        // Resolve districtId for backend requirement if needed
-        const matchedDistrict =
-          districtsList.find((d) => d.state?.id === formData.stateId) || districtsList[0];
-        const effectiveDistrictId = formData.districtId || matchedDistrict?.id || 6;
-
         const payload = {
           name: formData.name.trim(),
           stateId: formData.stateId,
-          districtId: effectiveDistrictId,
+          districtId: formData.districtId,
           managerId: isManagerSelected ? Number(formData.managerId) : null,
           email:
             isManagerSelected && formData.email && formData.email.trim()
