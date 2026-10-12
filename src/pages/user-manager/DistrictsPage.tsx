@@ -588,12 +588,28 @@ interface DistrictFormProps {
 function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) {
   const initialUser = initial?.assignedUsers?.[0];
   const [name, setName] = useState(initial?.name ?? "");
-  const [marketId, setMarketId] = useState<string>(
-    initial?.market?.id ? initial.market.id.toString() : "",
-  );
-  const [stateId, setStateId] = useState<string>(
-    initial?.state?.id ? initial.state.id.toString() : "",
-  );
+
+  // Resolve state ID robustly (whether state is an object, or stateId property exists, or matched by state name)
+  const resolvedStateId = (() => {
+    if (initial?.state?.id) return initial.state.id.toString();
+    if ((initial as any)?.stateId) return String((initial as any).stateId);
+    if (initial?.state?.name) {
+      const match = states.find((s) => s.name.toLowerCase() === initial.state!.name.toLowerCase());
+      if (match) return match.id.toString();
+    }
+    return "";
+  })();
+
+  const [stateId, setStateId] = useState<string>(resolvedStateId);
+
+  // Resolve market ID robustly
+  const resolvedMarketId = (() => {
+    if (initial?.market?.id) return initial.market.id.toString();
+    if ((initial as any)?.marketId) return String((initial as any).marketId);
+    return "";
+  })();
+
+  const [marketId, setMarketId] = useState<string>(resolvedMarketId);
 
   const [managerId, setManagerId] = useState<number | null>(
     initialUser?.id ??
@@ -740,8 +756,12 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
     return formMarkets.filter((m) => m.name.toLowerCase().includes(marketSearch.toLowerCase()));
   }, [formMarkets, marketSearch]);
 
-  // District name and state are required; market, manager, email, phone are optional
-  const isFormValid = Boolean(name.trim()) && Boolean(stateId);
+  // District name, state, and market are all required
+  const isFormValid =
+    Boolean(name.trim()) &&
+    Boolean(stateId) &&
+    Boolean(marketId) &&
+    marketId !== "none";
 
   return (
     <div className="space-y-4">
@@ -805,10 +825,10 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
         </Select>
       </div>
 
-      {/* 3. Market (Optional) */}
+      {/* 3. Market (Required) */}
       <div className="space-y-1.5">
         <Label>
-          Market <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+          Market <span className="text-destructive">*</span>
         </Label>
         <Select
           value={marketId}
@@ -826,7 +846,9 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
                   ? "Select State First"
                   : loadingFormMarkets
                     ? "Loading markets..."
-                    : "Select associated market (optional)"
+                    : formMarketOptions.length === 0
+                      ? "No markets available for this state"
+                      : "Select associated market"
               }
             />
           </SelectTrigger>
@@ -847,12 +869,17 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
                 className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
               />
             </div>
-            <SelectItem value="none">No Market (None)</SelectItem>
-            {formMarketOptions.map((m) => (
-              <SelectItem key={m.id} value={m.id.toString()}>
-                {m.name}
-              </SelectItem>
-            ))}
+            {formMarketOptions.length === 0 ? (
+              <div className="p-3 text-xs text-center text-muted-foreground">
+                {loadingFormMarkets ? "Loading markets..." : "No markets found"}
+              </div>
+            ) : (
+              formMarketOptions.map((m) => (
+                <SelectItem key={m.id} value={m.id.toString()}>
+                  {m.name}
+                </SelectItem>
+              ))
+            )}
           </SelectContent>
         </Select>
       </div>
