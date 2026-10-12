@@ -12,33 +12,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Eye, Loader2, Search, X } from "lucide-react";
-import { DistrictsApi, StatesApi } from "@/lib/api/client";
-import { usersService } from "@/services";
-
-interface District {
-  id: number;
-  name: string;
-  state: {
-    id: number;
-    name: string;
-  };
-  market?: {
-    id: number;
-    name: string;
-  };
-  assignedUsers?: Array<{
-    id: number;
-    name: string;
-    email?: string;
-    phone?: string;
-  }>;
-  manager?: string;
-  email?: string;
-  phone?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
+import { Eye, Loader2, Search, X, XCircle } from "lucide-react";
+import type { District, Market } from "@/lib/api/client";
+import { districtsService, statesService, marketsService, usersService } from "@/services";
 
 interface State {
   id: number;
@@ -46,39 +22,38 @@ interface State {
   symbol: string;
 }
 
-const STATIC_MARKETS = [
-  { id: "all", name: "All Markets" },
-  { id: "market-1", name: "Market 1" },
-  { id: "market-2", name: "Market 2" },
-  { id: "market-3", name: "Market 3" },
-];
-
 const getDistrictMarket = (d: District) => {
   if (d.market?.name) return d.market.name;
   if (typeof (d as any).market === "string" && (d as any).market) return (d as any).market;
-  const staticNames = ["Market 1", "Market 2", "Market 3"];
-  return staticNames[d.id % staticNames.length];
+  return "—";
 };
 
 export default function DistrictsPage() {
   const navigate = useNavigate();
   const [districts, setDistricts] = useState<District[]>([]);
   const [states, setStates] = useState<State[]>([]);
+  const [markets, setMarkets] = useState<Market[]>([]);
+  const [marketsLoading, setMarketsLoading] = useState<boolean>(false);
   const [selectedStateFilter, setSelectedStateFilter] = useState<string>("all");
   const [selectedMarketFilter, setSelectedMarketFilter] = useState<string>("all");
 
-  // Search text states
+  // Search box state (backend search)
+  const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [isSearchingBackend, setIsSearchingBackend] = useState(false);
+
+  // Search text states for dropdown menus
   const [mainFilterSearch, setMainFilterSearch] = useState("");
   const [marketFilterSearch, setMarketFilterSearch] = useState("");
 
-  // Refs for auto-focusing input on open
+  // Refs for auto-focusing inputs on open
   const mainSearchInputRef = useRef<HTMLInputElement>(null);
   const marketSearchInputRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // States for tracking server side pagination parameters
+  // Server-side pagination parameters
   const [page, setPage] = useState<number>(0);
   const [size, setSize] = useState<number>(25);
   const [totalRecords, setTotalRecords] = useState<number>(0);
@@ -88,24 +63,44 @@ export default function DistrictsPage() {
   const isFetchingRef = useRef<boolean>(false);
   const statesFetchedRef = useRef<boolean>(false);
 
-  // Dynamic fetch method synced directly with pagination and dropdown states filter
-  const fetchDistricts = async (targetPage: number, targetSize: number, targetState: string) => {
-    // Included state value inside the atomic key block to prevent race conditions on fast switching
-    const currentRequestKey = `${targetPage}-${targetSize}-${targetState}`;
+  // Debounce search query
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
+
+  // Master fetch handler supporting backend search and paginated list with state/market filters
+  const fetchDistricts = async (
+    targetPage: number,
+    targetSize: number,
+    targetState: string,
+    targetMarket: string,
+    search?: string,
+  ) => {
+    const trimmedSearch = (search ?? "").trim();
+    const currentRequestKey = trimmedSearch
+      ? `search-${trimmedSearch}-${targetState}-${targetMarket}`
+      : `page-${targetPage}-${targetSize}-${targetState}-${targetMarket}`;
 
     if (lastFetchedKey.current === currentRequestKey || isFetchingRef.current) {
       return;
     }
 
     try {
-      setLoading(true);
+      if (trimmedSearch) {
+        setIsSearchingBackend(true);
+      } else {
+        setLoading(true);
+      }
       isFetchingRef.current = true;
       lastFetchedKey.current = currentRequestKey;
 
       // 1. Fetch States static filter options dropdown list only once
       if (!statesFetchedRef.current) {
-        const statesRes = await StatesApi.getAll();
-        if (statesRes.success) {
+        const statesRes = await statesService.getAll();
+        if (statesRes.success && Array.isArray(statesRes.data)) {
           setStates(statesRes.data);
           statesFetchedRef.current = true;
         } else {
@@ -113,17 +108,41 @@ export default function DistrictsPage() {
         }
       }
 
-      // 2. Fetch data directly from backend with flexible route queries
-      const apiClient = DistrictsApi.getAll as any;
-      const res = await apiClient({
-        page: targetPage,
-        size: targetSize,
-        state: targetState !== "all" ? targetState : undefined,
-      });
+      // 2. Resolve state filter parameter (by state name)
+      let stateParam: string | undefined = undefined;
+      if (targetState && targetState !== "all") {
+        const matchState = states.find(
+          (s) => s.id.toString() === targetState || s.name === targetState,
+        );
+        stateParam = matchState ? matchState.name : targetState;
+      }
+
+      // 3. Resolve market filter parameter
+      let marketParam: string | undefined = undefined;
+      if (targetMarket && targetMarket !== "all") {
+        const matchMarket = markets.find(
+          (m) => m.id.toString() === targetMarket || m.name === targetMarket,
+        );
+        marketParam = matchMarket ? matchMarket.name : targetMarket;
+      }
+
+      // 4. Fetch data directly from backend with service class
+      const res = trimmedSearch
+        ? await districtsService.getAll({
+            Search: trimmedSearch,
+            state: stateParam,
+            market: marketParam,
+          })
+        : await districtsService.getAll({
+            page: targetPage,
+            size: targetSize,
+            state: stateParam,
+            market: marketParam,
+          });
 
       if (res.success) {
-        // EDGE CASE FIX: If current page has no data but database has records, fallback to previous page
         if (
+          !trimmedSearch &&
           res.data.length === 0 &&
           res.pagination &&
           res.pagination.totalRecords > 0 &&
@@ -138,13 +157,10 @@ export default function DistrictsPage() {
           return;
         }
 
-        setDistricts(res.data);
-
-        if (res.pagination && typeof res.pagination.totalRecords === "number") {
-          setTotalRecords(res.pagination.totalRecords);
-        } else {
-          setTotalRecords(res.data.length);
-        }
+        setDistricts(Array.isArray(res.data) ? res.data : []);
+        setTotalRecords(
+          res.pagination?.totalRecords ?? (Array.isArray(res.data) ? res.data.length : 0),
+        );
       } else {
         toast.error(res.message || "Failed to load districts");
         lastFetchedKey.current = "";
@@ -154,31 +170,65 @@ export default function DistrictsPage() {
       lastFetchedKey.current = "";
     } finally {
       setLoading(false);
+      setIsSearchingBackend(false);
       isFetchingRef.current = false;
     }
   };
 
-  // UPDATED: Added selectedStateFilter into dependencies to handle reactive network triggering
   useEffect(() => {
-    fetchDistricts(page, size, selectedStateFilter);
-  }, [page, size, selectedStateFilter]);
+    fetchDistricts(page, size, selectedStateFilter, selectedMarketFilter, debouncedSearch);
+  }, [page, size, selectedStateFilter, selectedMarketFilter, debouncedSearch]);
 
-  // Handler to safely reset page parameters when user changes the dropdown option
-  const handleStateFilterChange = (newState: string) => {
-    lastFetchedKey.current = ""; // Reset atom key to allow seamless intermediate execution
-    setPage(0); // Send user back to first page chunk
+  const handleStateFilterChange = async (newState: string) => {
+    lastFetchedKey.current = "";
+    setPage(0);
     setSelectedStateFilter(newState);
+    setSelectedMarketFilter("all");
+
+    if (newState === "all") {
+      setMarkets([]);
+      return;
+    }
+
+    // Call markets API for the selected state
+    const match = states.find((s) => s.id.toString() === newState || s.name === newState);
+    const stateName = match ? match.name : newState;
+
+    try {
+      setMarketsLoading(true);
+      const res = await marketsService.getAll({ State: stateName });
+      if (res.success && Array.isArray(res.data)) {
+        setMarkets(res.data);
+      } else {
+        setMarkets([]);
+      }
+    } catch (err) {
+      console.error("Failed to load markets for selected state:", err);
+      setMarkets([]);
+    } finally {
+      setMarketsLoading(false);
+    }
   };
 
-  // Delete Call
+  const handleResetFilters = () => {
+    if (selectedStateFilter === "all" && selectedMarketFilter === "all" && !searchQuery) return;
+    lastFetchedKey.current = "";
+    setPage(0);
+    setSelectedStateFilter("all");
+    setSelectedMarketFilter("all");
+    setMarkets([]);
+    setSearchQuery("");
+    toast.success("Filters cleared successfully");
+  };
+
   const handleDelete = async (d: District) => {
     try {
       setActionLoading(true);
-      const res = await DistrictsApi.delete(d.id);
+      const res = await districtsService.delete(d.id);
       if (res.success) {
         toast.success(res.message || "District deleted successfully");
         lastFetchedKey.current = "";
-        fetchDistricts(page, size, selectedStateFilter);
+        fetchDistricts(page, size, selectedStateFilter, selectedMarketFilter, debouncedSearch);
       } else {
         toast.error(res.message || "Could not delete district");
       }
@@ -200,7 +250,6 @@ export default function DistrictsPage() {
     phone: string | null;
   }
 
-  // Save/Update Call
   const handleSave = async (
     initial: District | null,
     formData: DistrictFormData,
@@ -209,7 +258,7 @@ export default function DistrictsPage() {
     try {
       setActionLoading(true);
       const payload: any = {
-        name: formData.name,
+        name: formData.name.trim(),
         stateId: Number(formData.stateId),
         marketId:
           typeof formData.marketId === "number"
@@ -224,21 +273,21 @@ export default function DistrictsPage() {
 
       if (initial) {
         payload.id = initial.id;
-        const res = await DistrictsApi.update(payload);
+        const res = await districtsService.update(payload);
         if (res.success) {
           toast.success(res.message || "District updated successfully");
           lastFetchedKey.current = "";
-          fetchDistricts(page, size, selectedStateFilter);
+          fetchDistricts(page, size, selectedStateFilter, selectedMarketFilter, debouncedSearch);
           close();
         } else {
           toast.error(res.message || "Update failed");
         }
       } else {
-        const res = await DistrictsApi.add(payload);
+        const res = await districtsService.add(payload);
         if (res.success) {
           toast.success(res.message || "District added successfully");
           lastFetchedKey.current = "";
-          fetchDistricts(page, size, selectedStateFilter);
+          fetchDistricts(page, size, selectedStateFilter, selectedMarketFilter, debouncedSearch);
           close();
         } else {
           toast.error(res.message || "Failed to create district");
@@ -251,24 +300,13 @@ export default function DistrictsPage() {
     }
   };
 
-  const getStateName = (id: number) => states.find((s) => s.id === id)?.name ?? "—";
-
   const filteredMainStatesOptions = useMemo(() => {
     return states.filter((s) => s.name.toLowerCase().includes(mainFilterSearch.toLowerCase()));
   }, [states, mainFilterSearch]);
 
   const filteredMarketOptions = useMemo(() => {
-    return STATIC_MARKETS.filter((m) =>
-      m.name.toLowerCase().includes(marketFilterSearch.toLowerCase()),
-    );
-  }, [marketFilterSearch]);
-
-  const displayedDistricts = useMemo(() => {
-    if (selectedMarketFilter === "all") return districts;
-    const matchMarket = STATIC_MARKETS.find((m) => m.id === selectedMarketFilter);
-    if (!matchMarket) return districts;
-    return districts.filter((d) => getDistrictMarket(d) === matchMarket.name);
-  }, [districts, selectedMarketFilter]);
+    return markets.filter((m) => m.name.toLowerCase().includes(marketFilterSearch.toLowerCase()));
+  }, [markets, marketFilterSearch]);
 
   if (loading && districts.length === 0) {
     return (
@@ -286,20 +324,27 @@ export default function DistrictsPage() {
           <CrudPage<District>
             title="Districts"
             subtitle="Manage districts and map them to operating states."
-            rows={displayedDistricts}
+            rows={districts}
             rowKey={(d) => d.id.toString()}
             isSaving={actionLoading}
-            isLoading={loading}
-
-            rowCount={selectedMarketFilter === "all" ? totalRecords : displayedDistricts.length}
+            isLoading={loading && !debouncedSearch}
+            rowCount={totalRecords}
             page={page}
             pageSize={size}
             onPageChange={(newPage) => setPage(newPage)}
             onPageSizeChange={(newSize) => setSize(newSize)}
-
+            searchPlaceholder="Search districts..."
+            serverSearch={true}
+            searchValue={searchQuery}
+            onSearchChange={(val) => {
+              lastFetchedKey.current = "";
+              setSearchQuery(val);
+              if (page !== 0) setPage(0);
+            }}
+            isSearching={isSearchingBackend || searchQuery !== debouncedSearch}
             extraToolbar={
               <div className="flex flex-wrap items-center gap-3">
-                {/* State Filter */}
+                {/* 1. State Filter */}
                 <div className="relative flex flex-col pt-2.5">
                   <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">
                     State
@@ -354,7 +399,7 @@ export default function DistrictsPage() {
                   </Select>
                 </div>
 
-                {/* Market Filter (Static options, no API calls) */}
+                {/* 2. Market Filter (Disabled by default, enabled when State is selected) */}
                 <div className="relative flex flex-col pt-2.5">
                   <span className="absolute -top-1 left-2 bg-background px-1 text-[11px] font-semibold text-muted-foreground z-10">
                     Market
@@ -362,7 +407,9 @@ export default function DistrictsPage() {
 
                   <Select
                     value={selectedMarketFilter}
+                    disabled={selectedStateFilter === "all" || marketsLoading}
                     onValueChange={(newMarket) => {
+                      lastFetchedKey.current = "";
                       setSelectedMarketFilter(newMarket);
                       setPage(0);
                     }}
@@ -374,8 +421,16 @@ export default function DistrictsPage() {
                       }
                     }}
                   >
-                    <SelectTrigger className="w-[180px] h-9 focus:ring-0 border-muted-foreground/40 bg-white dark:bg-zinc-950">
-                      <SelectValue placeholder="Filter by Market" />
+                    <SelectTrigger className="w-[180px] h-9 focus:ring-0 border-muted-foreground/40 bg-white dark:bg-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed">
+                      <SelectValue
+                        placeholder={
+                          selectedStateFilter === "all"
+                            ? "Select State First"
+                            : marketsLoading
+                              ? "Loading markets..."
+                              : "Filter by Market"
+                        }
+                      />
                     </SelectTrigger>
 
                     <SelectContent
@@ -396,14 +451,36 @@ export default function DistrictsPage() {
                         />
                       </div>
 
-                      {filteredMarketOptions.map((m) => (
-                        <SelectItem key={m.id} value={m.id}>
-                          {m.name}
-                        </SelectItem>
-                      ))}
+                      <SelectItem value="all">All Markets</SelectItem>
+                      {filteredMarketOptions.length === 0 ? (
+                        <p className="text-[11px] text-center text-muted-foreground p-2">
+                          {marketsLoading ? "Loading..." : "No markets found"}
+                        </p>
+                      ) : (
+                        filteredMarketOptions.map((m) => (
+                          <SelectItem key={m.id} value={m.id.toString()}>
+                            {m.name}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* 3. Reset Filters Button */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={
+                    selectedStateFilter === "all" && selectedMarketFilter === "all" && !searchQuery
+                  }
+                  onClick={handleResetFilters}
+                  className="h-9 px-3 text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-dashed border-muted-foreground/30 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground transition-all duration-300 ease-out group active:scale-95"
+                >
+                  <XCircle className="h-3.5 w-3.5 mr-1.5 text-muted-foreground/70 group-hover:text-destructive group-hover:rotate-90 transition-transform duration-300 ease-in-out" />
+                  Reset Filters
+                </Button>
               </div>
             }
 
@@ -630,14 +707,41 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
     return states.filter((s) => s.name.toLowerCase().includes(stateSearch.toLowerCase()));
   }, [states, stateSearch]);
 
+  const [formMarkets, setFormMarkets] = useState<Market[]>([]);
+  const [loadingFormMarkets, setLoadingFormMarkets] = useState(false);
+
+  useEffect(() => {
+    if (!stateId) {
+      setFormMarkets([]);
+      return;
+    }
+    const match = states.find((s) => s.id.toString() === stateId || s.name === stateId);
+    const stateName = match ? match.name : stateId;
+
+    let active = true;
+    setLoadingFormMarkets(true);
+    marketsService
+      .getAll({ State: stateName })
+      .then((res) => {
+        if (active && res.success && Array.isArray(res.data)) {
+          setFormMarkets(res.data);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load markets for form:", err);
+      })
+      .finally(() => {
+        if (active) setLoadingFormMarkets(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [stateId, states]);
+
   const formMarketOptions = useMemo(() => {
-    const opts = [
-      { id: "1", name: "Market 1" },
-      { id: "2", name: "Market 2" },
-      { id: "3", name: "Market 3" },
-    ];
-    return opts.filter((m) => m.name.toLowerCase().includes(marketSearch.toLowerCase()));
-  }, [marketSearch]);
+    return formMarkets.filter((m) => m.name.toLowerCase().includes(marketSearch.toLowerCase()));
+  }, [formMarkets, marketSearch]);
 
   // All fields required check: name, market, state, manager, email, phone
   const isFormValid =
@@ -672,7 +776,10 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
         <Select
           value={stateId}
           disabled={isSaving}
-          onValueChange={setStateId}
+          onValueChange={(val) => {
+            setStateId(val);
+            setMarketId("");
+          }}
           onOpenChange={(open) => {
             if (!open) setStateSearch("");
             else setTimeout(() => stateSearchRef.current?.focus(), 100);
@@ -714,15 +821,23 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
         </Label>
         <Select
           value={marketId}
-          disabled={isSaving}
+          disabled={isSaving || !stateId || loadingFormMarkets}
           onValueChange={setMarketId}
           onOpenChange={(open) => {
             if (!open) setMarketSearch("");
             else setTimeout(() => marketSearchRef.current?.focus(), 100);
           }}
         >
-          <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
-            <SelectValue placeholder="Select associated market" />
+          <SelectTrigger className="w-full bg-white dark:bg-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed">
+            <SelectValue
+              placeholder={
+                !stateId
+                  ? "Select State First"
+                  : loadingFormMarkets
+                    ? "Loading markets..."
+                    : "Select associated market"
+              }
+            />
           </SelectTrigger>
           <SelectContent
             onKeyDown={(e) => e.stopPropagation()}
@@ -741,11 +856,17 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
                 className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
               />
             </div>
-            {formMarketOptions.map((m) => (
-              <SelectItem key={m.id} value={m.id}>
-                {m.name}
-              </SelectItem>
-            ))}
+            {formMarketOptions.length === 0 ? (
+              <p className="text-[11px] text-center text-muted-foreground p-2">
+                {loadingFormMarkets ? "Loading..." : "No markets found"}
+              </p>
+            ) : (
+              formMarketOptions.map((m) => (
+                <SelectItem key={m.id} value={m.id.toString()}>
+                  {m.name}
+                </SelectItem>
+              ))
+            )}
           </SelectContent>
         </Select>
       </div>

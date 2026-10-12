@@ -7,7 +7,9 @@ export class MarketsService {
     page?: number;
     size?: number;
     state?: string | number;
+    State?: string | number;
     district?: string | number;
+    District?: string | number;
     Search?: string;
     search?: string;
   }) {
@@ -15,6 +17,10 @@ export class MarketsService {
     if (query.search && !query.Search) {
       query.Search = query.search;
       delete query.search;
+    }
+    if (query.state && !query.State) {
+      query.State = query.state;
+      delete query.state;
     }
     return http.get<Market[]>(MARKET_API_PATHS.getAll, query);
   }
