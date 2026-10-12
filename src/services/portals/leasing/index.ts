@@ -6,6 +6,7 @@ export type {
   UpcomingRentChange,
   LeaseDoc,
   MissingDocsRequest,
+  LeaseExpirationRemark,
   RentPaidSummary,
   LeasingOwnersAccount,
   ReportTemplate,

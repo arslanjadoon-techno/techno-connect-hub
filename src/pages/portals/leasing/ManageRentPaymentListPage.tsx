@@ -93,6 +93,31 @@ export default function ManageRentPaymentListPage() {
   const [editForm, setEditForm] = useState<Partial<FinancialMonthlyFiguresUpdate>>({});
   const [savingModal, setSavingModal] = useState(false);
 
+  // GetRentalPaymentDetails doesn't join lease_data, so it has no leaseStatus
+  // of its own - cross-reference against the leasing list to drop InActive stores.
+  const [inactiveTechIds, setInactiveTechIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const leases = await leasingService.getAllLeasing();
+        if (active) {
+          setInactiveTechIds(
+            new Set(
+              leases.filter((l) => l.leaseStatus === "InActive").map((l) => l.techId),
+            ),
+          );
+        }
+      } catch (error) {
+        console.error("Error loading lease statuses:", error);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const fetchPayments = useCallback(async () => {
     try {
       setLoading(true);
@@ -118,13 +143,15 @@ export default function ManageRentPaymentListPage() {
       list.push(p);
       byTech.set(p.techId, list);
     }
-    return Array.from(byTech.values()).map((records) => {
-      const first = records[0];
-      const total_due = computeTotalDue(first);
-      const difference = num(first.total_accounting_figure) - total_due;
-      return { ...first, total_due, difference, records };
-    });
-  }, [payments]);
+    return Array.from(byTech.values())
+      .filter((records) => !inactiveTechIds.has(records[0].techId))
+      .map((records) => {
+        const first = records[0];
+        const total_due = computeTotalDue(first);
+        const difference = num(first.total_accounting_figure) - total_due;
+        return { ...first, total_due, difference, records };
+      });
+  }, [payments, inactiveTechIds]);
 
   const filteredGroups = useMemo(() => {
     return groups.filter((g) => {

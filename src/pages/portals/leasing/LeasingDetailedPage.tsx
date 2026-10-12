@@ -12,6 +12,9 @@ import {
   type LeaseRentAgreement,
 } from "@/services/portals/leasing";
 import EditableField from "./components/EditableField";
+import MonthlyBillingActivitySection from "./components/MonthlyBillingActivitySection";
+import AttachmentsSection from "./components/AttachmentsSection";
+import MissingDocumentsSection from "./components/MissingDocumentsSection";
 import { useCanShow, useCanWrite } from "@/lib/leasing-permissions";
 
 const ENTITY_OPTIONS = [
@@ -27,6 +30,7 @@ const ENTITY_OPTIONS = [
   "Techno Portland",
   "Techno Florida",
   "TMDH WIRELESS LLC",
+  "Old Dealer",
 ];
 const LEASE_TYPE_OPTIONS = [
   "Month to Month",
@@ -46,7 +50,18 @@ const PAYMENT_MODE_OPTIONS = [
   "PENDING",
 ];
 const YES_NO_UNKNOWN = ["Allowed", "Not Allowed", "Not Found"];
-const GUARANTY_TYPE_OPTIONS = ["Personal Guarantor", "Corporate Guarantor", "No Guarantor"];
+const SUB_LEASE_OPTIONS = ["Yes", "No"];
+const RIGHT_TO_SUBLEASE_OPTIONS = [
+  "With Consent of Landlord",
+  "Without Consent of Landlord",
+  "Rights Not Given",
+];
+const GUARANTY_TYPE_OPTIONS = [
+  "Personal Guarantor",
+  "Corporate Guarantor",
+  "No Guarantor",
+  "Corporate and Personal",
+];
 
 const AGREEMENT_TOTAL = (a: {
   monthlyRent?: number | null;
@@ -71,6 +86,12 @@ function yesNoTone(v?: string | null): string {
     return "border-emerald-300 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400";
   if (v === "Not Allowed" || v === "No")
     return "border-destructive/30 bg-destructive/10 text-destructive";
+  return "border-border bg-muted text-muted-foreground";
+}
+
+function subleaseRightTone(v?: string | null): string {
+  if (v && v !== "Rights Not Given")
+    return "border-emerald-300 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400";
   return "border-border bg-muted text-muted-foreground";
 }
 
@@ -155,8 +176,9 @@ export default function LeasingDetailedPage() {
         ]);
         if (!active) return;
         setAllLeases(leases);
-        const firstRemark = remarkRows[0] as Record<string, unknown> | undefined;
-        setRemarks((firstRemark?.remarks as string) ?? (firstRemark?.remark as string) ?? "");
+        // GetLeaseExpirationRemarks returns a flat List<string> (one entry per
+        // saved remark row), not objects - same shape the old LeasingFrontend read.
+        setRemarks((remarkRows[0] as string | undefined) ?? "");
       } catch (error) {
         console.error("Error loading lease detail:", error);
         toast.error("Failed to load lease details");
@@ -443,6 +465,12 @@ export default function LeasingDetailedPage() {
                 onChange={(v) => set("marketManager", v)}
               />
               <EditableField
+                label="Market Manager Phone Number"
+                value={f.marketManagerPhoneNumber ?? ""}
+                editing={isEditing && canWriteGeneralInfo}
+                onChange={(v) => set("marketManagerPhoneNumber", v)}
+              />
+              <EditableField
                 label="Store Email"
                 value={leaseData.storeEmail ?? ""}
                 editing={false}
@@ -467,6 +495,13 @@ export default function LeasingDetailedPage() {
                 onChange={(v) => set("leaseStatus", v)}
                 badgeTone={!isEditing ? statusTone(leaseData.leaseStatus) : undefined}
                 displayValue={!isEditing ? leaseData.leaseStatus || "Not Set" : undefined}
+              />
+              {/* Backend-managed, not user-editable: set only when Lease Status is saved as InActive. */}
+              <EditableField
+                label="Status Date"
+                value={leaseData.leaseStatusDate?.split("T")[0] ?? ""}
+                editing={false}
+                displayValue={leaseData.leaseStatusDate?.split("T")[0] || "—"}
               />
             </div>
           </Card>
@@ -923,23 +958,18 @@ export default function LeasingDetailedPage() {
             value={f.rightToSublease ?? ""}
             editing={isEditing && canWriteClauses}
             type="select"
-            options={YES_NO_UNKNOWN}
+            options={RIGHT_TO_SUBLEASE_OPTIONS}
             onChange={(v) => set("rightToSublease", v)}
-            badgeTone={!isEditing ? yesNoTone(leaseData.rightToSublease) : undefined}
+            badgeTone={!isEditing ? subleaseRightTone(leaseData.rightToSublease) : undefined}
+            displayValue={!isEditing ? leaseData.rightToSublease || "Not Found" : undefined}
           />
           <EditableField
             label="Sub Lease"
             value={f.subLease ?? ""}
             editing={isEditing && canWriteClauses}
-            onChange={(v) => set("subLease", v)}
-          />
-          <EditableField
-            label="Option Period"
-            value={f.optionPeriod === true ? "Yes" : f.optionPeriod === false ? "No" : ""}
-            editing={isEditing && canWriteClauses}
             type="select"
-            options={["Yes", "No"]}
-            onChange={(v) => set("optionPeriod", v === "Yes")}
+            options={SUB_LEASE_OPTIONS}
+            onChange={(v) => set("subLease", v)}
           />
           <EditableField
             label="Option Period Duration"
@@ -982,19 +1012,15 @@ export default function LeasingDetailedPage() {
             label="Security Deposit"
             value={String(f.securityDeposit ?? "")}
             editing={isEditing && canWriteClauses}
-            type="number"
             onChange={(v) => set("securityDeposit", v)}
           />
         </div>
       </Card>
       )}
 
-      {/* Deferred sub-features */}
-      <Card className="p-4 text-sm text-muted-foreground">
-        Monthly billing activity, document attachments, and the missing-documents checklist for this
-        lease aren't migrated yet &mdash; each is a substantial subsystem (file upload/storage,
-        activity log) in its own right. Flagging rather than faking them.
-      </Card>
+      {canShowBilling && <MonthlyBillingActivitySection techId={leaseData.techId} />}
+      <AttachmentsSection techId={leaseData.techId} isEditing={isEditing && anyWriteAccess} />
+      <MissingDocumentsSection techId={leaseData.techId} />
     </div>
   );
 }

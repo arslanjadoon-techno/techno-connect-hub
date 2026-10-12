@@ -14,7 +14,11 @@ import {
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { leasingService, type ReportTemplate } from "@/services/portals/leasing";
+import {
+  leasingService,
+  type ReportTemplate,
+  type LeaseExpirationRemark,
+} from "@/services/portals/leasing";
 import { exportToExcel } from "@/lib/excel-export";
 
 interface Field {
@@ -28,7 +32,7 @@ const ALL_FIELDS: Field[] = [
   { key: "storeName", label: "Store Name", group: "General" },
   { key: "marketName", label: "Market", group: "General" },
   { key: "tier", label: "Tier", group: "General" },
-  { key: "lease_Term", label: "Lease Term", group: "General" },
+  { key: "lease_Term", label: "Lease Type", group: "General" },
   { key: "start_Date", label: "Start Date", group: "General" },
   { key: "expiry_Due", label: "Expiry Date", group: "General" },
   { key: "assignmentDate", label: "Assignment Date", group: "General" },
@@ -41,6 +45,7 @@ const ALL_FIELDS: Field[] = [
   { key: "storePhoneNumber", label: "Store Phone Number", group: "General" },
   { key: "storeAddress", label: "Store Address", group: "General" },
   { key: "leaseStatus", label: "Lease Status", group: "General" },
+  { key: "leaseExpirationRemarks", label: "Lease Expiration Remarks", group: "General" },
   { key: "securityDeposit", label: "Security Deposit", group: "Agreement" },
   { key: "hvac", label: "HVAC", group: "Agreement" },
   { key: "exclusivity", label: "Exclusivity", group: "Agreement" },
@@ -141,8 +146,22 @@ export default function ReportsPage() {
     }
     setDownloadingId(dlId);
     try {
-      const rows = await leasingService.getAllLeasing();
-      const data = rows.map((row) => ({ ...row, termination: formatTermination(row.termination) }));
+      // Lease Expiration Remarks live in a separate table (one row per
+      // techId, keyed off the lease) - only fetched when actually selected,
+      // since it's not part of the main leasing list.
+      const needsRemarks = fieldKeys.includes("leaseExpirationRemarks");
+      const [rows, remarksList] = await Promise.all([
+        leasingService.getAllLeasing(),
+        needsRemarks
+          ? leasingService.getAllLeaseExpirationRemarks()
+          : Promise.resolve<LeaseExpirationRemark[]>([]),
+      ]);
+      const remarksByTechId = new Map(remarksList.map((r) => [r.techId, r.remarks ?? ""]));
+      const data = rows.map((row) => ({
+        ...row,
+        termination: formatTermination(row.termination),
+        ...(needsRemarks ? { leaseExpirationRemarks: remarksByTechId.get(row.techId) ?? "" } : {}),
+      }));
       exportToExcel(data as unknown as Record<string, unknown>[], fieldKeys, LABEL_MAP, {
         sheetName: "Leasing Report",
         fileName,
