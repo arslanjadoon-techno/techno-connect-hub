@@ -175,11 +175,17 @@ export default function StoresPage() {
 
       // 1. Initial lookups for states
       if (!initialLookupsFetchedRef.current) {
-        const statesRes = await statesService.getAll();
-        if (statesRes.success) {
-          setStates(statesRes.data);
-          initialLookupsFetchedRef.current = true;
-        }
+        statesService
+          .getAll()
+          .then((statesRes) => {
+            if (statesRes.success) {
+              setStates(statesRes.data);
+            }
+          })
+          .catch((err) => {
+            console.error("Failed to load states:", err);
+          });
+        initialLookupsFetchedRef.current = true;
       }
 
       const { stateVal, marketVal, districtVal } = getFilterParams(
@@ -572,7 +578,11 @@ export default function StoresPage() {
                           <Loader2 className="h-3 w-3 animate-spin" /> Loading...
                         </div>
                       ) : (
-                        <SelectValue placeholder="All Markets" />
+                        <SelectValue
+                          placeholder={
+                            selectedStateFilter === "all" ? "Select State First" : "All Markets"
+                          }
+                        />
                       )}
                     </SelectTrigger>
                     <SelectContent
@@ -622,7 +632,11 @@ export default function StoresPage() {
                           <Loader2 className="h-3 w-3 animate-spin" /> Loading...
                         </div>
                       ) : (
-                        <SelectValue placeholder="All Districts" />
+                        <SelectValue
+                          placeholder={
+                            selectedMarketFilter === "all" ? "Select Market First" : "All Districts"
+                          }
+                        />
                       )}
                     </SelectTrigger>
                     <SelectContent
@@ -802,8 +816,18 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
   );
 
   // Form dependent state spaces
-  const [markets, setMarkets] = useState<Market[]>([]);
-  const [districts, setDistricts] = useState<District[]>([]);
+  const [markets, setMarkets] = useState<Market[]>(() => {
+    if (initial?.market?.id && initial?.market?.name) {
+      return [{ id: initial.market.id, name: initial.market.name } as Market];
+    }
+    return [];
+  });
+  const [districts, setDistricts] = useState<District[]>(() => {
+    if (initial?.district?.id && initial?.district?.name) {
+      return [{ id: initial.district.id, name: initial.district.name } as District];
+    }
+    return [];
+  });
 
   const [marketsLoading, setMarketsLoading] = useState(false);
   const [districtsLoading, setDistrictsLoading] = useState(false);
@@ -816,25 +840,37 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
   const marketSearchRef = useRef<HTMLInputElement>(null);
   const districtSearchRef = useRef<HTMLInputElement>(null);
 
+  // Track if this is the very first render for edit mode to preserve initial pre-populated values
+  const isFirstStateRender = useRef(true);
+  const isFirstMarketRender = useRef(true);
+
   // Form Level Cascading Trigger 1: State sets up Valid Market Listings
   useEffect(() => {
     if (!stateId) {
       setMarkets([]);
       setDistricts([]);
+      setMarketId("");
+      setDistrictId("");
       return;
     }
 
+    let active = true;
     const loadStateSpecificMarkets = async () => {
       try {
         setMarketsLoading(true);
         const match = states.find((s) => s.id.toString() === stateId || s.name === stateId);
         const stateParam = match ? match.name : stateId;
-        const res = await marketsService.getAll({ state: stateParam });
-        if (res.success) {
+        const res = await marketsService.getAll({ State: stateParam });
+        if (!active) return;
+        if (res.success && Array.isArray(res.data)) {
           setMarkets(res.data);
-          if (initial && initial.state?.id?.toString() === stateId) {
-            setMarketId(initial.market?.id?.toString() ?? "");
+          if (isFirstStateRender.current) {
+            isFirstStateRender.current = false;
+            if (initial && initial.state?.id?.toString() === stateId) {
+              setMarketId(initial.market?.id?.toString() ?? "");
+            }
           } else {
+            // User changed state in form: reset dependent market and district
             setMarketId("");
             setDistrictId("");
             setDistricts([]);
@@ -843,43 +879,56 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
       } catch (err) {
         console.error("Failed to load markets for form", err);
       } finally {
-        setMarketsLoading(false);
+        if (active) setMarketsLoading(false);
       }
     };
 
     loadStateSpecificMarkets();
-  }, [stateId, initial, states]);
+    return () => {
+      active = false;
+    };
+  }, [stateId, states]);
 
   // Form Level Cascading Trigger 2: Market sets up Valid District Listings
   useEffect(() => {
     if (!marketId) {
       setDistricts([]);
+      setDistrictId("");
       return;
     }
 
+    let active = true;
     const loadMarketSpecificDistricts = async () => {
       try {
         setDistrictsLoading(true);
         const match = markets.find((m) => m.id.toString() === marketId || m.name === marketId);
         const marketParam = match ? match.name : marketId;
-        const res = await districtsService.getAll({ market: marketParam });
-        if (res.success) {
+        const res = await districtsService.getAll({ Market: marketParam });
+        if (!active) return;
+        if (res.success && Array.isArray(res.data)) {
           setDistricts(res.data);
-          if (initial && initial.market?.id?.toString() === marketId) {
-            setDistrictId(initial.district?.id?.toString() ?? "");
+          if (isFirstMarketRender.current) {
+            isFirstMarketRender.current = false;
+            if (initial && initial.market?.id?.toString() === marketId) {
+              setDistrictId(initial.district?.id?.toString() ?? "");
+            }
           } else {
+            // User changed market in form: reset dependent district
             setDistrictId("");
           }
         }
       } catch (err) {
         console.error("Failed to load districts for form", err);
       } finally {
-        setDistrictsLoading(false);
+        if (active) setDistrictsLoading(false);
       }
     };
 
     loadMarketSpecificDistricts();
-  }, [marketId, initial, markets]);
+    return () => {
+      active = false;
+    };
+  }, [marketId, markets]);
 
   const availableMarkets = useMemo(() => {
     const list = [...markets];
@@ -913,12 +962,28 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
     );
   }, [availableDistricts, districtSearch]);
 
+  // Validation: Required fields are Store Name, Store Number, Address, Email, State, Market, District
+  // Optional fields: Door Code, Phone Number
+  const isFormValid =
+    Boolean(name.trim()) &&
+    Boolean(number.trim()) &&
+    Boolean(address.trim()) &&
+    Boolean(email.trim()) &&
+    Boolean(stateId) &&
+    Boolean(marketId) &&
+    Boolean(districtId) &&
+    !isSaving &&
+    !marketsLoading &&
+    !districtsLoading;
+
   return (
     <div className="space-y-4">
-      {/* Row 1: Name & Number */}
-      <div className="grid grid-cols-1 gap-3">
+      {/* Row 1: Store Name & Store Number (Both Required with Red Asterisk) */}
+      <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label>Store Name</Label>
+          <Label>
+            Store Name <span className="text-destructive font-semibold">*</span>
+          </Label>
           <Input
             value={name}
             disabled={isSaving}
@@ -926,12 +991,25 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
             placeholder="e.g. Westside Retail Hub"
           />
         </div>
+        <div className="space-y-1.5">
+          <Label>
+            Store Number <span className="text-destructive font-semibold">*</span>
+          </Label>
+          <Input
+            value={number}
+            disabled={isSaving}
+            onChange={(e) => setNumber(e.target.value)}
+            placeholder="e.g. 1024"
+          />
+        </div>
       </div>
 
-      {/* Row 2: Address & Door Code */}
+      {/* Row 2: Address (Required) & Door Code (Optional, no asterisk) */}
       <div className="grid grid-cols-3 gap-3">
         <div className="col-span-2 space-y-1.5">
-          <Label>Address</Label>
+          <Label>
+            Address <span className="text-destructive font-semibold">*</span>
+          </Label>
           <Input
             value={address}
             disabled={isSaving}
@@ -940,7 +1018,9 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label>Door Code</Label>
+          <Label>
+            Door Code <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+          </Label>
           <Input
             value={doorCode}
             disabled={isSaving}
@@ -950,10 +1030,12 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
         </div>
       </div>
 
-      {/* Row 3: Email & Phone */}
+      {/* Row 3: Email (Required) & Phone (Optional, no asterisk) */}
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label>Email Contact</Label>
+          <Label>
+            Email Contact <span className="text-destructive font-semibold">*</span>
+          </Label>
           <Input
             type="email"
             value={email}
@@ -963,7 +1045,10 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
           />
         </div>
         <div className="space-y-1.5">
-          <Label>Phone Number</Label>
+          <Label>
+            Phone Number{" "}
+            <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+          </Label>
           <Input
             value={phone}
             disabled={isSaving}
@@ -973,11 +1058,13 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
         </div>
       </div>
 
-      {/* Cascading Drops Hierarchy Matrix: State -> Market -> District */}
+      {/* Cascading Drops Hierarchy Matrix: State -> Market -> District (All 3 Required with Red Asterisk) */}
       <div className="grid grid-cols-3 gap-3">
-        {/* Drop 1: State Selection */}
+        {/* Drop 1: State Selection (Required) */}
         <div className="space-y-1.5">
-          <Label>State</Label>
+          <Label>
+            State <span className="text-destructive font-semibold">*</span>
+          </Label>
           <Select
             value={stateId}
             disabled={isSaving}
@@ -1016,10 +1103,12 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
           </Select>
         </div>
 
-        {/* Drop 2: Dependent Market Selection (State -> Market) */}
+        {/* Drop 2: Dependent Market Selection (State -> Market, Required) */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <Label>Market</Label>
+            <Label>
+              Market <span className="text-destructive font-semibold">*</span>
+            </Label>
             {marketsLoading && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
           </div>
           <Select
@@ -1031,8 +1120,18 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
               else setTimeout(() => marketSearchRef.current?.focus(), 100);
             }}
           >
-            <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
-              <SelectValue placeholder={!stateId ? "Choose state" : "Select market"} />
+            <SelectTrigger className="w-full bg-white dark:bg-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed">
+              <SelectValue
+                placeholder={
+                  !stateId
+                    ? "Select State First"
+                    : marketsLoading
+                      ? "Loading markets..."
+                      : filteredMarkets.length === 0
+                        ? "No markets available"
+                        : "Select market"
+                }
+              />
             </SelectTrigger>
             <SelectContent
               onKeyDown={(e) => e.stopPropagation()}
@@ -1066,10 +1165,12 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
           </Select>
         </div>
 
-        {/* Drop 3: Dependent District Selection (Market -> District) */}
+        {/* Drop 3: Dependent District Selection (Market -> District, Required) */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <Label>District</Label>
+            <Label>
+              District <span className="text-destructive font-semibold">*</span>
+            </Label>
             {districtsLoading && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
           </div>
           <Select
@@ -1081,8 +1182,18 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
               else setTimeout(() => districtSearchRef.current?.focus(), 100);
             }}
           >
-            <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
-              <SelectValue placeholder={!marketId ? "Choose market" : "Select district"} />
+            <SelectTrigger className="w-full bg-white dark:bg-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed">
+              <SelectValue
+                placeholder={
+                  !marketId
+                    ? "Select Market First"
+                    : districtsLoading
+                      ? "Loading districts..."
+                      : filteredDistricts.length === 0
+                        ? "No districts available"
+                        : "Select district"
+                }
+              />
             </SelectTrigger>
             <SelectContent
               onKeyDown={(e) => e.stopPropagation()}
@@ -1119,19 +1230,7 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
 
       <Button
         className="w-full flex items-center justify-center gap-2"
-        disabled={
-          !name.trim() ||
-          !address.trim() ||
-          !email.trim() ||
-          !phone.trim() ||
-          !doorCode.trim() ||
-          !stateId ||
-          !marketId ||
-          !districtId ||
-          isSaving ||
-          marketsLoading ||
-          districtsLoading
-        }
+        disabled={!isFormValid}
         onClick={() =>
           onSave({
             name: name.trim(),

@@ -18,6 +18,14 @@ export class DistrictsService {
       query.Search = query.search;
       delete query.search;
     }
+    if (query.market && !query.Market) {
+      query.Market = query.market;
+      delete query.market;
+    }
+    if (query.state && !query.State) {
+      query.State = query.state;
+      delete query.state;
+    }
     return http.get<District[]>(DISTRICT_API_PATHS.getAll, query);
   }
   get(id: string | number) {
