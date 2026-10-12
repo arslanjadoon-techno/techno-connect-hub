@@ -775,12 +775,16 @@ export interface DepartmentEntity {
 export type Department = DepartmentEntity;
 
 export const DepartmentsApi = {
-  getAll: (params?: PaginationParams) => {
-    let url: string = DEPARTMENT_API_PATHS.getAll;
-    if (params && params.page !== undefined && params.size !== undefined) {
-      url = `${DEPARTMENT_API_PATHS.getAll}?page=${params.page}&size=${params.size}`;
+  getAll: (params?: PaginationParams & { Search?: string; search?: string }) => {
+    const queryParts: string[] = [];
+    if (params) {
+      if (params.page !== undefined) queryParts.push(`page=${params.page}`);
+      if (params.size !== undefined) queryParts.push(`size=${params.size}`);
+      const searchVal = params.Search || params.search;
+      if (searchVal) queryParts.push(`Search=${encodeURIComponent(String(searchVal))}`);
     }
-    return apiRequest<DepartmentEntity[]>(url);
+    const queryString = queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
+    return apiRequest<DepartmentEntity[]>(`${DEPARTMENT_API_PATHS.getAll}${queryString}`);
   },
   get: (id: string | number) => apiRequest<DepartmentEntity>(DEPARTMENT_API_PATHS.department(id)),
   add: (payload: { name: string }) =>

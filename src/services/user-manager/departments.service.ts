@@ -15,8 +15,13 @@ export interface DepartmentUpdatePayload extends DepartmentPayload {
 }
 
 export class DepartmentsService {
-  getAll(params?: { page?: number; size?: number }) {
-    return http.get<Department[]>(DEPARTMENT_API_PATHS.getAll, params);
+  getAll(params?: { page?: number; size?: number; Search?: string; search?: string }) {
+    const query: Record<string, any> = { ...params };
+    if (query.search && !query.Search) {
+      query.Search = query.search;
+      delete query.search;
+    }
+    return http.get<Department[]>(DEPARTMENT_API_PATHS.getAll, query);
   }
   get(id: string | number) {
     return http.get<Department>(DEPARTMENT_API_PATHS.department(id));
