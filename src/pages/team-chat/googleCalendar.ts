@@ -19,8 +19,7 @@ function loadGoogleIdentityServices() {
       if (window.google?.accounts?.oauth2) resolve();
       else reject(new Error("Google sign-in could not be loaded."));
     };
-    script.onerror = () =>
-      reject(new Error("Google sign-in could not be loaded."));
+    script.onerror = () => reject(new Error("Google sign-in could not be loaded."));
     document.head.appendChild(script);
   });
 
@@ -52,21 +51,15 @@ async function getGoogleAccessToken({ forceAccountSelection = false } = {}) {
       scope: CALENDAR_SCOPE,
       callback: (response) => {
         if (response?.error || !response?.access_token) {
-          reject(
-            new Error(
-              response?.error || "Google Calendar access was declined.",
-            ),
-          );
+          reject(new Error(response?.error || "Google Calendar access was declined."));
           return;
         }
 
         googleAccessToken = response.access_token;
-        googleAccessTokenExpiresAt =
-          Date.now() + Number(response.expires_in || 3600) * 1000;
+        googleAccessTokenExpiresAt = Date.now() + Number(response.expires_in || 3600) * 1000;
         resolve(googleAccessToken);
       },
-      error_callback: () =>
-        reject(new Error("Google sign-in was cancelled or blocked.")),
+      error_callback: () => reject(new Error("Google sign-in was cancelled or blocked.")),
     });
 
     tokenClient.requestAccessToken({
@@ -104,11 +97,7 @@ export async function createGoogleCalendarEvent({
   }
 
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-  const attendees = [
-    ...new Set(
-      attendeeEmails.map((email) => String(email).trim().toLowerCase()),
-    ),
-  ]
+  const attendees = [...new Set(attendeeEmails.map((email) => String(email).trim().toLowerCase()))]
     .filter((email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     .map((email) => ({ email }));
   const token = await getGoogleAccessToken({ forceAccountSelection: true });

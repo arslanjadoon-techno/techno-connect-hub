@@ -4,7 +4,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CHAT_APP_BASE_PATH } from "./chatRoutes";
-import PinglyMark from "./PinglyMark";
+// import PinglyMark from "./PinglyMark";
 import { getStoredUser } from "@/lib/api/client";
 import {
   getArrayPayload,
@@ -20,7 +20,7 @@ import {
 import {
   getChatConversationsService,
   getChatUsersService,
-  openDirectChatService,
+  // openDirectChatService,
 } from "@/services/Team-chat/chat.service";
 
 type ChatRecord = Record<string, any>;

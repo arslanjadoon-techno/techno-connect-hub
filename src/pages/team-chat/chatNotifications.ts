@@ -53,16 +53,18 @@ export const showChatNotification = ({
   // interrupt the WebRTC call before the user presses End.
   if (!preserveCall && "serviceWorker" in navigator && navigator.serviceWorker.controller) {
     return navigator.serviceWorker.ready
-      .then((registration) => registration.showNotification(title || "New message", {
-        body: body || "",
-        icon: icon || undefined,
-        tag: tag || undefined,
-        renotify: true,
-        requireInteraction,
-        data: { url: url || "/", preserveCall },
-        silent: false,
-        vibrate: [120, 60, 120],
-      }))
+      .then((registration) =>
+        registration.showNotification(title || "New message", {
+          body: body || "",
+          icon: icon || undefined,
+          tag: tag || undefined,
+          renotify: true,
+          requireInteraction,
+          data: { url: url || "/", preserveCall },
+          silent: false,
+          vibrate: [120, 60, 120],
+        }),
+      )
       .catch(() => {
         try {
           return new Notification(title || "New message", {

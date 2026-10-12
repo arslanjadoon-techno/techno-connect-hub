@@ -126,7 +126,10 @@ export default function ChatBodyPanels({
           {!libraryLoading && !libraryError && view === "calls" && (
             <div className="mx-auto max-w-4xl space-y-3">
               {callMessages.map((message) => (
-                <Card key={message.id} className="border-border/80 shadow-xs transition-shadow hover:shadow-md">
+                <Card
+                  key={message.id}
+                  className="border-border/80 shadow-xs transition-shadow hover:shadow-md"
+                >
                   <CardContent className="flex items-center gap-3 p-4">
                     {(() => {
                       const history = message.callHistory || message.metadata?.callHistory || {};
@@ -139,12 +142,14 @@ export default function ChatBodyPanels({
                           ? "bg-green-500/15 text-green-600 dark:text-green-400"
                           : "bg-muted text-muted-foreground";
                       return (
-                        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${color}`}>
+                        <div
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${color}`}
+                        >
                           {String(history.type || "").toLowerCase() === "video" ? (
-                        <Video className="h-5 w-5" />
-                      ) : (
-                        <Phone className="h-5 w-5" />
-                      )}
+                            <Video className="h-5 w-5" />
+                          ) : (
+                            <Phone className="h-5 w-5" />
+                          )}
                         </div>
                       );
                     })()}
@@ -155,7 +160,9 @@ export default function ChatBodyPanels({
                         const error = status === "missed" || status === "declined";
                         const complete = status === "ended";
                         return (
-                          <p className={`truncate text-sm font-semibold ${error ? "text-red-500" : complete ? "text-green-600 dark:text-green-400" : "text-foreground"}`}>
+                          <p
+                            className={`truncate text-sm font-semibold ${error ? "text-red-500" : complete ? "text-green-600 dark:text-green-400" : "text-foreground"}`}
+                          >
                             {status === "missed"
                               ? `Missed call from ${history.startedBy?.name || message.authorName || "Unknown user"}`
                               : `${history.type || "audio"} call ${status}`}
@@ -164,12 +171,29 @@ export default function ChatBodyPanels({
                       })()}
                       <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                         <Avatar className="h-5 w-5">
-                          <AvatarImage src={(message.callHistory || message.metadata?.callHistory)?.startedBy?.avatarUrl} />
-                          <AvatarFallback>{String((message.callHistory || message.metadata?.callHistory)?.startedBy?.name || message.authorName || "C").charAt(0).toUpperCase()}</AvatarFallback>
+                          <AvatarImage
+                            src={
+                              (message.callHistory || message.metadata?.callHistory)?.startedBy
+                                ?.avatarUrl
+                            }
+                          />
+                          <AvatarFallback>
+                            {String(
+                              (message.callHistory || message.metadata?.callHistory)?.startedBy
+                                ?.name ||
+                                message.authorName ||
+                                "C",
+                            )
+                              .charAt(0)
+                              .toUpperCase()}
+                          </AvatarFallback>
                         </Avatar>
                         <span className="truncate">
-                        {(message.callHistory || message.metadata?.callHistory)?.startedBy?.name || message.authorName || "Chat"} ·{" "}
-                        {new Date(message.sentAt || Date.now()).toLocaleString()}
+                          {(message.callHistory || message.metadata?.callHistory)?.startedBy
+                            ?.name ||
+                            message.authorName ||
+                            "Chat"}{" "}
+                          · {new Date(message.sentAt || Date.now()).toLocaleString()}
                         </span>
                       </div>
                     </div>
@@ -180,7 +204,11 @@ export default function ChatBodyPanels({
                       aria-label="Start audio call"
                       onClick={() =>
                         onStartCallFromHistory?.({
-                          chatId: message.chatId || message.chat_id || message.conversationId || message.conversation_id,
+                          chatId:
+                            message.chatId ||
+                            message.chat_id ||
+                            message.conversationId ||
+                            message.conversation_id,
                           type: "audio",
                         })
                       }
@@ -194,7 +222,11 @@ export default function ChatBodyPanels({
                       aria-label="Start video call"
                       onClick={() =>
                         onStartCallFromHistory?.({
-                          chatId: message.chatId || message.chat_id || message.conversationId || message.conversation_id,
+                          chatId:
+                            message.chatId ||
+                            message.chat_id ||
+                            message.conversationId ||
+                            message.conversation_id,
                           type: "video",
                         })
                       }

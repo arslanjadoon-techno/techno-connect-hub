@@ -46,7 +46,13 @@ const activityTime = (conversation) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const toDirectRow = ({ buddy, conversation, isCurrentUserRecord, getUnreadCount: unread, messagesByChat = {} }) => {
+const toDirectRow = ({
+  buddy,
+  conversation,
+  isCurrentUserRecord,
+  getUnreadCount: unread,
+  messagesByChat = {},
+}) => {
   const directId = conversationId(conversation) || buddy?.directConversationId || buddy?.chatId;
   const cachedMessages = messagesByChat[directId] || messagesByChat[getBuddySendId(buddy)] || [];
   const cachedLastMessage = cachedMessages.at(-1);
@@ -118,7 +124,13 @@ export function buildConversationItems({
         valuesFor(participant).some((value) => buddyValues.includes(value)),
       ),
     );
-    return toDirectRow({ buddy, conversation, isCurrentUserRecord, getUnreadCount: unread, messagesByChat });
+    return toDirectRow({
+      buddy,
+      conversation,
+      isCurrentUserRecord,
+      getUnreadCount: unread,
+      messagesByChat,
+    });
   });
 
   if (!searchTerm.trim()) {
@@ -137,7 +149,13 @@ export function buildConversationItems({
           valuesFor(candidate).some((value) => peerValues.includes(value)),
         ) || peer;
       directRows.push(
-        toDirectRow({ buddy, conversation: channel, isCurrentUserRecord, getUnreadCount: unread, messagesByChat }),
+        toDirectRow({
+          buddy,
+          conversation: channel,
+          isCurrentUserRecord,
+          getUnreadCount: unread,
+          messagesByChat,
+        }),
       );
     });
   }
