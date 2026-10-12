@@ -372,10 +372,57 @@ export const StatesApi = {
 
 // ---------- Districts ---------- //
 
+export interface DistrictAssignedUser {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
 export interface District {
   id: number;
   name: string;
-  stateId: number;
+  stateId?: number;
+  state?: {
+    id: number;
+    name: string;
+    symbol?: string;
+    assignedUsers?: DistrictAssignedUser[];
+    createdAt?: string;
+    updatedAt?: string;
+  } | null;
+  marketId?: number;
+  market?: {
+    id: number;
+    name: string;
+    state?: any;
+    assignedUsers?: DistrictAssignedUser[];
+    stores?: any[];
+    storeCount?: number;
+    createdAt?: string;
+    updatedAt?: string;
+  } | null;
+  assignedUsers?: DistrictAssignedUser[];
+  stores?: Array<{
+    id: number;
+    name: string;
+    number?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    doorCode?: string | null;
+    state?: any;
+    district?: any;
+    market?: any;
+    assignedUsers?: DistrictAssignedUser[];
+    createdAt?: string;
+    updatedAt?: string;
+  }>;
+  storeCount?: number;
+  manager?: string;
+  managerId?: number;
+  email?: string | null;
+  phone?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }

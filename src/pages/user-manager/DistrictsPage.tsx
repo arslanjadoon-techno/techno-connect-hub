@@ -758,10 +758,7 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
 
   // District name, state, and market are all required
   const isFormValid =
-    Boolean(name.trim()) &&
-    Boolean(stateId) &&
-    Boolean(marketId) &&
-    marketId !== "none";
+    Boolean(name.trim()) && Boolean(stateId) && Boolean(marketId) && marketId !== "none";
 
   return (
     <div className="space-y-4">
@@ -985,9 +982,7 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
       <div className="space-y-1.5">
         <Label>
           Manager Email{" "}
-          <span className="text-xs text-muted-foreground font-normal">
-            (Auto-populated)
-          </span>
+          <span className="text-xs text-muted-foreground font-normal">(Auto-populated)</span>
         </Label>
         <Input
           type="email"
@@ -1003,9 +998,7 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
       <div className="space-y-1.5">
         <Label>
           Manager Phone{" "}
-          <span className="text-xs text-muted-foreground font-normal">
-            (Auto-populated)
-          </span>
+          <span className="text-xs text-muted-foreground font-normal">(Auto-populated)</span>
         </Label>
         <Input
           value={phone}

@@ -1,4 +1,8 @@
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { districtsService } from "@/services";
+import type { District } from "@/lib/api/client";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,77 +13,48 @@ import {
   CheckCircle2,
   Clock,
   Globe,
+  Loader2,
   Mail,
   MapPin,
   Phone,
+  ShieldAlert,
   Store,
   User,
+  Users,
 } from "lucide-react";
 
 export default function DistrictDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  // Static District, State, and Market details (no API calls as requested)
-  const districtData = {
-    id: id || "6",
-    name:
-      id === "2"
-        ? "Dallas County"
-        : id === "7"
-          ? "East"
-          : id === "14"
-            ? "Central District"
-            : "Central",
-    createdAt: "2026-09-12T19:02:35",
-    updatedAt: "2026-09-12T19:02:35",
-    districtManager: {
-      name: "Ali Khan",
-      email: "ali.khan@active8wireless.com",
-      phone: "+1 (555) 234-5678",
-      assigned: true,
-    },
-    state: {
-      id: 5,
-      name: "Texas",
-      code: "TX",
-      manager: "Sarah Mitchell",
-      email: "sarah.mitchell@active8wireless.com",
-      phone: "+1 (555) 876-5432",
-      assigned: true,
-    },
-    market: {
-      id: 1,
-      name: "Market 1 (North Texas)",
-      manager: "David Miller",
-      email: "david.miller@active8wireless.com",
-      phone: "+1 (555) 345-6789",
-      assigned: true,
-    },
-    stores: [
-      {
-        id: 101,
-        name: "North Dallas Store",
-        number: "ST-101",
-        address: "742 Evergreen Terrace, Dallas, TX 75001",
-        phone: "+1 (555) 321-9876",
-      },
-      {
-        id: 102,
-        name: "Central Galleria Wireless",
-        number: "ST-102",
-        address: "1337 Galleria Mall Suite 4B, Dallas, TX 75002",
-        phone: "+1 (555) 654-3210",
-      },
-      {
-        id: 103,
-        name: "Oak Cliff Mobile Hub",
-        number: "ST-103",
-        address: "880 South Beckley Ave, Dallas, TX 75008",
-        phone: "+1 (555) 987-6543",
-      },
-    ],
+  const [district, setDistrict] = useState<District | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  const loadDistrictData = async () => {
+    if (!id) return;
+    try {
+      setLoading(true);
+
+      // Fetch district by ID via standard districtsService
+      const res = await districtsService.get(id);
+      if (!res.success || !res.data) {
+        toast.error(res.message || "Failed to load district details");
+        setDistrict(null);
+        return;
+      }
+
+      setDistrict(res.data);
+    } catch (err: any) {
+      toast.error(err?.message || "Something went wrong loading district details");
+      setDistrict(null);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    loadDistrictData();
+  }, [id]);
 
   const formatDate = (isoString?: string) => {
     if (!isoString) return "—";
@@ -98,6 +73,76 @@ export default function DistrictDetailPage() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex h-[60vh] w-full flex-col items-center justify-center gap-3 text-muted-foreground">
+        <Loader2 className="h-9 w-9 animate-spin text-primary" />
+        <p className="text-sm font-medium">Loading District Details...</p>
+      </div>
+    );
+  }
+
+  if (!district) {
+    return (
+      <div className="mx-auto max-w-xl py-20 text-center space-y-4">
+        <ShieldAlert className="h-12 w-12 text-destructive mx-auto" />
+        <h2 className="text-xl font-semibold">District Not Found</h2>
+        <p className="text-sm text-muted-foreground">
+          The requested district could not be loaded or may have been deleted.
+        </p>
+        <Button
+          onClick={() => navigate("/admin/districts")}
+          variant="outline"
+          className="cursor-pointer"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back to Districts
+        </Button>
+      </div>
+    );
+  }
+
+  // 1. District Manager info extracted from district response
+  const districtAssignedUser = district.assignedUsers?.[0];
+  const districtManagerName =
+    districtAssignedUser?.name ||
+    district.manager ||
+    (district as any).districtManager?.name ||
+    "—";
+  const districtManagerEmail =
+    districtAssignedUser?.email ||
+    district.email ||
+    (district as any).districtManager?.email ||
+    "—";
+  const districtManagerPhone =
+    districtAssignedUser?.phone ||
+    district.phone ||
+    (district as any).districtManager?.phone ||
+    "—";
+  const hasDistrictManager = districtManagerName !== "—";
+
+  // 2. Market info extracted from district.market
+  const marketObj = district.market;
+  const marketName = marketObj?.name || "—";
+  const marketAssignedUser = marketObj?.assignedUsers?.[0];
+  const marketManagerName = marketAssignedUser?.name || (marketObj as any)?.manager || "—";
+  const marketManagerEmail = marketAssignedUser?.email || (marketObj as any)?.email || "—";
+  const marketManagerPhone = marketAssignedUser?.phone || (marketObj as any)?.phone || "—";
+  const hasMarketManager = marketManagerName !== "—";
+
+  // 3. State info extracted from district.state
+  const stateObj = district.state;
+  const stateName = stateObj?.name || "—";
+  const stateSymbol = stateObj?.symbol ? ` (${stateObj.symbol})` : "";
+  const stateAssignedUser = stateObj?.assignedUsers?.[0];
+  const stateManagerName = stateAssignedUser?.name || (stateObj as any)?.manager || "—";
+  const stateManagerEmail = stateAssignedUser?.email || (stateObj as any)?.email || "—";
+  const stateManagerPhone = stateAssignedUser?.phone || (stateObj as any)?.phone || "—";
+  const hasStateManager = stateManagerName !== "—";
+
+  // 4. Stores list
+  const storesList = Array.isArray(district.stores) ? district.stores : [];
+  const storeCount = district.storeCount ?? storesList.length;
+
   return (
     <div className="w-full space-y-6 pb-12">
       {/* Top Navigation Header */}
@@ -113,13 +158,11 @@ export default function DistrictDetailPage() {
               <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Back to Districts
             </Button>
             <span className="text-xs text-muted-foreground">/</span>
-            <span className="text-xs text-muted-foreground font-mono">
-              District #{districtData.id}
-            </span>
+            <span className="text-xs text-muted-foreground font-mono">District #{district.id}</span>
           </div>
           <div className="flex items-center gap-3">
             <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
-              {districtData.name}
+              {district.name}
             </h1>
             <Badge
               variant="outline"
@@ -143,9 +186,7 @@ export default function DistrictDetailPage() {
               <p className="text-[11px] font-semibold text-blue-700/80 dark:text-blue-300/80 uppercase tracking-wider">
                 District Name
               </p>
-              <p className="text-sm font-bold truncate text-foreground mt-0.5">
-                {districtData.name}
-              </p>
+              <p className="text-sm font-bold truncate text-foreground mt-0.5">{district.name}</p>
             </div>
           </CardContent>
         </Card>
@@ -160,9 +201,7 @@ export default function DistrictDetailPage() {
               <p className="text-[11px] font-semibold text-purple-700/80 dark:text-purple-300/80 uppercase tracking-wider">
                 Associated Market
               </p>
-              <p className="text-sm font-bold truncate text-foreground mt-0.5">
-                {districtData.market.name}
-              </p>
+              <p className="text-sm font-bold truncate text-foreground mt-0.5">{marketName}</p>
             </div>
           </CardContent>
         </Card>
@@ -178,7 +217,8 @@ export default function DistrictDetailPage() {
                 Operating State
               </p>
               <p className="text-sm font-bold truncate text-foreground mt-0.5">
-                {districtData.state.name} ({districtData.state.code})
+                {stateName}
+                {stateSymbol}
               </p>
             </div>
           </CardContent>
@@ -195,14 +235,14 @@ export default function DistrictDetailPage() {
                 District Manager
               </p>
               <p className="text-sm font-bold truncate text-foreground mt-0.5">
-                {districtData.districtManager.name}
+                {districtManagerName}
               </p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main 3 Detail Cards Grid: 1st District, 2nd Market, 3rd State */}
+      {/* Main Detail Cards Grid: 1st District Manager, 2nd Market Details, 3rd State Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {/* CARD 1: District Manager Details */}
         <Card className="border-border/60 shadow-xs flex flex-col justify-between">
@@ -214,9 +254,13 @@ export default function DistrictDetailPage() {
                 </CardTitle>
                 <Badge
                   variant="outline"
-                  className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[11px]"
+                  className={
+                    hasDistrictManager
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[11px]"
+                      : "bg-muted text-muted-foreground text-[11px]"
+                  }
                 >
-                  Assigned
+                  {hasDistrictManager ? "Assigned" : "Unassigned"}
                 </Badge>
               </div>
             </CardHeader>
@@ -224,27 +268,26 @@ export default function DistrictDetailPage() {
               {/* Profile Top Row */}
               <div className="flex items-center gap-3.5 pb-4 border-b border-border/50">
                 <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-base uppercase shrink-0 border border-primary/20">
-                  {districtData.districtManager.name.slice(0, 2)}
+                  {hasDistrictManager ? districtManagerName.slice(0, 2).toUpperCase() : "DM"}
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-semibold text-base text-foreground truncate">
-                    {districtData.districtManager.name}
+                    {districtManagerName}
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    District:{" "}
-                    <span className="font-medium text-foreground">{districtData.name}</span>
+                    District: <span className="font-medium text-foreground">{district.name}</span>
                   </p>
                 </div>
               </div>
 
-              {/* Symmetrical Details Block */}
+              {/* Details Block */}
               <div className="rounded-lg bg-muted/30 p-3.5 space-y-2.5 border border-border/40">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
                     <User className="h-3.5 w-3.5 text-muted-foreground" /> Manager Name:
                   </span>
                   <span className="text-xs font-semibold text-foreground text-right truncate">
-                    {districtData.districtManager.name}
+                    {districtManagerName}
                   </span>
                 </div>
 
@@ -252,25 +295,33 @@ export default function DistrictDetailPage() {
                   <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
                     <Mail className="h-3.5 w-3.5 text-muted-foreground" /> Email Address:
                   </span>
-                  <a
-                    href={`mailto:${districtData.districtManager.email}`}
-                    className="text-xs font-medium text-primary hover:underline text-right truncate max-w-[200px]"
-                    title={districtData.districtManager.email}
-                  >
-                    {districtData.districtManager.email}
-                  </a>
+                  {districtManagerEmail !== "—" ? (
+                    <a
+                      href={`mailto:${districtManagerEmail}`}
+                      className="text-xs font-medium text-primary hover:underline text-right truncate max-w-[200px]"
+                      title={districtManagerEmail}
+                    >
+                      {districtManagerEmail}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground text-right">—</span>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
                     <Phone className="h-3.5 w-3.5 text-muted-foreground" /> Phone Number:
                   </span>
-                  <a
-                    href={`tel:${districtData.districtManager.phone}`}
-                    className="text-xs font-mono font-medium text-foreground hover:underline text-right"
-                  >
-                    {districtData.districtManager.phone}
-                  </a>
+                  {districtManagerPhone !== "—" ? (
+                    <a
+                      href={`tel:${districtManagerPhone}`}
+                      className="text-xs font-mono font-medium text-foreground hover:underline text-right"
+                    >
+                      {districtManagerPhone}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground text-right">—</span>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -288,9 +339,13 @@ export default function DistrictDetailPage() {
                 </CardTitle>
                 <Badge
                   variant="outline"
-                  className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[11px]"
+                  className={
+                    marketName !== "—"
+                      ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20 text-[11px]"
+                      : "bg-muted text-muted-foreground text-[11px]"
+                  }
                 >
-                  Assigned
+                  {marketName !== "—" ? "Linked" : "No Market"}
                 </Badge>
               </div>
             </CardHeader>
@@ -298,27 +353,25 @@ export default function DistrictDetailPage() {
               {/* Profile Top Row */}
               <div className="flex items-center gap-3.5 pb-4 border-b border-border/50">
                 <div className="h-12 w-12 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center font-bold text-base uppercase shrink-0 border border-purple-500/20">
-                  {districtData.market.manager.slice(0, 2)}
+                  {marketName !== "—" ? marketName.slice(0, 2).toUpperCase() : "MK"}
                 </div>
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-base text-foreground truncate">
-                    {districtData.market.manager}
-                  </h3>
+                  <h3 className="font-semibold text-base text-foreground truncate">{marketName}</h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    Market:{" "}
-                    <span className="font-medium text-foreground">{districtData.market.name}</span>
+                    Manager:{" "}
+                    <span className="font-medium text-foreground">{marketManagerName}</span>
                   </p>
                 </div>
               </div>
 
-              {/* Symmetrical Details Block */}
+              {/* Details Block */}
               <div className="rounded-lg bg-muted/30 p-3.5 space-y-2.5 border border-border/40">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
                     <User className="h-3.5 w-3.5 text-muted-foreground" /> Market Manager:
                   </span>
                   <span className="text-xs font-semibold text-foreground text-right truncate">
-                    {districtData.market.manager}
+                    {marketManagerName}
                   </span>
                 </div>
 
@@ -326,25 +379,33 @@ export default function DistrictDetailPage() {
                   <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
                     <Mail className="h-3.5 w-3.5 text-muted-foreground" /> Email Address:
                   </span>
-                  <a
-                    href={`mailto:${districtData.market.email}`}
-                    className="text-xs font-medium text-primary hover:underline text-right truncate max-w-[200px]"
-                    title={districtData.market.email}
-                  >
-                    {districtData.market.email}
-                  </a>
+                  {marketManagerEmail !== "—" ? (
+                    <a
+                      href={`mailto:${marketManagerEmail}`}
+                      className="text-xs font-medium text-primary hover:underline text-right truncate max-w-[200px]"
+                      title={marketManagerEmail}
+                    >
+                      {marketManagerEmail}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground text-right">—</span>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
                     <Phone className="h-3.5 w-3.5 text-muted-foreground" /> Phone Number:
                   </span>
-                  <a
-                    href={`tel:${districtData.market.phone}`}
-                    className="text-xs font-mono font-medium text-foreground hover:underline text-right"
-                  >
-                    {districtData.market.phone}
-                  </a>
+                  {marketManagerPhone !== "—" ? (
+                    <a
+                      href={`tel:${marketManagerPhone}`}
+                      className="text-xs font-mono font-medium text-foreground hover:underline text-right"
+                    >
+                      {marketManagerPhone}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground text-right">—</span>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -361,9 +422,13 @@ export default function DistrictDetailPage() {
                 </CardTitle>
                 <Badge
                   variant="outline"
-                  className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[11px]"
+                  className={
+                    stateName !== "—"
+                      ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[11px]"
+                      : "bg-muted text-muted-foreground text-[11px]"
+                  }
                 >
-                  Assigned
+                  {stateName !== "—" ? "Linked" : "No State"}
                 </Badge>
               </div>
             </CardHeader>
@@ -371,27 +436,27 @@ export default function DistrictDetailPage() {
               {/* Profile Top Row */}
               <div className="flex items-center gap-3.5 pb-4 border-b border-border/50">
                 <div className="h-12 w-12 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center font-bold text-base uppercase shrink-0 border border-emerald-500/20">
-                  {districtData.state.manager.slice(0, 2)}
+                  {stateName !== "—" ? stateName.slice(0, 2).toUpperCase() : "ST"}
                 </div>
                 <div className="min-w-0">
                   <h3 className="font-semibold text-base text-foreground truncate">
-                    {districtData.state.manager}
+                    {stateName}
+                    {stateSymbol}
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    State:{" "}
-                    <span className="font-medium text-foreground">{districtData.state.name}</span>
+                    Manager: <span className="font-medium text-foreground">{stateManagerName}</span>
                   </p>
                 </div>
               </div>
 
-              {/* Symmetrical Details Block */}
+              {/* Details Block */}
               <div className="rounded-lg bg-muted/30 p-3.5 space-y-2.5 border border-border/40">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
                     <User className="h-3.5 w-3.5 text-muted-foreground" /> State Manager:
                   </span>
                   <span className="text-xs font-semibold text-foreground text-right truncate">
-                    {districtData.state.manager}
+                    {stateManagerName}
                   </span>
                 </div>
 
@@ -399,25 +464,33 @@ export default function DistrictDetailPage() {
                   <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
                     <Mail className="h-3.5 w-3.5 text-muted-foreground" /> Email Address:
                   </span>
-                  <a
-                    href={`mailto:${districtData.state.email}`}
-                    className="text-xs font-medium text-primary hover:underline text-right truncate max-w-[200px]"
-                    title={districtData.state.email}
-                  >
-                    {districtData.state.email}
-                  </a>
+                  {stateManagerEmail !== "—" ? (
+                    <a
+                      href={`mailto:${stateManagerEmail}`}
+                      className="text-xs font-medium text-primary hover:underline text-right truncate max-w-[200px]"
+                      title={stateManagerEmail}
+                    >
+                      {stateManagerEmail}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground text-right">—</span>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5 shrink-0">
                     <Phone className="h-3.5 w-3.5 text-muted-foreground" /> Phone Number:
                   </span>
-                  <a
-                    href={`tel:${districtData.state.phone}`}
-                    className="text-xs font-mono font-medium text-foreground hover:underline text-right"
-                  >
-                    {districtData.state.phone}
-                  </a>
+                  {stateManagerPhone !== "—" ? (
+                    <a
+                      href={`tel:${stateManagerPhone}`}
+                      className="text-xs font-mono font-medium text-foreground hover:underline text-right"
+                    >
+                      {stateManagerPhone}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground text-right">—</span>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -436,31 +509,34 @@ export default function DistrictDetailPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div className="space-y-1">
               <span className="text-[11px] font-medium text-muted-foreground">District ID</span>
-              <p className="text-xs font-mono font-semibold text-foreground">#{districtData.id}</p>
+              <p className="text-xs font-mono font-semibold text-foreground">#{district.id}</p>
             </div>
             <div className="space-y-1">
               <span className="text-[11px] font-medium text-muted-foreground">District Name</span>
-              <p className="text-xs font-semibold text-foreground">{districtData.name}</p>
+              <p className="text-xs font-semibold text-foreground">{district.name}</p>
             </div>
             <div className="space-y-1">
               <span className="text-[11px] font-medium text-muted-foreground">Operating State</span>
-              <p className="text-xs font-semibold text-foreground">{districtData.state.name}</p>
+              <p className="text-xs font-semibold text-foreground">
+                {stateName}
+                {stateSymbol}
+              </p>
             </div>
             <div className="space-y-1">
               <span className="text-[11px] font-medium text-muted-foreground">Parent Market</span>
-              <p className="text-xs font-semibold text-foreground">{districtData.market.name}</p>
+              <p className="text-xs font-semibold text-foreground">{marketName}</p>
             </div>
             <div className="space-y-1">
               <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
                 <Calendar className="h-3 w-3" /> Created At
               </span>
-              <p className="text-xs text-foreground">{formatDate(districtData.createdAt)}</p>
+              <p className="text-xs text-foreground">{formatDate(district.createdAt)}</p>
             </div>
             <div className="space-y-1">
               <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1">
                 <Clock className="h-3 w-3" /> Last Updated
               </span>
-              <p className="text-xs text-foreground">{formatDate(districtData.updatedAt)}</p>
+              <p className="text-xs text-foreground">{formatDate(district.updatedAt)}</p>
             </div>
             <div className="space-y-1">
               <span className="text-[11px] font-medium text-muted-foreground">Status</span>
@@ -468,9 +544,7 @@ export default function DistrictDetailPage() {
             </div>
             <div className="space-y-1">
               <span className="text-[11px] font-medium text-muted-foreground">Stores Count</span>
-              <p className="text-xs font-semibold text-foreground">
-                {districtData.stores.length} Stores
-              </p>
+              <p className="text-xs font-semibold text-foreground">{storeCount} Stores</p>
             </div>
           </div>
         </CardContent>
@@ -482,7 +556,7 @@ export default function DistrictDetailPage() {
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-base font-semibold">
               <Store className="h-4 w-4 text-purple-600 dark:text-purple-400" /> Associated Stores (
-              {districtData.stores.length})
+              {storeCount})
             </CardTitle>
             <Button
               variant="ghost"
@@ -495,33 +569,39 @@ export default function DistrictDetailPage() {
           </div>
         </CardHeader>
         <CardContent className="p-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {districtData.stores.map((store) => (
-              <div
-                key={store.id}
-                className="rounded-lg border border-border/50 bg-card p-3 space-y-1 hover:border-primary/40 transition-colors"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-xs text-foreground truncate">
-                    {store.name}
-                  </span>
-                  {store.number && (
-                    <Badge variant="outline" className="font-mono text-[10px] px-1 py-0">
-                      {store.number}
-                    </Badge>
+          {storesList.length === 0 ? (
+            <div className="py-8 text-center text-xs text-muted-foreground">
+              No stores currently associated with this district.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {storesList.map((store) => (
+                <div
+                  key={store.id}
+                  className="rounded-lg border border-border/50 bg-card p-3 space-y-1 hover:border-primary/40 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-xs text-foreground truncate">
+                      {store.name}
+                    </span>
+                    {store.number && (
+                      <Badge variant="outline" className="font-mono text-[10px] px-1 py-0">
+                        {store.number}
+                      </Badge>
+                    )}
+                  </div>
+                  {store.address && (
+                    <p className="text-[11px] text-muted-foreground truncate" title={store.address}>
+                      {store.address}
+                    </p>
+                  )}
+                  {store.phone && (
+                    <p className="text-[11px] text-muted-foreground font-mono">{store.phone}</p>
                   )}
                 </div>
-                {store.address && (
-                  <p className="text-[11px] text-muted-foreground truncate" title={store.address}>
-                    {store.address}
-                  </p>
-                )}
-                {store.phone && (
-                  <p className="text-[11px] text-muted-foreground font-mono">{store.phone}</p>
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
