@@ -261,9 +261,9 @@ export default function DistrictsPage() {
         name: formData.name.trim(),
         stateId: Number(formData.stateId),
         marketId:
-          typeof formData.marketId === "number"
-            ? formData.marketId
-            : Number(formData.marketId) || 1,
+          formData.marketId && formData.marketId !== "none" && Number(formData.marketId) > 0
+            ? Number(formData.marketId)
+            : undefined,
         managerId:
           formData.managerId && Number(formData.managerId) > 0 ? Number(formData.managerId) : null,
         manager: formData.manager?.trim() || undefined,
@@ -589,15 +589,7 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
   const initialUser = initial?.assignedUsers?.[0];
   const [name, setName] = useState(initial?.name ?? "");
   const [marketId, setMarketId] = useState<string>(
-    initial?.market?.id
-      ? initial.market.id.toString()
-      : initial?.id
-        ? initial.id % 3 === 1
-          ? "1"
-          : initial.id % 3 === 2
-            ? "2"
-            : "3"
-        : "1",
+    initial?.market?.id ? initial.market.id.toString() : "",
   );
   const [stateId, setStateId] = useState<string>(
     initial?.state?.id ? initial.state.id.toString() : "",
@@ -707,7 +699,12 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
     return states.filter((s) => s.name.toLowerCase().includes(stateSearch.toLowerCase()));
   }, [states, stateSearch]);
 
-  const [formMarkets, setFormMarkets] = useState<Market[]>([]);
+  const [formMarkets, setFormMarkets] = useState<Market[]>(() => {
+    if (initial?.market?.id && initial?.market?.name) {
+      return [{ id: initial.market.id, name: initial.market.name } as Market];
+    }
+    return [];
+  });
   const [loadingFormMarkets, setLoadingFormMarkets] = useState(false);
 
   useEffect(() => {
@@ -743,14 +740,8 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
     return formMarkets.filter((m) => m.name.toLowerCase().includes(marketSearch.toLowerCase()));
   }, [formMarkets, marketSearch]);
 
-  // All fields required check: name, market, state, manager, email, phone
-  const isFormValid =
-    Boolean(name.trim()) &&
-    Boolean(marketId) &&
-    Boolean(stateId) &&
-    Boolean(managerId || manager.trim()) &&
-    Boolean(email.trim()) &&
-    Boolean(phone.trim());
+  // District name and state are required; market, manager, email, phone are optional
+  const isFormValid = Boolean(name.trim()) && Boolean(stateId);
 
   return (
     <div className="space-y-4">
@@ -814,10 +805,10 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
         </Select>
       </div>
 
-      {/* 3. Market (Required) */}
+      {/* 3. Market (Optional) */}
       <div className="space-y-1.5">
         <Label>
-          Market <span className="text-destructive">*</span>
+          Market <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
         </Label>
         <Select
           value={marketId}
@@ -835,7 +826,7 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
                   ? "Select State First"
                   : loadingFormMarkets
                     ? "Loading markets..."
-                    : "Select associated market"
+                    : "Select associated market (optional)"
               }
             />
           </SelectTrigger>
@@ -856,28 +847,24 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
                 className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
               />
             </div>
-            {formMarketOptions.length === 0 ? (
-              <p className="text-[11px] text-center text-muted-foreground p-2">
-                {loadingFormMarkets ? "Loading..." : "No markets found"}
-              </p>
-            ) : (
-              formMarketOptions.map((m) => (
-                <SelectItem key={m.id} value={m.id.toString()}>
-                  {m.name}
-                </SelectItem>
-              ))
-            )}
+            <SelectItem value="none">No Market (None)</SelectItem>
+            {formMarketOptions.map((m) => (
+              <SelectItem key={m.id} value={m.id.toString()}>
+                {m.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
 
-      {/* 4. District Manager (Required - User Search API) */}
+      {/* 4. District Manager (Optional) */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <Label>
-            District Manager <span className="text-destructive">*</span>
+            District Manager{" "}
+            <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
           </Label>
-          {managerId ? (
+          {managerId || manager ? (
             <button
               type="button"
               onClick={handleRemoveManager}
@@ -889,12 +876,14 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
           ) : null}
         </div>
 
-        {managerId ? (
+        {managerId || manager ? (
           /* Selected Manager display card */
           <div className="flex items-center justify-between rounded-md border border-input bg-muted/40 px-3 py-2.5">
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-xs text-foreground truncate">{manager}</span>
+                <span className="font-semibold text-xs text-foreground truncate">
+                  {manager || "Assigned Manager"}
+                </span>
                 <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium px-1.5 py-0.5 rounded">
                   Assigned
                 </span>
@@ -965,34 +954,36 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
         )}
       </div>
 
-      {/* 5. Manager Email (Required - Auto-populated, Non-editable) */}
+      {/* 5. Manager Email (Optional) */}
       <div className="space-y-1.5">
         <Label>
-          Manager Email <span className="text-destructive">*</span>{" "}
-          <span className="text-xs text-muted-foreground font-normal">(Auto-populated)</span>
+          Manager Email{" "}
+          <span className="text-xs text-muted-foreground font-normal">
+            (Auto-populated / Optional)
+          </span>
         </Label>
         <Input
           type="email"
           value={email}
-          readOnly
-          tabIndex={-1}
-          placeholder="Auto-populated from manager selection"
-          className="bg-muted/50 text-muted-foreground cursor-not-allowed select-none"
+          disabled={isSaving}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Auto-populated or enter email"
         />
       </div>
 
-      {/* 6. Manager Phone (Required - Auto-populated, Non-editable) */}
+      {/* 6. Manager Phone (Optional) */}
       <div className="space-y-1.5">
         <Label>
-          Manager Phone <span className="text-destructive">*</span>{" "}
-          <span className="text-xs text-muted-foreground font-normal">(Auto-populated)</span>
+          Manager Phone{" "}
+          <span className="text-xs text-muted-foreground font-normal">
+            (Auto-populated / Optional)
+          </span>
         </Label>
         <Input
           value={phone}
-          readOnly
-          tabIndex={-1}
-          placeholder="Auto-populated from manager selection"
-          className="bg-muted/50 text-muted-foreground cursor-not-allowed select-none"
+          disabled={isSaving}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="Auto-populated or enter phone"
         />
       </div>
 
@@ -1000,10 +991,10 @@ function DistrictForm({ initial, states, isSaving, onSave }: DistrictFormProps) 
         className="w-full flex items-center justify-center gap-2 cursor-pointer"
         disabled={!isFormValid || isSaving}
         onClick={() => {
-          const selectedMarketObj = formMarketOptions.find((m) => m.id === marketId);
+          const selectedMarketObj = formMarketOptions.find((m) => m.id.toString() === marketId);
           onSave({
             name: name.trim(),
-            marketId: Number(marketId),
+            marketId: marketId && marketId !== "none" ? Number(marketId) : "",
             market: selectedMarketObj?.name,
             stateId: Number(stateId),
             managerId: managerId && Number(managerId) > 0 ? Number(managerId) : null,
