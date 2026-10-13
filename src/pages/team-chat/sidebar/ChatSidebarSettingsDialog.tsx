@@ -1,5 +1,13 @@
 import { useState, type ReactNode } from "react";
-import { Bell, Camera, Circle, MessageSquareText, Settings, UserRound, ShieldBan } from "lucide-react";
+import {
+  Bell,
+  Camera,
+  Circle,
+  MessageSquareText,
+  Settings,
+  UserRound,
+  ShieldBan,
+} from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +33,7 @@ interface Props {
   notificationPermission: string;
   notificationsEnabled: boolean;
   onAvatarPick?: () => void;
-  onUnblockUser?: (user: UserRecord) => void;
+  onUnblockUser?: (user: UserRecord | string) => void;
   onClose: () => void;
   onStatusPick: (status: string) => void;
   onTestNotification: () => void;
@@ -216,7 +224,11 @@ export default function ChatSidebarSettingsDialog({
         </div>
       </section>
       <section className={cardSurface}>
-        {sectionHeading(<ShieldBan className="h-4 w-4" />, "Blocked users", "Manage people you have blocked.")}
+        {sectionHeading(
+          <ShieldBan className="h-4 w-4" />,
+          "Blocked users",
+          "Manage people you have blocked.",
+        )}
         {blockedUsers.length === 0 ? (
           <p className="text-sm text-muted-foreground">No blocked users.</p>
         ) : (
@@ -224,9 +236,18 @@ export default function ChatSidebarSettingsDialog({
             {blockedUsers.map((user) => {
               const label = user.name || user.display_name || user.email || user.id;
               return (
-                <div key={user.id} className="flex items-center justify-between gap-3 rounded-lg border p-2">
+                <div
+                  key={user.id}
+                  className="flex items-center justify-between gap-3 rounded-lg border p-2"
+                >
                   <span className="truncate text-sm font-medium">{label}</span>
-                  <Button size="sm" variant="outline" onClick={() => onUnblockUser?.(String(user.id))}>Unblock</Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => onUnblockUser?.(String(user.id))}
+                  >
+                    Unblock
+                  </Button>
                 </div>
               );
             })}

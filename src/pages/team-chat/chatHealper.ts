@@ -18,20 +18,30 @@ export interface NormalizedMessage extends ChatRecord {
   authorId: string;
 }
 
+export const normalizePresence = (value: unknown): string => {
+  const status = String(value || "").trim().toLowerCase();
+  return status === "available" || status === "active"
+    ? "online"
+    : ["online", "away", "busy", "dnd", "offline"].includes(status)
+      ? status
+      : "online";
+};
 export const getArrayPayload = (payload: unknown): ChatRecord[] => {
   if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.buddies)) return payload.buddies;
-  if (Array.isArray(payload?.users)) return payload.users;
-  if (Array.isArray(payload?.contacts)) return payload.contacts;
-  if (Array.isArray(payload?.channels)) return payload.channels;
-  if (Array.isArray(payload?.groups)) return payload.groups;
-  if (Array.isArray(payload?.conversations)) return payload.conversations;
-  if (Array.isArray(payload?.chats)) return payload.chats;
-  if (Array.isArray(payload?.list)) return payload.list;
+  if (!payload || typeof payload !== "object") return [];
+  const record = payload as ChatRecord;
+  if (Array.isArray(record.data)) return record.data;
+  if (Array.isArray(record.buddies)) return record.buddies;
+  if (Array.isArray(record.users)) return record.users;
+  if (Array.isArray(record.contacts)) return record.contacts;
+  if (Array.isArray(record.channels)) return record.channels;
+  if (Array.isArray(record.groups)) return record.groups;
+  if (Array.isArray(record.conversations)) return record.conversations;
+  if (Array.isArray(record.chats)) return record.chats;
+  if (Array.isArray(record.list)) return record.list;
   return [];
 };
-
+// End of chat helper exports.
 export const getBuddyEmail = (buddy: ChatRecord | null | undefined): string =>
   buddy?.email ||
   buddy?.email_id ||
@@ -115,15 +125,16 @@ const pickStatusValue = (value: unknown): unknown => {
   if (typeof value === "boolean") return value ? "available" : "unavailable";
 
   if (typeof value === "object") {
+    const record = value as ChatRecord;
     return (
-      value.status ||
-      value.state ||
-      value.label ||
-      value.text ||
-      value.name ||
-      value.availability ||
-      value.presence ||
-      value.value ||
+      record.status ||
+      record.state ||
+      record.label ||
+      record.text ||
+      record.name ||
+      record.availability ||
+      record.presence ||
+      record.value ||
       ""
     );
   }
@@ -230,13 +241,14 @@ export const getUnreadCount = (item: ChatRecord | null | undefined): number => {
   return Number.isFinite(count) && count > 0 ? count : 0;
 };
 
-export const normalizeChatError = (error: ChatRecord | Error | null | undefined): string => {
-  const details = error?.response?.data?.details;
+export const normalizeChatError = (error: unknown): string => {
+  const record = error && typeof error === "object" ? (error as ChatRecord) : {};
+  const details = record.response?.data?.details;
   const detailText = typeof details === "string" ? details : details ? JSON.stringify(details) : "";
 
   return (
-    [error?.response?.data?.message, detailText].filter(Boolean).join(": ") ||
-    error?.message ||
+    [record.response?.data?.message, detailText].filter(Boolean).join(": ") ||
+    (error instanceof Error ? error.message : record.message) ||
     "Chat request failed."
   );
 };
@@ -381,7 +393,6 @@ export const formatMessageTime = (value: string | number | Date): string => {
     minute: "2-digit",
   }).format(date);
 };
-
 export const getMessageDayKey = (value: string | number | Date): string => {
   const date = parseChatDate(value);
   if (Number.isNaN(date.getTime())) return "";
@@ -396,7 +407,9 @@ export const formatMessageDateLabel = (value: string | number | Date): string =>
   const today = new Date();
   const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
   const startOfMessageDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const dayDifference = Math.round((startOfToday - startOfMessageDay) / (24 * 60 * 60 * 1000));
+  const dayDifference = Math.round(
+    (startOfToday.getTime() - startOfMessageDay.getTime()) / (24 * 60 * 60 * 1000),
+  );
 
   if (dayDifference === 0) return "Today";
   if (dayDifference === 1) return "Yesterday";
@@ -407,179 +420,4 @@ export const formatMessageDateLabel = (value: string | number | Date): string =>
     year: date.getFullYear() === today.getFullYear() ? undefined : "numeric",
   }).format(date);
 };
-
-const normalizeMessageReactions = (reactions = [], currentUserId = "") => {
-  const reactionsByEmoji = new Map();
-
-  reactions.forEach((reaction) => {
-    const emoji = reaction?.emoji;
-    if (!emoji) return;
-
-    const reactionUserId = String(
-      reaction?.userId ||
-        reaction?.user_id ||
-        reaction?.chatIdentityId ||
-        reaction?.chat_identity_id ||
-        "",
-    );
-    const existing = reactionsByEmoji.get(emoji) || {
-      emoji,
-      count: 0,
-      reacted: false,
-      users: [],
-    };
-
-    reactionsByEmoji.set(emoji, {
-      ...existing,
-      count: existing.count + (Number(reaction?.count) || 1),
-      reacted:
-        existing.reacted ||
-        Boolean(reaction?.reacted) ||
-        Boolean(currentUserId && reactionUserId === String(currentUserId)),
-      users: reactionUserId ? [...existing.users, reactionUserId] : existing.users,
-    });
-  });
-
-  return Array.from(reactionsByEmoji.values());
-};
-
-export const normalizeChatMessages = (payload, selectedChat) => {
-  const findMessages = (value, depth = 0): any[] => {
-    if (depth > 5 || value == null) return [];
-    if (Array.isArray(value)) return value;
-    if (typeof value !== "object") return [];
-    if (Array.isArray(value.messages)) return value.messages;
-    if (Array.isArray(value.items)) return value.items;
-    return findMessages(value.data, depth + 1);
-  };
-  const messages = findMessages(payload);
-  const selectedId = String(selectedChat?.id || "");
-  const currentUserId = String(selectedChat?.currentUserId || "");
-  const currentUserEmail = String(selectedChat?.currentUserEmail || "").toLowerCase();
-
-  return messages
-    .map((message, index) => {
-      const senderId = getMessageSenderId(message);
-      const text = getMessageText(message);
-      const attachments = getMessageAttachments(message);
-      const deletedAt = message?.deletedAt || message?.deleted_at || null;
-      const direction =
-        senderId && (currentUserId || currentUserEmail)
-          ? senderId === currentUserId || senderId.toLowerCase() === currentUserEmail
-            ? "outbound"
-            : "inbound"
-          : message?.direction ||
-            (senderId && selectedId && senderId === selectedId ? "inbound" : "outbound");
-
-      return {
-        id: message?.message_id || message?.id || `${getMessageTime(message)}-${index}`,
-        chatId: message?.chatId || message?.chat_id || message?.conversationId || null,
-        chat_id: message?.chat_id || message?.chatId || message?.conversationId || null,
-        text: deletedAt
-          ? "Message deleted"
-          : text || (attachments.length ? "" : "[Unsupported message]"),
-        sentAt: getMessageTime(message),
-        timestamp: formatMessageTime(getMessageTime(message)),
-        authorId: senderId,
-        authorName:
-          message?.sender?.name ||
-          message?.sender?.display_name ||
-          message?.sender?.displayName ||
-          message?.sender?.email ||
-          "Chat user",
-        authorAvatarUrl: getImageUrl(message?.sender),
-        direction,
-        deliveryStatus:
-          message?.deliveryStatus ||
-          message?.delivery_status ||
-          (direction === "outbound" ? "sent" : undefined),
-        reactions: normalizeMessageReactions(message?.reactions || [], currentUserId),
-        metadata:
-          message?.metadata ||
-          (message?.systemEventType === "group_member_added" ||
-          message?.systemEventType === "group_member_joined" ||
-          message?.systemEventType === "group_member_removed"
-            ? {
-                kind: message.systemEventType,
-                memberName:
-                  message.memberName ||
-                  message.member_name ||
-                  message.userName ||
-                  message.user_name,
-              }
-            :
-          (message?.callHistory ||
-          message?.call_history ||
-          message?.systemEventType === "call_history"
-            ? {
-                kind: "call_history",
-                callHistory: message.callHistory ||
-                  message.call_history || {
-                    callId: message.callId,
-                    type: message.callType,
-                    status: message.callStatus,
-                    startedAt: message.callStartedAt,
-                    endedAt: message.callEndedAt,
-                    durationSeconds: message.callDurationSeconds || 0,
-                  },
-              }
-            : message?.isPinned || message?.is_pinned
-              ? { pinned: true }
-              : {})),
-        mentions: message?.metadata?.mentions || message?.mentions || [],
-        replyTo: message?.replyTo || message?.reply_to || message?.replyToMessageId || null,
-        edited: Boolean(message?.metadata?.edited || message?.edited),
-        editedAt: message?.metadata?.editedAt || message?.editedAt || null,
-        deletedAt,
-        attachments,
-      };
-    })
-    .sort((first, second) => new Date(first.sentAt) - new Date(second.sentAt));
-};
-
-export const normalizeRealtimeMessage = (message, selectedChat) => {
-  const normalized = normalizeChatMessages([message], selectedChat);
-  return normalized[0] || null;
-};
-
-export const resolveLocalChatKey = ({
-  chatId,
-  channels = [],
-  buddies = [],
-  currentUserId = "",
-}) => {
-  const normalizedChatId = String(chatId || "");
-
-  const channelMatch = channels.find(
-    (channel) => String(getChannelId(channel)) === normalizedChatId,
-  );
-  if (channelMatch) {
-    return getChannelId(channelMatch);
-  }
-
-  const directConversation = channels.find((channel) => {
-    const conversationId = String(channel?.chat_id || channel?.chatId || channel?.id || "");
-    return (
-      conversationId === normalizedChatId &&
-      (channel?.isDirect || channel?.type === "direct" || channel?.conversationType === "direct")
-    );
-  });
-
-  if (directConversation?.participants?.length) {
-    const otherParticipant = directConversation.participants.find(
-      (participant) =>
-        String(participant?.id || participant?.user_id || "") !== String(currentUserId),
-    );
-
-    if (otherParticipant) {
-      return String(otherParticipant.id || otherParticipant.user_id || "");
-    }
-  }
-
-  const buddyMatch = buddies.find((buddy) => String(getBuddySendId(buddy)) === normalizedChatId);
-  if (buddyMatch) {
-    return getBuddySendId(buddyMatch);
-  }
-
-  return normalizedChatId;
-};
+// End of chat helper exports.

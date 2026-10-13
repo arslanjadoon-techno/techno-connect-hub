@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getMessageAttachments } from "./chatHealper";
+import { getMessageAttachments, type ChatAttachment } from "./chatHealper";
 import NotesDialog from "./sidebar/NotesDialog";
 
 export type ChatBodyView = "conversations" | "calls" | "media" | "notes";
@@ -19,7 +19,7 @@ export type ChatNote = {
   id: string | number;
   title?: string;
   body?: string;
-  reminderAt?: string;
+  reminderAt?: string | null;
   notifiedAt?: string;
   updatedAt?: string;
   createdAt?: string;
@@ -76,11 +76,12 @@ export default function ChatBodyPanels({
   const callMessages = libraryMessages.filter(
     (message) => message.metadata?.kind === "call_history" || message.callHistory,
   );
-  const mediaItems = libraryMessages.flatMap((message) =>
-    getMessageAttachments(message).map((file: ChatRecord) => ({
+  const mediaItems: Array<ChatAttachment & { message: ChatRecord }> = libraryMessages.flatMap(
+    (message: ChatRecord) =>
+      getMessageAttachments(message).map((file: ChatAttachment) => ({
       ...file,
       message,
-    })),
+      })),
   );
   const visualItems = mediaItems.filter((file) => {
     const type = String(file.contentType || file.content_type || file.mimeType || "").toLowerCase();

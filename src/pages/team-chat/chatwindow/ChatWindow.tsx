@@ -1,43 +1,18 @@
-import { useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent, type RefObject } from "react";
 import {
-  ArrowLeft,
-  AlertCircle,
-  Ban,
-  BellOff,
-  Bold,
-  CalendarDays,
-  Italic,
-  Mic,
-  MoreHorizontal,
-  Paperclip,
-  Search,
-  CheckCircle2,
-  Send,
-  Smile,
-  Trash2,
-  UsersRound,
-  X,
-} from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  getBuddyEmail,
-  getBuddyName,
-  getBuddySendId,
-  getChannelName,
-  getImageUrl,
-  getMessageDayKey,
-  formatMessageDateLabel,
-} from "../chatHealper";
-import { EmptyChatState, ReadyToSendState } from "./ChatWindowStates";
-import { ForwardMessageDialog, PinnedMessageBanner } from "./ChatWindowPanels";
-import EmojiPicker from "./EmojiPicker";
-import MessageRow from "./MessageRow";
-import ConversationMediaDialog from "./ConversationMediaDialog";
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type KeyboardEvent,
+  type RefObject,
+} from "react";
+import { getBuddyEmail, getBuddyName, getBuddySendId, getChannelName } from "../chatHealper";
+import { EmptyChatState } from "./ChatWindowStates";
+import { PinnedMessageBanner } from "./ChatWindowPanels";
 import InternalCallPanel from "../calls/InternalCallPanel";
-import ScheduleCallDialog from "../calls/ScheduleCallDialog";
-import GroupActions from "./GroupActions";
+import ChatWindowHeader from "./ChatWindowHeader";
+import ChatMessageList from "./ChatMessageList";
+import ChatComposerPanel from "./ChatComposerPanel";
 
 type ChatRecord = Record<string, any>;
 type MessageRecord = Record<string, any>;
@@ -164,7 +139,9 @@ export default function ChatWindow({
   const chatMenuRef = useRef<HTMLDivElement>(null);
   const [mediaDialogOpen, setMediaDialogOpen] = useState(false);
   const [scheduleCallOpen, setScheduleCallOpen] = useState(false);
-  const sendMessageIsSuccess = Boolean(sendError && /copied|unblocked|removed|saved|updated|success/i.test(sendError));
+  const sendMessageIsSuccess = Boolean(
+    sendError && /copied|unblocked|removed|saved|updated|success/i.test(sendError),
+  );
   const [messageSearchOpen, setMessageSearchOpen] = useState(false);
   const [messageSearchTerm, setMessageSearchTerm] = useState("");
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
@@ -289,10 +266,12 @@ export default function ChatWindow({
   const title = getChatTitle(selectedChat);
   const chatId = selectedChat.chatId || selectedChat.id;
   const isGroup = selectedChat.type === "channel";
-  const rawGroupMembers =
-    selectedChat.participants || selectedChat.members || selectedChat.raw?.participants || [];
-  const groupMembers = Array.from(
-    new Map(
+  const rawGroupMembers: ChatRecord[] = (selectedChat.participants ||
+    selectedChat.members ||
+    selectedChat.raw?.participants ||
+    []) as ChatRecord[];
+  const groupMembers: ChatRecord[] = Array.from(
+    new Map<string, ChatRecord>(
       rawGroupMembers.map((member: ChatRecord) => {
         const identity = String(
           getBuddyEmail(member) || getBuddySendId(member) || getBuddyName(member),
@@ -359,212 +338,48 @@ export default function ChatWindow({
 
   return (
     <section className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-background text-foreground">
-      <header className="relative flex min-h-16 items-center gap-3 border-b bg-card px-3 py-2">
-        {/* Scheduling temporarily disabled.
-        <Button size="icon" variant="ghost" title="Schedule call">
-          <CalendarDays />
-        </Button>
-        */}
-        <Button
-          size="icon"
-          variant="ghost"
-          className="md:hidden"
-          onClick={() => setSelectedChat?.(null)}
-        >
-          <ArrowLeft />
-        </Button>
-        <Avatar className="h-10 w-10 bg-primary/10 text-primary">
-          <AvatarImage src={getImageUrl(selectedChat)} />
-          <AvatarFallback>
-            {isGroup ? <UsersRound className="h-5 w-5" /> : title.charAt(0)}
-          </AvatarFallback>
-        </Avatar>
-        <div className="min-w-0 flex-1">
-          <h2 className="truncate font-bold">{title}</h2>
-          <p className="truncate text-xs text-muted-foreground">
-            {typingUser ? "typing…" : isGroup ? "Group conversation" : "Direct message"}
-          </p>
-        </div>
-        {/* Call controls temporarily disabled.
-        {onStartConversationCall && <>
-          <Button size="icon" variant="ghost" onClick={() => onStartConversationCall("audio")}><Phone /></Button>
-          <Button size="icon" variant="ghost" onClick={() => onStartConversationCall("video")}><Video /></Button>
-        </>}
-        */}
-        {messageSearchOpen ? (
-          <div className="flex h-9 w-[min(280px,calc(100vw-16px))] items-center rounded-lg border border-primary bg-primary/5 px-2 transition-all">
-            <Search className="mr-1.5 h-4 w-4 shrink-0 text-muted-foreground" />
-            <input
-              autoFocus
-              value={messageSearchTerm}
-              onChange={(event) => setMessageSearchTerm(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Escape") setMessageSearchOpen(false);
-              }}
-              placeholder="Search messages"
-              className="min-w-0 flex-1 bg-transparent py-1.5 text-[13px] outline-none"
-            />
-            <button
-              type="button"
-              aria-label="Close message search"
-              onClick={() => {
-                setMessageSearchOpen(false);
-                setMessageSearchTerm("");
-              }}
-              className="rounded p-1 hover:bg-accent"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
-        ) : (
-          <Button
-            size="icon"
-            variant="ghost"
-            title="Search messages"
-            onClick={() => {
-              setMessageSearchOpen(true);
-              onSearchMessages?.();
-            }}
-          >
-            <Search />
-          </Button>
-        )}
-        <Button
-          size="icon"
-          variant="ghost"
-          title="More chat options"
-          data-chat-menu-trigger
-          onClick={(event) => {
-            if (isGroup) {
-              setGroupMenuAnchor((anchor) => (anchor ? null : event.currentTarget));
-            } else setChatMenuOpen((open) => !open);
-            onOpenChatMenu?.();
-          }}
-        >
-          <MoreHorizontal />
-        </Button>
-        {chatMenuOpen && (
-          <div ref={chatMenuRef} className="absolute right-3 top-14 z-50 w-60 overflow-hidden rounded-2xl border bg-popover p-2 text-popover-foreground shadow-xl">
-            <button
-              type="button"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold hover:bg-accent"
-              onClick={() => {
-                setScheduleCallOpen(true);
-                setChatMenuOpen(false);
-                onScheduleCall?.();
-              }}
-            >
-              <CalendarDays className="h-4 w-4" />
-              Schedule a meeting
-            </button>
-            <button
-              type="button"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold hover:bg-accent"
-              onClick={() => {
-                setMediaDialogOpen(true);
-                setChatMenuOpen(false);
-              }}
-            >
-              <Paperclip className="h-4 w-4" /> Media, links &amp; files
-            </button>
-            <button
-              type="button"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-destructive hover:bg-destructive/10"
-              onClick={() => {
-                onClearChat?.();
-                setChatMenuOpen(false);
-              }}
-            >
-              <Trash2 className="h-4 w-4" />
-              Clear chat
-            </button>
-            <button
-              type="button"
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold hover:bg-accent"
-              onClick={() => {
-                onToggleGroupMute?.(selectedChat?.id);
-                setChatMenuOpen(false);
-              }}
-            >
-              <BellOff className="h-4 w-4" />
-              Mute notifications
-            </button>
-            {!isGroup && (
-              <button
-                type="button"
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-destructive hover:bg-destructive/10"
-                onClick={() => {
-                  handleBlockUser?.({ authorId: selectedChat?.id, sender: selectedChat });
-                  setChatMenuOpen(false);
-                }}
-              >
-                <Ban className="h-4 w-4" />
-                {selectedUserBlocked ? "Unblock user" : "Block user"}
-              </button>
-            )}
-          </div>
-        )}
-      </header>
-
-      {isGroup && (
-        <GroupActions
-          anchorEl={groupMenuAnchor}
-          currentUser={currentUser}
-          groupInfoOpen={groupInfoOpen}
-          groupMembers={groupMembers}
-          isGroupMuted={isGroupMuted}
-          isSamePerson={isSamePerson}
-          leaveConfirmOpen={leaveConfirmOpen}
-          onCloseInfo={() => setGroupInfoOpen(false)}
-          onCloseLeaveConfirm={() => setLeaveConfirmOpen(false)}
-          onCloseMenu={() => setGroupMenuAnchor(null)}
-          onLeaveGroup={onLeaveGroup}
-          onTransferOwnership={onTransferOwnership}
-          onRemoveMember={onRemoveGroupMember}
-          isGroupAdmin={isGroupAdmin}
-          onOpenInfo={() => setGroupInfoOpen(true)}
-          onOpenAddMembers={() => {
-            setGroupInfoOpen(false);
-            onOpenAddMembers?.();
-          }}
-          onOpenMedia={() => setMediaDialogOpen(true)}
-          onClearChat={onClearChat}
-          onOpenLeaveConfirm={() => setLeaveConfirmOpen(true)}
-          onToggleMute={() => onToggleGroupMute?.(selectedChat.id)}
-          open={Boolean(groupMenuAnchor)}
-          selectedChat={selectedChat}
-        />
-      )}
-
-      {messageSearchOpen && messageSearchTerm.trim() && (
-        <div className="absolute right-3 top-16 z-40 max-h-56 w-[min(320px,calc(100vw-24px))] overflow-y-auto rounded-lg border bg-popover p-1 shadow-lg">
-          {currentMessages
-            .filter((message) =>
-              String(message.text || "")
-                .toLowerCase()
-                .includes(messageSearchTerm.trim().toLowerCase()),
-            )
-            .map((message) => (
-              <button
-                key={message.id}
-                type="button"
-                className="block w-full truncate rounded px-3 py-2 text-left text-xs hover:bg-accent"
-                onClick={() => setMessageSearchOpen(false)}
-              >
-                {message.text || "Attachment"}
-              </button>
-            ))}
-          {currentMessages.every(
-            (message) =>
-              !String(message.text || "")
-                .toLowerCase()
-                .includes(messageSearchTerm.trim().toLowerCase()),
-          ) && (
-            <p className="px-3 py-3 text-center text-xs text-muted-foreground">No messages found</p>
-          )}
-        </div>
-      )}
-
+      <ChatWindowHeader
+        {...{
+          chatBoxRef,
+          chatMenuOpen,
+          chatMenuRef,
+          currentUser,
+          groupInfoOpen,
+          groupMembers,
+          groupMenuAnchor,
+          handleBlockUser,
+          isGroup,
+          isGroupAdmin,
+          isGroupMuted,
+          isSamePerson,
+          leaveConfirmOpen,
+          messageSearchOpen,
+          messageSearchTerm,
+          onClearChat,
+          onOpenAddMembers,
+          onOpenChatMenu,
+          onOpenMedia,
+          onLeaveGroup,
+          onRemoveGroupMember,
+          onScheduleCall,
+          onSearchMessages,
+          onToggleGroupMute,
+          onTransferOwnership,
+          selectedChat,
+          selectedUserBlocked,
+          setChatMenuOpen,
+          setGroupInfoOpen,
+          setGroupMenuAnchor,
+          setLeaveConfirmOpen,
+          setMediaDialogOpen,
+          setMessageSearchOpen,
+          setMessageSearchTerm,
+          setScheduleCallOpen,
+          setSelectedChat,
+          title,
+          typingUser,
+        }}
+      />
       {activeCall && (
         <InternalCallPanel
           activeCall={activeCall as any}
@@ -584,324 +399,82 @@ export default function ChatWindow({
           window.setTimeout(() => setHighlightedMessageId(null), 1400);
         }}
       />
-
-      <div
-        ref={chatBoxRef}
-        className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/20 px-1 pb-0 pt-2 sm:px-2 sm:pt-3"
-      >
-        {selectedMessageIds.length > 0 && (
-          <div className="sticky top-0 z-10 mb-2 flex items-center justify-between rounded-lg border bg-background px-3 py-2 text-xs shadow-sm">
-            <span>{selectedMessageIds.length} message(s) selected</span>
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => {
-                  const selected = currentMessages.filter((item) => selectedMessageIds.includes(String(item.id)));
-                  handleDeleteMessages?.(selected);
-                  setSelectedMessageIds([]);
-                }}
-              >Delete</Button>
-              <Button size="sm" variant="ghost" onClick={() => setSelectedMessageIds([])}>Cancel</Button>
-            </div>
-          </div>
-        )}
-        {hasOlderMessages && (
-          <div className="mb-3 text-center">
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={loadingOlderMessages}
-              onClick={onLoadOlderMessages}
-            >
-              {loadingOlderMessages ? "Loading…" : "Load older messages"}
-            </Button>
-          </div>
-        )}
-        {currentMessages.length === 0 ? (
-          <ReadyToSendState selectedChat={selectedChat as any} />
-        ) : (
-          currentMessages.map((message, index) => {
-            const replyId = message.replyToMessageId || message.replyTo || message.reply_to;
-            const repliedMessage =
-              message.repliedMessage ||
-              (replyId
-                ? currentMessages.find((candidate) => String(candidate.id) === String(replyId))
-                : null);
-            const dayKey = getMessageDayKey(message.sentAt || message.timestamp || Date.now());
-            const previous = currentMessages[index - 1];
-            const previousDayKey = previous
-              ? getMessageDayKey(previous.sentAt || previous.timestamp || Date.now())
-              : "";
-            const previousAuthor = previous?.authorId || previous?.sender?.id || previous?.senderId;
-            const currentAuthor = message.authorId || message.sender?.id || message.senderId;
-            const showGroupAvatar =
-              selectedChat.type !== "channel" ||
-              String(previousAuthor || "") !== String(currentAuthor || "");
-            return (
-              <div
-                key={message.id || `${dayKey}-${index}`}
-                data-message-id={message.id ? String(message.id) : undefined}
-                className={highlightedMessageId === String(message.id) ? "rounded-lg bg-primary/10 ring-2 ring-primary/40 transition-colors" : "transition-colors"}
-              >
-                {dayKey !== previousDayKey && (
-                  <div className="my-4 text-center text-[11px] font-medium text-muted-foreground">
-                    {formatMessageDateLabel(message.sentAt || message.timestamp || Date.now())}
-                  </div>
-                )}
-                <MessageRow
-                  authorName={message.authorName || getBuddyName(message.sender)}
-                  chatId={chatId}
-                  currentUser={currentUser}
-                  message={{
-                    ...message,
-                    authorAvatarUrl:
-                      message.authorAvatarUrl || getImageUrl(message.sender) || getImageUrl(selectedChat),
-                    repliedMessage: repliedMessage || message.repliedMessage,
-                  }}
-                  mentionableUsers={selectedChat.type === "channel" ? mentionableUsers : []}
-                  showAvatar={showGroupAvatar}
-                  messageInfoVersion={messageInfoVersions[String(message.id)] || 0}
-                  onCopy={handleCopyMessage}
-                  onDelete={handleDeleteMessages}
-                  onEdit={handleEditMessage}
-                  onForward={(item) => setActionsMessage(item)}
-                  onBlock={handleBlockUser}
-                  onPin={handlePinMessage}
-                  onReact={(item, emoji) => handleReaction?.(item.id, emoji)}
-                  onReply={handleReplyToMessage}
-                  selectionMode={selectedMessageIds.length > 0}
-                  selected={selectedMessageIds.includes(String(message.id))}
-                  onSelect={(selectedMessage) => {
-                    const id = String(selectedMessage.id);
-                    setSelectedMessageIds((previous) =>
-                      previous.includes(id) ? previous.filter((item) => item !== id) : [...previous, id],
-                    );
-                  }}
-                  onJumpToMessage={(messageId) => {
-                    const target = chatBoxRef?.current?.querySelector<HTMLElement>(
-                      `[data-message-id="${CSS.escape(messageId)}"]`,
-                    );
-                    target?.scrollIntoView({ behavior: "smooth", block: "center" });
-                    setHighlightedMessageId(messageId);
-                    window.setTimeout(() => setHighlightedMessageId(null), 1400);
-                  }}
-                  blocked={blockedUserIds.includes(String(message.authorId))}
-                  onOpenReactionPicker={(item, element) => {
-                    setEmojiTarget(item);
-                    setEmojiAnchor(element);
-                  }}
-                />
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {replyToMessage && (
-        <div className="flex items-center gap-2 border-t bg-muted/40 px-3 py-2 text-xs">
-          <span className="min-w-0 flex-1 truncate">
-            Replying to {replyToMessage.authorName || "message"}
-          </span>
-          <Button size="sm" variant="ghost" onClick={handleCancelComposerMode}>
-            Cancel
-          </Button>
-        </div>
-      )}
-      {editingMessage && (
-        <div className="flex items-center justify-between border-t bg-muted/40 px-3 py-2 text-xs">
-          <span>Editing message</span>
-          <Button size="sm" variant="ghost" onClick={handleCancelComposerMode}>
-            Cancel
-          </Button>
-        </div>
-      )}
-      {sendError && (
-        <div
-          role={sendMessageIsSuccess ? "status" : "alert"}
-          className={`flex items-center gap-2 border-t px-3 py-2 text-xs ${
-            sendMessageIsSuccess
-              ? "bg-muted/40 text-muted-foreground"
-              : "bg-destructive/5 text-destructive"
-          }`}
-        >
-          {sendMessageIsSuccess ? (
-            <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-          ) : (
-            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-          )}
-          <span className="min-w-0 break-words">{sendError}</span>
-        </div>
-      )}
-      <footer className="sticky bottom-0 z-10 shrink-0 border-t bg-card p-1.5">
-        <div className="overflow-hidden rounded-xl border bg-background">
-          <input ref={fileInputRef} type="file" multiple hidden onChange={handleFileUpload} />
-          {pendingFiles.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto px-3 pt-2">
-              {pendingFiles.map((file, index) => (
-                <button
-                  type="button"
-                  key={`${file.name}-${index}`}
-                  className="flex shrink-0 items-center gap-2 rounded-md border bg-background px-2 py-1 text-xs"
-                  onClick={() => removePendingFile?.(index)}
-                >
-                  {file.type.startsWith("audio/") ? (
-                    <audio
-                      controls
-                      preload="metadata"
-                      src={URL.createObjectURL(file)}
-                      className="h-8 max-w-[220px]"
-                      onClick={(event) => event.stopPropagation()}
-                      onKeyDown={(event) => event.stopPropagation()}
-                    />
-                  ) : file.type.startsWith("image/") ? (
-                    <img
-                      src={URL.createObjectURL(file)}
-                      alt=""
-                      className="h-8 w-8 rounded object-cover"
-                    />
-                  ) : null}
-                  <span className="max-w-[220px] truncate">{file.name}</span> ×
-                </button>
-              ))}
-            </div>
-          )}
-          {recording && (
-            <div className="flex items-center gap-2 border-b bg-destructive/5 px-3 py-2 text-xs font-medium text-destructive">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-destructive" />
-              Recording voice message… click the microphone to stop
-            </div>
-          )}
-          {mentionQuery !== null && (
-            <div className="max-h-48 overflow-y-auto border-b bg-popover p-1 shadow-sm">
-              {groupMembers
-                .filter((member) =>
-                  getBuddyName(member).toLowerCase().includes(mentionQuery.toLowerCase()),
-                )
-                .slice(0, 8)
-                .map((member) => (
-                  <button
-                    key={String(getBuddySendId(member) || getBuddyEmail(member))}
-                    type="button"
-                    className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      insertMention(member);
-                    }}
-                  >
-                    <span className="font-medium">{getBuddyName(member)}</span>
-                    <span className="ml-2 truncate text-xs text-muted-foreground">
-                      {getBuddyEmail(member)}
-                    </span>
-                  </button>
-                ))}
-            </div>
-          )}
-          <Textarea
-            ref={composerInputRef}
-            value={inputValue}
-            placeholder="Write a message…"
-            disabled={sending}
-            onChange={(event) =>
-              handleComposerChange(event.target.value, event.target.selectionStart || 0)
-            }
-            onKeyDown={onComposerKeyDown}
-            onBlur={() => onTyping?.(false)}
-            rows={1}
-            className="min-h-[42px] resize-none rounded-none border-0 px-3 py-2 text-sm shadow-none focus-visible:ring-0"
-          />
-          <div className="flex items-center justify-between border-t px-1.5 py-1">
-            <div className="flex items-center gap-0.5">
-              <Button
-                size="icon"
-                variant="ghost"
-                disabled={uploading || sending}
-                onClick={() => fileInputRef.current?.click()}
-                title="Attach file"
-              >
-                <Paperclip className="h-[18px] w-[18px]" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                title="Emoji"
-                disabled={sending}
-                onClick={(event) => setEmojiAnchor(event.currentTarget)}
-              >
-                <Smile className="h-[18px] w-[18px]" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                title="Bold"
-                disabled={sending}
-                onClick={() => applyTextFormat("**")}
-              >
-                <Bold className="h-[18px] w-[18px]" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                title="Italic"
-                disabled={sending}
-                onClick={() => applyTextFormat("*")}
-              >
-                <Italic className="h-[18px] w-[18px]" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={toggleRecording}
-                title={recording ? "Stop recording" : "Record voice message"}
-              >
-                <Mic className={`h-[18px] w-[18px] ${recording ? "text-destructive" : ""}`} />
-              </Button>
-            </div>
-            <Button
-              size="sm"
-              disabled={sending || (!inputValue.trim() && pendingFiles.length === 0)}
-              onClick={handleSend}
-              className="gap-1.5 px-4"
-            >
-              Send <Send className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-        <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
-          <span>{enterToSend ? "Enter sends" : "Ctrl+Enter sends"}</span>
-          <span>{pendingFiles.length > 0 ? `${pendingFiles.length} attachment(s)` : ""}</span>
-        </div>
-      </footer>
-      <EmojiPicker
-        anchorEl={emojiAnchor}
-        onClose={() => {
-          setEmojiAnchor(null);
-          setEmojiTarget(null);
-        }}
-        onSelect={(emoji) => {
-          if (emojiTarget?.id != null) handleReaction?.(emojiTarget.id, emoji);
-          else insertEmoji(emoji);
+      <ChatMessageList
+        {...{
+          blockedUserIds,
+          chatBoxRef,
+          chatId,
+          currentMessages,
+          currentUser,
+          handleBlockUser,
+          handleCopyMessage,
+          handleDeleteMessages,
+          handleEditMessage,
+          handleForwardMessage,
+          handlePinMessage,
+          handleReaction,
+          handleReplyToMessage,
+          hasOlderMessages,
+          highlightedMessageId,
+          loadingOlderMessages,
+          mentionableUsers,
+          messageInfoVersions,
+          messageSearchOpen,
+          messageSearchTerm,
+          onLoadOlderMessages,
+          selectedChat,
+          selectedMessageIds,
+          setActionsMessage,
+          setEmojiAnchor,
+          setEmojiTarget,
+          setHighlightedMessageId,
+          setMessageSearchOpen,
+          setSelectedMessageIds,
         }}
       />
-      <ConversationMediaDialog
-        messages={currentMessages}
-        open={mediaDialogOpen}
-        onClose={() => setMediaDialogOpen(false)}
-      />
-      <ScheduleCallDialog
-        currentUser={currentUser}
-        selectedChat={selectedChat}
-        open={scheduleCallOpen}
-        onClose={() => setScheduleCallOpen(false)}
-      />
-      <ForwardMessageDialog
-        availableChats={availableChats}
-        forwardMessage={actionsMessage}
-        selectedChat={selectedChat}
-        onClose={() => setActionsMessage(null)}
-        onForwardToChat={(target) => {
-          if (actionsMessage) handleForwardMessage?.(actionsMessage, target);
-          setActionsMessage(null);
+      <ChatComposerPanel
+        {...{
+          actionsMessage,
+          applyTextFormat,
+          availableChats,
+          composerInputRef,
+          currentMessages,
+          currentUser,
+          editingMessage,
+          emojiAnchor,
+          emojiTarget,
+          enterToSend,
+          fileInputRef,
+          groupMembers,
+          handleComposerChange,
+          handleFileUpload,
+          handleForwardMessage,
+          handleReaction,
+          handleSend,
+          inputValue,
+          insertEmoji,
+          insertMention,
+          mentionQuery,
+          onComposerKeyDown,
+          onTyping,
+          pendingFiles,
+          recording,
+          removePendingFile,
+          replyToMessage,
+          selectedChat,
+          sendError,
+          sendMessageIsSuccess,
+          sending,
+          setActionsMessage,
+          setEmojiAnchor,
+          setEmojiTarget,
+          setMediaDialogOpen,
+          setScheduleCallOpen,
+          scheduleCallOpen,
+          mediaDialogOpen,
+          toggleRecording,
+          uploading,
+          handleCancelComposerMode,
         }}
       />
     </section>

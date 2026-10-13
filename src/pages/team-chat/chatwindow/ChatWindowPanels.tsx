@@ -75,7 +75,11 @@ export function PinnedMessageBanner({
 }) {
   if (!latestPinnedMessage) return null;
   return (
-    <button type="button" onClick={onClick} className="sticky top-0 z-20 flex w-full items-center gap-2 border-b border-orange-200 bg-orange-50 px-5 py-2 text-left text-orange-900 shadow-sm hover:bg-orange-100 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-200 dark:hover:bg-orange-950/50">
+    <button
+      type="button"
+      onClick={onClick}
+      className="sticky top-0 z-20 flex w-full items-center gap-2 border-b border-orange-200 bg-orange-50 px-5 py-2 text-left text-orange-900 shadow-sm hover:bg-orange-100 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-200 dark:hover:bg-orange-950/50"
+    >
       <Pin className="h-4 w-4 shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-xs font-bold">Pinned message</p>

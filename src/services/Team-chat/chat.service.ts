@@ -253,32 +253,29 @@ export const sendDirectMessageService = async (
   text: string,
   options: ChatPayload = {},
 ) => {
-  const directResponse = await openDirectChatService(userId);
-  const data = directResponse.data?.data || directResponse.data || {};
-  const chatId =
-    data.chatId || data.chat_id || data.id || data.conversationId || data.conversation_id;
-
-  if (!chatId) {
-    throw new Error("Unable to create direct conversation");
-  }
-
-  const messageResponse = await api.post(
-    `/api/v1/chat/${encodeURIComponent(chatId)}/messages`,
+  const messageResponse: any = await api.post(
+    `/api/v1/chat/direct/${encodeURIComponent(userId)}/messages`,
     { text, ...options },
     getChatHeaders(),
   );
+  const result = messageResponse.data?.data || messageResponse.data || {};
+  const sentMessage = result.SentMessage || result.sentMessage || result.message || result;
+  const chatId =
+    result.ChatId || result.chatId || result.chat_id || result.conversationId || result.conversation_id;
 
-  // Keep the conversation id available to callers. The message endpoint
-  // returns the message, while the UI also needs the conversation id to
-  // refresh the message body after sending.
+  if (!chatId) throw new Error("Unable to create direct conversation");
+
+  // Keep the existing frontend response shape while using the combined
+  // backend endpoint, so optimistic reconciliation remains unchanged.
   return {
     ...messageResponse,
     data: {
       ...messageResponse.data,
       data: {
-        ...(messageResponse.data?.data || {}),
+        ...(sentMessage || {}),
         chatId,
         conversationId: chatId,
+        chat: result.Chat || result.chat,
       },
     },
   };

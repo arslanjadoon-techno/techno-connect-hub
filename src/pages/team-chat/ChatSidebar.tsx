@@ -35,7 +35,7 @@ interface ChatSidebarProps {
   onSelectBuddy: (item: ChatRecord) => void;
   onSelectChannel: (item: ChatRecord) => void;
   onStatusChange?: (status: string) => void;
-  onUnblockUser?: (userId: string) => void;
+  onUnblockUser?: (user: string | Record<string, any>) => void;
   searchTerm?: string;
   selectedChat?: ChatRecord | null;
   statusSaving?: boolean;

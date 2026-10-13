@@ -8,10 +8,42 @@ const getHubUrl = () => {
   return `${CHAT_API_BASE_URL}/hubs/chat?appName=chat&token=${token}`;
 };
 
+type RealtimeHandler = (payload?: any) => void;
+
+type RealtimeOptions = {
+  enabled?: boolean;
+  activeConversationId?: string | number | null;
+  onMessage?: RealtimeHandler;
+  onMessageAccepted?: RealtimeHandler;
+  onMessageFailed?: RealtimeHandler;
+  onReconnected?: RealtimeHandler;
+  onMessageUpdated?: RealtimeHandler;
+  onMessageDelivered?: RealtimeHandler;
+  onTyping?: RealtimeHandler;
+  onMessageRead?: RealtimeHandler;
+  onMemberRemoved?: RealtimeHandler;
+  onReactionAdded?: RealtimeHandler;
+  onPresence?: RealtimeHandler;
+  onAvatar?: RealtimeHandler;
+  onCallStarted?: RealtimeHandler;
+  onCallRinging?: RealtimeHandler;
+  onCallAccepted?: RealtimeHandler;
+  onCallDeclined?: RealtimeHandler;
+  onCallCancelled?: RealtimeHandler;
+  onCallEnded?: RealtimeHandler;
+  onCallMissed?: RealtimeHandler;
+  onCallPeerJoined?: RealtimeHandler;
+  onCallPeerLeft?: RealtimeHandler;
+  onCallSignal?: RealtimeHandler;
+};
+
 export function useChatRealtime({
   enabled = true,
   activeConversationId,
   onMessage,
+  onMessageAccepted,
+  onMessageFailed,
+  onReconnected,
   onMessageUpdated,
   onMessageDelivered,
   onTyping,
@@ -30,13 +62,16 @@ export function useChatRealtime({
   onCallPeerJoined,
   onCallPeerLeft,
   onCallSignal,
-}) {
-  const ref = useRef(null);
+}: RealtimeOptions) {
+  const ref = useRef<any>(null);
   const active = useRef(activeConversationId);
-  const handlers = useRef({});
+  const handlers = useRef<Partial<Record<string, RealtimeHandler>>>({});
   active.current = activeConversationId;
   handlers.current = {
     onMessage,
+    onMessageAccepted,
+    onMessageFailed,
+    onReconnected,
     onMessageUpdated,
     onMessageDelivered,
     onTyping,
@@ -70,6 +105,8 @@ export function useChatRealtime({
       .build();
     const events = {
       "message:new": "onMessage",
+      "message:accepted": "onMessageAccepted",
+      "message:failed": "onMessageFailed",
       "message:updated": "onMessageUpdated",
       "message:delivered": "onMessageDelivered",
       "typing:update": "onTyping",
@@ -99,11 +136,18 @@ export function useChatRealtime({
       "call:missed",
     ]);
     Object.entries(events).forEach(([event, handler]) =>
-      connection.on(event, (payload) =>
+      connection.on(event, (payload: any) =>
         handlers.current[handler]?.(lifecycleEvents.has(event) ? { call: payload } : payload),
       ),
     );
-    const methods = {
+    connection.onreconnected(async () => {
+      try {
+        if (active.current) await connection.invoke("JoinConversation", String(active.current));
+      } finally {
+        handlers.current.onReconnected?.();
+      }
+    });
+    const methods: Record<string, string> = {
       "join:conversation": "JoinConversation",
       "leave:conversation": "LeaveConversation",
       "typing:update": "TypingUpdate",
@@ -112,7 +156,7 @@ export function useChatRealtime({
       "call:signal": "CallSignal",
     };
     const compat = {
-      emit: (event, payload, acknowledge) => {
+      emit: (event: string, payload?: any, acknowledge?: RealtimeHandler) => {
         const method = methods[event];
         if (!method) return Promise.resolve({ ok: false });
         const promise = connection.invoke(method, payload);
@@ -122,12 +166,12 @@ export function useChatRealtime({
             .catch(() => acknowledge({ ok: false }));
         return promise;
       },
-      on: (event, handler) => {
+      on: (event: string, handler: RealtimeHandler) => {
         if (event === "connect") connection.onreconnected(handler);
         else if (event === "reconnected") connection.onreconnected(handler);
         else connection.on(event, handler);
       },
-      off: (event, handler) => {
+      off: (event: string, handler: RealtimeHandler) => {
         if (event === "connect" || event === "reconnected") connection.off("reconnected", handler);
         else connection.off(event, handler);
       },

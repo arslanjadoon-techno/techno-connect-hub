@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getBuddyEmail, getImageUrl } from "../chatHealper";
 import { createGoogleCalendarEvent } from "../googleCalendar";
-import type { CurrentUser, SelectedChat } from "./callTypes";
+import type { ChatParticipant, CurrentUser, SelectedChat } from "./callTypes";
 
 const DURATIONS = [15, 30, 45, 60, 90];
 const REMINDERS = [0, 5, 10, 15, 30, 60];
@@ -42,7 +42,7 @@ function getAttendeeEmails(
   const current = [user?.id, user?.userId, user?.user_id, user?.email]
     .map((v) => String(v || "").toLowerCase())
     .filter(Boolean);
-  return (chat.raw?.participants || [])
+  return ((chat.raw?.participants || []) as ChatParticipant[])
     .filter(
       (person) =>
         ![person.id, person.userId, person.user_id, getBuddyEmail(person)]

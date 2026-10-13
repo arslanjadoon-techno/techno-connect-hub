@@ -1,10 +1,21 @@
 const NOTIFICATIONS_ENABLED_KEY = "chat_notifications_enabled";
-let notificationAudioContext;
+let notificationAudioContext: AudioContext | null = null;
+
+type ChatNotificationOptions = {
+  title?: string;
+  body?: string;
+  icon?: string;
+  tag?: string;
+  onClick?: () => void;
+  url?: string;
+  preserveCall?: boolean;
+  requireInteraction?: boolean;
+};
 
 export const areChatNotificationsEnabled = () =>
   localStorage.getItem(NOTIFICATIONS_ENABLED_KEY) === "true";
 
-export const setChatNotificationsEnabled = (enabled) => {
+export const setChatNotificationsEnabled = (enabled: boolean) => {
   localStorage.setItem(NOTIFICATIONS_ENABLED_KEY, enabled ? "true" : "false");
 };
 
@@ -43,7 +54,7 @@ export const showChatNotification = ({
   url,
   preserveCall = false,
   requireInteraction = false,
-}) => {
+}: ChatNotificationOptions) => {
   if (!("Notification" in window)) return null;
   if (Notification.permission !== "granted") return null;
   if (!areChatNotificationsEnabled()) return null;
@@ -63,7 +74,7 @@ export const showChatNotification = ({
           data: { url: url || "/", preserveCall },
           silent: false,
           vibrate: [120, 60, 120],
-        }),
+        } as NotificationOptions),
       )
       .catch(() => {
         try {
@@ -74,7 +85,7 @@ export const showChatNotification = ({
             renotify: true,
             requireInteraction,
             silent: false,
-          });
+          } as NotificationOptions);
         } catch {
           return null;
         }
@@ -90,7 +101,7 @@ export const showChatNotification = ({
     data: { url: url || "/", preserveCall },
     silent: false,
     vibrate: [120, 60, 120],
-  });
+  } as NotificationOptions);
 
   notification.onclick = () => {
     window.focus();
@@ -105,7 +116,9 @@ export const playMessageNotificationSound = () => {
   if (!areChatNotificationsEnabled()) return;
 
   try {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextClass) return;
     notificationAudioContext ||= new AudioContextClass();
     const context = notificationAudioContext;
@@ -132,7 +145,9 @@ export const playCallNotificationSound = () => {
   if (!areChatNotificationsEnabled()) return;
 
   try {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioContextClass) return;
     notificationAudioContext ||= new AudioContextClass();
     const context = notificationAudioContext;

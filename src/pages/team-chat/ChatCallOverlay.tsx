@@ -2,6 +2,7 @@ import { Phone, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import InternalCallPanel from "./calls/InternalCallPanel";
+import type { ChatCall } from "./calls/callTypes";
 
 interface CallOverlayProps {
   activeCall: Record<string, any> | null;
@@ -27,7 +28,7 @@ export default function ChatCallOverlay({
         <Dialog open onOpenChange={() => undefined}>
           <DialogContent className="max-w-6xl overflow-hidden border-0 bg-slate-950 p-0">
             <InternalCallPanel
-              activeCall={activeCall}
+              activeCall={activeCall as ChatCall}
               modal
               onMinimize={onMinimize}
               onEnd={onEnd}

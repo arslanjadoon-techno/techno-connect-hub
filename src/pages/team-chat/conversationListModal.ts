@@ -6,9 +6,12 @@ import {
   getUnreadCount,
 } from "./chatHealper";
 
+type ChatRecord = Record<string, any>;
+type MessageMap = Record<string, ChatRecord[]>;
+
 const GENERIC_NAME = /^(chat\s*user|chatuser)$/i;
 
-const valuesFor = (item) =>
+const valuesFor = (item: ChatRecord) =>
   [
     getBuddySendId(item),
     getBuddyEmail(item),
@@ -23,10 +26,10 @@ const valuesFor = (item) =>
     .filter(Boolean)
     .map((value) => String(value).toLowerCase());
 
-const conversationId = (conversation) =>
+const conversationId = (conversation: ChatRecord | null | undefined) =>
   conversation?.chat_id || conversation?.chatId || conversation?.id || "";
 
-const activityTime = (conversation) => {
+const activityTime = (conversation: ChatRecord | null | undefined) => {
   const value =
     conversation?.lastMessage?.createdAt ||
     conversation?.lastMessage?.created_at ||
@@ -52,11 +55,19 @@ const toDirectRow = ({
   isCurrentUserRecord,
   getUnreadCount: unread,
   messagesByChat = {},
-}) => {
+}: {
+  buddy: ChatRecord;
+  conversation?: ChatRecord;
+  isCurrentUserRecord: (item: ChatRecord) => boolean;
+  getUnreadCount: (item: ChatRecord) => number;
+  messagesByChat?: MessageMap;
+}): ChatRecord => {
   const directId = conversationId(conversation) || buddy?.directConversationId || buddy?.chatId;
-  const cachedMessages = messagesByChat[directId] || messagesByChat[getBuddySendId(buddy)] || [];
+  const cachedMessages = messagesByChat[String(directId)] || messagesByChat[String(getBuddySendId(buddy))] || [];
   const cachedLastMessage = cachedMessages.at(-1);
-  const peer = conversation?.participants?.find((participant) => !isCurrentUserRecord(participant));
+  const peer = (conversation?.participants as ChatRecord[] | undefined)?.find(
+    (participant: ChatRecord) => !isCurrentUserRecord(participant),
+  );
   const sender = conversation?.lastMessage?.sender || conversation?.last_message?.sender;
   const displayName =
     [peer, sender, buddy]
@@ -115,12 +126,24 @@ export function buildConversationItems({
   currentUserEmail,
   isCurrentUserRecord,
   getUnreadCount: unread = getUnreadCount,
-}) {
+}: {
+  allVisibleBuddies: ChatRecord[];
+  visibleBuddies: ChatRecord[];
+  visibleDirectChannels: ChatRecord[];
+  visibleGroupChannels: ChatRecord[];
+  searchTerm: string;
+  selectedChat: ChatRecord | null;
+  messagesByChat: MessageMap;
+  currentUser: ChatRecord | null;
+  currentUserEmail: string;
+  isCurrentUserRecord: (item: ChatRecord) => boolean;
+  getUnreadCount?: (item: ChatRecord) => number;
+}): ChatRecord[] {
   const buddiesForList = searchTerm.trim() ? allVisibleBuddies : visibleBuddies;
   const directRows = buddiesForList.map((buddy) => {
     const buddyValues = valuesFor(buddy);
     const conversation = visibleDirectChannels.find((candidate) =>
-      (candidate?.participants || []).some((participant) =>
+      (candidate?.participants || []).some((participant: ChatRecord) =>
         valuesFor(participant).some((value) => buddyValues.includes(value)),
       ),
     );
@@ -136,7 +159,7 @@ export function buildConversationItems({
   if (!searchTerm.trim()) {
     visibleDirectChannels.forEach((channel) => {
       const peer = (channel.participants || []).find(
-        (participant) => !isCurrentUserRecord(participant),
+        (participant: ChatRecord) => !isCurrentUserRecord(participant),
       );
       if (!peer) return;
       const peerValues = valuesFor(peer);
@@ -174,7 +197,7 @@ export function buildConversationItems({
     });
   }
 
-  const items = [
+  const items: ChatRecord[] = [
     ...directRows,
     ...visibleGroupChannels.map((channel) => ({ ...channel, __conversationType: "channel" })),
   ];

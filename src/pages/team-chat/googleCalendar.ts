@@ -2,15 +2,42 @@ const GOOGLE_IDENTITY_SCRIPT = "https://accounts.google.com/gsi/client";
 const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
 const TOKEN_REFRESH_BUFFER_MS = 60_000;
 
+type GoogleTokenResponse = {
+  access_token?: string;
+  expires_in?: number;
+  error?: string;
+};
+
+type GoogleTokenClient = {
+  requestAccessToken: (options: { prompt: string }) => void;
+};
+
+declare global {
+  interface Window {
+    google?: {
+      accounts?: {
+        oauth2?: {
+          initTokenClient: (options: {
+            client_id: string;
+            scope: string;
+            callback: (response: GoogleTokenResponse) => void;
+            error_callback: () => void;
+          }) => GoogleTokenClient;
+        };
+      };
+    };
+  }
+}
+
 let googleAccessToken = "";
 let googleAccessTokenExpiresAt = 0;
-let googleIdentityScriptPromise;
+let googleIdentityScriptPromise: Promise<void> | null = null;
 
 function loadGoogleIdentityServices() {
   if (window.google?.accounts?.oauth2) return Promise.resolve();
   if (googleIdentityScriptPromise) return googleIdentityScriptPromise;
 
-  googleIdentityScriptPromise = new Promise((resolve, reject) => {
+  googleIdentityScriptPromise = new Promise<void>((resolve, reject) => {
     const script = document.createElement("script");
     script.src = GOOGLE_IDENTITY_SCRIPT;
     script.async = true;
@@ -44,12 +71,15 @@ async function getGoogleAccessToken({ forceAccountSelection = false } = {}) {
   }
 
   await loadGoogleIdentityServices();
+  const google = window.google;
+  const oauth2 = google?.accounts?.oauth2;
+  if (!oauth2) throw new Error("Google sign-in could not be loaded.");
 
   return new Promise((resolve, reject) => {
-    const tokenClient = window.google.accounts.oauth2.initTokenClient({
+    const tokenClient = oauth2.initTokenClient({
       client_id: clientId,
       scope: CALENDAR_SCOPE,
-      callback: (response) => {
+      callback: (response: GoogleTokenResponse) => {
         if (response?.error || !response?.access_token) {
           reject(new Error(response?.error || "Google Calendar access was declined."));
           return;
@@ -70,7 +100,7 @@ async function getGoogleAccessToken({ forceAccountSelection = false } = {}) {
   });
 }
 
-function getCalendarErrorMessage(payload) {
+function getCalendarErrorMessage(payload: any) {
   return (
     payload?.error?.message ||
     payload?.error_description ||
@@ -84,6 +114,12 @@ export async function createGoogleCalendarEvent({
   reminderMinutes,
   startDateTime,
   title,
+}: {
+  attendeeEmails?: string[];
+  durationMinutes: number;
+  reminderMinutes: number;
+  startDateTime: string;
+  title: string;
 }) {
   const start = new Date(startDateTime);
   const duration = Number(durationMinutes);
@@ -102,7 +138,13 @@ export async function createGoogleCalendarEvent({
     .map((email) => ({ email }));
   const token = await getGoogleAccessToken({ forceAccountSelection: true });
   const end = new Date(start.getTime() + duration * 60_000);
-  const event = {
+  const event: {
+    summary: string;
+    start: { dateTime: string; timeZone: string };
+    end: { dateTime: string; timeZone: string };
+    reminders: { useDefault: boolean; overrides: { method: string; minutes: number }[] };
+    attendees?: { email: string }[];
+  } = {
     summary: String(title || "Scheduled call").trim() || "Scheduled call",
     start: { dateTime: start.toISOString(), timeZone },
     end: { dateTime: end.toISOString(), timeZone },

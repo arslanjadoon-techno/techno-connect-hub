@@ -1,21 +1,12 @@
 import { useRef, useState } from "react";
-import {
-  Check,
-  CheckCheck,
-  Download,
-  Eye,
-  FileText,
-  Info,
-  Music2,
-  Pin,
-  Phone,
-  Video,
-} from "lucide-react";
+import { Check, CheckCheck, Eye, Info, Pin, Phone, Video } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getChatMessageInfoService } from "@/services/Team-chat/chat.service";
-import { downloadAttachment, getBuddyName, getImageUrl, parseChatDate } from "../chatHealper";
+import { getBuddyName, getImageUrl } from "../chatHealper";
+import MessageAttachments from "./MessageAttachments";
+import MessageText from "./MessageText";
 import MessageActions from "./MessageActions";
 
 type RecordValue = Record<string, any>;
@@ -42,79 +33,6 @@ interface MessageRowProps {
   onOpenReactionPicker?: (message: RecordValue, element: HTMLElement) => void;
   onSelect?: (message: RecordValue) => void;
 }
-const URL_PATTERN = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
-const FORMAT_PATTERN = /(\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_)/g;
-const formatFileSize = (bytes: number) => {
-  const size = Number(bytes);
-  if (!Number.isFinite(size) || size <= 0) return "";
-  if (size < 1024) return `${size} B`;
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-};
-
-function MessageText({
-  text,
-  mentionableUsers = [],
-}: {
-  text: string;
-  mentionableUsers?: RecordValue[];
-}) {
-  const labels = mentionableUsers.map((user) => getBuddyName(user)).filter(Boolean);
-  const escapedLabels = labels.map((label) => String(label).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  const mentionPattern = escapedLabels.length
-    ? new RegExp("(@(?:" + escapedLabels.join("|") + "))(?=\\s|$|[.,!?;:])", "g")
-    : null;
-  return (
-    <>
-      {String(text || "")
-        .split(FORMAT_PATTERN)
-        .map((part, index) => {
-          if (/^\*\*[^*\n]+\*\*$/.test(part) || /^__[^_\n]+__$/.test(part)) {
-            return (
-              <strong key={index}>
-                <MessageText text={part.slice(2, -2)} mentionableUsers={mentionableUsers} />
-              </strong>
-            );
-          }
-          if (/^\*[^*\n]+\*$/.test(part) || /^_[^_\n]+_$/.test(part)) {
-            return (
-              <em key={index}>
-                <MessageText text={part.slice(1, -1)} mentionableUsers={mentionableUsers} />
-              </em>
-            );
-          }
-          const formatted = mentionPattern ? part.split(mentionPattern) : [part];
-          return formatted.flatMap((mentionPart, mentionIndex) =>
-            mentionIndex % 2
-              ? [
-                  <span
-                    key={`${index}-mention-${mentionIndex}`}
-                    className="font-semibold text-primary"
-                  >
-                    {mentionPart}
-                  </span>,
-                ]
-              : mentionPart.split(URL_PATTERN).map((urlPart, urlIndex) =>
-                  urlIndex % 2 ? (
-                    <a
-                      key={`${index}-${urlIndex}`}
-                      href={urlPart.startsWith("www.") ? `https://${urlPart}` : urlPart}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-primary underline-offset-2 hover:underline"
-                    >
-                      {urlPart}
-                    </a>
-                  ) : (
-                    <span key={`${index}-${mentionIndex}-${urlIndex}`}>{urlPart}</span>
-                  ),
-                ),
-          );
-        })}
-    </>
-  );
-}
-
 export default function MessageRow({
   authorName = "Chat user",
   chatId,
@@ -223,20 +141,22 @@ export default function MessageRow({
         ) : (
           <div className="w-8 shrink-0" />
         )}
+        {isMe && (
+          <button
+            type="button"
+            aria-label="Message actions"
+            className="self-center flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/95 p-1 text-muted-foreground shadow-sm shadow-black/10 transition-[opacity,box-shadow,transform] hover:scale-105 hover:shadow-md hover:shadow-black/15 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:focus-visible:opacity-100"
+            onClick={(event) => setActionsAnchor(event.currentTarget)}
+          >
+            <Info className="h-3 w-3" />
+          </button>
+        )}
         <div
           className={`flex min-w-0 max-w-[min(82%,520px)] flex-col sm:max-w-[72%] md:max-w-[62%] ${isMe ? "items-end" : "items-start"}`}
         >
           <div
             className={`relative max-w-full rounded-[8px] px-2 py-1 text-[13px] leading-[1.25] shadow-sm [overflow-wrap:anywhere] ${isMe ? "rounded-br-[3px] bg-muted/50 text-foreground" : "rounded-bl-[3px] bg-background text-foreground"}`}
           >
-            <button
-              type="button"
-              aria-label="Message actions"
-              className="absolute -top-3 right-1 rounded-full border bg-background p-1 text-muted-foreground transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:focus-visible:opacity-100"
-              onClick={(event) => setActionsAnchor(event.currentTarget)}
-            >
-              <Info className="h-3 w-3" />
-            </button>
             {!isMe && showAvatar && (
               <p className="mb-0.5 text-[11.5px] font-bold text-primary">{name}</p>
             )}
@@ -293,123 +213,7 @@ export default function MessageRow({
             ) : (
               <></>
             )}
-            {attachments.map((file: RecordValue, index: number) => {
-              const type = String(file.contentType || "").toLowerCase();
-              const fileName = String(file.name || "Attachment");
-              const fileKind =
-                type.split("/").pop()?.toUpperCase() ||
-                fileName.split(".").pop()?.toUpperCase() ||
-                "FILE";
-              const fileSize = formatFileSize(file.size);
-              const sharedAt = message.sentAt || message.timestamp;
-              const sharedLabel = sharedAt
-                ? parseChatDate(sharedAt).toLocaleTimeString([], {
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })
-                : "";
-              const fileUrl =
-                file.url ||
-                file.downloadUrl ||
-                file.download_url ||
-                file.fileUrl ||
-                file.file_url ||
-                file.publicUrl ||
-                file.public_url ||
-                "";
-              const image =
-                type.startsWith("image/") ||
-                /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(file.name || "");
-              const audio =
-                type.startsWith("audio/") || /\.(webm|mp3|wav|ogg|m4a)$/i.test(file.name || "");
-              if (image && fileUrl)
-                return (
-                  <div
-                    key={file.id || index}
-                    className="mt-2 max-w-[280px] overflow-hidden rounded-2xl border border-border/70 bg-background"
-                  >
-                    <img
-                      src={fileUrl}
-                      alt={file.name || "Shared image"}
-                      className="max-h-[240px] w-full object-cover transition-transform hover:scale-[1.02]"
-                    />
-                    <div className="flex items-center gap-2 border-t bg-muted/30 px-3 py-2">
-                      <span
-                        className="min-w-0 flex-1 truncate text-xs text-muted-foreground"
-                        title={fileName}
-                      >
-                        {fileName}
-                        <span className="ml-2 text-[10px]">
-                          {fileKind}
-                          {fileSize ? ` · ${fileSize}` : ""}
-                          {sharedLabel ? ` · ${sharedLabel}` : ""}
-                        </span>
-                      </span>
-                      <a
-                        href={fileUrl}
-                        onClick={(event) => downloadAttachment(event.nativeEvent, file)}
-                        className="rounded-md p-1 text-primary transition-colors hover:bg-primary/10"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                      </a>
-                    </div>
-                  </div>
-                );
-              if (audio && fileUrl)
-                return (
-                  <div key={file.id || index} className="mt-1 w-full max-w-[360px] p-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                        <Music2 className="h-3.5 w-3.5" />
-                      </span>
-                      <audio
-                        controls
-                        preload="metadata"
-                        src={fileUrl}
-                        className="h-8 min-w-0 flex-1"
-                      />
-                    </div>
-                    <div className="mt-0.5 flex items-center justify-between pl-9 text-[9px] text-muted-foreground">
-                      <span className="max-w-[170px] truncate" title={fileName}>
-                        {fileName}
-                      </span>
-                      <span>
-                        {fileSize || fileKind}
-                        {sharedLabel ? ` · ${sharedLabel}` : ""}
-                      </span>
-                    </div>
-                  </div>
-                );
-              return (
-                <div
-                  key={file.id || index}
-                  className="mt-2 flex min-w-0 items-center gap-3 rounded-xl border border-border/70 bg-background/70 p-3 text-foreground transition-colors hover:bg-background"
-                >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <FileText className="h-4 w-4" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-semibold" title={fileName}>
-                      {fileName}
-                    </span>
-                    <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-muted-foreground">
-                      <span>{fileKind}</span>
-                      {fileSize && <span>{fileSize}</span>}
-                      {sharedLabel && <span>Shared {sharedLabel}</span>}
-                    </span>
-                  </span>
-                  {fileUrl && (
-                    <a
-                      href={fileUrl}
-                      onClick={(event) => downloadAttachment(event.nativeEvent, file)}
-                      className="rounded-md p-1.5 text-primary transition-colors hover:bg-primary/10"
-                    >
-                      <Download className="h-4 w-4" />
-                    </a>
-                  )}
-                </div>
-              );
-            })}
+            <MessageAttachments attachments={attachments} message={message} />
             {!callHistory &&
               message.text &&
               message.text !== "[Attachment]" &&
@@ -454,6 +258,16 @@ export default function MessageRow({
             </div>
           )}
         </div>
+        {!isMe && (
+          <button
+            type="button"
+            aria-label="Message actions"
+            className="self-center flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border/70 bg-background/95 p-1 text-muted-foreground shadow-sm shadow-black/10 transition-[opacity,box-shadow,transform] hover:scale-105 hover:shadow-md hover:shadow-black/15 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:focus-visible:opacity-100"
+            onClick={(event) => setActionsAnchor(event.currentTarget)}
+          >
+            <Info className="h-3 w-3" />
+          </button>
+        )}
       </div>
       <MessageActions
         anchorEl={actionsAnchor}
@@ -497,7 +311,7 @@ export default function MessageRow({
             </div>
           </DialogHeader>
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading delivery details…</p>
+            <p className="text-sm text-muted-foreground">Loading delivery detailsâ€¦</p>
           ) : infoData?.error ? (
             <p className="text-sm text-destructive">{infoData.error}</p>
           ) : (
@@ -545,7 +359,7 @@ export default function MessageRow({
                           <div className="min-w-0 flex-1">
                             <p className="truncate font-semibold">{recipientName}</p>
                             <p className="text-sm text-muted-foreground">
-                              {read ? "Read" : "Delivered"} ·{" "}
+                              {read ? "Read" : "Delivered"} Â·{" "}
                               {new Date(
                                 read ? recipient.readAt : recipient.deliveredAt,
                               ).toLocaleString()}
@@ -562,7 +376,7 @@ export default function MessageRow({
                         {deliveredRecipients.length > 0 && (
                           <section>
                             <p className="mb-2 font-bold">
-                              ✓ Delivered to{" "}
+                              âœ“ Delivered to{" "}
                               <span className="font-normal text-muted-foreground">
                                 {deliveredRecipients.length}
                               </span>
@@ -575,7 +389,7 @@ export default function MessageRow({
                         {readRecipients.length > 0 && (
                           <section>
                             <p className="mb-2 font-bold text-blue-500">
-                              ✓✓ Read by{" "}
+                              âœ“âœ“ Read by{" "}
                               <span className="font-normal text-muted-foreground">
                                 {readRecipients.length}
                               </span>

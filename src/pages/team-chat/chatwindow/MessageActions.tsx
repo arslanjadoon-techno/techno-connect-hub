@@ -147,7 +147,13 @@ export default function MessageActions({
               onClick={() => run(callbacks[key])}
             >
               <Icon className="h-4 w-4 text-muted-foreground" />
-            <span>{key === "pin" && message.metadata?.pinned ? "Unpin" : key === "delete" ? "Delete for everyone" : label}</span>
+              <span>
+                {key === "pin" && message.metadata?.pinned
+                  ? "Unpin"
+                  : key === "delete"
+                    ? "Delete for everyone"
+                    : label}
+              </span>
             </button>
           ))}
         {isMe && (
