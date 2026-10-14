@@ -116,8 +116,8 @@ export function useChatRealtime({
         // NOTE: with skipNegotiation there is no fallback, so the server and any proxy or
         // load balancer in front of it must allow WebSockets. If that cannot be guaranteed,
         // remove `skipNegotiation` and keep only `transport`.
-        skipNegotiation: true,
-        transport: HttpTransportType.WebSockets,
+        // skipNegotiation: true,
+        // transport: HttpTransportType.WebSockets,
         // Authenticate SignalR with the Bearer token, not cookies.
         withCredentials: false,
       })
