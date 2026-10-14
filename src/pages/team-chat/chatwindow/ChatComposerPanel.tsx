@@ -6,6 +6,8 @@ import ConversationMediaDialog from "./ConversationMediaDialog";
 import ScheduleCallDialog from "../calls/ScheduleCallDialog";
 import { ForwardMessageDialog } from "./ChatWindowPanels";
 import { getBuddyEmail, getBuddyName, getBuddySendId } from "../chatHealper";
+import { AttachmentPreview } from "./AttachmentPreview";
+import { useMemo } from "react";
 
 export default function ChatComposerPanel(props: Record<string, any>) {
   const {
@@ -50,6 +52,62 @@ export default function ChatComposerPanel(props: Record<string, any>) {
     setMediaDialogOpen,
     handleCancelComposerMode,
   } = props;
+
+  const mentionCandidates = useMemo(() => {
+    if (selectedChat?.type !== "channel" && selectedChat?.type !== "group") {
+      return [];
+    }
+
+    const currentIds = new Set(
+      [
+        currentUser?.id,
+        currentUser?.userId,
+        currentUser?.user_id,
+        currentUser?.appUserId,
+        currentUser?.app_user_id,
+      ]
+        .filter((id) => id != null && id !== "")
+        .map((id) => String(id).toLowerCase()),
+    );
+
+    const currentEmail = String(currentUser?.email ?? currentUser?.email_id ?? "")
+      .trim()
+      .toLowerCase();
+
+    return groupMembers.map((member: any) => {
+      const memberIds = [
+        member.id,
+        member.userId,
+        member.user_id,
+        member.appUserId,
+        member.app_user_id,
+      ]
+        .filter((id) => id != null && id !== "")
+        .map((id) => String(id).toLowerCase());
+
+      const email = String(getBuddyEmail(member) ?? "")
+        .trim()
+        .toLowerCase();
+
+      const name = String(getBuddyName(member) || "");
+
+      const isSelf =
+        memberIds.some((id: string) => currentIds.has(id)) ||
+        (!!currentEmail && currentEmail === email);
+
+      return { member, email, name, isSelf };
+    });
+  }, [groupMembers, currentUser, selectedChat?.type]);
+
+  const filteredMentionMembers = useMemo(() => {
+    if (mentionQuery === null) return [];
+
+    const query = mentionQuery.toLowerCase();
+
+    return mentionCandidates
+      .filter(({ name, isSelf }) => !isSelf && name.toLowerCase().includes(query))
+      .slice(0, 8);
+  }, [mentionCandidates, mentionQuery]);
 
   return (
     <>
@@ -96,21 +154,7 @@ export default function ChatComposerPanel(props: Record<string, any>) {
                   className="flex shrink-0 items-center gap-2 rounded-md border bg-background px-2 py-1 text-xs"
                   onClick={() => removePendingFile?.(index)}
                 >
-                  {file.type.startsWith("audio/") ? (
-                    <audio
-                      controls
-                      preload="metadata"
-                      src={URL.createObjectURL(file)}
-                      className="h-8 max-w-[220px]"
-                      onClick={(event) => event.stopPropagation()}
-                    />
-                  ) : file.type.startsWith("image/") ? (
-                    <img
-                      src={URL.createObjectURL(file)}
-                      alt=""
-                      className="h-8 w-8 rounded object-cover"
-                    />
-                  ) : null}
+                  <AttachmentPreview file={file} />
                   <span className="max-w-[220px] truncate">{file.name}</span> ×
                 </button>
               ))}
@@ -122,31 +166,28 @@ export default function ChatComposerPanel(props: Record<string, any>) {
               Recording voice message… click the microphone to stop
             </div>
           )}
+
           {mentionQuery !== null && (
             <div className="max-h-48 overflow-y-auto border-b bg-popover p-1 shadow-sm">
-              {(selectedChat?.type === "channel" ? groupMembers : [])
-                .filter((member: any) =>
-                  getBuddyName(member).toLowerCase().includes(mentionQuery.toLowerCase()),
-                )
-                .slice(0, 8)
-                .map((member: any) => (
-                  <button
-                    key={String(getBuddySendId(member) || getBuddyEmail(member))}
-                    type="button"
-                    className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
-                    onMouseDown={(event) => {
-                      event.preventDefault();
-                      insertMention(member);
-                    }}
-                  >
-                    <span className="font-medium">{getBuddyName(member)}</span>
-                    <span className="ml-2 truncate text-xs text-muted-foreground">
-                      {getBuddyEmail(member)}
-                    </span>
-                  </button>
-                ))}
+              {filteredMentionMembers.map(({ member, email, name }) => (
+                <button
+                  key={String(getBuddySendId(member) || email)}
+                  type="button"
+                  className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    insertMention(member);
+                  }}
+                >
+                  <span className="font-medium">{name}</span>
+                  <span className="ml-2 truncate text-xs text-muted-foreground">
+                    {getBuddyEmail(member)}
+                  </span>
+                </button>
+              ))}
             </div>
           )}
+
           <Textarea
             ref={composerInputRef}
             value={inputValue}
@@ -211,8 +252,8 @@ export default function ChatComposerPanel(props: Record<string, any>) {
               size="sm"
               disabled={Boolean(
                 uploading ||
-                  (editingMessage && sending) ||
-                  (!inputValue.trim() && pendingFiles.length === 0),
+                (editingMessage && sending) ||
+                (!inputValue.trim() && pendingFiles.length === 0),
               )}
               onClick={handleSend}
               className="gap-1.5 px-4"

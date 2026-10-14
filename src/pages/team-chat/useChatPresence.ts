@@ -21,7 +21,10 @@ export function useChatPresence({
       const response: any = await updateChatStatusService(normalizedPresence);
       const savedUser = response.data?.data || response.data || {};
       setProfileUser((previous: any) => ({
-        ...(previous || {}), ...savedUser, presence: normalizedPresence, status: normalizedPresence,
+        ...(previous || {}),
+        ...savedUser,
+        presence: normalizedPresence,
+        status: normalizedPresence,
       }));
       if (selectedChat?.type === "channel") {
         clearUnreadForChat({ chatId: selectedChat.id });

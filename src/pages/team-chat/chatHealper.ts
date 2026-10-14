@@ -19,7 +19,9 @@ export interface NormalizedMessage extends ChatRecord {
 }
 
 export const normalizePresence = (value: unknown): string => {
-  const status = String(value || "").trim().toLowerCase();
+  const status = String(value || "")
+    .trim()
+    .toLowerCase();
   return status === "available" || status === "active"
     ? "online"
     : ["online", "away", "busy", "dnd", "offline"].includes(status)

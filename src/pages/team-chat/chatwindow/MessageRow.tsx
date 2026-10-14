@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { memo, useRef, useState } from "react";
 import { Check, CheckCheck, Eye, Info, Pin, Phone, Video } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -33,13 +33,12 @@ interface MessageRowProps {
   onOpenReactionPicker?: (message: RecordValue, element: HTMLElement) => void;
   onSelect?: (message: RecordValue) => void;
 }
-export default function MessageRow({
+function MessageRow({
   authorName = "Chat user",
   chatId,
   currentUser,
   message,
   mentionableUsers = [],
-  messageInfoVersion = 0,
   blocked = false,
   selected = false,
   selectionMode = false,
@@ -376,7 +375,7 @@ export default function MessageRow({
                         {deliveredRecipients.length > 0 && (
                           <section>
                             <p className="mb-2 font-bold">
-                              âœ“ Delivered to{" "}
+                              Delivered to{" "}
                               <span className="font-normal text-muted-foreground">
                                 {deliveredRecipients.length}
                               </span>
@@ -389,7 +388,7 @@ export default function MessageRow({
                         {readRecipients.length > 0 && (
                           <section>
                             <p className="mb-2 font-bold text-blue-500">
-                              âœ“âœ“ Read by{" "}
+                              Read by{" "}
                               <span className="font-normal text-muted-foreground">
                                 {readRecipients.length}
                               </span>
@@ -414,3 +413,4 @@ export default function MessageRow({
     </>
   );
 }
+export default memo(MessageRow);

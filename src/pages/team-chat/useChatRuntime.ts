@@ -1,10 +1,5 @@
 import { useCallback, useEffect } from "react";
-import {
-  getBuddyEmail,
-  getBuddySendId,
-  getChannelId,
-  normalizePresence,
-} from "./chatHealper";
+import { getBuddyEmail, getBuddySendId, getChannelId, normalizePresence } from "./chatHealper";
 import { useChatConversationView } from "./useChatConversationView";
 import { useChatRealtime } from "./useChatRealtime";
 import { useChatRealtimeAvatar } from "./useChatRealtimeAvatar";
@@ -269,7 +264,10 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
             (message) => message.sendState === "sending" || message.sendState === "failed",
           );
           const loadedIds = new Set(latest.map((message) => String(message.id)));
-          next[key] = [...latest, ...pending.filter((message) => !loadedIds.has(String(message.id)))];
+          next[key] = [
+            ...latest,
+            ...pending.filter((message) => !loadedIds.has(String(message.id))),
+          ];
         });
         return next;
       });
@@ -383,8 +381,15 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
   });
   const { handleToggleChatMute } = useChatMute({ setMutedChatIds, setSendError });
   const { handleClearChat } = useChatClear({
-    selectedChat, requestConfirmation, chatClearVersionsRef, setMessagesByChat,
-    setMessagePaginationByChat, clearUnreadForChat, setChannels, setBuddies, setSendError,
+    selectedChat,
+    requestConfirmation,
+    chatClearVersionsRef,
+    setMessagesByChat,
+    setMessagePaginationByChat,
+    clearUnreadForChat,
+    setChannels,
+    setBuddies,
+    setSendError,
   });
 
   const { markChatAsRead } = useChatMarkRead({ activeConversationId, selectedChat, setChannels });

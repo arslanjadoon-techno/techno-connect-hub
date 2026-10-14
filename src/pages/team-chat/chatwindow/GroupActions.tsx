@@ -151,7 +151,17 @@ export default function GroupActions({
       document.removeEventListener("pointerdown", closeOnOutsideClick);
     };
   }, [anchorEl, onCloseMenu, open]);
-  if (selectedChat?.type !== "channel") return null;
+  
+
+  if (
+    !["group", "channel"].includes(
+      String(selectedChat?.type ?? "")
+        .trim()
+        .toLowerCase(),
+    )
+  ) {
+    return null;
+  }
   const closeMenu = () => onCloseMenu?.();
   const memberId = (member: Person) => getBuddySendId(member) || getBuddyEmail(member);
   return (

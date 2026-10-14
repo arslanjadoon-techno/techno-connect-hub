@@ -34,7 +34,9 @@ export function useChatOlderMessages({
       setMessagesByChat((previous: Record<string, any[]>) => {
         const existing = previous[chatKey] || [];
         const existingIds = new Set(existing.map((message) => String(message.id)));
-        const uniqueOlder = olderMessages.filter((message: any) => !existingIds.has(String(message.id)));
+        const uniqueOlder = olderMessages.filter(
+          (message: any) => !existingIds.has(String(message.id)),
+        );
         return { ...previous, [chatKey]: [...uniqueOlder, ...existing] };
       });
       setMessagePaginationByChat((previous: Record<string, any>) => ({
@@ -52,5 +54,15 @@ export function useChatOlderMessages({
     } finally {
       setLoadingOlderMessages(false);
     }
-  }, [chatBoxRef, filterBlockedMessages, loadingOlderMessages, messagePaginationByChat, selectedChat, setLoadingOlderMessages, setMessagePaginationByChat, setMessagesByChat, setSendError]);
+  }, [
+    chatBoxRef,
+    filterBlockedMessages,
+    loadingOlderMessages,
+    messagePaginationByChat,
+    selectedChat,
+    setLoadingOlderMessages,
+    setMessagePaginationByChat,
+    setMessagesByChat,
+    setSendError,
+  ]);
 }

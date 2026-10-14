@@ -63,7 +63,8 @@ const toDirectRow = ({
   messagesByChat?: MessageMap;
 }): ChatRecord => {
   const directId = conversationId(conversation) || buddy?.directConversationId || buddy?.chatId;
-  const cachedMessages = messagesByChat[String(directId)] || messagesByChat[String(getBuddySendId(buddy))] || [];
+  const cachedMessages =
+    messagesByChat[String(directId)] || messagesByChat[String(getBuddySendId(buddy))] || [];
   const cachedLastMessage = cachedMessages.at(-1);
   const peer = (conversation?.participants as ChatRecord[] | undefined)?.find(
     (participant: ChatRecord) => !isCurrentUserRecord(participant),

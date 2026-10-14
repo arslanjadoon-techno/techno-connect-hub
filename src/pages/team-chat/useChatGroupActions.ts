@@ -8,14 +8,22 @@ import { getBuddySendId, getChannelId, normalizeChatError } from "./chatHealper"
 import { CHAT_APP_BASE_PATH } from "./chatRoutes";
 
 export function useChatGroupActions({
-  setChannels, setMessagesByChat, setMutedChatIds, setSelectedChat, setSendError,
-  navigate, setProfileUser, fetchChatData,
+  setChannels,
+  setMessagesByChat,
+  setMutedChatIds,
+  setSelectedChat,
+  setSendError,
+  navigate,
+  // setProfileUser,
+  fetchChatData,
 }: any) {
   const handleLeaveGroup = async (chatId: any) => {
     if (!chatId) return;
     try {
       await leaveGroupConversationService(chatId);
-      setChannels((prev: any[]) => prev.filter((channel) => String(getChannelId(channel)) !== String(chatId)));
+      setChannels((prev: any[]) =>
+        prev.filter((channel) => String(getChannelId(channel)) !== String(chatId)),
+      );
       setMessagesByChat((prev: Record<string, any[]>) => {
         const next = { ...prev };
         delete next[String(chatId)];
@@ -51,9 +59,17 @@ export function useChatGroupActions({
       await removeGroupMemberService(chatId, userId);
       setSelectedChat((previous: any) => {
         if (!previous || String(previous.id) !== String(chatId)) return previous;
-        const participants = Array.isArray(previous.raw?.participants) ? previous.raw.participants : [];
-        const remaining = participants.filter((participant: any) => String(getBuddySendId(participant)) !== String(userId));
-        return { ...previous, participants: remaining, raw: { ...(previous.raw || {}), participants: remaining } };
+        const participants = Array.isArray(previous.raw?.participants)
+          ? previous.raw.participants
+          : [];
+        const remaining = participants.filter(
+          (participant: any) => String(getBuddySendId(participant)) !== String(userId),
+        );
+        return {
+          ...previous,
+          participants: remaining,
+          raw: { ...(previous.raw || {}), participants: remaining },
+        };
       });
     } catch (error) {
       setSendError(normalizeChatError(error));

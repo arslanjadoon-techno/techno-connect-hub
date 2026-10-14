@@ -83,14 +83,12 @@ export function useChatSend({
     // React state updates are asynchronous; use a short synchronous guard to
     // prevent double-click/Enter races without locking the composer while the
     // network request is being persisted.
-    sendClickLockRef.current = true;
-    queueMicrotask(() => {
-      sendClickLockRef.current = false;
-    });
+
     if (selectedChat.type === "person" && blockedUserIds.includes(String(selectedChat.id))) {
       setSendError("Unblock this user before sending messages.");
       return;
     }
+    sendClickLockRef.current = true;
     const mentionedUsers = uniqueUsersByIdentity(selectedMentionableUsers)
       .filter((buddy) => {
         const name = getBuddyName(buddy);
@@ -225,6 +223,11 @@ export function useChatSend({
         requestMs: Math.round(performance.now() - requestStartedAt),
         endToEndMs: Math.round(performance.now() - sendStartedAt),
       });
+      console.log(
+        `[CHAT PERFORMANCE] Full API duration: ${Math.round(
+          performance.now() - requestStartedAt,
+        )} ms`,
+      );
 
       const confirmedPayload = response?.data?.data || response?.data;
       const confirmed = confirmedPayload
@@ -320,6 +323,7 @@ export function useChatSend({
     } finally {
       setSending(false);
       setUploading(false);
+      sendClickLockRef.current = false;
     }
   };
 

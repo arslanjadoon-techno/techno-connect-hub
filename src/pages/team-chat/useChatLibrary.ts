@@ -2,7 +2,13 @@ import { useEffect } from "react";
 import { searchChatMessagesService } from "@/services/Team-chat/chat.service";
 import { normalizeChatMessages } from "./chatMessageNormalization";
 
-export function useChatLibrary({ bodyView, currentUserId, setLibraryLoading, setLibraryError, setLibraryMessages }: any) {
+export function useChatLibrary({
+  bodyView,
+  currentUserId,
+  setLibraryLoading,
+  setLibraryError,
+  setLibraryMessages,
+}: any) {
   useEffect(() => {
     if (bodyView !== "calls" && bodyView !== "media") return undefined;
     let cancelled = false;
@@ -17,7 +23,8 @@ export function useChatLibrary({ bodyView, currentUserId, setLibraryLoading, set
         setLibraryMessages(normalizeChatMessages(messages, { currentUserId }));
       })
       .catch((error) => {
-        if (!cancelled) setLibraryError(error instanceof Error ? error.message : "Unable to load chat library.");
+        if (!cancelled)
+          setLibraryError(error instanceof Error ? error.message : "Unable to load chat library.");
       })
       .finally(() => {
         if (!cancelled) setLibraryLoading(false);

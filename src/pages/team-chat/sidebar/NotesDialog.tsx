@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
-import { Archive, Bell, CalendarClock, Edit3, FileText, Pin, Plus, StickyNote, Trash2 } from "lucide-react";
+import {
+  Archive,
+  Bell,
+  CalendarClock,
+  Edit3,
+  FileText,
+  Pin,
+  Plus,
+  StickyNote,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -65,12 +75,14 @@ export default function NotesDialog({
   const [showArchived, setShowArchived] = useState(false);
   const sortedNotes = useMemo(
     () =>
-      notes.filter((note) => Boolean(note.isArchived) === showArchived).sort(
-        (a, b) =>
-          Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) ||
-          new Date(b.updatedAt || b.reminderAt || 0).getTime() -
-          new Date(a.updatedAt || a.reminderAt || 0).getTime(),
-      ),
+      notes
+        .filter((note) => Boolean(note.isArchived) === showArchived)
+        .sort(
+          (a, b) =>
+            Number(Boolean(b.isPinned)) - Number(Boolean(a.isPinned)) ||
+            new Date(b.updatedAt || b.reminderAt || 0).getTime() -
+              new Date(a.updatedAt || a.reminderAt || 0).getTime(),
+        ),
     [notes, showArchived],
   );
   useEffect(() => {
@@ -166,8 +178,20 @@ export default function NotesDialog({
         )}
       </div>
       <div className="flex gap-2 border-b pb-3">
-        <Button size="sm" variant={!showArchived ? "default" : "outline"} onClick={() => setShowArchived(false)}>Active</Button>
-        <Button size="sm" variant={showArchived ? "default" : "outline"} onClick={() => setShowArchived(true)}>Archived</Button>
+        <Button
+          size="sm"
+          variant={!showArchived ? "default" : "outline"}
+          onClick={() => setShowArchived(false)}
+        >
+          Active
+        </Button>
+        <Button
+          size="sm"
+          variant={showArchived ? "default" : "outline"}
+          onClick={() => setShowArchived(true)}
+        >
+          Archived
+        </Button>
       </div>
       {sortedNotes.length === 0 ? (
         <div className="rounded-xl border border-dashed bg-muted/20 px-5 py-10 text-center">
@@ -209,8 +233,27 @@ export default function NotesDialog({
                   )}
                 </div>
                 <div className="flex shrink-0 gap-1">
-                  <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Pin note" onClick={() => onToggleNote?.(note, "isPinned")}><Pin className={note.isPinned ? "h-4 w-4 fill-current text-primary" : "h-4 w-4"} /></Button>
-                  <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={note.isArchived ? "Unarchive note" : "Archive note"} title={note.isArchived ? "Unarchive" : "Archive"} onClick={() => onToggleNote?.(note, "isArchived")}><Archive className={note.isArchived ? "h-4 w-4 text-primary" : "h-4 w-4"} /></Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    aria-label="Pin note"
+                    onClick={() => onToggleNote?.(note, "isPinned")}
+                  >
+                    <Pin
+                      className={note.isPinned ? "h-4 w-4 fill-current text-primary" : "h-4 w-4"}
+                    />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    aria-label={note.isArchived ? "Unarchive note" : "Archive note"}
+                    title={note.isArchived ? "Unarchive" : "Archive"}
+                    onClick={() => onToggleNote?.(note, "isArchived")}
+                  >
+                    <Archive className={note.isArchived ? "h-4 w-4 text-primary" : "h-4 w-4"} />
+                  </Button>
                   <Button
                     size="icon"
                     variant="ghost"

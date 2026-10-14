@@ -32,7 +32,10 @@ export function useChatRealtimeMemberRemoved({
           ),
       );
 
-      if (isCurrentUserRemoved && String(selectedChat?.chatId || selectedChat?.id) === String(chatId)) {
+      if (
+        isCurrentUserRemoved &&
+        String(selectedChat?.chatId || selectedChat?.id) === String(chatId)
+      ) {
         setSelectedChat(null);
         navigate(CHAT_APP_BASE_PATH);
       } else if (!isCurrentUserRemoved && String(selectedChat?.id) === String(chatId)) {

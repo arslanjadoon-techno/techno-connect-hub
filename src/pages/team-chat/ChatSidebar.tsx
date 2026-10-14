@@ -6,13 +6,9 @@ import {
   showChatNotification,
 } from "./chatNotifications";
 import { getImageUrl } from "./chatHealper";
-import {
-  getChatSettingsService,
-  updateChatSettingsService,
-} from "@/services/Team-chat/chat.service";
+import { updateChatSettingsService } from "@/services/Team-chat/chat.service";
 import ChatSidebarSettingsDialog from "./sidebar/ChatSidebarSettingsDialog";
 import { getCurrentUserName } from "./sidebar/chatSidebarUtils";
-import SidebarHeader from "./sidebar/SidebarHeader";
 import ConversationList from "./sidebar/ConversationList";
 import SearchBox from "./sidebar/SearchBox";
 
@@ -44,6 +40,9 @@ interface ChatSidebarProps {
   settingsPage?: boolean;
   onSettingsClose?: () => void;
   onSettingsOpen?: () => void;
+  // NEW — parent owns this, sidebar just renders it
+  desktopNotifications?: boolean;
+  onDesktopNotificationsChange?: (enabled: boolean) => void;
 }
 
 export default function ChatSidebar({
@@ -72,9 +71,13 @@ export default function ChatSidebar({
   blockedUsers = [],
   onSettingsClose,
   onSettingsOpen,
+  desktopNotifications,
+  onDesktopNotificationsChange,
 }: ChatSidebarProps) {
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(areChatNotificationsEnabled());
+  const [notificationsEnabled, setNotificationsEnabled] = useState(
+    desktopNotifications ?? areChatNotificationsEnabled(),
+  );
   const [notificationPermission, setNotificationPermission] = useState(
     typeof window !== "undefined" && "Notification" in window
       ? Notification.permission
@@ -87,27 +90,31 @@ export default function ChatSidebar({
     currentUser?.id || currentUser?.userId || currentUser?.user_id || "",
   );
 
+  // Sync from the parent when it loads the value.
   useEffect(() => {
-    getChatSettingsService()
-      .then((response: any) => {
-        const settings = response?.data?.data || response?.data || {};
-        if (typeof settings.desktopNotifications === "boolean") {
-          setNotificationsEnabled(settings.desktopNotifications);
-          setChatNotificationsEnabled(settings.desktopNotifications);
-        }
-        if (typeof settings.mentionNotifications === "boolean") {
-          onMentionNotificationsChange?.(settings.mentionNotifications);
-        }
-      })
-      .catch(() => undefined);
-  }, [currentUserId, onMentionNotificationsChange]);
+    if (desktopNotifications === undefined) return;
+    setNotificationsEnabled(desktopNotifications);
+    setChatNotificationsEnabled(desktopNotifications);
+  }, [desktopNotifications]);
+
+  // Auto-clear the notice after a few seconds.
+  useEffect(() => {
+    if (!settingsNotice) return;
+    const timer = setTimeout(() => setSettingsNotice(""), 3000);
+    return () => clearTimeout(timer);
+  }, [settingsNotice]);
 
   const persistNotificationSetting = async (enabled: boolean) => {
+    const previous = notificationsEnabled;
     setChatNotificationsEnabled(enabled);
     setNotificationsEnabled(enabled);
+    onDesktopNotificationsChange?.(enabled);
     try {
       await updateChatSettingsService({ desktopNotifications: enabled });
     } catch {
+      setChatNotificationsEnabled(previous);
+      setNotificationsEnabled(previous);
+      onDesktopNotificationsChange?.(previous);
       setSettingsNotice("Notification setting could not be saved.");
     }
   };
@@ -178,7 +185,6 @@ export default function ChatSidebar({
         onChange={handleAvatarChange}
       />
       <div className="flex min-h-0 min-w-0 flex-col bg-background">
-        <SidebarHeader />
         <SearchBox searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
         <ConversationList
           connectUrl={connectUrl}

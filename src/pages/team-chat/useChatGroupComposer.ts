@@ -10,10 +10,7 @@ import {
   normalizeChatError,
 } from "./chatHealper";
 import { CHAT_APP_BASE_PATH } from "./chatRoutes";
-import {
-  addGroupMembersService,
-  createGroupChatService,
-} from "@/services/Team-chat/group.service";
+import { addGroupMembersService, createGroupChatService } from "@/services/Team-chat/group.service";
 import { usersService } from "@/services/user-manager/users.service";
 
 type ChatRecord = Record<string, any>;
@@ -93,7 +90,9 @@ export function useChatGroupComposer({
   setTab,
 }: ChatGroupComposerOptions) {
   const toggleGroupUser = (userId: string) => {
-    const selectedUser = managedUsers.find((user) => String(getBuddySendId(user)) === String(userId));
+    const selectedUser = managedUsers.find(
+      (user) => String(getBuddySendId(user)) === String(userId),
+    );
     if (selectedUser) groupUserCacheRef.current.set(String(userId), selectedUser);
     setGroupUserIds((prev: string[]) =>
       prev.some((selectedId: string) => String(selectedId) === String(userId))
@@ -176,14 +175,18 @@ export function useChatGroupComposer({
           if (cancelled) return;
           let users;
           if (query) {
-            users = getArrayPayload(response?.data?.data ?? response?.data ?? response) as ChatRecord[];
+            users = getArrayPayload(
+              response?.data?.data ?? response?.data ?? response,
+            ) as ChatRecord[];
           } else {
             const pages = Array.isArray(response) ? response : [response];
             users = pages.flatMap((page: any) =>
               getArrayPayload(page?.data?.data ?? page?.data ?? page),
             );
           }
-          setManagedUsers((users as ChatRecord[]).filter((user: ChatRecord) => !isCurrentUserRecord(user)));
+          setManagedUsers(
+            (users as ChatRecord[]).filter((user: ChatRecord) => !isCurrentUserRecord(user)),
+          );
         })
         .catch(() => {
           // Keep the last successful user list visible if loading fails.
@@ -202,9 +205,10 @@ export function useChatGroupComposer({
   const selectedGroupMembers = useMemo(
     () =>
       groupUserIds
-        .map((id) =>
-          managedUsers.find((buddy) => String(getBuddySendId(buddy)) === String(id)) ||
-          groupUserCacheRef.current.get(String(id)),
+        .map(
+          (id) =>
+            managedUsers.find((buddy) => String(getBuddySendId(buddy)) === String(id)) ||
+            groupUserCacheRef.current.get(String(id)),
         )
         .filter((value): value is ChatRecord => Boolean(value)),
     [managedUsers, groupUserIds],
@@ -221,7 +225,9 @@ export function useChatGroupComposer({
         : [];
 
     return new Set(
-      participants.map((participant: ChatRecord) => String(getBuddySendId(participant) || "")).filter(Boolean),
+      participants
+        .map((participant: ChatRecord) => String(getBuddySendId(participant) || ""))
+        .filter(Boolean),
     );
   }, [selectedChat, visibleChannels]);
 
@@ -246,9 +252,11 @@ export function useChatGroupComposer({
       ? refreshedChannel.participants
       : Array.isArray(selectedChat.raw?.participants)
         ? selectedChat.raw.participants
-      : [];
+        : [];
     const participantIds = new Set(
-      participants.map((participant: ChatRecord) => String(getBuddySendId(participant) || "")).filter(Boolean),
+      participants
+        .map((participant: ChatRecord) => String(getBuddySendId(participant) || ""))
+        .filter(Boolean),
     );
 
     return uniqueUsersByIdentity(
@@ -307,7 +315,8 @@ export function useChatGroupComposer({
             updatedConversation?.members ||
             updatedConversation?.raw?.participants ||
             prev.participants,
-          members: updatedConversation?.members || updatedConversation?.participants || prev.members,
+          members:
+            updatedConversation?.members || updatedConversation?.participants || prev.members,
           raw: updatedConversation,
           imageUrl: getImageUrl(updatedConversation),
         };
@@ -320,7 +329,6 @@ export function useChatGroupComposer({
       setAddingMembers(false);
     }
   };
-
 
   return {
     addableGroupMembers,
@@ -335,4 +343,3 @@ export function useChatGroupComposer({
     toggleGroupUser,
   };
 }
-

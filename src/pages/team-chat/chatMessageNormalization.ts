@@ -81,7 +81,10 @@ export const normalizeChatMessages = (
       return {
         id: message?.message_id || message?.id || `${getMessageTime(message)}-${index}`,
         clientMessageId:
-          message?.clientMessageId || message?.client_message_id || message?.metadata?.clientMessageId || null,
+          message?.clientMessageId ||
+          message?.client_message_id ||
+          message?.metadata?.clientMessageId ||
+          null,
         chatId: message?.chatId || message?.chat_id || message?.conversationId || null,
         chat_id: message?.chat_id || message?.chatId || message?.conversationId || null,
         text: deletedAt
@@ -117,25 +120,24 @@ export const normalizeChatMessages = (
                   message.userName ||
                   message.user_name,
               }
-            :
-          (message?.callHistory ||
-          message?.call_history ||
-          message?.systemEventType === "call_history"
-            ? {
-                kind: "call_history",
-                callHistory: message.callHistory ||
-                  message.call_history || {
-                    callId: message.callId,
-                    type: message.callType,
-                    status: message.callStatus,
-                    startedAt: message.callStartedAt,
-                    endedAt: message.callEndedAt,
-                    durationSeconds: message.callDurationSeconds || 0,
-                  },
-              }
-            : message?.isPinned || message?.is_pinned
-              ? { pinned: true }
-              : {})),
+            : message?.callHistory ||
+                message?.call_history ||
+                message?.systemEventType === "call_history"
+              ? {
+                  kind: "call_history",
+                  callHistory: message.callHistory ||
+                    message.call_history || {
+                      callId: message.callId,
+                      type: message.callType,
+                      status: message.callStatus,
+                      startedAt: message.callStartedAt,
+                      endedAt: message.callEndedAt,
+                      durationSeconds: message.callDurationSeconds || 0,
+                    },
+                }
+              : message?.isPinned || message?.is_pinned
+                ? { pinned: true }
+                : {}),
         mentions: message?.metadata?.mentions || message?.mentions || [],
         replyTo: message?.replyTo || message?.reply_to || message?.replyToMessageId || null,
         edited: Boolean(message?.metadata?.edited || message?.edited),

@@ -54,7 +54,9 @@ export function useChatPageState() {
   ).toLowerCase();
   const [messageInfoVersions, setMessageInfoVersions] = useState<Record<string, number>>({});
   const [typingUsersByChat, setTypingUsersByChat] = useState<Record<string, ChatState>>({});
-  const [messagePaginationByChat, setMessagePaginationByChat] = useState<Record<string, ChatRecord>>({});
+  const [messagePaginationByChat, setMessagePaginationByChat] = useState<
+    Record<string, ChatRecord>
+  >({});
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const [mentionNotifications, setMentionNotifications] = useState(
     () => localStorage.getItem("chat_mention_notifications") !== "false",
@@ -71,8 +73,8 @@ export function useChatPageState() {
   const [addMemberUserIds, setAddMemberUserIds] = useState<string[]>([]);
   const [addMembersError, setAddMembersError] = useState("");
   const [addingMembers, setAddingMembers] = useState(false);
-  const [currentStatus, setCurrentStatus] = useState(
-    () => normalizePresence(localStorage.getItem("chat_presence")),
+  const [currentStatus, setCurrentStatus] = useState(() =>
+    normalizePresence(localStorage.getItem("chat_presence")),
   );
   const [statusSaving, setStatusSaving] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -184,4 +186,3 @@ export function useChatPageState() {
     setTypingUsersByChat,
   };
 }
-

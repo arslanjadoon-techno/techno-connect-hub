@@ -43,7 +43,9 @@ export function useChatDeleteMessages({
     });
     if (!confirmed) return false;
 
-    const keys = Array.from(new Set([selectedChat.id, selectedChat.chatId].filter(Boolean).map(String)));
+    const keys = Array.from(
+      new Set([selectedChat.id, selectedChat.chatId].filter(Boolean).map(String)),
+    );
     const snapshots = new Map<string, ChatRecord[]>(
       keys.map((key) => [key, messagesByChat[key] || []]),
     );
@@ -83,12 +85,18 @@ export function useChatDeleteMessages({
         successfulIds.add(messageId);
         const response: any = result.value;
         const payload = response?.data?.data || response?.data || response;
-        const deletedMessage = normalizeRealtimeMessage(payload, { ...selectedChat, currentUserId });
+        const deletedMessage = normalizeRealtimeMessage(payload, {
+          ...selectedChat,
+          currentUserId,
+        });
         if (deletedMessage) deletedById.set(String(deletedMessage.id), deletedMessage);
       });
 
       if (successfulIds.size === 0) {
-        throw results.find((result) => result.status === "rejected")?.reason || new Error("Messages could not be deleted");
+        throw (
+          results.find((result) => result.status === "rejected")?.reason ||
+          new Error("Messages could not be deleted")
+        );
       }
 
       setMessagesByChat((previous: Record<string, ChatRecord[]>) => {
@@ -97,7 +105,8 @@ export function useChatDeleteMessages({
           const original = snapshots.get(key) || [];
           next[key] = (previous[key] || []).map((message) => {
             const id = String(message.id);
-            if (failedIds.has(id)) return original.find((item) => String(item.id) === id) || message;
+            if (failedIds.has(id))
+              return original.find((item) => String(item.id) === id) || message;
             if (!successfulIds.has(id)) return message;
             return deletedById.get(id) || message;
           });

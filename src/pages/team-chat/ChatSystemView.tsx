@@ -3,7 +3,7 @@ import ChatBodyPanels from "./ChatBodyPanels";
 import ChatWindow from "./chatwindow/ChatWindow";
 import { CHAT_APP_BASE_PATH } from "./chatRoutes";
 import IncomingCallDialog from "./calls/IncomingCallDialog";
-import AdminPage from "./AdminPage";
+// import AdminPage from "./AdminPage";
 import {
   AddMembersDialog,
   GroupCreationDialog,
@@ -23,7 +23,7 @@ export default function ChatSystemView(props: Record<string, any>) {
     addingMembers,
     activeCall,
     activeCallIsAccepted,
-    adminPage,
+    // adminPage,
     avatarUploading,
     bodyView,
     blockedUserIds,
@@ -44,6 +44,7 @@ export default function ChatSystemView(props: Record<string, any>) {
     currentStatus,
     currentUser,
     deleteNote,
+    desktopNotifications,
     editingMessage,
     enterToSend,
     fetchChatData,
@@ -76,6 +77,7 @@ export default function ChatSystemView(props: Record<string, any>) {
     handleSend,
     handleStartConversationCall,
     openAddMembersDialog,
+    onDesktopNotificationsChange,
     handleStatusChange,
     handleToggleChatMute,
     handleTransferOwnership,
@@ -131,6 +133,7 @@ export default function ChatSystemView(props: Record<string, any>) {
     typingUsersByChat,
     uploading,
   } = props;
+
   return (
     <>
       <div
@@ -138,7 +141,11 @@ export default function ChatSystemView(props: Record<string, any>) {
           standalone
             ? "h-[100dvh] min-h-[100dvh]"
             : "-mx-3 -mt-3 -mb-3 w-[calc(100%+1.5rem)] h-[calc(100%+1.5rem)] min-h-0 sm:-mx-4 sm:-mt-4 sm:-mb-4 sm:w-[calc(100%+2rem)] sm:h-[calc(100%+2rem)] lg:-mx-6 lg:-mt-6 lg:-mb-6 lg:w-[calc(100%+3rem)] lg:h-[calc(100%+3rem)]"
-        } ${showConversationSidebar ? "grid-cols-1 sm:grid-cols-[250px_minmax(0,1fr)] md:grid-cols-[280px_minmax(0,1fr)]" : "grid-cols-1"}`}
+        } ${
+          showConversationSidebar
+            ? "grid-cols-1 sm:grid-cols-[250px_minmax(0,1fr)] md:grid-cols-[280px_minmax(0,1fr)]"
+            : "grid-cols-1"
+        }`}
       >
         {showConversationSidebar && (
           <ChatSidebar
@@ -147,6 +154,8 @@ export default function ChatSystemView(props: Record<string, any>) {
             enterToSend={enterToSend}
             mentionNotifications={mentionNotifications}
             onMentionNotificationsChange={setMentionNotifications}
+            desktopNotifications={desktopNotifications}
+            onDesktopNotificationsChange={onDesktopNotificationsChange}
             onEnterToSendChange={handleEnterToSendChange}
             filteredItems={filteredItems}
             loadError={loadError}
@@ -160,9 +169,12 @@ export default function ChatSystemView(props: Record<string, any>) {
             onStatusChange={handleStatusChange}
             blockedUsers={[...buddies, ...conversationItems].filter((user, index, all) => {
               const id = String(getBuddySendId(user) || user.id || user.userId || "");
-              return blockedUserIds.includes(id) && all.findIndex((item) =>
-                String(getBuddySendId(item) || item.id || item.userId || "") === id,
-              ) === index;
+              return (
+                blockedUserIds.includes(id) &&
+                all.findIndex(
+                  (item) => String(getBuddySendId(item) || item.id || item.userId || "") === id,
+                ) === index
+              );
             })}
             onUnblockUser={(userId) => handleBlockUser({ authorId: userId })}
             searchTerm={searchTerm}
@@ -174,9 +186,10 @@ export default function ChatSystemView(props: Record<string, any>) {
         )}
         {settingsPage ? (
           <div aria-hidden="true" className="hidden" />
-        ) : adminPage ? (
-          <AdminPage embedded />
-        ) : groupPage ? (
+        ) : // : adminPage ? (
+        //   <AdminPage embedded />
+        // )
+        groupPage ? (
           <GroupCreationPage
             onClose={() => navigate(CHAT_APP_BASE_PATH)}
             onCreate={handleCreateGroup}
@@ -212,14 +225,38 @@ export default function ChatSystemView(props: Record<string, any>) {
                 isPinned: field === "isPinned" ? !note.isPinned : Boolean(note.isPinned),
                 isArchived: field === "isArchived" ? !note.isArchived : Boolean(note.isArchived),
               };
-              setNotes((previous: any[]) => previous.map((item: any) => String(item.id) === String(note.id)
-                ? { ...item, isPinned: payload.isPinned, isArchived: payload.isArchived, updatedAt: new Date().toISOString() }
-                : item));
-              updateNote(note.id, payload).then((response: any) => {
-                const updated = response?.data?.data || response?.data || response;
-                if (!updated?.id) return;
-                setNotes((previous: any[]) => previous.map((item: any) => String(item.id) === String(note.id) ? { ...item, isPinned: payload.isPinned, isArchived: payload.isArchived, updatedAt: updated.updatedAt || item.updatedAt } : item));
-              }).catch((error) => setNotesError(error instanceof Error ? error.message : "Unable to update note."));
+              setNotes((previous: any[]) =>
+                previous.map((item: any) =>
+                  String(item.id) === String(note.id)
+                    ? {
+                        ...item,
+                        isPinned: payload.isPinned,
+                        isArchived: payload.isArchived,
+                        updatedAt: new Date().toISOString(),
+                      }
+                    : item,
+                ),
+              );
+              updateNote(note.id, payload)
+                .then((response: any) => {
+                  const updated = response?.data?.data || response?.data || response;
+                  if (!updated?.id) return;
+                  setNotes((previous: any[]) =>
+                    previous.map((item: any) =>
+                      String(item.id) === String(note.id)
+                        ? {
+                            ...item,
+                            isPinned: payload.isPinned,
+                            isArchived: payload.isArchived,
+                            updatedAt: updated.updatedAt || item.updatedAt,
+                          }
+                        : item,
+                    ),
+                  );
+                })
+                .catch((error) =>
+                  setNotesError(error instanceof Error ? error.message : "Unable to update note."),
+                );
             }}
             onStartCallFromHistory={({ chatId, type }) =>
               handleStartConversationCall(type === "video" ? "video" : "audio", { chatId })
@@ -342,4 +379,3 @@ export default function ChatSystemView(props: Record<string, any>) {
     </>
   );
 }
-

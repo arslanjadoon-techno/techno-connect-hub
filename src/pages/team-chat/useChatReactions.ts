@@ -6,7 +6,9 @@ import {
 type ChatRecord = Record<string, any>;
 
 const getChatKeys = (chat: ChatRecord): string[] =>
-  Array.from(new Set([chat.id, chat.chatId, chat.directConversationId].filter(Boolean).map(String)));
+  Array.from(
+    new Set([chat.id, chat.chatId, chat.directConversationId].filter(Boolean).map(String)),
+  );
 
 const updateReactionLocally = (
   message: ChatRecord,
@@ -21,7 +23,10 @@ const updateReactionLocally = (
     return add
       ? {
           ...message,
-          reactions: [{ emoji, count: 1, reacted: true, users: userId ? [userId] : [] }, ...reactions],
+          reactions: [
+            { emoji, count: 1, reacted: true, users: userId ? [userId] : [] },
+            ...reactions,
+          ],
         }
       : message;
   }
@@ -32,7 +37,9 @@ const updateReactionLocally = (
   const nextUsers = add
     ? Array.from(new Set([...users, userId].filter(Boolean)))
     : users.filter((id: string) => id !== userId);
-  const nextCount = add ? Number(current.count || 0) + 1 : Math.max(0, Number(current.count || 0) - 1);
+  const nextCount = add
+    ? Number(current.count || 0) + 1
+    : Math.max(0, Number(current.count || 0) - 1);
 
   if (nextCount === 0) next.splice(index, 1);
   else next[index] = { ...current, count: nextCount, reacted: add, users: nextUsers };
@@ -50,12 +57,15 @@ export function useChatReactions({
     if (!selectedChat || !messageId || !emoji) return;
     const keys = getChatKeys(selectedChat);
     const messages = keys.flatMap((key) => messagesByChat[key] || []);
-    const targetMessage = messages.find((message: ChatRecord) => String(message.id) === String(messageId));
+    const targetMessage = messages.find(
+      (message: ChatRecord) => String(message.id) === String(messageId),
+    );
     if (targetMessage?.direction === "outbound") return;
 
-    const chatId = selectedChat.type === "channel"
-      ? selectedChat.id || selectedChat.chatId
-      : selectedChat.chatId || selectedChat.directConversationId || selectedChat.id;
+    const chatId =
+      selectedChat.type === "channel"
+        ? selectedChat.id || selectedChat.chatId
+        : selectedChat.chatId || selectedChat.directConversationId || selectedChat.id;
     if (!chatId) return;
 
     const existingReaction = targetMessage?.reactions?.find(

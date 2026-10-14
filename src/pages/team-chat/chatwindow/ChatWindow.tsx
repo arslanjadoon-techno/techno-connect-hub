@@ -13,6 +13,7 @@ import InternalCallPanel from "../calls/InternalCallPanel";
 import ChatWindowHeader from "./ChatWindowHeader";
 import ChatMessageList from "./ChatMessageList";
 import ChatComposerPanel from "./ChatComposerPanel";
+import { searchChatMessagesService } from "../../../services/Team-chat/chat.service";
 
 type ChatRecord = Record<string, any>;
 type MessageRecord = Record<string, any>;
@@ -74,13 +75,18 @@ interface ChatWindowProps {
 
 function getChatTitle(chat?: ChatRecord | null) {
   if (!chat) return "Conversation";
-  return chat.type === "channel" ? String(getChannelName(chat)) : getBuddyName(chat.raw || chat);
+
+  if (chat.type === "group" || chat.type === "channel") {
+    return String(chat.title || "Group chat");
+  }
+
+  return getBuddyName(chat.raw || chat);
 }
 
 export default function ChatWindow({
   activeCall,
   availableChats = [],
-  callStarting = false,
+  // callStarting = false,
   chatBoxRef,
   currentUser,
   currentMessages = [],
@@ -116,7 +122,7 @@ export default function ChatWindow({
   sendError,
   sending = false,
   replyToMessage,
-  onStartConversationCall,
+  // onStartConversationCall,
   onSearchMessages,
   onScheduleCall,
   onOpenChatMenu,
@@ -150,11 +156,67 @@ export default function ChatWindow({
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
   const [voiceRecorder, setVoiceRecorder] = useState<MediaRecorder | null>(null);
   const [selectedMessageIds, setSelectedMessageIds] = useState<string[]>([]);
+
+  const [searchResults, setSearchResults] = useState<MessageRecord[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState("");
   const selectedUserBlocked = Boolean(
     selectedChat?.type === "person" && blockedUserIds.includes(String(selectedChat.id)),
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
+
+  const searchRequestId = useRef(0);
+  console.log(selectedChat, "selec");
+
+  useEffect(() => {
+    const term = messageSearchTerm.trim();
+    const requestId = ++searchRequestId.current;
+    const activeChatId = selectedChat?.chatId || selectedChat?.id;
+
+    if (!messageSearchOpen || !term || !activeChatId) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      setSearchError("");
+      return;
+    }
+
+    // Prevent results for the previous keyword/chat from remaining visible.
+    setSearchResults([]);
+    setSearchError("");
+
+    const timer = window.setTimeout(async () => {
+      if (requestId !== searchRequestId.current) return;
+
+      setSearchLoading(true);
+
+      try {
+        const response: any = await searchChatMessagesService({
+          q: term,
+          chatId: String(activeChatId),
+          limit: 25,
+        });
+
+        // Ignore responses belonging to an older search.
+        if (requestId !== searchRequestId.current) return;
+
+        const results = response?.data?.data;
+
+        setSearchResults(Array.isArray(results) ? results : []);
+      } catch {
+        if (requestId === searchRequestId.current) {
+          setSearchResults([]);
+          setSearchError("Unable to search messages. Please try again.");
+        }
+      } finally {
+        if (requestId === searchRequestId.current) {
+          setSearchLoading(false);
+        }
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [messageSearchTerm, messageSearchOpen, selectedChat?.chatId, selectedChat?.id]);
 
   useEffect(() => {
     if (!chatMenuOpen) return;
@@ -181,13 +243,20 @@ export default function ChatWindow({
 
   const handleComposerChange = (value: string, cursor: number) => {
     setText(value);
-    if (!selectedChat || selectedChat.type !== "channel") {
+
+    const type = String(selectedChat?.type ?? selectedChat?.raw?.type ?? "")
+      .trim()
+      .toLowerCase();
+
+    if (type !== "group" && type !== "channel") {
       setMentionQuery(null);
       return;
     }
+
     const beforeCursor = value.slice(0, cursor);
-    const mentionMatch = beforeCursor.match(/(?:^|\s)@([^\s@]*)$/);
-    setMentionQuery(mentionMatch ? mentionMatch[1] : null);
+    const match = beforeCursor.match(/(?:^|\s)@([^\s@]*)$/);
+
+    setMentionQuery(match ? match[1] : null);
   };
 
   const insertMention = (member: ChatRecord) => {
@@ -265,24 +334,34 @@ export default function ChatWindow({
 
   const title = getChatTitle(selectedChat);
   const chatId = selectedChat.chatId || selectedChat.id;
-  const isGroup = selectedChat.type === "channel";
-  const rawGroupMembers: ChatRecord[] = (selectedChat.participants ||
-    selectedChat.members ||
-    selectedChat.raw?.participants ||
+
+  const selectedType = String(selectedChat.type ?? selectedChat.raw?.type ?? "")
+    .trim()
+    .toLowerCase();
+
+  const isGroup = selectedType === "group" || selectedType === "channel";
+
+  const rawGroupMembers: ChatRecord[] = (selectedChat.participants ??
+    selectedChat.members ??
+    selectedChat.raw?.participants ??
     []) as ChatRecord[];
+
   const groupMembers: ChatRecord[] = Array.from(
     new Map<string, ChatRecord>(
       rawGroupMembers.map((member: ChatRecord) => {
         const identity = String(
           getBuddyEmail(member) || getBuddySendId(member) || getBuddyName(member),
         ).toLowerCase();
+
         return [identity, member];
       }),
     ).values(),
   );
   const isGroupMuted = mutedGroupIds.includes(String(selectedChat.id));
-  const isSamePerson = (first: ChatRecord, second?: ChatRecord) => {
+
+  const isSamePerson = (first?: ChatRecord, second?: ChatRecord) => {
     if (!first || !second) return false;
+
     const values = (person: ChatRecord) =>
       [
         person.id,
@@ -295,46 +374,77 @@ export default function ChatWindow({
       ]
         .filter((value) => value != null && String(value).trim())
         .map((value) => String(value).trim().toLowerCase());
+
     const firstValues = values(first);
     return values(second).some((value) => firstValues.includes(value));
   };
-  const creatorId =
-    selectedChat.ownerId ||
-    selectedChat.owner_id ||
-    selectedChat.creatorId ||
-    selectedChat.creator_id ||
-    selectedChat.createdBy ||
-    selectedChat.created_by ||
-    selectedChat.raw?.ownerId ||
-    selectedChat.raw?.owner_id ||
-    selectedChat.raw?.creatorId ||
-    selectedChat.raw?.creator_id ||
-    selectedChat.raw?.createdBy ||
-    selectedChat.raw?.created_by;
-  const isGroupAdmin = groupMembers.some(
-    (member: ChatRecord) =>
-      isSamePerson(member, currentUser) &&
-      (member.isAdmin === true ||
-        member.is_admin === true ||
-        member.isOwner === true ||
-        member.is_owner === true ||
-        (creatorId != null && String(creatorId) === String(getBuddySendId(member))) ||
-        String(getBuddyEmail(member) || "").toLowerCase() === "admin@techno.com" ||
-        ["owner", "admin", "administrator"].includes(
-          String(
-            member.conversationRole ||
-              member.conversation_role ||
-              member.memberRole ||
-              member.member_role ||
-              member.role ||
-              member.roleName ||
-              member.role_name ||
-              "",
-          ).toLowerCase(),
-        )),
-  );
+
+  const currentParticipant = groupMembers.find((member) => isSamePerson(member, currentUser));
+
+  const currentRole = String(
+    selectedChat.role ??
+      selectedChat.raw?.role ??
+      currentParticipant?.conversationRole ??
+      currentParticipant?.conversation_role ??
+      currentParticipant?.memberRole ??
+      currentParticipant?.member_role ??
+      currentParticipant?.role ??
+      "",
+  )
+    .trim()
+    .toLowerCase();
+
+  const isGroupAdmin = isGroup && ["owner", "admin", "administrator"].includes(currentRole);
+
+  console.log("Group permission debug", {
+    chatType: selectedType,
+    currentUser,
+    currentParticipant,
+    currentRole,
+    isGroup,
+    isGroupAdmin,
+  });
+
   const pinnedMessages = currentMessages.filter((message) => message.metadata?.pinned);
   const latestPinnedMessage = pinnedMessages[pinnedMessages.length - 1] || null;
+
+  const jumpToMessage = (messageId: string) => {
+    setMessageSearchOpen(false);
+
+    requestAnimationFrame(() => {
+      const target = chatBoxRef?.current?.querySelector(
+        `[data-message-id="${CSS.escape(messageId)}"]`,
+      ) as HTMLElement | null;
+
+      if (!target) {
+        console.warn("Message not found in the currently rendered chat:", messageId);
+        return;
+      }
+
+      target.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+      setHighlightedMessageId(messageId);
+
+      window.setTimeout(() => {
+        setHighlightedMessageId(null);
+      }, 1800);
+    });
+  };
+  console.log("Group permission debug", {
+    chatType: selectedChat.type,
+    currentUserRole: selectedChat.role,
+    isGroup,
+    isGroupAdmin,
+    members: groupMembers.map((m) => ({
+      name: getBuddyName(m),
+      role: m.role,
+      conversationRole: m.conversationRole,
+      isOwner: m.isOwner,
+    })),
+  });
 
   return (
     <section className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-background text-foreground">
@@ -342,6 +452,7 @@ export default function ChatWindow({
         {...{
           chatBoxRef,
           chatMenuOpen,
+          onJumpToMessage: jumpToMessage,
           chatMenuRef,
           currentUser,
           groupInfoOpen,
@@ -355,6 +466,9 @@ export default function ChatWindow({
           leaveConfirmOpen,
           messageSearchOpen,
           messageSearchTerm,
+          filteredSearchMessages: searchResults,
+          searchLoading,
+          searchError,
           onClearChat,
           onOpenAddMembers,
           onOpenChatMenu,

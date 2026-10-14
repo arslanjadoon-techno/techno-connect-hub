@@ -1,13 +1,13 @@
 import { useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import type { ChatBodyView } from "./ChatBodyPanels";
-import {
-  getBuddyEmail,
-  getBuddyName,
-  getBuddySendId,
-  getChannelId,
-  getChannelName,
-} from "./chatHealper";
+// import {
+//   getBuddyEmail,
+//   getBuddyName,
+//   getBuddySendId,
+//   getChannelId,
+//   getChannelName,
+// } from "./chatHealper";
 import { useChatComposer } from "./useChatComposer";
 import { useChatMessageHistory } from "./useChatMessageHistory";
 import { useChatMessageList } from "./useChatMessageList";

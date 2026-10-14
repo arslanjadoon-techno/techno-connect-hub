@@ -3,7 +3,7 @@ import {
   Dialog,
   DialogContent,
   DialogFooter,
-  DialogHeader,
+  // DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader2, UsersRound } from "lucide-react";
@@ -58,7 +58,6 @@ export function GroupCreationDialog({
 }: GroupCreationDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
-      {/* â”€â”€ Header â”€â”€ */}
       <DialogContent className="max-w-2xl !px-4 !py-4 sm:!px-6">
         <DialogTitle className="!pb-3">
           <div className="flex items-center gap-3">
@@ -78,8 +77,6 @@ export function GroupCreationDialog({
             </div>
           </div>
         </DialogTitle>
-
-        {/* â”€â”€ Body â”€â”€ */}
         <div>
           {/* Group name */}
           <input
@@ -120,7 +117,7 @@ export function GroupCreationDialog({
                       onClick={() => onSelectMember(userId)}
                       className="ml-0.5 text-base leading-none text-muted-foreground hover:text-destructive"
                     >
-                      Ã—
+                      x
                     </button>
                   </span>
                 );
@@ -159,16 +156,26 @@ export function GroupCreationDialog({
 
           {/* Member list */}
           <div className="mt-3 max-h-[360px] overflow-y-auto p-0.5">
-            {loading && <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-primary" aria-label="Loading users" /></div>}
-            {!loading && members.map((buddy) => {
-              const userId = String(getBuddySendId(buddy));
-              const checked = selectedMembers.some(
-                (member) => String(getBuddySendId(member)) === userId,
-              );
-              return (
-                <BuddyRow key={userId} buddy={buddy} checked={checked} onToggle={onSelectMember} />
-              );
-            })}
+            {loading && (
+              <div className="flex justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" aria-label="Loading users" />
+              </div>
+            )}
+            {!loading &&
+              members.map((buddy) => {
+                const userId = String(getBuddySendId(buddy));
+                const checked = selectedMembers.some(
+                  (member) => String(getBuddySendId(member)) === userId,
+                );
+                return (
+                  <BuddyRow
+                    key={userId}
+                    buddy={buddy}
+                    checked={checked}
+                    onToggle={onSelectMember}
+                  />
+                );
+              })}
             {!loading && members.length === 0 && (
               <p className="py-6 text-center text-sm text-muted-foreground">No people found.</p>
             )}
@@ -190,7 +197,7 @@ export function GroupCreationDialog({
             disabled={creating || !title.trim() || selectedMembers.length === 0}
             className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {creating ? "Creatingâ€¦" : "Create group"}
+            {creating ? "Creating" : "Create group"}
           </button>
         </DialogFooter>
       </DialogContent>
@@ -282,7 +289,7 @@ export function GroupCreationPage({
                           onClick={() => onSelectMember(userId)}
                           className="ml-0.5 text-base leading-none text-muted-foreground hover:text-foreground"
                         >
-                          Ã—
+                          x
                         </button>
                       </span>
                     );
@@ -309,21 +316,30 @@ export function GroupCreationPage({
               )}
 
               <div className="mt-3 max-h-[420px] overflow-y-auto rounded-lg border border-border/80 p-2">
-              {loading ? <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-primary" aria-label="Loading users" /></div> : members.map((buddy) => {
-                  const userId = String(getBuddySendId(buddy));
-                  const checked = selectedMembers.some(
-                    (member) => String(getBuddySendId(member)) === userId,
-                  );
-                  return (
-                    <BuddyRow
-                      key={userId}
-                      buddy={buddy}
-                      checked={checked}
-                      onToggle={onSelectMember}
+                {loading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2
+                      className="h-5 w-5 animate-spin text-primary"
+                      aria-label="Loading users"
                     />
-                  );
-                })}
-              {!loading && members.length === 0 && (
+                  </div>
+                ) : (
+                  members.map((buddy) => {
+                    const userId = String(getBuddySendId(buddy));
+                    const checked = selectedMembers.some(
+                      (member) => String(getBuddySendId(member)) === userId,
+                    );
+                    return (
+                      <BuddyRow
+                        key={userId}
+                        buddy={buddy}
+                        checked={checked}
+                        onToggle={onSelectMember}
+                      />
+                    );
+                  })
+                )}
+                {!loading && members.length === 0 && (
                   <p className="py-6 text-center text-sm text-muted-foreground">No people found.</p>
                 )}
               </div>
@@ -342,7 +358,7 @@ export function GroupCreationPage({
                 disabled={creating || !title.trim() || selectedMembers.length === 0}
                 className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {creating ? "Creatingâ€¦" : "Create group"}
+                {creating ? "Creating" : "Create group"}
               </button>
             </div>
           </CardContent>
@@ -456,7 +472,7 @@ export function AddMembersDialog({
             disabled={adding || selectedIds.length === 0}
             className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {adding ? "Addingâ€¦" : "Add"}
+            {adding ? "Adding" : "Add"}
           </button>
         </DialogFooter>
       </DialogContent>

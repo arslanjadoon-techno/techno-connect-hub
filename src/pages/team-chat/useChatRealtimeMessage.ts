@@ -1,6 +1,13 @@
 import { useCallback } from "react";
 import {
-  getBuddyEmail, getBuddySendId, getChannelId, getImageUrl, getMessageSenderId, getMessageText, getUnreadCount } from "./chatHealper";
+  getBuddyEmail,
+  getBuddySendId,
+  getChannelId,
+  getImageUrl,
+  getMessageSenderId,
+  getMessageText,
+  getUnreadCount,
+} from "./chatHealper";
 import { normalizeRealtimeMessage, resolveLocalChatKey } from "./chatMessageNormalization";
 import { getMessageTimestamp, isMessageReadByUser, messageMentionsUser } from "./ChatSystemUtils";
 import { CHAT_APP_BASE_PATH } from "./chatRoutes";
@@ -99,10 +106,7 @@ export function useChatRealtimeMessage({
       const isActiveChat = selectedChatIds.includes(String(chatId));
       const messageKeys = Array.from(
         new Set(
-          [
-            localKey,
-            ...(isActiveChat ? [selectedChat?.id, selectedChat?.chatId] : []),
-          ]
+          [localKey, ...(isActiveChat ? [selectedChat?.id, selectedChat?.chatId] : [])]
             .filter(Boolean)
             .map(String),
         ),
@@ -129,7 +133,9 @@ export function useChatRealtimeMessage({
             const existing = next[key] || [];
             const clientMessageId = normalizedMessage.clientMessageId;
             const optimisticIndex = clientMessageId
-              ? existing.findIndex((item) => String(item.clientMessageId) === String(clientMessageId))
+              ? existing.findIndex(
+                  (item) => String(item.clientMessageId) === String(clientMessageId),
+                )
               : -1;
             if (optimisticIndex >= 0) {
               const updated = [...existing];
@@ -140,7 +146,9 @@ export function useChatRealtimeMessage({
                 deliveryStatus: normalizedMessage.deliveryStatus || "sent",
               };
               next[key] = updated;
-            } else if (!existing.some((item: ChatRecord) => String(item.id) === String(normalizedMessage.id))) {
+            } else if (
+              !existing.some((item: ChatRecord) => String(item.id) === String(normalizedMessage.id))
+            ) {
               next[key] = [...existing, normalizedMessage];
             }
           });
@@ -267,7 +275,5 @@ export function useChatRealtimeMessage({
     ],
   );
 
-
   return handleRealtimeMessage;
 }
-

@@ -20,7 +20,10 @@ export default function EmojiPicker({ anchorEl, onClose, onSelect }: EmojiPicker
     };
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
-      if (!(target instanceof Node) || !document.querySelector('[role="dialog"][aria-label="Emoji picker"]')?.contains(target)) {
+      if (
+        !(target instanceof Node) ||
+        !document.querySelector('[role="dialog"][aria-label="Emoji picker"]')?.contains(target)
+      ) {
         onClose?.();
       }
     };
