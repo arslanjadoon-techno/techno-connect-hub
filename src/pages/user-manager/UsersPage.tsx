@@ -222,7 +222,7 @@ function UsersPage() {
     }
     try {
       setActionLoading(true);
-      const res = await usersApi.delete(Number(u.id));
+      const res = await usersService.delete(Number(u.id));
       if (res.success) {
         toast.success("User record safely removed");
         lastFetchedKey.current = "";

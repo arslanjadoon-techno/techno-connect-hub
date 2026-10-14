@@ -291,8 +291,11 @@ export const usersApi = {
     apiRequest<BackendUser>(USER_API_PATHS.updateUser, { method: "PUT", body: payload }),
 
   delete: (id: number | string | { id: number | string }) => {
-    const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
-    return apiRequest<null>(USER_API_PATHS.deleteUser(numericId), { method: "DELETE" });
+    const numericId = typeof id === "object" && id !== null ? (id as any).id : Number(id);
+    return apiRequest<null>(USER_API_PATHS.deleteUser, {
+      method: "DELETE",
+      body: { id: numericId },
+    });
   },
 
   updatePassword: (payload: { email: string; oldPassword: string; newPassword: string }) =>
