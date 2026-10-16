@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import {
   getBuddySendId,
   getChannelId,
@@ -32,12 +32,8 @@ type ChatRealtimeMessageOptions = {
   mutedChatIds: string[];
   mentionNotifications: boolean;
   navigate: (path: string) => void;
-  handledRealtimeMessageKeysRef: {
-    current: Set<string>;
-  };
-  realtimeStartedAtRef: {
-    current: number;
-  };
+  handledRealtimeMessageKeysRef?: { current: Set<string> };
+  realtimeStartedAtRef: { current: number };
   selectedChat: ChatRecord | null;
   setChannels: (updater: any) => void;
   setMessagesByChat: (updater: any) => void;
@@ -65,30 +61,31 @@ export function useChatRealtimeMessage({
   setMessagesByChat,
   callSocketRef,
 }: ChatRealtimeMessageOptions) {
+  const fallbackHandledMessageKeysRef = useRef(new Set<string>());
+  const messageKeysRef = handledRealtimeMessageKeysRef || fallbackHandledMessageKeysRef;
+
   const handleRealtimeMessage = useCallback(
     ({ chatId, message }: { chatId: string | number; message: ChatRecord }) => {
-      if (chatId === undefined || chatId === null || String(chatId).length === 0 || !message) {
-        return;
-      }
+      if (!chatId || !message) return;
 
       const senderId = getMessageSenderId(message);
-      const isOwnMessage = Boolean(senderId) && String(senderId) === String(currentUserId);
+      const isOwnMessage = senderId && senderId === currentUserId;
+      if (!isOwnMessage && blockedUserIds.includes(String(senderId))) return;
+      const messageId =
+        message?.message_id ||
+        message?.messageId ||
+        message?.id ||
+        message?.createdAt ||
+        message?.timestamp ||
+        "";
+      const realtimeMessageKey = `${String(chatId)}:${String(messageId)}`;
 
-      // Do not process messages from blocked users.
-      if (!isOwnMessage && blockedUserIds.includes(String(senderId))) {
+      if (messageId && messageKeysRef.current.has(realtimeMessageKey)) {
         return;
       }
 
-      const messageId = message?.message_id ?? message?.messageId ?? message?.id ?? "";
-
-      const hasMessageId =
-        messageId !== undefined && messageId !== null && String(messageId).length > 0;
-
-      const realtimeMessageKey = hasMessageId ? `${String(chatId)}:${String(messageId)}` : "";
-
-      // Avoid processing the same realtime message more than once.
-      if (hasMessageId && handledRealtimeMessageKeysRef.current.has(realtimeMessageKey)) {
-        return;
+      if (messageId) {
+        messageKeysRef.current.add(realtimeMessageKey);
       }
 
       const localKey = resolveLocalChatKey({
@@ -306,7 +303,10 @@ export function useChatRealtimeMessage({
       // The handler already deduplicates realtime message IDs above. Avoid using
       // the message timestamp or read metadata to suppress notifications: server
       // timestamps/read flags can be stale or normalized differently from the client.
-      const isDoNotDisturb = String(currentStatus || "").trim().toLowerCase() === "dnd";
+      const isDoNotDisturb =
+        String(currentStatus || "")
+          .trim()
+          .toLowerCase() === "dnd";
       const shouldNotify = !isOwnMessage && !isDoNotDisturb && !isAlreadyLoaded;
 
       console.log("[Chat notification debug]", {
@@ -383,7 +383,7 @@ export function useChatRealtimeMessage({
       mutedChatIds,
       mentionNotifications,
       navigate,
-      handledRealtimeMessageKeysRef,
+      messageKeysRef,
       realtimeStartedAtRef,
       selectedChat,
       setChannels,

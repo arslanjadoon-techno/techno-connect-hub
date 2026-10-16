@@ -244,7 +244,7 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
   });
 
   const handleRealtimeReconnected = useCallback(async () => {
-    handledRealtimeMessageKeysRef.current.clear();
+    handledRealtimeMessageKeysRef?.current?.clear();
     if (!selectedChat) return;
     const chatId = selectedChat.chatId || selectedChat.id;
     if (!chatId) return;
