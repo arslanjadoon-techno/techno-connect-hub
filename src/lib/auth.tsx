@@ -201,8 +201,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
+const fallbackAuthCtx: AuthCtx = {
+  user: null,
+  permissions: [],
+  login: async () => ({ kind: "verify2fa" }),
+  setSession: () => ({ id: 0, firstName: "", lastName: "", email: "", role: "user" as Role, active: false }),
+  logout: () => {},
+};
+
+export function useAuth(): AuthCtx {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
+  if (!ctx) {
+    const stored = getStoredUser<any>();
+    if (stored) {
+      return {
+        ...fallbackAuthCtx,
+        user: mapBackendUser(stored),
+      };
+    }
+    return fallbackAuthCtx;
+  }
   return ctx;
 }
