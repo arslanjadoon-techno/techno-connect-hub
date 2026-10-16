@@ -11,11 +11,13 @@ import {
   Building2,
   Calendar,
   Clock,
+  ExternalLink,
   Globe,
   KeyRound,
   Loader2,
   Mail,
   MapPin,
+  Navigation,
   Phone,
   RefreshCw,
   ShieldAlert,
@@ -139,6 +141,11 @@ export default function StoreDetailPage() {
 
   // 4. Assigned Store Users
   const assignedUsersList = Array.isArray(store.assignedUsers) ? store.assignedUsers : [];
+
+  // 5. Store Address query for Google Maps embed and navigation
+  const storeAddressQuery = store.address
+    ? store.address
+    : [store.name, store.market?.name, store.state?.name].filter(Boolean).join(", ");
 
   return (
     <div className="w-full space-y-6 pb-12">
@@ -478,6 +485,90 @@ export default function StoreDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* Full-Width Section: Store Map View */}
+      <Card className="border-border/60 shadow-xs overflow-hidden">
+        <CardHeader className="pb-3 border-b bg-muted/20">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                <MapPin className="h-4.5 w-4.5 text-primary" /> Store Map View
+              </CardTitle>
+              {store.address ? (
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <span className="font-medium text-foreground">{store.name}:</span>
+                  {store.address}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">Location map visualization</p>
+              )}
+            </div>
+            {store.address && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
+                  className="h-8 text-xs cursor-pointer gap-1.5"
+                >
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                      storeAddressQuery,
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" /> Open in Google Maps
+                  </a>
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  asChild
+                  className="h-8 text-xs cursor-pointer gap-1.5"
+                >
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+                      storeAddressQuery,
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Navigation className="h-3.5 w-3.5" /> Get Directions
+                  </a>
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {store.address ? (
+            <div className="w-full h-[450px] sm:h-[480px] bg-muted/30 relative">
+              <iframe
+                title={`Map location for ${store.name}`}
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                loading="lazy"
+                allowFullScreen
+                referrerPolicy="no-referrer-when-downgrade"
+                src={`https://maps.google.com/maps?q=${encodeURIComponent(
+                  storeAddressQuery,
+                )}&t=&z=15&ie=UTF8&iwloc=&output=embed`}
+                className="w-full h-full"
+              />
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground space-y-2">
+              <MapPin className="h-10 w-10 opacity-30" />
+              <p className="text-sm font-medium">No address provided for this store</p>
+              <p className="text-xs text-muted-foreground">
+                Add an address to the store to display its geographical map view.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
