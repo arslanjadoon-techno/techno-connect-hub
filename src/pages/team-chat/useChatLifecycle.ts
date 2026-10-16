@@ -124,7 +124,5 @@ export function useChatLifecycle({
     if (activeCall?.id) setCallMinimized(false);
   }, [activeCall?.id]);
 
-
   return { activeCallIsAccepted, filteredItems };
 }
-

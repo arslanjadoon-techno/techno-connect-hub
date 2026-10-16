@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { getBuddyEmail, getBuddySendId, getChannelId, normalizePresence } from "./chatHealper";
 import { useChatConversationView } from "./useChatConversationView";
 import { useChatRealtime } from "./useChatRealtime";
@@ -392,13 +392,7 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     setSendError,
   });
 
-  const { markChatAsRead } = useChatMarkRead({
-    activeConversationId,
-    callSocketRef,
-    messagesByChat,
-    selectedChat,
-    setChannels,
-  });
+  const { markChatAsRead } = useChatMarkRead({ activeConversationId, selectedChat, setChannels });
 
   return {
     allVisibleBuddies,

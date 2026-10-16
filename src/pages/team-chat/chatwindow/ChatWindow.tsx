@@ -1,19 +1,22 @@
 import {
+  memo,
+  useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ChangeEvent,
   type KeyboardEvent,
   type RefObject,
 } from "react";
-import { getBuddyEmail, getBuddyName, getBuddySendId, getChannelName } from "../chatHealper";
+import { getBuddyEmail, getBuddyName, getBuddySendId } from "../chatHealper";
 import { EmptyChatState } from "./ChatWindowStates";
 import { PinnedMessageBanner } from "./ChatWindowPanels";
 import InternalCallPanel from "../calls/InternalCallPanel";
 import ChatWindowHeader from "./ChatWindowHeader";
 import ChatMessageList from "./ChatMessageList";
 import ChatComposerPanel from "./ChatComposerPanel";
-import { searchChatMessagesService } from "../../../services/Team-chat/chat.service";
+import { searchChatMessagesService } from "@/services/Team-chat/chat.service";
 
 type ChatRecord = Record<string, any>;
 type MessageRecord = Record<string, any>;
@@ -28,7 +31,6 @@ interface ChatWindowProps {
   currentMessages?: MessageRecord[];
   messageInfoVersions?: Record<string, number>;
   editingMessage?: MessageRecord | null;
-  enterToSend?: boolean;
   handleFileUpload?: (event: ChangeEvent<HTMLInputElement>) => void;
   onVoiceMessage?: (file: File) => void;
   handleCancelComposerMode?: () => void;
@@ -73,6 +75,19 @@ interface ChatWindowProps {
   uploading?: boolean;
 }
 
+// Stable defaults. A new `[]` or `{}` on every render would break memoization of the children.
+const EMPTY_LIST: any[] = [];
+const EMPTY_OBJECT: Record<string, number> = {};
+
+const SEARCH_DEBOUNCE_MS = 300;
+const TYPING_IDLE_MS = 2500;
+const HIGHLIGHT_MS = 1800;
+const ADMIN_ROLES = ["owner", "admin", "administrator"];
+
+// Memoized so typing in the composer does not re-render the header and the whole message list.
+const MemoHeader = memo(ChatWindowHeader);
+const MemoMessageList = memo(ChatMessageList);
+
 function getChatTitle(chat?: ChatRecord | null) {
   if (!chat) return "Conversation";
 
@@ -83,16 +98,39 @@ function getChatTitle(chat?: ChatRecord | null) {
   return getBuddyName(chat.raw || chat);
 }
 
+function isSamePerson(first?: ChatRecord, second?: ChatRecord) {
+  if (!first || !second) return false;
+
+  const values = (person: ChatRecord) =>
+    [
+      person.id,
+      person.userId,
+      person.user_id,
+      person.appUserId,
+      person.app_user_id,
+      person.email,
+      person.email_id,
+    ]
+      .filter((value) => value != null && String(value).trim())
+      .map((value) => String(value).trim().toLowerCase());
+
+  const firstValues = values(first);
+  return values(second).some((value) => firstValues.includes(value));
+}
+
+function voiceFileName(mimeType: string) {
+  const ext = mimeType.includes("mp4") ? "m4a" : mimeType.includes("ogg") ? "ogg" : "webm";
+  return `voice-${Date.now()}.${ext}`;
+}
+
 export default function ChatWindow({
   activeCall,
-  availableChats = [],
-  // callStarting = false,
+  availableChats = EMPTY_LIST,
   chatBoxRef,
   currentUser,
-  currentMessages = [],
-  messageInfoVersions = {},
+  currentMessages = EMPTY_LIST,
+  messageInfoVersions = EMPTY_OBJECT,
   editingMessage,
-  enterToSend = false,
   handleFileUpload,
   onVoiceMessage,
   handleCancelComposerMode,
@@ -101,7 +139,7 @@ export default function ChatWindow({
   handlePinMessage,
   handleDeleteMessages,
   handleBlockUser,
-  blockedUserIds = [],
+  blockedUserIds = EMPTY_LIST,
   handleCopyMessage,
   handleReaction,
   handleReplyToMessage,
@@ -114,19 +152,17 @@ export default function ChatWindow({
   hasOlderMessages = false,
   loadingOlderMessages = false,
   inputValue = "",
-  mentionableUsers = [],
-  mutedGroupIds = [],
-  pendingFiles = [],
+  mentionableUsers = EMPTY_LIST,
+  mutedGroupIds = EMPTY_LIST,
+  pendingFiles = EMPTY_LIST,
   removePendingFile,
   selectedChat,
   sendError,
   sending = false,
   replyToMessage,
-  // onStartConversationCall,
   onSearchMessages,
   onScheduleCall,
   onOpenChatMenu,
-  onOpenMedia,
   onToggleGroupMute,
   onClearChat,
   onOpenAddMembers,
@@ -142,66 +178,216 @@ export default function ChatWindow({
   const [emojiTarget, setEmojiTarget] = useState<MessageRecord | null>(null);
   const [recording, setRecording] = useState(false);
   const [chatMenuOpen, setChatMenuOpen] = useState(false);
-  const chatMenuRef = useRef<HTMLDivElement>(null);
   const [mediaDialogOpen, setMediaDialogOpen] = useState(false);
   const [scheduleCallOpen, setScheduleCallOpen] = useState(false);
-  const sendMessageIsSuccess = Boolean(
-    sendError && /copied|unblocked|removed|saved|updated|success/i.test(sendError),
-  );
   const [messageSearchOpen, setMessageSearchOpen] = useState(false);
   const [messageSearchTerm, setMessageSearchTerm] = useState("");
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [groupMenuAnchor, setGroupMenuAnchor] = useState<HTMLElement | null>(null);
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
   const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
-  const [voiceRecorder, setVoiceRecorder] = useState<MediaRecorder | null>(null);
   const [selectedMessageIds, setSelectedMessageIds] = useState<string[]>([]);
-
   const [searchResults, setSearchResults] = useState<MessageRecord[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
+
+  const chatMenuRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const composerInputRef = useRef<HTMLTextAreaElement>(null);
+  const searchRequestId = useRef(0);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingActive = useRef(false);
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const discardRecording = useRef(false);
+
+  const chatId = selectedChat?.chatId || selectedChat?.id;
+  const selectedType = String(selectedChat?.type ?? selectedChat?.raw?.type ?? "")
+    .trim()
+    .toLowerCase();
+  const isGroup = selectedType === "group" || selectedType === "channel";
+  const sendMessageIsSuccess = Boolean(
+    sendError && /copied|unblocked|removed|saved|updated|success/i.test(sendError),
+  );
   const selectedUserBlocked = Boolean(
     selectedChat?.type === "person" && blockedUserIds.includes(String(selectedChat.id)),
   );
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const composerInputRef = useRef<HTMLTextAreaElement>(null);
 
-  const searchRequestId = useRef(0);
-  console.log(selectedChat, "selec");
+  /* ---------------------------- derived data ---------------------------- */
 
+  const rawParticipants = selectedChat?.participants;
+  const rawMembers = selectedChat?.members;
+  const rawRawParticipants = selectedChat?.raw?.participants;
+  const groupMembers = useMemo<ChatRecord[]>(() => {
+    const raw: ChatRecord[] = rawParticipants ?? rawMembers ?? rawRawParticipants ?? EMPTY_LIST;
+    return Array.from(
+      new Map<string, ChatRecord>(
+        raw.map((member) => {
+          const identity = String(
+            getBuddyEmail(member) || getBuddySendId(member) || getBuddyName(member),
+          ).toLowerCase();
+          return [identity, member];
+        }),
+      ).values(),
+    );
+  }, [rawParticipants, rawMembers, rawRawParticipants]);
+
+  const chatRole = selectedChat?.role ?? selectedChat?.raw?.role;
+  const isGroupAdmin = useMemo(() => {
+    if (!isGroup) return false;
+    const participant = groupMembers.find((member) => isSamePerson(member, currentUser));
+    const role = String(
+      chatRole ??
+        participant?.conversationRole ??
+        participant?.conversation_role ??
+        participant?.memberRole ??
+        participant?.member_role ??
+        participant?.role ??
+        "",
+    )
+      .trim()
+      .toLowerCase();
+    return ADMIN_ROLES.includes(role);
+  }, [isGroup, groupMembers, currentUser, chatRole]);
+
+  const isGroupMuted = mutedGroupIds.includes(String(selectedChat?.id));
+
+  const { latestPinnedMessage, pinnedCount } = useMemo(() => {
+    let latest: MessageRecord | null = null;
+    let count = 0;
+    for (const message of currentMessages) {
+      if (message.metadata?.pinned) {
+        latest = message;
+        count += 1;
+      }
+    }
+    return { latestPinnedMessage: latest, pinnedCount: count };
+  }, [currentMessages]);
+
+  /* ------------------------------ helpers ------------------------------- */
+
+  const scrollToMessage = useCallback(
+    (messageId: string) => {
+      const target = chatBoxRef?.current?.querySelector<HTMLElement>(
+        `[data-message-id="${CSS.escape(messageId)}"]`,
+      );
+      if (!target) return false;
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedMessageId(messageId);
+      if (highlightTimer.current) clearTimeout(highlightTimer.current);
+      highlightTimer.current = setTimeout(() => setHighlightedMessageId(null), HIGHLIGHT_MS);
+      return true;
+    },
+    [chatBoxRef],
+  );
+
+  const jumpToMessage = useCallback(
+    (messageId: string) => {
+      setMessageSearchOpen(false);
+      // Wait a frame: closing the search can change which messages are rendered.
+      requestAnimationFrame(() => scrollToMessage(messageId));
+    },
+    [scrollToMessage],
+  );
+
+  // Send "typing" once when the user starts, and "stopped" after a pause. Not on every keystroke.
+  const signalTyping = useCallback(
+    (typing: boolean) => {
+      if (typingTimer.current) clearTimeout(typingTimer.current);
+      typingTimer.current = null;
+      if (typing) {
+        if (!typingActive.current) {
+          typingActive.current = true;
+          onTyping?.(true);
+        }
+        typingTimer.current = setTimeout(() => {
+          typingActive.current = false;
+          onTyping?.(false);
+        }, TYPING_IDLE_MS);
+      } else if (typingActive.current) {
+        typingActive.current = false;
+        onTyping?.(false);
+      }
+    },
+    [onTyping],
+  );
+
+  const stopRecording = useCallback((discard = false) => {
+    discardRecording.current = discard;
+    const recorder = recorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.stop();
+    } else {
+      recorderRef.current = null;
+      setRecording(false);
+    }
+  }, []);
+
+  /* ------------------------------ effects ------------------------------- */
+
+  // Switching chats starts fresh: no leftover search, menus, selection, mention list or recording.
+  useEffect(() => {
+    setMessageSearchOpen(false);
+    setMessageSearchTerm("");
+    setMentionQuery(null);
+    setSelectedMessageIds([]);
+    setGroupMenuAnchor(null);
+    setGroupInfoOpen(false);
+    setLeaveConfirmOpen(false);
+    setChatMenuOpen(false);
+    setEmojiAnchor(null);
+    setEmojiTarget(null);
+    setActionsMessage(null);
+    setHighlightedMessageId(null);
+    stopRecording(true);
+    signalTyping(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatId]);
+
+  // Clear timers and release the microphone when the window unmounts.
+  useEffect(
+    () => () => {
+      if (highlightTimer.current) clearTimeout(highlightTimer.current);
+      if (typingTimer.current) clearTimeout(typingTimer.current);
+      discardRecording.current = true;
+      const recorder = recorderRef.current;
+      if (recorder && recorder.state !== "inactive") recorder.stop();
+    },
+    [],
+  );
+
+  // The composer was cleared (message sent), so the typing indicator should stop.
+  useEffect(() => {
+    if (!inputValue) signalTyping(false);
+  }, [inputValue, signalTyping]);
+
+  // Debounced message search for the active chat. Older responses are ignored.
   useEffect(() => {
     const term = messageSearchTerm.trim();
     const requestId = ++searchRequestId.current;
-    const activeChatId = selectedChat?.chatId || selectedChat?.id;
 
-    if (!messageSearchOpen || !term || !activeChatId) {
-      setSearchResults([]);
+    if (!messageSearchOpen || !term || !chatId) {
+      setSearchResults((previous) => (previous.length ? [] : previous));
       setSearchLoading(false);
       setSearchError("");
       return;
     }
 
-    // Prevent results for the previous keyword/chat from remaining visible.
-    setSearchResults([]);
+    setSearchResults((previous) => (previous.length ? [] : previous));
     setSearchError("");
 
     const timer = window.setTimeout(async () => {
       if (requestId !== searchRequestId.current) return;
-
       setSearchLoading(true);
 
       try {
         const response: any = await searchChatMessagesService({
           q: term,
-          chatId: String(activeChatId),
+          chatId: String(chatId),
           limit: 25,
         });
-
-        // Ignore responses belonging to an older search.
         if (requestId !== searchRequestId.current) return;
-
         const results = response?.data?.data;
-
         setSearchResults(Array.isArray(results) ? results : []);
       } catch {
         if (requestId === searchRequestId.current) {
@@ -209,15 +395,14 @@ export default function ChatWindow({
           setSearchError("Unable to search messages. Please try again.");
         }
       } finally {
-        if (requestId === searchRequestId.current) {
-          setSearchLoading(false);
-        }
+        if (requestId === searchRequestId.current) setSearchLoading(false);
       }
-    }, 300);
+    }, SEARCH_DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
-  }, [messageSearchTerm, messageSearchOpen, selectedChat?.chatId, selectedChat?.id]);
+  }, [messageSearchTerm, messageSearchOpen, chatId]);
 
+  // Close the chat options menu on Escape or an outside click.
   useEffect(() => {
     if (!chatMenuOpen) return;
     const closeOnEscape = (event: globalThis.KeyboardEvent) => {
@@ -236,26 +421,23 @@ export default function ChatWindow({
     };
   }, [chatMenuOpen]);
 
+  /* ----------------------------- composer ------------------------------- */
+
   const setText = (value: string) => {
     setInputValue?.(value);
-    onTyping?.(value.length > 0);
+    signalTyping(value.length > 0);
   };
 
   const handleComposerChange = (value: string, cursor: number) => {
     setText(value);
 
-    const type = String(selectedChat?.type ?? selectedChat?.raw?.type ?? "")
-      .trim()
-      .toLowerCase();
-
-    if (type !== "group" && type !== "channel") {
+    if (!isGroup) {
       setMentionQuery(null);
       return;
     }
 
     const beforeCursor = value.slice(0, cursor);
     const match = beforeCursor.match(/(?:^|\s)@([^\s@]*)$/);
-
     setMentionQuery(match ? match[1] : null);
   };
 
@@ -266,26 +448,12 @@ export default function ChatWindow({
     const beforeCursor = value.slice(0, cursor);
     const mentionStart = beforeCursor.lastIndexOf("@");
     const name = getBuddyName(member);
-    const nextValue = `${value.slice(0, mentionStart)}@${name} ${value.slice(cursor)}`;
-    setText(nextValue);
+    setText(`${value.slice(0, mentionStart)}@${name} ${value.slice(cursor)}`);
     setMentionQuery(null);
     requestAnimationFrame(() => {
       input?.focus();
       const nextCursor = mentionStart + name.length + 2;
       input?.setSelectionRange(nextCursor, nextCursor);
-    });
-  };
-
-  const applyTextFormat = (marker: string) => {
-    const input = composerInputRef.current;
-    const value = String(inputValue || "");
-    const start = input?.selectionStart ?? value.length;
-    const end = input?.selectionEnd ?? start;
-    const selected = value.slice(start, end);
-    setText(`${value.slice(0, start)}${marker}${selected}${marker}${value.slice(end)}`);
-    requestAnimationFrame(() => {
-      input?.focus();
-      input?.setSelectionRange(start + marker.length, start + marker.length + selected.length);
     });
   };
 
@@ -301,159 +469,61 @@ export default function ChatWindow({
     });
   };
 
+  // Enter sends and Shift+Enter adds a new line. Both are handled in ChatComposerPanel;
+  // this only closes the mention list on Escape.
   const onComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key !== "Enter") return;
-    if (event.shiftKey || (!enterToSend && !event.ctrlKey && !event.metaKey)) return;
-    event.preventDefault();
-    handleSend?.();
+    if (event.key === "Escape" && mentionQuery !== null) {
+      event.preventDefault();
+      setMentionQuery(null);
+    }
   };
 
   const toggleRecording = async () => {
     if (recording) {
-      voiceRecorder?.stop();
+      stopRecording(false);
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return;
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      // Permission denied or no microphone: stay in the normal state.
+      setRecording(false);
+      return;
+    }
+
     const recorder = new MediaRecorder(stream);
     const chunks: Blob[] = [];
+    discardRecording.current = false;
     recorder.ondataavailable = (event) => event.data.size && chunks.push(event.data);
     recorder.onstop = () => {
       stream.getTracks().forEach((track) => track.stop());
-      const blob = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
-      onVoiceMessage?.(new File([blob], `voice-${Date.now()}.webm`, { type: blob.type }));
+      if (!discardRecording.current && chunks.length > 0) {
+        const type = recorder.mimeType || "audio/webm";
+        const blob = new Blob(chunks, { type });
+        onVoiceMessage?.(new File([blob], voiceFileName(type), { type }));
+      }
+      recorderRef.current = null;
       setRecording(false);
-      setVoiceRecorder(null);
     };
     recorder.start();
-    setVoiceRecorder(recorder);
+    recorderRef.current = recorder;
     setRecording(true);
   };
 
   if (!selectedChat) return <EmptyChatState />;
 
   const title = getChatTitle(selectedChat);
-  const chatId = selectedChat.chatId || selectedChat.id;
-
-  const selectedType = String(selectedChat.type ?? selectedChat.raw?.type ?? "")
-    .trim()
-    .toLowerCase();
-
-  const isGroup = selectedType === "group" || selectedType === "channel";
-
-  const rawGroupMembers: ChatRecord[] = (selectedChat.participants ??
-    selectedChat.members ??
-    selectedChat.raw?.participants ??
-    []) as ChatRecord[];
-
-  const groupMembers: ChatRecord[] = Array.from(
-    new Map<string, ChatRecord>(
-      rawGroupMembers.map((member: ChatRecord) => {
-        const identity = String(
-          getBuddyEmail(member) || getBuddySendId(member) || getBuddyName(member),
-        ).toLowerCase();
-
-        return [identity, member];
-      }),
-    ).values(),
-  );
-  const isGroupMuted = mutedGroupIds.includes(String(selectedChat.id));
-
-  const isSamePerson = (first?: ChatRecord, second?: ChatRecord) => {
-    if (!first || !second) return false;
-
-    const values = (person: ChatRecord) =>
-      [
-        person.id,
-        person.userId,
-        person.user_id,
-        person.appUserId,
-        person.app_user_id,
-        person.email,
-        person.email_id,
-      ]
-        .filter((value) => value != null && String(value).trim())
-        .map((value) => String(value).trim().toLowerCase());
-
-    const firstValues = values(first);
-    return values(second).some((value) => firstValues.includes(value));
-  };
-
-  const currentParticipant = groupMembers.find((member) => isSamePerson(member, currentUser));
-
-  const currentRole = String(
-    selectedChat.role ??
-      selectedChat.raw?.role ??
-      currentParticipant?.conversationRole ??
-      currentParticipant?.conversation_role ??
-      currentParticipant?.memberRole ??
-      currentParticipant?.member_role ??
-      currentParticipant?.role ??
-      "",
-  )
-    .trim()
-    .toLowerCase();
-
-  const isGroupAdmin = isGroup && ["owner", "admin", "administrator"].includes(currentRole);
-
-  console.log("Group permission debug", {
-    chatType: selectedType,
-    currentUser,
-    currentParticipant,
-    currentRole,
-    isGroup,
-    isGroupAdmin,
-  });
-
-  const pinnedMessages = currentMessages.filter((message) => message.metadata?.pinned);
-  const latestPinnedMessage = pinnedMessages[pinnedMessages.length - 1] || null;
-
-  const jumpToMessage = (messageId: string) => {
-    setMessageSearchOpen(false);
-
-    requestAnimationFrame(() => {
-      const target = chatBoxRef?.current?.querySelector(
-        `[data-message-id="${CSS.escape(messageId)}"]`,
-      ) as HTMLElement | null;
-
-      if (!target) {
-        console.warn("Message not found in the currently rendered chat:", messageId);
-        return;
-      }
-
-      target.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-
-      setHighlightedMessageId(messageId);
-
-      window.setTimeout(() => {
-        setHighlightedMessageId(null);
-      }, 1800);
-    });
-  };
-  console.log("Group permission debug", {
-    chatType: selectedChat.type,
-    currentUserRole: selectedChat.role,
-    isGroup,
-    isGroupAdmin,
-    members: groupMembers.map((m) => ({
-      name: getBuddyName(m),
-      role: m.role,
-      conversationRole: m.conversationRole,
-      isOwner: m.isOwner,
-    })),
-  });
 
   return (
     <section className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-background text-foreground">
-      <ChatWindowHeader
+      <MemoHeader
         {...{
-          chatBoxRef,
           chatMenuOpen,
-          onJumpToMessage: jumpToMessage,
           chatMenuRef,
+          onJumpToMessage: jumpToMessage,
           currentUser,
           groupInfoOpen,
           groupMembers,
@@ -472,7 +542,6 @@ export default function ChatWindow({
           onClearChat,
           onOpenAddMembers,
           onOpenChatMenu,
-          onOpenMedia,
           onLeaveGroup,
           onRemoveGroupMember,
           onScheduleCall,
@@ -502,18 +571,12 @@ export default function ChatWindow({
       )}
       <PinnedMessageBanner
         latestPinnedMessage={latestPinnedMessage}
-        pinnedCount={pinnedMessages.length}
+        pinnedCount={pinnedCount}
         onClick={() => {
-          if (!latestPinnedMessage?.id) return;
-          const target = chatBoxRef?.current?.querySelector<HTMLElement>(
-            `[data-message-id="${CSS.escape(String(latestPinnedMessage.id))}"]`,
-          );
-          target?.scrollIntoView({ behavior: "smooth", block: "center" });
-          setHighlightedMessageId(String(latestPinnedMessage.id));
-          window.setTimeout(() => setHighlightedMessageId(null), 1400);
+          if (latestPinnedMessage?.id) scrollToMessage(String(latestPinnedMessage.id));
         }}
       />
-      <ChatMessageList
+      <MemoMessageList
         {...{
           blockedUserIds,
           chatBoxRef,
@@ -549,7 +612,6 @@ export default function ChatWindow({
       <ChatComposerPanel
         {...{
           actionsMessage,
-          applyTextFormat,
           availableChats,
           composerInputRef,
           currentMessages,
@@ -557,7 +619,6 @@ export default function ChatWindow({
           editingMessage,
           emojiAnchor,
           emojiTarget,
-          enterToSend,
           fileInputRef,
           groupMembers,
           handleComposerChange,
@@ -570,7 +631,7 @@ export default function ChatWindow({
           insertMention,
           mentionQuery,
           onComposerKeyDown,
-          onTyping,
+          onTyping: signalTyping,
           pendingFiles,
           recording,
           removePendingFile,

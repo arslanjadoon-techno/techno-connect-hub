@@ -1,29 +1,159 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { Loader2, Search, UsersRound, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
-  // DialogHeader,
+  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, UsersRound } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { getBuddyEmail, getBuddyName, getBuddySendId, getImageUrl } from "../chatHealper";
 import { getInitial } from "../sidebar/chatSidebarUtils";
-
-/* ------------------------------------------------------------------ */
-/*  Shared tiny components                                            */
-/* ------------------------------------------------------------------ */
-
 import { AvatarImg, BuddyRow } from "./GroupDialogParts";
 
+const idOf = (buddy: any) => String(getBuddySendId(buddy));
+const inputClass =
+  "h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
 /* ------------------------------------------------------------------ */
-/*  GroupCreationDialog                                                */
+/*  Shared pieces                                                      */
+/* ------------------------------------------------------------------ */
+
+function ErrorMessage({ error }: { error: string | null }) {
+  if (!error) return null;
+  return (
+    <div
+      role="alert"
+      className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive"
+    >
+      {error}
+    </div>
+  );
+}
+
+function SearchField({
+  value,
+  onChange,
+  id,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  id: string;
+}) {
+  return (
+    <div className="relative">
+      <Search
+        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+        aria-hidden="true"
+      />
+      <input
+        id={id}
+        type="search"
+        aria-label="Search people"
+        placeholder="Search people"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={`${inputClass} pl-9`}
+      />
+    </div>
+  );
+}
+
+function SelectedChips({
+  selectedMembers,
+  onRemove,
+}: {
+  selectedMembers: any[];
+  onRemove: (userId: string) => void;
+}) {
+  if (selectedMembers.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Select at least one person to start the group.
+      </p>
+    );
+  }
+  return (
+    <ul className="flex flex-wrap gap-1.5">
+      {selectedMembers.map((buddy) => {
+        const userId = idOf(buddy);
+        const name = getBuddyName(buddy);
+        return (
+          <li
+            key={userId}
+            className="inline-flex items-center gap-1.5 rounded-full border bg-muted/50 py-1 pl-1.5 pr-1"
+          >
+            <AvatarImg src={getImageUrl(buddy)} fallback={getInitial(name)} size="sm" />
+            <span className="max-w-[120px] truncate text-sm text-foreground">{name}</span>
+            <button
+              type="button"
+              aria-label={`Remove ${name}`}
+              onClick={() => onRemove(userId)}
+              className="flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function BuddyList({
+  members,
+  isChecked,
+  onToggle,
+  loading = false,
+  emptyText = "No people found.",
+  className = "max-h-[360px]",
+}: {
+  members: any[];
+  isChecked: (userId: string) => boolean;
+  onToggle: (userId: string) => void;
+  loading?: boolean;
+  emptyText?: string;
+  className?: string;
+}) {
+  return (
+    <div className={`overflow-y-auto rounded-lg border p-1 ${className}`}>
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-primary" aria-label="Loading people" />
+        </div>
+      ) : members.length === 0 ? (
+        <p className="py-8 text-center text-sm text-muted-foreground">{emptyText}</p>
+      ) : (
+        members.map((buddy) => {
+          const userId = idOf(buddy);
+          return (
+            <BuddyRow key={userId} buddy={buddy} checked={isChecked(userId)} onToggle={onToggle} />
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+function SubmitLabel({ busy, idle, working }: { busy: boolean; idle: string; working: string }) {
+  return busy ? (
+    <>
+      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+      {working}
+    </>
+  ) : (
+    <>{idle}</>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Group creation (shared form used by the dialog and the page)       */
 /* ------------------------------------------------------------------ */
 
 interface GroupCreationDialogProps {
   error: string | null;
-
   members: any[];
   onClose: () => void;
   onCreate: () => void;
@@ -31,7 +161,6 @@ interface GroupCreationDialogProps {
   onSelectMember: (userId: string) => void;
   open: boolean;
   search: string;
-
   selectedMembers: any[];
   title: string;
   onTitleChange: (value: string) => void;
@@ -40,341 +169,150 @@ interface GroupCreationDialogProps {
   page?: boolean;
 }
 
-export function GroupCreationDialog({
+type GroupFormProps = Omit<GroupCreationDialogProps, "open" | "page"> & {
+  listClassName?: string;
+};
+
+function GroupCreationForm({
   error,
   members,
   onClose,
   onCreate,
   onSearchChange,
   onSelectMember,
-  open,
   search,
   selectedMembers,
   title,
   onTitleChange,
   creating,
   loading = false,
-  page = false,
-}: GroupCreationDialogProps) {
+  listClassName,
+  header,
+  footerClassName = "",
+}: GroupFormProps & { header: ReactNode; footerClassName?: string }) {
+  const canCreate = !creating && title.trim().length > 0 && selectedMembers.length > 0;
+  const hint = !title.trim()
+    ? "Enter a group name to continue."
+    : selectedMembers.length === 0
+      ? "Select at least one person."
+      : "";
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (canCreate) onCreate();
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-5">
+      {header}
+
+      <div className="space-y-2">
+        <label htmlFor="new-group-title" className="text-sm text-foreground">
+          Group name
+        </label>
+        <input
+          id="new-group-title"
+          autoFocus
+          type="text"
+          maxLength={80}
+          placeholder="Enter a group name"
+          value={title}
+          onChange={(event) => onTitleChange(event.target.value)}
+          className={inputClass}
+        />
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm text-foreground">Members</h2>
+          <span className="text-xs text-muted-foreground">{selectedMembers.length} selected</span>
+        </div>
+        <SelectedChips selectedMembers={selectedMembers} onRemove={onSelectMember} />
+        <SearchField id="new-group-search" value={search} onChange={onSearchChange} />
+        <ErrorMessage error={error} />
+        <BuddyList
+          members={members}
+          loading={loading}
+          className={listClassName}
+          isChecked={(userId) => selectedMembers.some((member) => idOf(member) === userId)}
+          onToggle={onSelectMember}
+        />
+      </div>
+
+      <div className={`flex items-center justify-end gap-2 ${footerClassName}`}>
+        <span className="mr-auto text-xs text-muted-foreground" role="status">
+          {hint}
+        </span>
+        <Button type="button" variant="ghost" onClick={onClose} disabled={creating}>
+          Cancel
+        </Button>
+        <Button type="submit" disabled={!canCreate}>
+          <SubmitLabel busy={creating} idle="Create group" working="Creating…" />
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+export function GroupCreationDialog({ open, onClose, ...form }: GroupCreationDialogProps) {
+  const { page: _page, ...rest } = form;
   return (
     <Dialog open={open} onOpenChange={(value) => !value && onClose()}>
-      <DialogContent className="max-w-2xl !px-4 !py-4 sm:!px-6">
-        <DialogTitle className="!pb-3">
-          <div className="flex items-center gap-3">
-            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-              {/* Group icon */}
-              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
-              </svg>
-            </span>
-            <div>
-              <h2 className="font-display text-xl font-semibold tracking-tight text-foreground">
-                New group
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Create a space for your team and friends
-              </p>
+      <DialogContent className="max-w-2xl">
+        <GroupCreationForm
+          {...rest}
+          onClose={onClose}
+          header={
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <UsersRound className="h-5 w-5" />
+              </span>
+              <DialogHeader className="space-y-0.5 text-left">
+                <DialogTitle className="text-xl font-normal">New group</DialogTitle>
+                <DialogDescription>Create a space for your team and friends.</DialogDescription>
+              </DialogHeader>
             </div>
-          </div>
-        </DialogTitle>
-        <div>
-          {/* Group name */}
-          <input
-            autoFocus
-            type="text"
-            maxLength={80}
-            placeholder="Enter a group name"
-            value={title}
-            onChange={(e) => onTitleChange(e.target.value)}
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          />
-
-          {/* Selected members label */}
-          <span className="mb-1.5 mt-5 block text-xs font-semibold text-muted-foreground">
-            Selected members {selectedMembers.length > 0 && `(${selectedMembers.length})`}
-          </span>
-
-          {/* Chips or placeholder */}
-          {selectedMembers.length > 0 ? (
-            <div className="mb-3 flex flex-wrap gap-1.5">
-              {selectedMembers.map((buddy) => {
-                const userId = String(getBuddySendId(buddy));
-                return (
-                  <span
-                    key={userId}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1"
-                  >
-                    <AvatarImg
-                      src={getImageUrl(buddy)}
-                      fallback={getInitial(getBuddyName(buddy))}
-                      size="sm"
-                    />
-                    <span className="max-w-[120px] truncate text-sm text-foreground">
-                      {getBuddyName(buddy)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => onSelectMember(userId)}
-                      className="ml-0.5 text-base leading-none text-muted-foreground hover:text-destructive"
-                    >
-                      x
-                    </button>
-                  </span>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="mb-3 text-sm text-muted-foreground">
-              Select at least one person to start the group.
-            </p>
-          )}
-
-          {/* Search people */}
-          <div className="relative">
-            <svg
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
-              <path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Search people"
-              value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
-              className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
-          </div>
-
-          {/* Error */}
-          {error && (
-            <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-
-          {/* Member list */}
-          <div className="mt-3 max-h-[360px] overflow-y-auto p-0.5">
-            {loading && (
-              <div className="flex justify-center py-6">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" aria-label="Loading users" />
-              </div>
-            )}
-            {!loading &&
-              members.map((buddy) => {
-                const userId = String(getBuddySendId(buddy));
-                const checked = selectedMembers.some(
-                  (member) => String(getBuddySendId(member)) === userId,
-                );
-                return (
-                  <BuddyRow
-                    key={userId}
-                    buddy={buddy}
-                    checked={checked}
-                    onToggle={onSelectMember}
-                  />
-                );
-              })}
-            {!loading && members.length === 0 && (
-              <p className="py-6 text-center text-sm text-muted-foreground">No people found.</p>
-            )}
-          </div>
-        </div>
-
-        {/* â”€â”€ Footer â”€â”€ */}
-        <DialogFooter className="!px-4 sm:!px-6 !py-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onCreate}
-            disabled={creating || !title.trim() || selectedMembers.length === 0}
-            className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {creating ? "Creating" : "Create group"}
-          </button>
-        </DialogFooter>
+          }
+        />
       </DialogContent>
     </Dialog>
   );
 }
+
 /** The same group form rendered in the ChatSystem body instead of a modal. */
-export function GroupCreationPage({
-  error,
-  members,
-  onClose,
-  onCreate,
-  onSearchChange,
-  onSelectMember,
-  search,
-  selectedMembers,
-  title,
-  onTitleChange,
-  creating,
-  loading = false,
-}: Omit<GroupCreationDialogProps, "open" | "page">) {
+export function GroupCreationPage(props: Omit<GroupCreationDialogProps, "open" | "page">) {
   return (
     <section className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-y-auto bg-background text-foreground">
-      <div className="mx-auto w-full max-w-4xl p-4 sm:p-8">
-        <header className="mb-6">
-          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
-            <UsersRound className="h-3.5 w-3.5" />
-            Team Chat
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 3-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z" />
-              </svg>
-            </span>
-            <div>
-              <h1 className="font-display text-2xl font-semibold">Create a group</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Start a conversation with a team or group of people.
-              </p>
-            </div>
-          </div>
-        </header>
-        <Card className="border-border/80 shadow-xs">
-          <CardContent className="space-y-5 p-5 sm:p-6">
-            <div className="space-y-2">
-              <label htmlFor="new-group-title" className="text-sm font-medium">
-                Group name
-              </label>
-              <input
-                id="new-group-title"
-                autoFocus
-                type="text"
-                maxLength={80}
-                placeholder="Enter a group name"
-                value={title}
-                onChange={(event) => onTitleChange(event.target.value)}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-            </div>
-
-            <div>
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <h2 className="text-sm font-semibold">Members</h2>
-                <span className="text-xs text-muted-foreground">
-                  {selectedMembers.length} selected
-                </span>
-              </div>
-              {selectedMembers.length > 0 ? (
-                <div className="mb-3 flex flex-wrap gap-2">
-                  {selectedMembers.map((buddy) => {
-                    const userId = String(getBuddySendId(buddy));
-                    return (
-                      <span
-                        key={userId}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1"
-                      >
-                        <AvatarImg
-                          src={getImageUrl(buddy)}
-                          fallback={getInitial(getBuddyName(buddy))}
-                          size="sm"
-                        />
-                        <span className="max-w-[120px] truncate text-sm">
-                          {getBuddyName(buddy)}
-                        </span>
-                        <button
-                          type="button"
-                          aria-label={`Remove ${getBuddyName(buddy)}`}
-                          onClick={() => onSelectMember(userId)}
-                          className="ml-0.5 text-base leading-none text-muted-foreground hover:text-foreground"
-                        >
-                          x
-                        </button>
-                      </span>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="mb-3 text-sm text-muted-foreground">
-                  Select people to start a group conversation.
+      <div className="mx-auto w-full max-w-2xl p-4 sm:p-8">
+        <GroupCreationForm
+          {...props}
+          listClassName="max-h-[420px]"
+          footerClassName="border-t pt-4"
+          header={
+            <header className="flex items-center gap-3">
+              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <UsersRound className="h-6 w-6" />
+              </span>
+              <div>
+                <h1 className="font-display text-2xl font-normal">Create a group</h1>
+                <p className="mt-0.5 text-sm text-muted-foreground">
+                  Start a conversation with a team or group of people.
                 </p>
-              )}
-
-              <input
-                type="text"
-                aria-label="Search people"
-                placeholder="Search people"
-                value={search}
-                onChange={(event) => onSearchChange(event.target.value)}
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-              {error && (
-                <div className="mt-3 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-sm text-destructive">
-                  {error}
-                </div>
-              )}
-
-              <div className="mt-3 max-h-[420px] overflow-y-auto rounded-lg border border-border/80 p-2">
-                {loading ? (
-                  <div className="flex justify-center py-8">
-                    <Loader2
-                      className="h-5 w-5 animate-spin text-primary"
-                      aria-label="Loading users"
-                    />
-                  </div>
-                ) : (
-                  members.map((buddy) => {
-                    const userId = String(getBuddySendId(buddy));
-                    const checked = selectedMembers.some(
-                      (member) => String(getBuddySendId(member)) === userId,
-                    );
-                    return (
-                      <BuddyRow
-                        key={userId}
-                        buddy={buddy}
-                        checked={checked}
-                        onToggle={onSelectMember}
-                      />
-                    );
-                  })
-                )}
-                {!loading && members.length === 0 && (
-                  <p className="py-6 text-center text-sm text-muted-foreground">No people found.</p>
-                )}
               </div>
-            </div>
-            <div className="flex justify-end gap-2 border-t border-border/70 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={onCreate}
-                disabled={creating || !title.trim() || selectedMembers.length === 0}
-                className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {creating ? "Creating" : "Create group"}
-              </button>
-            </div>
-          </CardContent>
-        </Card>
+            </header>
+          }
+        />
       </div>
     </section>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/*  AddMembersDialog                                                  */
+/*  AddMembersDialog                                                   */
 /* ------------------------------------------------------------------ */
 
 interface AddMembersDialogProps {
   error: string | null;
-
   members: any[];
   onAdd: () => void;
   onClose: () => void;
@@ -397,6 +335,7 @@ export function AddMembersDialog({
   onSearchChange,
 }: AddMembersDialogProps) {
   const [search, setSearch] = useState("");
+
   const filteredMembers = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return members;
@@ -409,71 +348,53 @@ export function AddMembersDialog({
     );
   }, [members, search]);
 
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={(value) => {
-        if (!value) {
-          setSearch("");
-          onClose();
-        }
-      }}
-    >
-      <DialogContent>
-        <DialogTitle className="!text-lg !font-bold">Add people to group</DialogTitle>
-        <div>
-          {error && (
-            <div className="mb-3 rounded-lg bg-danger/10 px-4 py-2.5 text-sm text-danger">
-              {error}
-            </div>
-          )}
+  // Cancel, the X button and clicking outside all clear the search the same way.
+  const handleClose = () => {
+    setSearch("");
+    onSearchChange?.("");
+    onClose();
+  };
 
-          <input
-            type="search"
+  const emptyText =
+    members.length === 0 ? "Everyone available is already in this group." : "No people found.";
+
+  return (
+    <Dialog open={open} onOpenChange={(value) => !value && handleClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="text-lg font-normal">Add people to group</DialogTitle>
+          <DialogDescription>Choose who should join this conversation.</DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3">
+          <ErrorMessage error={error} />
+          <SearchField
+            id="add-members-search"
             value={search}
-            onChange={(event) => {
-              const value = event.target.value;
+            onChange={(value) => {
               setSearch(value);
               onSearchChange?.(value);
             }}
-            placeholder="Search people"
-            className="mb-3 h-10 w-full rounded-lg border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
-
-          <div className="max-h-[360px] overflow-y-auto p-0.5">
-            {filteredMembers.map((buddy) => {
-              const userId = String(getBuddySendId(buddy));
-              const checked = selectedIds.includes(userId);
-              return <BuddyRow key={userId} buddy={buddy} checked={checked} onToggle={onSelect} />;
-            })}
-          </div>
-
-          {members.length === 0 && (
-            <p className="text-sm text-muted-foreground">
-              Everyone available is already in this group.
-            </p>
-          )}
-          {members.length > 0 && filteredMembers.length === 0 && (
-            <p className="text-sm text-muted-foreground">No people found.</p>
-          )}
+          <BuddyList
+            members={filteredMembers}
+            emptyText={emptyText}
+            isChecked={(userId) => selectedIds.includes(userId)}
+            onToggle={onSelect}
+          />
         </div>
 
-        <DialogFooter className="!px-4 !py-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
-          >
+        <DialogFooter>
+          <Button type="button" variant="ghost" onClick={handleClose} disabled={adding}>
             Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onAdd}
-            disabled={adding || selectedIds.length === 0}
-            className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {adding ? "Adding" : "Add"}
-          </button>
+          </Button>
+          <Button type="button" onClick={onAdd} disabled={adding || selectedIds.length === 0}>
+            <SubmitLabel
+              busy={adding}
+              idle={selectedIds.length > 0 ? `Add ${selectedIds.length}` : "Add"}
+              working="Adding…"
+            />
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

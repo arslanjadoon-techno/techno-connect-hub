@@ -7,7 +7,6 @@ type ChatRecord = Record<string, any>;
 export function useChatMessageActions({
   currentUserId,
   messagesByChat,
-  refreshSelectedChatMessages,
   selectedChat,
   setMessagesByChat,
   setSendError,

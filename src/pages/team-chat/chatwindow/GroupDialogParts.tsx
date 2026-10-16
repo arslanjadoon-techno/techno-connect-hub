@@ -27,7 +27,7 @@ export function AvatarImg({ src, fallback, size = "md", ring = false }: AvatarIm
   );
 }
 
-// â”€â”€ Buddy row (shared between both dialogs) â”€â”€
+//Buddy row (shared between both dialogs) 
 
 interface BuddyRowProps {
   buddy: any;

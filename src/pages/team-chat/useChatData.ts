@@ -114,143 +114,121 @@ export function useChatData({
   // fetch settings a second time.
   const [desktopNotifications, setDesktopNotifications] = useState<boolean | undefined>();
 
+  const loadDirectChatHistory = useCallback(
+    async (chat: ChatRecord) => {
+      if (!chat || chat.type !== "person" || !chat.id) return;
 
-const loadDirectChatHistory = useCallback(
-  async (chat: ChatRecord) => {
-    if (!chat || chat.type !== "person" || !chat.id) return;
+      const chatKey = String(chat.id);
 
-    const chatKey = String(chat.id);
+      if (loadingChatHistoryRef.current.has(chatKey)) return;
 
-    if (loadingChatHistoryRef.current.has(chatKey)) return;
+      loadingChatHistoryRef.current.add(chatKey);
 
-    loadingChatHistoryRef.current.add(chatKey);
+      const requestClearVersion = chatClearVersionsRef.current.get(chatKey) || 0;
 
-    const requestClearVersion =
-      chatClearVersionsRef.current.get(chatKey) || 0;
+      loadedChatHistoryRef.current.add(chatKey);
 
-    loadedChatHistoryRef.current.add(chatKey);
+      clearUnreadForChat({
+        chatId: chat.chatId,
+        userId: chat.id,
+        email: chat.subtitle || getBuddyEmail(chat.raw),
+      });
 
-    clearUnreadForChat({
-      chatId: chat.chatId,
-      userId: chat.id,
-      email: chat.subtitle || getBuddyEmail(chat.raw),
-    });
+      try {
+        const chatId = chat.chatId || null;
+        if (!chatId) return;
 
-    try {
-      const chatId = chat.chatId || null;
-      if (!chatId) return;
-
-      setSelectedChat((prev: ChatRecord | null) =>
-        prev?.id === chat.id ? { ...prev, chatId } : prev,
-      );
-
-      // 1. Read cache using the same key used by the chat UI.
-      const cachedMessages = await getCachedChatMessages(chat.id);
-
-      if (
-        (chatClearVersionsRef.current.get(chatKey) || 0) !==
-        requestClearVersion
-      ) {
-        return;
-      }
-
-      if (cachedMessages.length > 0) {
-        setMessagesByChat((prev: Record<string, ChatRecord[]>) => ({
-          ...prev,
-          [chat.id]: cachedMessages,
-          [chatId]: cachedMessages,
-        }));
-      }
-
-      // 2. Fetch fresh history.
-      const messagesResponse: any = await getChatMessagesService(
-        chatId,
-        { limit: 100 },
-      );
-
-      if (
-        (chatClearVersionsRef.current.get(chatKey) || 0) !==
-        requestClearVersion
-      ) {
-        return;
-      }
-
-      const historyPayload = unwrapMessagesResponse(messagesResponse);
-
-      const normalizedMessages = normalizeChatMessages(
-        historyPayload,
-        { ...chat, chatId },
-      );
-
-      // 3. Merge server history with cached messages without duplicates.
-      const existingMessages =
-        cachedMessages.length > 0
-          ? cachedMessages
-          : [];
-
-      const mergedMap = new Map<string, ChatRecord>();
-
-      for (const message of [...existingMessages, ...normalizedMessages]) {
-        const messageId = String(
-          message.id ??
-            message.messageId ??
-            message.message_id ??
-            message.clientMessageId ??
-            message.client_message_id ??
-            [
-              message.senderId ?? message.sender_id ?? "",
-              message.createdAt ?? message.created_at ?? "",
-              message.content ?? message.message ?? message.text ?? "",
-            ].join("|"),
+        setSelectedChat((prev: ChatRecord | null) =>
+          prev?.id === chat.id ? { ...prev, chatId } : prev,
         );
 
-        mergedMap.set(messageId, {
-          ...mergedMap.get(messageId),
-          ...message,
-        });
+        // 1. Read cache using the same key used by the chat UI.
+        const cachedMessages = await getCachedChatMessages(chat.id);
+
+        if ((chatClearVersionsRef.current.get(chatKey) || 0) !== requestClearVersion) {
+          return;
+        }
+
+        if (cachedMessages.length > 0) {
+          setMessagesByChat((prev: Record<string, ChatRecord[]>) => ({
+            ...prev,
+            [chat.id]: cachedMessages,
+            [chatId]: cachedMessages,
+          }));
+        }
+
+        // 2. Fetch fresh history.
+        const messagesResponse: any = await getChatMessagesService(chatId, { limit: 100 });
+
+        if ((chatClearVersionsRef.current.get(chatKey) || 0) !== requestClearVersion) {
+          return;
+        }
+
+        const historyPayload = unwrapMessagesResponse(messagesResponse);
+
+        const normalizedMessages = normalizeChatMessages(historyPayload, { ...chat, chatId });
+
+        // 3. Merge server history with cached messages without duplicates.
+        const existingMessages = cachedMessages.length > 0 ? cachedMessages : [];
+
+        const mergedMap = new Map<string, ChatRecord>();
+
+        for (const message of [...existingMessages, ...normalizedMessages]) {
+          const messageId = String(
+            message.id ??
+              message.messageId ??
+              message.message_id ??
+              message.clientMessageId ??
+              message.client_message_id ??
+              [
+                message.senderId ?? message.sender_id ?? "",
+                message.createdAt ?? message.created_at ?? "",
+                message.content ?? message.message ?? message.text ?? "",
+              ].join("|"),
+          );
+
+          mergedMap.set(messageId, {
+            ...mergedMap.get(messageId),
+            ...message,
+          });
+        }
+
+        const mergedMessages = Array.from(mergedMap.values());
+
+        setMessagesByChat((prev: Record<string, ChatRecord[]>) => ({
+          ...prev,
+          [chat.id]: mergedMessages,
+          [chatId]: mergedMessages,
+        }));
+
+        // 4. Persist merged messages for the next visit.
+        await saveCachedChatMessages(chat.id, mergedMessages);
+
+        setMessagePaginationByChat((prev: Record<string, ChatRecord>) => ({
+          ...prev,
+          [chat.id]: historyPayload?.pagination || { hasMore: false },
+          [chatId]: historyPayload?.pagination || { hasMore: false },
+        }));
+
+        console.log("[ChatCache] Direct history cached:", chat.id, mergedMessages.length);
+      } catch (error) {
+        setSendError(normalizeChatError(error));
+        console.error("[ChatCache] Direct history failed:", error);
+      } finally {
+        loadingChatHistoryRef.current.delete(chatKey);
       }
-
-      const mergedMessages = Array.from(mergedMap.values());
-
-      setMessagesByChat((prev: Record<string, ChatRecord[]>) => ({
-        ...prev,
-        [chat.id]: mergedMessages,
-        [chatId]: mergedMessages,
-      }));
-
-      // 4. Persist merged messages for the next visit.
-      await saveCachedChatMessages(chat.id, mergedMessages);
-
-      setMessagePaginationByChat((prev: Record<string, ChatRecord>) => ({
-        ...prev,
-        [chat.id]: historyPayload?.pagination || { hasMore: false },
-        [chatId]: historyPayload?.pagination || { hasMore: false },
-      }));
-
-      console.log(
-        "[ChatCache] Direct history cached:",
-        chat.id,
-        mergedMessages.length,
-      );
-    } catch (error) {
-      setSendError(normalizeChatError(error));
-      console.error("[ChatCache] Direct history failed:", error);
-    } finally {
-      loadingChatHistoryRef.current.delete(chatKey);
-    }
-  },
-  [
-    clearUnreadForChat,
-    chatClearVersionsRef,
-    loadedChatHistoryRef,
-    loadingChatHistoryRef,
-    setMessagePaginationByChat,
-    setMessagesByChat,
-    setSelectedChat,
-    setSendError,
-  ],
-);
-
+    },
+    [
+      clearUnreadForChat,
+      chatClearVersionsRef,
+      loadedChatHistoryRef,
+      loadingChatHistoryRef,
+      setMessagePaginationByChat,
+      setMessagesByChat,
+      setSelectedChat,
+      setSendError,
+    ],
+  );
 
   const loadChannelHistory = useCallback(
     async (chat: ChatRecord) => {

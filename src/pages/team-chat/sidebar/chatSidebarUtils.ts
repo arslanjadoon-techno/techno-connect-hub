@@ -1,5 +1,9 @@
 import { getAvailability, getBuddyEmail, getMessageText } from "../chatHealper";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// Chat items come from several API shapes (camelCase and snake_case), so they stay loosely typed.
+type ChatItem = Record<string, any> | null | undefined;
+
 export interface AppRailItem {
   key: string;
   label: string;
@@ -17,53 +21,63 @@ export const statusOptions: StatusOption[] = [
   { value: "online", label: "Online", color: "#22c55e" },
   { value: "away", label: "Away", color: "#f59e0b" },
   { value: "busy", label: "Busy", color: "#ef4444" },
-  { value: "dnd", label: "Do Not Disturb", color: "#dc2626" },
+  { value: "dnd", label: "Do not disturb", color: "#dc2626" },
   { value: "offline", label: "Offline", color: "#9aa3af" },
 ];
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const getInitial = (value: any): string =>
-  String(value || "Z")
-    .trim()
-    .charAt(0)
-    .toUpperCase();
+/** First letter of a name for avatar fallbacks. Safe for emoji and other multi-unit characters. */
+export const getInitial = (value: unknown): string => {
+  const [first] = Array.from(String(value ?? "").trim());
+  return first ? first.toUpperCase() : "?";
+};
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const getCurrentUserName = (currentUser: any): string =>
+export const getCurrentUserName = (currentUser: ChatItem): string =>
   currentUser?.name ||
   currentUser?.displayName ||
   currentUser?.username ||
   currentUser?.email ||
   "Current user";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const isDirectConversation = (item: any, isChannel: boolean): boolean =>
-  !isChannel || item?.isDirect || item?.type === "direct" || item?.conversationType === "direct";
+export const isDirectConversation = (item: ChatItem, isChannel: boolean): boolean =>
+  !isChannel ||
+  Boolean(item?.isDirect) ||
+  item?.type === "direct" ||
+  item?.conversationType === "direct";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const getParticipantCount = (item: any): number => {
+export const getParticipantCount = (item: ChatItem): number => {
   const participants = Array.isArray(item?.participants) ? item.participants : [];
   const count = item?.participantCount || item?.participant_count || participants.length;
   return Number(count) || 0;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const getLastMessagePreview = (item: any, isChannel: boolean): string => {
-  const rawLastMessage =
-    item?.lastMessage || item?.last_message || item?.latestMessage || item?.latest_message || null;
-  const text = getMessageText(rawLastMessage) || item?.lastMessageText || item?.last_message_text;
-
-  if (text) return text;
-  if (isChannel && !isDirectConversation(item, isChannel)) {
-    return "No messages yet";
-  }
-
-  const availability = getAvailability(item);
-  return availability?.label || getBuddyEmail(item) || "Direct message";
+/** One-line text for the conversation list: newlines collapsed, placeholders made readable. */
+const toPreview = (value: unknown): string => {
+  const text = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text === "[Attachment]" ? "Attachment" : text;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const getDeliveryState = (item: any): string =>
+export const getLastMessagePreview = (item: ChatItem, isChannel: boolean): string => {
+  const rawLastMessage =
+    item?.lastMessage || item?.last_message || item?.latestMessage || item?.latest_message || null;
+  const text = toPreview(
+    getMessageText(rawLastMessage) || item?.lastMessageText || item?.last_message_text,
+  );
+
+  if (text) return text;
+
+  const hasAttachments =
+    Array.isArray(rawLastMessage?.attachments) && rawLastMessage.attachments.length > 0;
+  if (hasAttachments) return "Attachment";
+
+  // Groups and channels have no person to describe, so they show an empty-state line.
+  if (!isDirectConversation(item, isChannel)) return "No messages yet";
+
+  return getAvailability(item)?.label || getBuddyEmail(item) || "Direct message";
+};
+
+export const getDeliveryState = (item: ChatItem): string =>
   String(
     item?.deliveryState ||
       item?.delivery_state ||
