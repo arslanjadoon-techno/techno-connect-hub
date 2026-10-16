@@ -865,99 +865,81 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
   const marketSearchRef = useRef<HTMLInputElement>(null);
   const districtSearchRef = useRef<HTMLInputElement>(null);
 
-  // Track if this is the very first render for edit mode to preserve initial pre-populated values
-  const isFirstStateRender = useRef(true);
-  const isFirstMarketRender = useRef(true);
+  // Handler for state change in Add and Update modals
+  const handleStateChange = async (newStateId: string) => {
+    setStateId(newStateId);
+    setMarketId("");
+    setDistrictId("");
+    setMarkets([]);
+    setDistricts([]);
 
-  // Form Level Cascading Trigger 1: State sets up Valid Market Listings (ONLY in ADD mode)
-  useEffect(() => {
-    // In update mode, store details are pre-loaded via storesService.get(id); no cascading API calls needed
-    if (isEdit) return;
-    if (!stateId) {
-      setMarkets([]);
-      setDistricts([]);
-      setMarketId("");
-      setDistrictId("");
-      return;
-    }
+    if (!newStateId) return;
 
-    let active = true;
-    const loadStateSpecificMarkets = async () => {
-      try {
-        setMarketsLoading(true);
-        const match = states.find((s) => s.id.toString() === stateId || s.name === stateId);
-        const stateParam = match ? match.name : stateId;
-        const res = await marketsService.getAll({ State: stateParam });
-        if (!active) return;
-        if (res.success && Array.isArray(res.data)) {
-          setMarkets(res.data);
-          setMarketId("");
-          setDistrictId("");
-          setDistricts([]);
-        }
-      } catch (err) {
-        console.error("Failed to load markets for form", err);
-      } finally {
-        if (active) setMarketsLoading(false);
+    try {
+      setMarketsLoading(true);
+      const match = states.find((s) => s.id.toString() === newStateId || s.name === newStateId);
+      const stateParam = match ? match.name : newStateId;
+      const res = await marketsService.getAll({ State: stateParam });
+      if (res.success && Array.isArray(res.data)) {
+        setMarkets(res.data);
       }
-    };
-
-    loadStateSpecificMarkets();
-    return () => {
-      active = false;
-    };
-  }, [stateId, states, isEdit]);
-
-  // Form Level Cascading Trigger 2: Market sets up Valid District Listings (ONLY in ADD mode)
-  useEffect(() => {
-    // In update mode, store details are pre-loaded via storesService.get(id); no cascading API calls needed
-    if (isEdit) return;
-    if (!marketId) {
-      setDistricts([]);
-      setDistrictId("");
-      return;
+    } catch (err) {
+      console.error("Failed to load markets for state", err);
+    } finally {
+      setMarketsLoading(false);
     }
+  };
 
-    let active = true;
-    const loadMarketSpecificDistricts = async () => {
-      try {
-        setDistrictsLoading(true);
-        const match = markets.find((m) => m.id.toString() === marketId || m.name === marketId);
-        const marketParam = match ? match.name : marketId;
-        const res = await districtsService.getAll({ Market: marketParam });
-        if (!active) return;
-        if (res.success && Array.isArray(res.data)) {
-          setDistricts(res.data);
-          setDistrictId("");
-        }
-      } catch (err) {
-        console.error("Failed to load districts for form", err);
-      } finally {
-        if (active) setDistrictsLoading(false);
+  // Handler for market change in Add and Update modals
+  const handleMarketChange = async (newMarketId: string) => {
+    setMarketId(newMarketId);
+    setDistrictId("");
+    setDistricts([]);
+
+    if (!newMarketId) return;
+
+    try {
+      setDistrictsLoading(true);
+      const match = availableMarkets.find(
+        (m) => m.id.toString() === newMarketId || m.name === newMarketId,
+      );
+      const marketParam = match ? match.name : newMarketId;
+      const res = await districtsService.getAll({ Market: marketParam });
+      if (res.success && Array.isArray(res.data)) {
+        setDistricts(res.data);
       }
-    };
-
-    loadMarketSpecificDistricts();
-    return () => {
-      active = false;
-    };
-  }, [marketId, markets, isEdit]);
+    } catch (err) {
+      console.error("Failed to load districts for market", err);
+    } finally {
+      setDistrictsLoading(false);
+    }
+  };
 
   const availableMarkets = useMemo(() => {
     const list = [...markets];
-    if (initial?.market?.id && !list.some((m) => m.id === initial.market!.id)) {
+    if (
+      initial?.market?.id &&
+      initial?.state?.id &&
+      String(initial.state.id) === stateId &&
+      !list.some((m) => m.id === initial.market!.id)
+    ) {
       list.unshift(initial.market);
     }
     return list;
-  }, [markets, initial]);
+  }, [markets, initial, stateId]);
 
   const availableDistricts = useMemo(() => {
     const list = [...districts];
-    if (initial?.district?.id && !list.some((d) => d.id === initial.district!.id)) {
+    if (
+      initial?.district?.id &&
+      initial?.market?.id &&
+      String(initial.market.id) === marketId &&
+      !list.some((d) => d.id === initial.district!.id)
+    ) {
       list.unshift(initial.district);
     }
     return list;
-  }, [districts, initial]);
+  }, [districts, initial, marketId]);
 
   const filteredStates = useMemo(() => {
     return states.filter((s) => s.name.toLowerCase().includes(stateSearch.toLowerCase()));
@@ -1007,10 +989,7 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-muted-foreground">
-              Store Number{" "}
-              <span className="text-xs text-muted-foreground font-normal">(Non-Editable)</span>
-            </Label>
+            <Label>Store Number</Label>
             <Input
               value={number}
               disabled={true}
@@ -1111,208 +1090,169 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
       <div className="grid grid-cols-3 gap-3">
         {/* Drop 1: State Selection */}
         <div className="space-y-1.5">
-          <Label className={isEdit ? "text-muted-foreground" : ""}>
+          <Label>
             State <span className="text-destructive font-semibold">*</span>
-            {isEdit && (
-              <span className="text-xs text-muted-foreground font-normal ml-1">(Non-Editable)</span>
-            )}
           </Label>
-          {isEdit ? (
-            <Input
-              value={initial?.state?.name ?? "—"}
-              disabled={true}
-              className="bg-muted text-muted-foreground cursor-not-allowed select-none"
-            />
-          ) : (
-            <Select
-              value={stateId}
-              disabled={isSaving}
-              onValueChange={setStateId}
-              onOpenChange={(open) => {
-                if (!open) setStateSearch("");
-                else setTimeout(() => stateSearchRef.current?.focus(), 100);
-              }}
+          <Select
+            value={stateId}
+            disabled={isSaving}
+            onValueChange={handleStateChange}
+            onOpenChange={(open) => {
+              if (!open) setStateSearch("");
+              else setTimeout(() => stateSearchRef.current?.focus(), 100);
+            }}
+          >
+            <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
+              <SelectValue placeholder="Select state" />
+            </SelectTrigger>
+            <SelectContent
+              onKeyDown={(e) => e.stopPropagation()}
+              onKeyUp={(e) => e.stopPropagation()}
             >
-              <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
-                <SelectValue placeholder="Select state" />
-              </SelectTrigger>
-              <SelectContent
-                onKeyDown={(e) => e.stopPropagation()}
-                onKeyUp={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
-                  <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
-                  <input
-                    ref={stateSearchRef}
-                    placeholder="Search states..."
-                    value={stateSearch}
-                    onChange={(e) => {
-                      setStateSearch(e.target.value);
-                      setTimeout(() => stateSearchRef.current?.focus(), 0);
-                    }}
-                    className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
-                  />
-                </div>
-                {filteredStates.map((s) => (
-                  <SelectItem key={s.id} value={s.id.toString()}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+              <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
+                <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
+                <input
+                  ref={stateSearchRef}
+                  placeholder="Search states..."
+                  value={stateSearch}
+                  onChange={(e) => {
+                    setStateSearch(e.target.value);
+                    setTimeout(() => stateSearchRef.current?.focus(), 0);
+                  }}
+                  className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
+                />
+              </div>
+              {filteredStates.map((s) => (
+                <SelectItem key={s.id} value={s.id.toString()}>
+                  {s.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Drop 2: Dependent Market Selection (State -> Market) */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <Label className={isEdit ? "text-muted-foreground" : ""}>
+            <Label>
               Market <span className="text-destructive font-semibold">*</span>
-              {isEdit && (
-                <span className="text-xs text-muted-foreground font-normal ml-1">
-                  (Non-Editable)
-                </span>
-              )}
             </Label>
-            {!isEdit && marketsLoading && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+            {marketsLoading && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
           </div>
-          {isEdit ? (
-            <Input
-              value={initial?.market?.name ?? "—"}
-              disabled={true}
-              className="bg-muted text-muted-foreground cursor-not-allowed select-none"
-            />
-          ) : (
-            <Select
-              value={marketId}
-              disabled={isSaving || !stateId || marketsLoading}
-              onValueChange={setMarketId}
-              onOpenChange={(open) => {
-                if (!open) setMarketSearch("");
-                else setTimeout(() => marketSearchRef.current?.focus(), 100);
-              }}
+          <Select
+            value={marketId}
+            disabled={isSaving || !stateId || marketsLoading}
+            onValueChange={handleMarketChange}
+            onOpenChange={(open) => {
+              if (!open) setMarketSearch("");
+              else setTimeout(() => marketSearchRef.current?.focus(), 100);
+            }}
+          >
+            <SelectTrigger className="w-full bg-white dark:bg-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed">
+              <SelectValue
+                placeholder={
+                  !stateId
+                    ? "Select State First"
+                    : marketsLoading
+                      ? "Loading markets..."
+                      : filteredMarkets.length === 0
+                        ? "No markets available"
+                        : "Select market"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent
+              onKeyDown={(e) => e.stopPropagation()}
+              onKeyUp={(e) => e.stopPropagation()}
             >
-              <SelectTrigger className="w-full bg-white dark:bg-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed">
-                <SelectValue
-                  placeholder={
-                    !stateId
-                      ? "Select State First"
-                      : marketsLoading
-                        ? "Loading markets..."
-                        : filteredMarkets.length === 0
-                          ? "No markets available"
-                          : "Select market"
-                  }
+              <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
+                <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
+                <input
+                  ref={marketSearchRef}
+                  placeholder="Search markets..."
+                  value={marketSearch}
+                  onChange={(e) => {
+                    setMarketSearch(e.target.value);
+                    setTimeout(() => marketSearchRef.current?.focus(), 0);
+                  }}
+                  className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
                 />
-              </SelectTrigger>
-              <SelectContent
-                onKeyDown={(e) => e.stopPropagation()}
-                onKeyUp={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
-                  <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
-                  <input
-                    ref={marketSearchRef}
-                    placeholder="Search markets..."
-                    value={marketSearch}
-                    onChange={(e) => {
-                      setMarketSearch(e.target.value);
-                      setTimeout(() => marketSearchRef.current?.focus(), 0);
-                    }}
-                    className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
-                  />
-                </div>
-                {filteredMarkets.length === 0 ? (
-                  <p className="text-[11px] text-center text-muted-foreground p-2">
-                    {marketsLoading ? "Fetching records..." : "No markets found"}
-                  </p>
-                ) : (
-                  filteredMarkets.map((m) => (
-                    <SelectItem key={m.id} value={m.id.toString()}>
-                      {m.name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          )}
+              </div>
+              {filteredMarkets.length === 0 ? (
+                <p className="text-[11px] text-center text-muted-foreground p-2">
+                  {marketsLoading ? "Fetching records..." : "No markets found"}
+                </p>
+              ) : (
+                filteredMarkets.map((m) => (
+                  <SelectItem key={m.id} value={m.id.toString()}>
+                    {m.name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Drop 3: Dependent District Selection (Market -> District) */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <Label className={isEdit ? "text-muted-foreground" : ""}>
+            <Label>
               District <span className="text-destructive font-semibold">*</span>
-              {isEdit && (
-                <span className="text-xs text-muted-foreground font-normal ml-1">
-                  (Non-Editable)
-                </span>
-              )}
             </Label>
-            {!isEdit && districtsLoading && (
-              <Loader2 className="h-3 w-3 animate-spin text-primary" />
-            )}
+            {districtsLoading && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
           </div>
-          {isEdit ? (
-            <Input
-              value={initial?.district?.name ?? "—"}
-              disabled={true}
-              className="bg-muted text-muted-foreground cursor-not-allowed select-none"
-            />
-          ) : (
-            <Select
-              value={districtId}
-              disabled={isSaving || !marketId || districtsLoading}
-              onValueChange={setDistrictId}
-              onOpenChange={(open) => {
-                if (!open) setDistrictSearch("");
-                else setTimeout(() => districtSearchRef.current?.focus(), 100);
-              }}
+          <Select
+            value={districtId}
+            disabled={isSaving || !marketId || districtsLoading}
+            onValueChange={setDistrictId}
+            onOpenChange={(open) => {
+              if (!open) setDistrictSearch("");
+              else setTimeout(() => districtSearchRef.current?.focus(), 100);
+            }}
+          >
+            <SelectTrigger className="w-full bg-white dark:bg-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed">
+              <SelectValue
+                placeholder={
+                  !marketId
+                    ? "Select Market First"
+                    : districtsLoading
+                      ? "Loading districts..."
+                      : filteredDistricts.length === 0
+                        ? "No districts available"
+                        : "Select district"
+                }
+              />
+            </SelectTrigger>
+            <SelectContent
+              onKeyDown={(e) => e.stopPropagation()}
+              onKeyUp={(e) => e.stopPropagation()}
             >
-              <SelectTrigger className="w-full bg-white dark:bg-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed">
-                <SelectValue
-                  placeholder={
-                    !marketId
-                      ? "Select Market First"
-                      : districtsLoading
-                        ? "Loading districts..."
-                        : filteredDistricts.length === 0
-                          ? "No districts available"
-                          : "Select district"
-                  }
+              <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
+                <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
+                <input
+                  ref={districtSearchRef}
+                  placeholder="Search districts..."
+                  value={districtSearch}
+                  onChange={(e) => {
+                    setDistrictSearch(e.target.value);
+                    setTimeout(() => districtSearchRef.current?.focus(), 0);
+                  }}
+                  className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
                 />
-              </SelectTrigger>
-              <SelectContent
-                onKeyDown={(e) => e.stopPropagation()}
-                onKeyUp={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
-                  <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
-                  <input
-                    ref={districtSearchRef}
-                    placeholder="Search districts..."
-                    value={districtSearch}
-                    onChange={(e) => {
-                      setDistrictSearch(e.target.value);
-                      setTimeout(() => districtSearchRef.current?.focus(), 0);
-                    }}
-                    className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
-                  />
-                </div>
-                {filteredDistricts.length === 0 ? (
-                  <p className="text-[11px] text-center text-muted-foreground p-2">
-                    {districtsLoading ? "Fetching records..." : "No districts found"}
-                  </p>
-                ) : (
-                  filteredDistricts.map((d) => (
-                    <SelectItem key={d.id} value={d.id.toString()}>
-                      {d.name}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          )}
+              </div>
+              {filteredDistricts.length === 0 ? (
+                <p className="text-[11px] text-center text-muted-foreground p-2">
+                  {districtsLoading ? "Fetching records..." : "No districts found"}
+                </p>
+              ) : (
+                filteredDistricts.map((d) => (
+                  <SelectItem key={d.id} value={d.id.toString()}>
+                    {d.name}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
