@@ -1,4 +1,4 @@
-import { HttpClient } from "../http";
+import { http, HttpClient } from "../http";
 import { USER_API_PATHS, USER_MANAGEMENT_API_BASE_URL } from "@/lib/config";
 import type { BackendUser, AddUserPayload } from "@/lib/api/client";
 
@@ -27,13 +27,8 @@ export class UsersService {
     return this.http.put<BackendUser>(USER_API_PATHS.updateUser, payload);
   }
   delete(id: number | string | { id: number | string }) {
-<<<<<<< HEAD
     const numericId = typeof id === "object" && id !== null ? (id as any).id : Number(id);
     return http.delete<null>(USER_API_PATHS.deleteUser, { id: numericId });
-=======
-    const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
-    return this.http.delete<null>(USER_API_PATHS.deleteUser(numericId));
->>>>>>> cd9d9f8b5a94b3ad8bf4e0ca854b9ed2b5c88e39
   }
 }
 
