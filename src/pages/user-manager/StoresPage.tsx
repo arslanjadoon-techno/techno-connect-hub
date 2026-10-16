@@ -822,6 +822,7 @@ interface StoreFormProps {
 }
 
 function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
+  const isEdit = Boolean(initial);
   const [name, setName] = useState(initial?.name ?? "");
   const [number, setNumber] = useState(initial?.number ?? "");
   const [address, setAddress] = useState(initial?.address ?? "");
@@ -973,8 +974,6 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
       d.name.toLowerCase().includes(districtSearch.toLowerCase()),
     );
   }, [availableDistricts, districtSearch]);
-
-  const isEdit = Boolean(initial);
 
   // Validation:
   // In Add mode: Store Number is removed, so only Name, Address, Email, State, Market, District are required.
