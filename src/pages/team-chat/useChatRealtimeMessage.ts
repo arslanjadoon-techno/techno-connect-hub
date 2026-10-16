@@ -218,6 +218,7 @@ export function useChatRealtimeMessage({
 
       const shouldNotify =
         !isOwnMessage &&
+        !shouldTreatAsRead &&
         currentStatus !== "dnd" &&
         !isAlreadyLoaded &&
         isNewSinceRealtimeStarted &&
@@ -225,36 +226,42 @@ export function useChatRealtimeMessage({
       const shouldNotifyMention = shouldNotify && isMentioned && mentionNotifications;
 
       if (shouldNotify) {
-        if (mutedChatIds.includes(String(chatId)) && !shouldNotifyMention) return;
+        const isMuted = mutedChatIds.includes(String(chatId)) && !shouldNotifyMention;
+        if (!isMuted) {
+          const senderName =
+            message?.sender?.name ||
+            message?.sender?.display_name ||
+            buddies.find((buddy) => getBuddySendId(buddy) === senderId)?.name ||
+            "Someone";
 
-        const senderName =
-          message?.sender?.name ||
-          message?.sender?.display_name ||
-          buddies.find((buddy) => getBuddySendId(buddy) === senderId)?.name ||
-          "Someone";
-
-        showChatNotification({
-          title: shouldNotifyMention ? `${senderName} mentioned you` : senderName,
-          body: shouldNotifyMention
-            ? `${senderName}: ${getMessageText(message)}`
-            : getMessageText(message),
-          icon: getImageUrl(message?.sender),
-          tag: `chat-${chatId}`,
-          url: localKey
-            ? `${CHAT_APP_BASE_PATH}/${encodeURIComponent(localKey)}`
-            : CHAT_APP_BASE_PATH,
-          onClick: () => {
-            if (localKey) {
-              navigate(`${CHAT_APP_BASE_PATH}/${encodeURIComponent(localKey)}`);
-            }
-          },
-        });
-        playMessageNotificationSound();
+          showChatNotification({
+            title: shouldNotifyMention ? `${senderName} mentioned you` : senderName,
+            body: shouldNotifyMention
+              ? `${senderName}: ${getMessageText(message)}`
+              : getMessageText(message),
+            icon: getImageUrl(message?.sender),
+            tag: `chat-${chatId}`,
+            url: localKey
+              ? `${CHAT_APP_BASE_PATH}/${encodeURIComponent(localKey)}`
+              : CHAT_APP_BASE_PATH,
+            onClick: () => {
+              if (localKey) {
+                navigate(`${CHAT_APP_BASE_PATH}/${encodeURIComponent(localKey)}`);
+              }
+            },
+          });
+          playMessageNotificationSound();
+        }
       }
 
       if (shouldTreatAsRead && !isOwnMessage) {
         markConversationReadService(chatId).catch(() => {});
       }
+
+      return {
+        acknowledgeDelivery: !isOwnMessage,
+        acknowledgeRead: shouldTreatAsRead && !isOwnMessage,
+      };
     },
     [
       blockedUserIds,

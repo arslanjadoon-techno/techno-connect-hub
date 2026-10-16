@@ -235,8 +235,10 @@ function MessageRow({
             <div className="float-right ml-2 mt-1 inline-flex items-center gap-1 text-[9px] leading-none text-muted-foreground">
               {message.timestamp || ""}
               {isMe &&
-                (message.deliveryStatus === "read" ? (
-                  <CheckCheck className="h-3.5 w-3.5" />
+                (message.deliveryStatus === "seen" || message.deliveryStatus === "read" ? (
+                  <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
+                ) : message.deliveryStatus === "delivered" ? (
+                  <CheckCheck className="h-3.5 w-3.5 text-muted-foreground" />
                 ) : (
                   <Check className="h-3.5 w-3.5" />
                 ))}
