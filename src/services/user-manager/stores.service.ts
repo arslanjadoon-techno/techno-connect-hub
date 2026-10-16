@@ -34,8 +34,27 @@ export class StoresService {
     }
     return http.get<Store[]>(STORE_API_PATHS.getAll, query);
   }
-  get(id: string | number) {
-    return http.get<Store>(STORE_API_PATHS.store(id));
+  getStoreDropdownList() {
+    return http.get<
+      Array<{
+        id: number;
+        name: string;
+        number?: string;
+        email?: string;
+        phone?: string;
+        address?: string;
+      }>
+    >(STORE_API_PATHS.getStoreDropdownList);
+  }
+  async get(id: string | number) {
+    const res = await http.get<any>(STORE_API_PATHS.store(id));
+    if (res && res.data && Array.isArray(res.data)) {
+      return {
+        ...res,
+        data: res.data[0] ?? null,
+      };
+    }
+    return res;
   }
   add(payload: {
     name: string;

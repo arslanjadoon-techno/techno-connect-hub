@@ -78,6 +78,7 @@ import StatesPage from "@/pages/user-manager/StatesPage";
 import MarketsPage from "@/pages/user-manager/MarketsPage";
 import MarketDetailPage from "@/pages/user-manager/MarketDetailPage";
 import StoresPage from "@/pages/user-manager/StoresPage";
+import StoreDetailPage from "@/pages/user-manager/StoreDetailPage";
 import CreatePermissionPage from "@/pages/user-manager/permissions/CreatePermissionPage";
 import AssignPermissionsPage from "@/pages/user-manager/permissions/AssignPermissionsPage";
 import MisPrivacyPage from "@/pages/mis/MisPrivacyPage";
@@ -745,6 +746,14 @@ export function AppRoutes() {
           element={
             <UserManagementOnly>
               <StoresPage />
+            </UserManagementOnly>
+          }
+        />
+        <Route
+          path="/admin/stores/:id"
+          element={
+            <UserManagementOnly>
+              <StoreDetailPage />
             </UserManagementOnly>
           }
         />

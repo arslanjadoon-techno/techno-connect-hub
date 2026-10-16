@@ -866,7 +866,7 @@ export function UserForm({
     let isMounted = true;
     setLoadingStores(true);
     storesService
-      .getAll()
+      .getStoreDropdownList()
       .then((res) => {
         if (!isMounted) return;
         if (res.success && Array.isArray(res.data)) {
@@ -1057,7 +1057,12 @@ export function UserForm({
       const selectedStates = pickObjs(dbStates, stateIds);
       const selectedMarkets = pickObjs(dbMarkets, marketIds);
       const selectedDistricts = pickObjs(dbDistricts, districtIds);
-      const selectedStores = pickObjs(dbStores, storeIds);
+      const selectedStores =
+        pickObjs(dbStores, storeIds).length > 0
+          ? pickObjs(dbStores, storeIds)
+          : (initial?.stores || [])
+              .filter((x: any) => storeIds.includes(String(x.id)))
+              .map((x: any) => ({ id: Number(x.id), name: x.name }));
 
       const selectedDeptObj = dbDepts.find((d) => d.name === department);
 

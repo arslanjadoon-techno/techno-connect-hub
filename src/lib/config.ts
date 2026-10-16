@@ -61,6 +61,7 @@ export const MARKET_API_PATHS = {
 
 export const STORE_API_PATHS = {
   getAll: "/api/stores/get-all",
+  getStoreDropdownList: "/api/stores/GetStoreDropdownList",
   store: (id: string | number) => `/api/stores/${id}`,
   addStore: "/api/stores/add",
   updateStore: "/api/stores/update",

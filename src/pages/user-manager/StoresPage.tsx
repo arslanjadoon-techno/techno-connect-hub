@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { AdminGuard, CrudPage } from "@/components/crud-page";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Search, XCircle } from "lucide-react";
+import { Loader2, Search, XCircle, Eye } from "lucide-react";
 import { storesService, statesService, marketsService, districtsService } from "@/services";
 
 interface Store {
@@ -69,6 +70,7 @@ interface District {
 }
 
 export default function StoresPage() {
+  const navigate = useNavigate();
   const [stores, setStores] = useState<Store[]>([]);
   const [states, setStates] = useState<State[]>([]);
 
@@ -760,6 +762,17 @@ export default function StoresPage() {
                 searchValue: (s) => s.district?.name ?? "",
               },
             ]}
+            extraRowActions={(s) => (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground cursor-pointer"
+                title="View Store Details"
+                onClick={() => navigate(`/admin/stores/${s.id}`)}
+              >
+                <Eye className="h-4 w-4" />
+              </Button>
+            )}
             onDelete={handleDelete}
             renderForm={(initial, close) => (
               <StoreForm
@@ -786,7 +799,7 @@ interface StoreFormProps {
   isSaving: boolean;
   onSave: (data: {
     name: string;
-    number: string;
+    number?: string;
     address: string;
     email: string;
     phone: string;
@@ -962,11 +975,14 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
     );
   }, [availableDistricts, districtSearch]);
 
-  // Validation: Required fields are Store Name, Store Number, Address, Email, State, Market, District
-  // Optional fields: Door Code, Phone Number
+  const isEdit = Boolean(initial);
+
+  // Validation:
+  // In Add mode: Store Number is removed, so only Name, Address, Email, State, Market, District are required.
+  // In Update mode: Store Number is displayed as non-editable disabled.
   const isFormValid =
     Boolean(name.trim()) &&
-    Boolean(number.trim()) &&
+    (!isEdit || Boolean(number.trim())) &&
     Boolean(address.trim()) &&
     Boolean(email.trim()) &&
     Boolean(stateId) &&
@@ -978,59 +994,76 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
 
   return (
     <div className="space-y-4">
-      {/* Row 1: Store Name & Store Number (Both Required with Red Asterisk) */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1.5">
-          <Label>
-            Store Name <span className="text-destructive font-semibold">*</span>
-          </Label>
-          <Input
-            value={name}
-            disabled={isSaving}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Westside Retail Hub"
-          />
+      {/* Row 1: If Edit Mode -> Store Name & Disabled Store Number. If Add Mode -> Store Name & Door Code (No Store Number) */}
+      {isEdit ? (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>
+              Store Name <span className="text-destructive font-semibold">*</span>
+            </Label>
+            <Input
+              value={name}
+              disabled={isSaving}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Westside Retail Hub"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-muted-foreground">
+              Store Number{" "}
+              <span className="text-xs text-muted-foreground font-normal">(Non-Editable)</span>
+            </Label>
+            <Input
+              value={number}
+              disabled={true}
+              className="bg-muted text-muted-foreground cursor-not-allowed select-none"
+              placeholder="Store number"
+            />
+          </div>
         </div>
-        <div className="space-y-1.5">
-          <Label>
-            Store Number <span className="text-destructive font-semibold">*</span>
-          </Label>
-          <Input
-            value={number}
-            disabled={isSaving}
-            onChange={(e) => setNumber(e.target.value)}
-            placeholder="e.g. 1024"
-          />
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>
+              Store Name <span className="text-destructive font-semibold">*</span>
+            </Label>
+            <Input
+              value={name}
+              disabled={isSaving}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Westside Retail Hub"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Door Code{" "}
+              <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+            </Label>
+            <Input
+              value={doorCode}
+              disabled={isSaving}
+              onChange={(e) => setDoorCode(e.target.value)}
+              placeholder="123456"
+            />
+          </div>
         </div>
+      )}
+
+      {/* Row 2: Address - Entire line dedicated alone to address so maximum address is visible */}
+      <div className="w-full space-y-1.5">
+        <Label>
+          Address <span className="text-destructive font-semibold">*</span>
+        </Label>
+        <Input
+          value={address}
+          disabled={isSaving}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="Complete street address details"
+          className="w-full"
+        />
       </div>
 
-      {/* Row 2: Address (Required) & Door Code (Optional, no asterisk) */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="col-span-2 space-y-1.5">
-          <Label>
-            Address <span className="text-destructive font-semibold">*</span>
-          </Label>
-          <Input
-            value={address}
-            disabled={isSaving}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="Complete street address details"
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label>
-            Door Code <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
-          </Label>
-          <Input
-            value={doorCode}
-            disabled={isSaving}
-            onChange={(e) => setDoorCode(e.target.value)}
-            placeholder="123456"
-          />
-        </div>
-      </div>
-
-      {/* Row 3: Email (Required) & Phone (Optional, no asterisk) */}
+      {/* Row 3: Email (Required) & Phone (Optional) */}
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
           <Label>
@@ -1057,6 +1090,24 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
           />
         </div>
       </div>
+
+      {/* Row 4 (For Edit Mode): Door Code (since in Edit mode row 1 had Store Number) */}
+      {isEdit && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>
+              Door Code{" "}
+              <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+            </Label>
+            <Input
+              value={doorCode}
+              disabled={isSaving}
+              onChange={(e) => setDoorCode(e.target.value)}
+              placeholder="123456"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Cascading Drops Hierarchy Matrix: State -> Market -> District (All 3 Required with Red Asterisk) */}
       <div className="grid grid-cols-3 gap-3">
@@ -1234,7 +1285,7 @@ function StoreForm({ initial, states, isSaving, onSave }: StoreFormProps) {
         onClick={() =>
           onSave({
             name: name.trim(),
-            number: number.trim(),
+            ...(number.trim() ? { number: number.trim() } : {}),
             address: address.trim(),
             email: email.trim(),
             phone: phone.trim(),
