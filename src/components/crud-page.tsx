@@ -56,6 +56,8 @@ interface CrudPageProps<T> {
   footerRow?: ReactNode;
   /** When set, the Edit pencil button calls this handler instead of opening the inline dialog form. */
   onEditClick?: (row: T) => void;
+  /** Async hook called before opening the edit modal, e.g. to fetch full details by ID */
+  onBeforeEdit?: (row: T) => Promise<T | void>;
   extraRowActions?: (row: T) => ReactNode;
   hideEdit?: boolean;
   hideDelete?: boolean;
@@ -96,6 +98,7 @@ export function CrudPage<T>({
   subHeaderRow,
   footerRow,
   onEditClick,
+  onBeforeEdit,
   extraRowActions,
   hideEdit = false,
   hideDelete = false,
@@ -112,6 +115,7 @@ export function CrudPage<T>({
 }: CrudPageProps<T>) {
   const [editing, setEditing] = useState<T | null>(null);
   const [open, setOpen] = useState(false);
+  const [loadingEditKey, setLoadingEditKey] = useState<string | null>(null);
 
   const [activeDeleteKey, setActiveDeleteKey] = useState<string | null>(null);
 
@@ -160,10 +164,21 @@ export function CrudPage<T>({
                   <Button
                     size="icon"
                     variant="ghost"
-                    disabled={isSaving}
-                    onClick={() => {
+                    disabled={isSaving || loadingEditKey === currentKey}
+                    onClick={async () => {
                       if (onEditClick) {
                         onEditClick(row);
+                        return;
+                      }
+                      if (onBeforeEdit) {
+                        try {
+                          setLoadingEditKey(currentKey);
+                          const detailedRow = await onBeforeEdit(row);
+                          setEditing((detailedRow as T) || row);
+                          setOpen(true);
+                        } finally {
+                          setLoadingEditKey(null);
+                        }
                         return;
                       }
                       setEditing(row);
@@ -171,7 +186,11 @@ export function CrudPage<T>({
                     }}
                     title="Edit"
                   >
-                    <Pencil className="h-4 w-4" />
+                    {loadingEditKey === currentKey ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    ) : (
+                      <Pencil className="h-4 w-4" />
+                    )}
                   </Button>
                 )}
 

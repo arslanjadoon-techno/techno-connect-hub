@@ -10,7 +10,6 @@ import {
   ArrowLeft,
   Building2,
   Calendar,
-  CheckCircle2,
   Clock,
   Globe,
   KeyRound,
@@ -23,9 +22,6 @@ import {
   Store as StoreIcon,
   User,
   Users,
-  XCircle,
-  Hash,
-  Cpu,
 } from "lucide-react";
 
 export default function StoreDetailPage() {
@@ -161,42 +157,10 @@ export default function StoreDetailPage() {
             <span className="text-xs text-muted-foreground">/</span>
             <span className="text-xs text-muted-foreground font-mono">Store #{store.id}</span>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-3">
             <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
               {store.name}
             </h1>
-            {store.number && (
-              <Badge variant="secondary" className="font-mono text-xs font-semibold">
-                <Hash className="mr-1 h-3 w-3 text-muted-foreground" />
-                {store.number}
-              </Badge>
-            )}
-            {store.isOperating !== undefined && (
-              <Badge
-                variant="outline"
-                className={
-                  store.isOperating
-                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-xs"
-                    : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20 text-xs"
-                }
-              >
-                {store.isOperating ? (
-                  <>
-                    <CheckCircle2 className="mr-1 h-3 w-3" /> Operating Store
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="mr-1 h-3 w-3" /> Non-Operating
-                  </>
-                )}
-              </Badge>
-            )}
-            {store.techId && (
-              <Badge variant="outline" className="text-xs text-muted-foreground border-border/60">
-                <Cpu className="mr-1 h-3 w-3" />
-                {store.techId}
-              </Badge>
-            )}
           </div>
         </div>
 
@@ -344,15 +308,6 @@ export default function StoreDetailPage() {
                   </span>
                   <p className="text-xs font-mono font-semibold text-foreground">
                     {store.doorCode || "—"}
-                  </p>
-                </div>
-
-                <div className="rounded-lg border border-border/40 bg-muted/20 p-3.5 space-y-1">
-                  <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
-                    <Cpu className="h-3.5 w-3.5 text-muted-foreground" /> Tech ID:
-                  </span>
-                  <p className="text-xs font-mono font-semibold text-foreground">
-                    {store.techId || "—"}
                   </p>
                 </div>
               </div>
@@ -507,12 +462,6 @@ export default function StoreDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-4 space-y-3 text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground flex items-center gap-1.5">
-                  <Hash className="h-3.5 w-3.5 text-muted-foreground" /> Database ID:
-                </span>
-                <span className="font-mono font-semibold text-foreground">#{store.id}</span>
-              </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground flex items-center gap-1.5">
                   <Calendar className="h-3.5 w-3.5 text-muted-foreground" /> Created:
