@@ -20,7 +20,7 @@ const getHubUrl = () => {
   return `${CHAT_API_BASE_URL}/hubs/chat?appName=chat&token=${token}`;
 };
 
-type RealtimeHandler = (payload?: any) => void;
+type RealtimeHandler = (payload?: any) => any;
 
 type RealtimeOptions = {
   enabled?: boolean;
@@ -124,6 +124,7 @@ export function useChatRealtime({
       .withAutomaticReconnect()
       .configureLogging(LogLevel.Warning)
       .build();
+    const readyHandlers = new Set<RealtimeHandler>();
     const events = {
       "message:new": "onMessage",
       "message:accepted": "onMessageAccepted",
@@ -157,9 +158,40 @@ export function useChatRealtime({
       "call:missed",
     ]);
     Object.entries(events).forEach(([event, handler]) =>
-      connection.on(event, (payload: any) =>
-        handlers.current[handler]?.(lifecycleEvents.has(event) ? { call: payload } : payload),
-      ),
+      connection.on(event, (payload: any) => {
+        const result = handlers.current[handler]?.(
+          lifecycleEvents.has(event) ? { call: payload } : payload,
+        );
+        if (event !== "message:new" || !result?.acknowledgeDelivery) return;
+
+        const chatId = payload?.chatId;
+        const message = payload?.message;
+        const messageId = message?.messageId || message?.message_id || message?.id;
+        if (!chatId || !messageId) return;
+
+        const reportAckFailure = (action: string, error: unknown) => {
+          console.warn(`[Chat realtime] Unable to acknowledge message ${action}`, error);
+        };
+        void connection
+          .invoke("AcknowledgeMessageDelivered", String(chatId), String(messageId))
+          .then((acknowledgement) => {
+            if (!acknowledgement?.ok) {
+              reportAckFailure("delivery", acknowledgement?.code || acknowledgement);
+            }
+          })
+          .catch((error) => reportAckFailure("delivery", error));
+
+        if (result.acknowledgeRead) {
+          void connection
+            .invoke("AcknowledgeMessagesRead", String(chatId), [String(messageId)])
+            .then((acknowledgement) => {
+              if (!acknowledgement?.ok) {
+                reportAckFailure("read", acknowledgement?.code || acknowledgement);
+              }
+            })
+            .catch((error) => reportAckFailure("read", error));
+        }
+      }),
     );
     connection.onreconnected(async () => {
       try {
@@ -175,6 +207,7 @@ export function useChatRealtime({
         // Rejoin is best effort; the onReconnected handler below still runs.
       } finally {
         handlers.current.onReconnected?.();
+        readyHandlers.forEach((handler) => handler());
       }
     });
     const methods: Record<string, string> = {
@@ -184,6 +217,8 @@ export function useChatRealtime({
       "join:call": "JoinCall",
       "leave:call": "LeaveCall",
       "call:signal": "CallSignal",
+      "message:delivered:ack": "AcknowledgeMessageDelivered",
+      "message:read:ack": "AcknowledgeMessagesRead",
     };
     const callKey = (payload: any) => `${payload?.chatId}:${payload?.callId}`;
     const compat = {
@@ -195,7 +230,8 @@ export function useChatRealtime({
           acknowledge?.({ ok: false });
           return Promise.resolve({ ok: false });
         }
-        const promise = connection.invoke(method, payload).then((result) => {
+        const args = Array.isArray(payload) ? payload : [payload];
+        const promise = connection.invoke(method, ...args).then((result) => {
           // Remember joined calls so they can be rejoined after a reconnect.
           if (event === "join:call" && result?.ok) {
             joinedCalls.current.set(callKey(payload), {
@@ -213,12 +249,17 @@ export function useChatRealtime({
         return promise;
       },
       on: (event: string, handler: RealtimeHandler) => {
-        if (event === "connect") connection.onreconnected(handler);
-        else if (event === "reconnected") connection.onreconnected(handler);
+        if (event === "connect") {
+          readyHandlers.add(handler);
+          if (connection.state === HubConnectionState.Connected) {
+            queueMicrotask(handler);
+          }
+        } else if (event === "reconnected") connection.onreconnected(handler);
         else connection.on(event, handler);
       },
       off: (event: string, handler: RealtimeHandler) => {
-        if (event === "connect" || event === "reconnected") connection.off("reconnected", handler);
+        if (event === "connect") readyHandlers.delete(handler);
+        else if (event === "reconnected") connection.off("reconnected", handler);
         else connection.off(event, handler);
       },
       get connected() {
@@ -231,8 +272,12 @@ export function useChatRealtime({
     startPromise
       .then(() => {
         if (disposed) return connection.stop();
-        if (active.current) return connection.invoke("JoinConversation", String(active.current));
-        return undefined;
+        const joined = active.current
+          ? connection.invoke("JoinConversation", String(active.current))
+          : Promise.resolve();
+        return joined.then(() => {
+          readyHandlers.forEach((handler) => handler());
+        });
       })
       .catch((error) => {
         // React can dispose this effect while SignalR is negotiating. That is expected.
