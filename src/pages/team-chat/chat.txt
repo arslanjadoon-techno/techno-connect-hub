@@ -1,0 +1,18 @@
+1. Your actual message-sending flow
+
+
+Frontend — ChatComposerPanel
+User types and clicks Send
+
+useChatSend() → handleSend()
+Creates a client message ID and displays an optimistic message
+
+HTTP message API
+Persists the message on the backend
+sendConversationMessageService() or sendDirectMessageService()
+
+Backend + SignalR
+Backend may broadcast the message to conversation members
+
+Recipient's frontend
+Receives message:new and updates the chat list

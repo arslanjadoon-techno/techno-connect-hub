@@ -57,6 +57,7 @@ interface Props<T> {
   onSearchChange?: (val: string) => void;
   serverSearch?: boolean;
   isSearching?: boolean;
+  hideSearch?: boolean;
 }
 
 const PAGE_SIZE_OPTIONS = [15, 25, 50, 100];
@@ -180,6 +181,7 @@ export function DataTable<T>({
   onSearchChange,
   serverSearch = false,
   isSearching: isSearchingProp = false,
+  hideSearch = false,
 }: Props<T>) {
   const [query, setQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
@@ -271,68 +273,72 @@ export function DataTable<T>({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-        <form
-          role="search"
-          onSubmit={(e) => e.preventDefault()}
-          autoComplete="off"
-          className="relative w-full sm:w-72 sm:ml-auto"
-        >
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            id="table-search-query-input"
-            name="search"
-            type="text"
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck="false"
-            data-lpignore="true"
-            data-1p-ignore="true"
-            data-form-type="other"
-            readOnly={!searchFocused}
-            onMouseDown={() => setSearchFocused(true)}
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setSearchFocused(false)}
-            value={currentQuery}
-            disabled={(isLoading || isSearchingProp) && rows.length === 0}
-            onChange={(e) => {
-              if (!searchFocused) return;
-              const next = e.target.value;
-              if (isControlledSearch) {
-                onSearchChange(next);
-              } else {
-                setQuery(next);
-              }
-              setLocalPage(1);
-            }}
-            placeholder={searchPlaceholder}
-            className="pl-8 pr-8 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden [&::-ms-clear]:hidden [&::-ms-reveal]:hidden"
-          />
-          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-            {isSearchingProp ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
-            ) : currentQuery ? (
-              <button
-                type="button"
-                onClick={() => {
+      {(!hideSearch || toolbar) && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+          {!hideSearch && (
+            <form
+              role="search"
+              onSubmit={(e) => e.preventDefault()}
+              autoComplete="off"
+              className="relative w-full sm:w-72 sm:ml-auto"
+            >
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="table-search-query-input"
+                name="search"
+                type="text"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck="false"
+                data-lpignore="true"
+                data-1p-ignore="true"
+                data-form-type="other"
+                readOnly={!searchFocused}
+                onMouseDown={() => setSearchFocused(true)}
+                onFocus={() => setSearchFocused(true)}
+                onBlur={() => setSearchFocused(false)}
+                value={currentQuery}
+                disabled={(isLoading || isSearchingProp) && rows.length === 0}
+                onChange={(e) => {
+                  if (!searchFocused) return;
+                  const next = e.target.value;
                   if (isControlledSearch) {
-                    onSearchChange("");
+                    onSearchChange(next);
                   } else {
-                    setQuery("");
+                    setQuery(next);
                   }
                   setLocalPage(1);
                 }}
-                className="text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded-sm"
-                title="Clear search"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            ) : null}
-          </div>
-        </form>
-        {toolbar}
-      </div>
+                placeholder={searchPlaceholder}
+                className="pl-8 pr-8 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden [&::-ms-clear]:hidden [&::-ms-reveal]:hidden"
+              />
+              <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                {isSearchingProp ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                ) : currentQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isControlledSearch) {
+                        onSearchChange("");
+                      } else {
+                        setQuery("");
+                      }
+                      setLocalPage(1);
+                    }}
+                    className="text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded-sm"
+                    title="Clear search"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                ) : null}
+              </div>
+            </form>
+          )}
+          {toolbar}
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-lg border bg-card">
         <Table>

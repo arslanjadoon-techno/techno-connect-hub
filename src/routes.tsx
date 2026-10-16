@@ -18,7 +18,7 @@ import Reset2FAPage from "@/pages/auth/Reset2FAPage";
 
 // ---------- Application Dashboard ---------- //
 import AiChatPage from "@/pages/ai-chat/AiChatPage";
-import TeamChatPage from "@/pages/team-chat/TeamChatPage";
+import ChatSystem from "@/pages/team-chat/ChatSystem";
 import SettingsPage from "@/pages/settings/SettingsPage";
 
 // ---------- Ticketing Portal ---------- //
@@ -296,7 +296,7 @@ export function AppRoutes() {
       >
         {/* ---------- Dashboard ---------- */}
         <Route path="/ai-chat" element={<AiChatPage />} />
-        <Route path="/chat" element={<TeamChatPage />} />
+        <Route path="/chat/*" element={<ChatSystem />} />
         <Route path="/settings" element={<SettingsPage />} />
         {/* ---------- Ticketing Portal ---------- */}
         {/* <Route path="/ticketing/dashboard" element={<TicketingDashboardPage />} /> */}

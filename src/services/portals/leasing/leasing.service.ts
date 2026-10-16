@@ -1,4 +1,8 @@
-import { LEASING_API_BASE_URL, LEASING_API_PATHS } from "@/lib/config";
+import {
+  LEASING_API_BASE_URL,
+  LEASING_API_PATHS,
+  LEASING_UPLOAD_API_BASE_URL,
+} from "@/lib/config";
 import type {
   LeaseRecord,
   TotalRent,
@@ -6,6 +10,7 @@ import type {
   UpcomingRentChange,
   LeaseDoc,
   MissingDocsRequest,
+  LeaseExpirationRemark,
   RentPaidSummary,
   LeasingOwnersAccount,
   ReportTemplate,
@@ -116,22 +121,44 @@ export class LeasingService {
 
   // ---------- Lease records ---------- //
 
-  async getAllLeasing(): Promise<LeaseRecord[]> {
+  // Every leasing page (Manage Leasing, Leasing Detail, Dashboard, Reports, Lease
+  // Monitor, Rent Payment List...) independently calls getAllLeasing() on mount,
+  // which previously meant a full GetLeasingInfo round-trip on every navigation
+  // even when nothing changed. Cached in-memory for the life of the tab (same
+  // tradeoff the old LeasingFrontend made with its module-level `leasingCache`);
+  // postLeasingInfo patches the cache in place on success so other pages read
+  // the update without forcing a refetch, and `force: true` (Manage Leasing's
+  // Refresh button) bypasses it for an explicit reload.
+  private leasesCache: LeaseRecord[] | null = null;
+
+  async getAllLeasing(options?: { force?: boolean }): Promise<LeaseRecord[]> {
+    if (!options?.force && this.leasesCache) return this.leasesCache;
     const data = await this.request<LeaseRecord[]>(LEASING_API_PATHS.getLeasingInfo);
     const rows = Array.isArray(data) ? data : [];
     // hvac/HVAC casing and landLordPointOfContact/pointOfContact drift, same
     // normalization the old LeasingFrontend applied on read.
-    return rows.map((row) => {
+    const normalized = rows.map((row) => {
       const raw = row as Record<string, unknown>;
       const hvac = (row.hvac ?? raw.hVAC ?? raw.HVAC ?? null) as string | null;
       const landLordPointOfContact = (row.landLordPointOfContact ?? raw.pointOfContact ?? null) as
         string | null;
       return { ...row, hvac, landLordPointOfContact };
     });
+    this.leasesCache = normalized;
+    return normalized;
   }
 
   async postLeasingInfo(data: LeaseRecord): Promise<unknown> {
-    return this.request(LEASING_API_PATHS.postLeasingInfo, { method: "POST", body: data });
+    const result = await this.request(LEASING_API_PATHS.postLeasingInfo, {
+      method: "POST",
+      body: data,
+    });
+    if (this.leasesCache) {
+      this.leasesCache = this.leasesCache.map((l) =>
+        l.techId === data.techId ? { ...l, ...data } : l,
+      );
+    }
+    return result;
   }
 
   async postLeasingDocs(data: unknown): Promise<unknown> {
@@ -156,8 +183,52 @@ export class LeasingService {
     });
   }
 
-  async reorderLeaseDocs(items: Array<{ fileId: number; sortOrder: number }>): Promise<unknown> {
+  async reorderLeaseDocs(items: Array<{ id: number; sortOrder: number }>): Promise<unknown> {
     return this.request(LEASING_API_PATHS.reorderLeaseDocs, { method: "POST", body: items });
+  }
+
+  /**
+   * PUTs the file straight to S3 via FileUploadController's UploadFile
+   * endpoint. Uses XHR (not fetch) so upload progress can be reported.
+   * Resolves with the S3 URL the backend stored the file at.
+   */
+  uploadLeaseDocumentFile(
+    file: File,
+    techId: string,
+    onProgress?: (percent: number) => void,
+  ): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const url = `${LEASING_UPLOAD_API_BASE_URL}${LEASING_API_PATHS.uploadFile}?TechID=${encodeURIComponent(techId)}`;
+      xhr.open("PUT", url);
+      try {
+        const token = window.localStorage.getItem("token");
+        if (token) xhr.setRequestHeader("token", token);
+      } catch {
+        // ignore - no localStorage access
+      }
+      xhr.upload.onprogress = (e) => {
+        if (onProgress && e.lengthComputable) {
+          onProgress(Math.round((e.loaded * 100) / e.total));
+        }
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText) as { Message?: string; message?: string };
+            resolve(data.Message ?? data.message ?? "");
+          } catch {
+            resolve(xhr.responseText);
+          }
+        } else {
+          reject(new Error(`Upload failed (${xhr.status})`));
+        }
+      };
+      xhr.onerror = () => reject(new Error("Upload failed: network error"));
+      const body = new FormData();
+      body.append("file", file);
+      xhr.send(body);
+    });
   }
 
   async getMissingDocsList(techId: string): Promise<string[]> {
@@ -269,6 +340,14 @@ export class LeasingService {
     const data = await this.request<unknown[]>(LEASING_API_PATHS.getLeaseExpirationRemarks, {
       query: { TechId: techId },
     });
+    return Array.isArray(data) ? data : [];
+  }
+
+  /** Bulk variant - one row per TechId - used by the Custom Report Builder. */
+  async getAllLeaseExpirationRemarks(): Promise<LeaseExpirationRemark[]> {
+    const data = await this.request<LeaseExpirationRemark[]>(
+      LEASING_API_PATHS.getAllLeaseExpirationRemarks,
+    );
     return Array.isArray(data) ? data : [];
   }
 

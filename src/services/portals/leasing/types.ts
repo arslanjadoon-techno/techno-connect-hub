@@ -74,6 +74,7 @@ export interface LeaseRecord {
   tier?: string | null;
   assignmentDate?: string | null;
   marketManager?: string | null;
+  marketManagerPhoneNumber?: string | null;
   leaseSignedBy?: string | null;
   noticePeriodBeforeTermination?: string | null;
   optionNoticeDate?: string | null;
@@ -83,6 +84,9 @@ export interface LeaseRecord {
   guarantyType?: string | null;
   rightToTermination?: string | null;
   leaseStatus?: string | null;
+  // Only ever set/updated by the backend when leaseStatus is saved as
+  // "InActive" - left untouched on every other save.
+  leaseStatusDate?: string | null;
 
   [key: string]: unknown;
 }
@@ -123,11 +127,16 @@ export interface UpcomingRentChange {
   effectiveDate: string;
 }
 
+/** Mirrors TechnoComm.Modal.LeaseDocuments exactly (camelCased). */
 export interface LeaseDoc {
-  fileId: number;
+  id: number;
   techId: string;
-  fileName: string;
-  fileUrl: string;
+  documentUrl: string;
+  fileType?: string | null;
+  documentTitle?: string | null;
+  documentType?: string | null;
+  createdBy?: string | null;
+  createdDate?: string | null;
   sortOrder?: number | null;
   [key: string]: unknown;
 }
@@ -135,6 +144,15 @@ export interface LeaseDoc {
 export interface MissingDocsRequest {
   techId: string;
   missingDocs: string[];
+}
+
+/** Mirrors TechnoComm.Modal.LeaseExpirationRemarks exactly (camelCased). */
+export interface LeaseExpirationRemark {
+  techId: string;
+  remarksBy?: string | null;
+  remarks?: string | null;
+  remarksDate?: string | null;
+  remarksEditDate?: string | null;
 }
 
 export interface RentPaidSummary {

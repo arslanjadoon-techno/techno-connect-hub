@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -110,21 +110,45 @@ interface Row extends LeaseRecord {
   effectiveStatus: string;
 }
 
+// Module-level so filters survive the component unmounting when the user
+// opens a lease's detail page, and are restored only when they come back via
+// the browser's back button (location.key matches) - not on a fresh visit.
+const filterCache = {
+  search: "",
+  market: "all",
+  tier: "all",
+  status: "all",
+  locationKey: null as string | null,
+};
+
 export default function ManageLeasingPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const returning = location.key === filterCache.locationKey;
   const canShowExport = useCanShow(LEASING_EXPORT_BUTTON_PERMISSION_KEY);
   const [allLeases, setAllLeases] = useState<LeaseRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [search, setSearch] = useState("");
-  const [market, setMarket] = useState("all");
-  const [tier, setTier] = useState("all");
-  const [status, setStatus] = useState("all");
+  const [search, setSearch] = useState(returning ? filterCache.search : "");
+  const [market, setMarket] = useState(returning ? filterCache.market : "all");
+  const [tier, setTier] = useState(returning ? filterCache.tier : "all");
+  const [status, setStatus] = useState(returning ? filterCache.status : "all");
 
-  const fetchData = async () => {
+  useEffect(() => {
+    filterCache.locationKey = location.key;
+  }, [location.key]);
+
+  useEffect(() => {
+    filterCache.search = search;
+    filterCache.market = market;
+    filterCache.tier = tier;
+    filterCache.status = status;
+  }, [search, market, tier, status]);
+
+  const fetchData = async (options?: { force?: boolean }) => {
     setLoading(true);
     try {
-      setAllLeases(await leasingService.getAllLeasing());
+      setAllLeases(await leasingService.getAllLeasing(options));
     } catch (error) {
       console.error("Error fetching leasing data:", error);
       toast.error("Failed to load leasing data");
@@ -168,7 +192,12 @@ export default function ManageLeasingPage() {
           item.landLordEmail?.toLowerCase().includes(q) ||
           item.landLordName?.toLowerCase().includes(q) ||
           item.landLordAddress?.toLowerCase().includes(q) ||
-          item.ownerAccountTitle?.toLowerCase().includes(q)
+          item.ownerAccountTitle?.toLowerCase().includes(q) ||
+          item.propertyMgtName?.toLowerCase().includes(q) ||
+          item.propertyMgtPointOfContact?.toLowerCase().includes(q) ||
+          item.propertyMgtEmail?.toLowerCase().includes(q) ||
+          item.propertyMgtPhoneNumber?.includes(search) ||
+          item.propertyMgtAddress?.toLowerCase().includes(q)
         )
       )
         return false;
@@ -299,8 +328,8 @@ export default function ManageLeasingPage() {
 
   const handleRefresh = () => {
     // Reload data only - search/market/tier/status filters stay as the user set them
-    // until they clear them manually.
-    fetchData();
+    // until they clear them manually. force: true bypasses the service-level cache.
+    fetchData({ force: true });
   };
 
   return (
@@ -386,6 +415,7 @@ export default function ManageLeasingPage() {
           <DataTable<Row>
             rows={filtered}
             columns={columns}
+            hideSearch
             rowKey={(r) => r.techId}
             onRowClick={(r) => {
               navigate(`/leasing/leasing-detail/${r.techId}`);

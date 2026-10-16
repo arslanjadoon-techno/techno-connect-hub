@@ -43,6 +43,7 @@ const paths = {
 const base = (
   import.meta.env.VITE_REPORTING_URL ??
   import.meta.env.VITE_REPORTING_API_BASE_URL ??
+  import.meta.env.VITE_API_LOCAL_URL ??
   ""
 )
   .trim()
@@ -115,7 +116,22 @@ async function get(path: string, filters: Filters, options: RequestOptions = {})
     headers: token ? { Authorization: `Bearer ${token}`, token } : undefined,
     signal: options.signal,
   });
-  if (!response.ok) throw new Error(`Profitability endpoint failed: ${response.status}`);
+  if (!response.ok) {
+    const message = await response.text();
+    throw new Error(
+      message || `Profitability endpoint failed: ${response.status} ${response.statusText}`,
+    );
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().includes("json")) {
+    const body = await response.text();
+    const preview = body.trim().slice(0, 80);
+    throw new Error(
+      `Profitability endpoint returned ${contentType || "non-JSON content"}${preview ? `: ${preview}` : ""}`,
+    );
+  }
+
   return response.json();
 }
 

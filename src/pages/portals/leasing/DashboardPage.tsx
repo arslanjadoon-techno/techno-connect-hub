@@ -112,23 +112,30 @@ export default function LeasingDashboardPage() {
     };
   }, []);
 
+  // InActive stores are excluded from the whole dashboard - they're not part
+  // of the active leasing portfolio these KPIs summarize.
+  const activeStoreLeases = useMemo(
+    () => leases.filter((l) => l.leaseStatus !== "InActive"),
+    [leases],
+  );
+
   const kpis = useMemo<Kpi[]>(() => {
     const today = new Date();
-    const activeLeases = leases.filter((l) => !l.isDeleted).length;
+    const activeLeases = activeStoreLeases.filter((l) => !l.isDeleted).length;
 
-    const expired = leases.filter((l) => {
+    const expired = activeStoreLeases.filter((l) => {
       const date = l.expiry_Due || l.createdAt;
       return date && new Date(date) < today;
     });
 
-    const expiringSoon = leases.filter((l) => {
+    const expiringSoon = activeStoreLeases.filter((l) => {
       const date = l.expiry_Due || l.createdAt;
       if (!date) return false;
       const diffDays = (new Date(date).getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
       return diffDays > 0 && diffDays <= 30;
     });
 
-    const totalMarkets = new Set(leases.map((l) => l.marketName).filter(Boolean)).size;
+    const totalMarkets = new Set(activeStoreLeases.map((l) => l.marketName).filter(Boolean)).size;
 
     return [
       {
@@ -164,7 +171,7 @@ export default function LeasingDashboardPage() {
         iconFg: "text-violet-600 dark:text-violet-400",
       },
     ];
-  }, [leases]);
+  }, [activeStoreLeases]);
 
   const financeCards = useMemo<FinanceCard[]>(() => {
     const now = new Date();

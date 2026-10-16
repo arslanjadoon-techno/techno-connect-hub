@@ -6,6 +6,11 @@
  * API call in the app picks it up automatically.
  */
 export const API_BASE_URL = import.meta.env.VITE_API_DEV_URL as string | "N/A";
+export const CHAT_API_BASE_URL =
+  (import.meta.env.VITE_CHAT_API_URL as string | undefined) || "http://localhost:5000";
+export const USER_MANAGEMENT_API_BASE_URL =
+  (import.meta.env.VITE_USER_MANAGEMENT_API_URL as string | undefined) ||
+  "https://misapis.active8wireless.com";
 
 /** Auth endpoints (no `/api` prefix per backend contract). */
 export const AUTH_PATHS = {
@@ -181,6 +186,7 @@ export const LEASING_API_PATHS = {
   postLeasingInfo: "/PostLeasingInfo",
   postLeasingDocs: "/PostLeasingDocs",
   getLeasingDocs: "/GetLeasingDocs",
+  uploadFile: "/UploadFile",
   deleteLeaseDocs: "/DeleteLeaseDocs",
   renameLeaseDocs: "/RenameLeaseDocs",
   reorderLeaseDocs: "/UpdateDocSortOrder",
@@ -193,6 +199,7 @@ export const LEASING_API_PATHS = {
   updateLeaseRentAgreement: "/UpdateLeaseRentAgreement",
   deleteLeaseRentAgreement: "/DeleteLeaseRentAgreement",
   getLeaseExpirationRemarks: "/GetLeaseExpirationRemarks",
+  getAllLeaseExpirationRemarks: "/GetAllLeaseExpirationRemarks",
   saveLeaseExpirationRemarks: "/SaveLeaseExpirationRemarks",
   populateRentInMonthlyTable: "/PopulateRentInMonthlyTable",
   getRentalPaymentDetails: "/GetRentalPaymentDetails",
