@@ -13,22 +13,13 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Eye, Loader2, Search, X, XCircle } from "lucide-react";
-import { marketsService, statesService, usersService, districtsService } from "@/services";
+import { marketsService, statesService, usersService } from "@/services";
 import type { Market } from "@/lib/api/client";
 
 interface State {
   id: number;
   name: string;
   symbol: string;
-}
-
-interface District {
-  id: number;
-  name: string;
-  state?: {
-    id: number;
-    name: string;
-  } | null;
 }
 
 interface MarketFormData {
@@ -45,7 +36,6 @@ export default function MarketsPage() {
   const navigate = useNavigate();
   const [markets, setMarkets] = useState<Market[]>([]);
   const [states, setStates] = useState<State[]>([]);
-  const [districtsList, setDistrictsList] = useState<District[]>([]);
 
   const [selectedStateFilter, setSelectedStateFilter] = useState<string>("all");
   const [mainStateSearch, setMainStateSearch] = useState("");
@@ -59,46 +49,71 @@ export default function MarketsPage() {
   const [size, setSize] = useState<number>(25);
   const [totalRecords, setTotalRecords] = useState<number>(0);
 
+  // Server-side backend search states
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+  const [isSearchingBackend, setIsSearchingBackend] = useState<boolean>(false);
+
   // Synchronous atomic lockers
   const lastFetchedKey = useRef<string>("");
   const isFetchingRef = useRef<boolean>(false);
   const initialLookupsFetchedRef = useRef<boolean>(false);
 
+  // Debounce search query changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // Dynamic fetch handler
-  const fetchMarkets = async (targetPage: number, targetSize: number, targetState: string) => {
-    const currentRequestKey = `${targetPage}-${targetSize}-${targetState}`;
+  const fetchMarkets = async (
+    targetPage: number,
+    targetSize: number,
+    targetState: string,
+    search?: string,
+  ) => {
+    const trimmedSearch = (search ?? "").trim();
+    const currentRequestKey = trimmedSearch
+      ? `search-${trimmedSearch}-${targetState}`
+      : `page-${targetPage}-${targetSize}-${targetState}`;
 
     if (lastFetchedKey.current === currentRequestKey || isFetchingRef.current) {
       return;
     }
 
     try {
-      setLoading(true);
+      if (trimmedSearch) {
+        setIsSearchingBackend(true);
+      } else {
+        setLoading(true);
+      }
       isFetchingRef.current = true;
       lastFetchedKey.current = currentRequestKey;
 
       if (!initialLookupsFetchedRef.current) {
-        const [statesRes, districtsRes] = await Promise.all([
-          statesService.getAll(),
-          districtsService.getAll(),
-        ]);
-
-        if (statesRes.success) setStates(statesRes.data);
-        if (districtsRes.success) setDistrictsList(districtsRes.data);
-
-        if (statesRes.success && districtsRes.success) {
+        const statesRes = await statesService.getAll();
+        if (statesRes.success) {
+          setStates(statesRes.data);
           initialLookupsFetchedRef.current = true;
         }
       }
 
-      const res = await marketsService.getAll({
-        page: targetPage,
-        size: targetSize,
-        state: targetState !== "all" ? targetState : undefined,
-      });
+      const res = trimmedSearch
+        ? await marketsService.getAll({
+            Search: trimmedSearch,
+            state: targetState !== "all" ? targetState : undefined,
+          })
+        : await marketsService.getAll({
+            page: targetPage,
+            size: targetSize,
+            state: targetState !== "all" ? targetState : undefined,
+          });
 
       if (res.success) {
         if (
+          !trimmedSearch &&
           res.data.length === 0 &&
           res.pagination &&
           res.pagination.totalRecords > 0 &&
@@ -124,13 +139,14 @@ export default function MarketsPage() {
       lastFetchedKey.current = "";
     } finally {
       setLoading(false);
+      setIsSearchingBackend(false);
       isFetchingRef.current = false;
     }
   };
 
   useEffect(() => {
-    fetchMarkets(page, size, selectedStateFilter);
-  }, [page, size, selectedStateFilter]);
+    fetchMarkets(page, size, selectedStateFilter, debouncedSearch);
+  }, [page, size, selectedStateFilter, debouncedSearch]);
 
   const handleStateFilterChange = (newState: string) => {
     lastFetchedKey.current = "";
@@ -139,10 +155,11 @@ export default function MarketsPage() {
   };
 
   const handleResetFilters = () => {
-    if (selectedStateFilter === "all") return;
+    if (selectedStateFilter === "all" && !searchQuery) return;
     lastFetchedKey.current = "";
     setPage(0);
     setSelectedStateFilter("all");
+    setSearchQuery("");
     toast.success("Filters cleared successfully");
   };
 
@@ -153,7 +170,7 @@ export default function MarketsPage() {
       if (res.success) {
         toast.success(res.message || "Market deleted successfully");
         lastFetchedKey.current = "";
-        fetchMarkets(page, size, selectedStateFilter);
+        fetchMarkets(page, size, selectedStateFilter, debouncedSearch);
       } else {
         toast.error(res.message || "Could not delete market");
       }
@@ -194,21 +211,16 @@ export default function MarketsPage() {
         if (res.success) {
           toast.success(res.message || "Market updated successfully");
           lastFetchedKey.current = "";
-          fetchMarkets(page, size, selectedStateFilter);
+          fetchMarkets(page, size, selectedStateFilter, debouncedSearch);
           close();
         } else {
           toast.error(res.message || "Update failed");
         }
       } else {
-        // Resolve districtId for backend requirement if needed
-        const matchedDistrict =
-          districtsList.find((d) => d.state?.id === formData.stateId) || districtsList[0];
-        const effectiveDistrictId = formData.districtId || matchedDistrict?.id || 6;
-
         const payload = {
           name: formData.name.trim(),
           stateId: formData.stateId,
-          districtId: effectiveDistrictId,
+          districtId: formData.districtId,
           managerId: isManagerSelected ? Number(formData.managerId) : null,
           email:
             isManagerSelected && formData.email && formData.email.trim()
@@ -224,7 +236,7 @@ export default function MarketsPage() {
         if (res.success) {
           toast.success(res.message || "Market added successfully");
           lastFetchedKey.current = "";
-          fetchMarkets(page, size, selectedStateFilter);
+          fetchMarkets(page, size, selectedStateFilter, debouncedSearch);
           close();
         } else {
           toast.error(res.message || "Failed to create market");
@@ -260,13 +272,21 @@ export default function MarketsPage() {
             rows={markets}
             rowKey={(m) => m.id.toString()}
             isSaving={actionLoading}
-            isLoading={loading}
+            isLoading={loading && !debouncedSearch}
             rowCount={totalRecords}
             page={page}
             pageSize={size}
             onPageChange={(newPage) => setPage(newPage)}
             onPageSizeChange={(newSize) => setSize(newSize)}
             searchPlaceholder="Search markets..."
+            serverSearch={true}
+            searchValue={searchQuery}
+            onSearchChange={(val) => {
+              lastFetchedKey.current = "";
+              setSearchQuery(val);
+              if (page !== 0) setPage(0);
+            }}
+            isSearching={isSearchingBackend || searchQuery !== debouncedSearch}
             extraToolbar={
               <div className="flex items-end gap-3 pb-0.5">
                 {/* 1. STATE TOOLBAR FILTER */}
@@ -317,7 +337,7 @@ export default function MarketsPage() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  disabled={selectedStateFilter === "all"}
+                  disabled={selectedStateFilter === "all" && !searchQuery}
                   onClick={handleResetFilters}
                   className="h-9 px-3 text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-dashed border-muted-foreground/30 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground transition-all duration-300 ease-out group active:scale-95"
                 >

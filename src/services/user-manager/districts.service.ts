@@ -7,9 +7,26 @@ export class DistrictsService {
     page?: number;
     size?: number;
     state?: string | number;
+    State?: string | number;
     market?: string | number;
+    Market?: string | number;
+    Search?: string;
+    search?: string;
   }) {
-    return http.get<District[]>(DISTRICT_API_PATHS.getAll, params);
+    const query: Record<string, any> = { ...params };
+    if (query.search && !query.Search) {
+      query.Search = query.search;
+      delete query.search;
+    }
+    if (query.market && !query.Market) {
+      query.Market = query.market;
+      delete query.market;
+    }
+    if (query.state && !query.State) {
+      query.State = query.state;
+      delete query.state;
+    }
+    return http.get<District[]>(DISTRICT_API_PATHS.getAll, query);
   }
   get(id: string | number) {
     return http.get<District>(DISTRICT_API_PATHS.district(id));

@@ -7,14 +7,54 @@ export class StoresService {
     page?: number;
     size?: number;
     state?: string | number;
+    State?: string | number;
     district?: string | number;
+    District?: string | number;
     market?: string | number;
+    Market?: string | number;
     search?: string;
+    Search?: string;
   }) {
-    return http.get<Store[]>(STORE_API_PATHS.getAll, params);
+    const query: Record<string, any> = { ...params };
+    if (query.search && !query.Search) {
+      query.Search = query.search;
+      delete query.search;
+    }
+    if (query.state && !query.State) {
+      query.State = query.state;
+      delete query.state;
+    }
+    if (query.market && !query.Market) {
+      query.Market = query.market;
+      delete query.market;
+    }
+    if (query.district && !query.District) {
+      query.District = query.district;
+      delete query.district;
+    }
+    return http.get<Store[]>(STORE_API_PATHS.getAll, query);
   }
-  get(id: string | number) {
-    return http.get<Store>(STORE_API_PATHS.store(id));
+  getStoreDropdownList() {
+    return http.get<
+      Array<{
+        id: number;
+        name: string;
+        number?: string;
+        email?: string;
+        phone?: string;
+        address?: string;
+      }>
+    >(STORE_API_PATHS.getStoreDropdownList);
+  }
+  async get(id: string | number) {
+    const res = await http.get<any>(STORE_API_PATHS.store(id));
+    if (res && res.data && Array.isArray(res.data)) {
+      return {
+        ...res,
+        data: res.data[0] ?? null,
+      };
+    }
+    return res;
   }
   add(payload: {
     name: string;

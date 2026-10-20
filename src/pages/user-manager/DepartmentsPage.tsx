@@ -42,20 +42,44 @@ export default function DepartmentsPage() {
   const [size, setSize] = useState<number>(15);
   const [totalRecords, setTotalRecords] = useState<number>(0);
 
+  // Server-side backend search states
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
+  const [isSearchingBackend, setIsSearchingBackend] = useState<boolean>(false);
+
   const lastFetchedKey = useRef<string>("");
   const isFetchingRef = useRef<boolean>(false);
 
-  const fetchRows = async (targetPage: number, targetSize: number) => {
-    const key = `${targetPage}-${targetSize}`;
+  // Debounce search query changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  const fetchRows = async (targetPage: number, targetSize: number, search?: string) => {
+    const trimmedSearch = (search ?? "").trim();
+    const key = trimmedSearch ? `search-${trimmedSearch}` : `page-${targetPage}-${targetSize}`;
+
     if (lastFetchedKey.current === key || isFetchingRef.current) return;
 
     try {
-      setLoading(true);
+      if (trimmedSearch) {
+        setIsSearchingBackend(true);
+      } else {
+        setLoading(true);
+      }
       isFetchingRef.current = true;
       lastFetchedKey.current = key;
-      const res = await departmentsService.getAll({ page: targetPage, size: targetSize });
+
+      const res = trimmedSearch
+        ? await departmentsService.getAll({ Search: trimmedSearch })
+        : await departmentsService.getAll({ page: targetPage, size: targetSize });
+
       if (res.success) {
         if (
+          !trimmedSearch &&
           res.data.length === 0 &&
           res.pagination &&
           res.pagination.totalRecords > 0 &&
@@ -78,13 +102,14 @@ export default function DepartmentsPage() {
       lastFetchedKey.current = "";
     } finally {
       setLoading(false);
+      setIsSearchingBackend(false);
       isFetchingRef.current = false;
     }
   };
 
   useEffect(() => {
-    fetchRows(page, size);
-  }, [page, size]);
+    fetchRows(page, size, debouncedSearch);
+  }, [page, size, debouncedSearch]);
 
   const handleDelete = async (d: DepartmentItem) => {
     try {
@@ -93,7 +118,7 @@ export default function DepartmentsPage() {
       if (res.success) {
         toast.success(res.message || "Department deleted successfully");
         lastFetchedKey.current = "";
-        fetchRows(page, size);
+        fetchRows(page, size, debouncedSearch);
       } else {
         toast.error(res.message || "Could not delete department");
       }
@@ -129,7 +154,7 @@ export default function DepartmentsPage() {
             (initial ? "Department updated successfully" : "Department added successfully"),
         );
         lastFetchedKey.current = "";
-        fetchRows(page, size);
+        fetchRows(page, size, debouncedSearch);
         close();
       } else {
         toast.error(res.message || "Failed to save department");
@@ -159,12 +184,21 @@ export default function DepartmentsPage() {
           rows={rows}
           rowKey={(d) => d.id.toString()}
           isSaving={actionLoading}
-          isLoading={loading}
+          isLoading={loading && !debouncedSearch}
           rowCount={totalRecords}
           page={page}
           pageSize={size}
           onPageChange={(p) => setPage(p)}
           onPageSizeChange={(s) => setSize(s)}
+          searchPlaceholder="Search departments..."
+          serverSearch={true}
+          searchValue={searchQuery}
+          onSearchChange={(val) => {
+            lastFetchedKey.current = "";
+            setSearchQuery(val);
+            if (page !== 0) setPage(0);
+          }}
+          isSearching={isSearchingBackend || searchQuery !== debouncedSearch}
           columns={[
             {
               key: "name",
@@ -383,7 +417,8 @@ function DepartmentForm({
       {/* 3. Department Phone */}
       <div className="space-y-1.5">
         <Label>
-          Department Phone <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+          Department Phone{" "}
+          <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
         </Label>
         <Input
           value={phone}
@@ -416,13 +451,19 @@ function DepartmentForm({
           <div className="flex items-center justify-between rounded-md border border-input bg-muted/40 px-3 py-2.5">
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-xs text-foreground truncate">{managerName}</span>
+                <span className="font-semibold text-xs text-foreground truncate">
+                  {managerName}
+                </span>
                 <span className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-medium px-1.5 py-0.5 rounded">
                   Assigned
                 </span>
               </div>
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-                {managerEmail ? <span>{managerEmail}</span> : <span className="italic">No email</span>}
+                {managerEmail ? (
+                  <span>{managerEmail}</span>
+                ) : (
+                  <span className="italic">No email</span>
+                )}
                 {managerPhone ? <span>• {managerPhone}</span> : null}
               </div>
             </div>
@@ -490,7 +531,8 @@ function DepartmentForm({
       {/* 5. Non-editable Manager Email */}
       <div className="space-y-1.5">
         <Label>
-          Manager Email <span className="text-xs text-muted-foreground font-normal">(Auto-populated)</span>
+          Manager Email{" "}
+          <span className="text-xs text-muted-foreground font-normal">(Auto-populated)</span>
         </Label>
         <Input
           type="email"
@@ -505,7 +547,8 @@ function DepartmentForm({
       {/* 6. Non-editable Manager Phone */}
       <div className="space-y-1.5">
         <Label>
-          Manager Phone <span className="text-xs text-muted-foreground font-normal">(Auto-populated)</span>
+          Manager Phone{" "}
+          <span className="text-xs text-muted-foreground font-normal">(Auto-populated)</span>
         </Label>
         <Input
           value={managerPhone}

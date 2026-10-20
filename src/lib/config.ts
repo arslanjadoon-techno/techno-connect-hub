@@ -33,7 +33,7 @@ export const USER_API_PATHS = {
   user: (id: string | number) => `/api/users/${id}`,
   addUser: "/api/users/add",
   updateUser: "/api/users/update",
-  deleteUser: (id: string | number) => `/api/users/delete/${id}`,
+  deleteUser: "/api/users/delete",
   updatePassword: "/api/users/update-password",
   toggle2FaBypass: "/api/users/toggle-2fa-bypass",
   toggleActivationStatus: "/api/users/toggle-activation-status",
@@ -61,11 +61,12 @@ export const MARKET_API_PATHS = {
   market: (id: string | number) => `/api/markets/${id}`,
   addMarket: "/api/markets/add",
   updateMarket: "/api/markets/update",
-  deleteMarket: (id: string | number) => `/api/markets/delete/${id}`,
+  deleteMarket: "/api/markets/delete",
 } as const;
 
 export const STORE_API_PATHS = {
   getAll: "/api/stores/get-all",
+  getStoreDropdownList: "/api/stores/GetStoreDropdownList",
   store: (id: string | number) => `/api/stores/${id}`,
   addStore: "/api/stores/add",
   updateStore: "/api/stores/update",
@@ -101,7 +102,7 @@ export const HIRARCHY_API_PATHS = {
   getDistrictsByState: (id: string | number) => `/api/districts/state/${id}`,
   addUser: "/api/users/add",
   updateUser: "/api/users/update",
-  deleteUser: (id: string | number) => `/api/users/delete/${id}`,
+  deleteUser: "/api/users/delete",
 } as const;
 
 export const PORTAL_API_PATHS = {

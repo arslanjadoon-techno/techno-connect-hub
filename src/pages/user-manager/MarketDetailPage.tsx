@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { marketsService, storesService } from "@/services";
+import { marketsService } from "@/services";
 import type { Market } from "@/lib/api/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -43,7 +43,7 @@ export default function MarketDetailPage() {
     try {
       setLoading(true);
 
-      // 1. Fetch Market directly from /api/markets/:id
+      // Fetch Market directly from /api/markets/:id (contains market details, state, and embedded stores list)
       const marketRes = await marketsService.get(id);
       if (!marketRes.success || !marketRes.data) {
         toast.error(marketRes.message || "Failed to load market");
@@ -54,22 +54,19 @@ export default function MarketDetailPage() {
       const marketData = marketRes.data;
       setMarket(marketData);
 
-      // 2. Fetch Associated Stores for this market
-      try {
-        const storesRes = await storesService.getAll({ market: marketData.name });
-        if (storesRes.success && Array.isArray(storesRes.data)) {
-          setAssociatedStores(
-            storesRes.data.map((s) => ({
-              id: s.id,
-              name: s.name,
-              number: s.number,
-              address: s.address,
-              phone: s.phone,
-            })),
-          );
-        }
-      } catch (err) {
-        console.error("Failed to fetch stores for market:", err);
+      // Extract associated stores directly from market response without extra stores API call
+      if (Array.isArray(marketData.stores)) {
+        setAssociatedStores(
+          marketData.stores.map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            number: s.number,
+            address: s.address,
+            phone: s.phone,
+          })),
+        );
+      } else {
+        setAssociatedStores([]);
       }
     } catch (err: any) {
       toast.error(err?.message || "Something went wrong loading market");
@@ -217,7 +214,9 @@ export default function MarketDetailPage() {
               <p className="text-[11px] font-semibold text-purple-700/80 dark:text-purple-300/80 uppercase tracking-wider">
                 Market Manager
               </p>
-              <p className="text-sm font-bold truncate text-foreground mt-0.5">{marketManagerName}</p>
+              <p className="text-sm font-bold truncate text-foreground mt-0.5">
+                {marketManagerName}
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -233,7 +232,8 @@ export default function MarketDetailPage() {
                 Associated Stores
               </p>
               <p className="text-sm font-bold text-foreground mt-0.5">
-                {associatedStores.length} {associatedStores.length === 1 ? "Store" : "Stores"}
+                {market.storeCount ?? associatedStores.length}{" "}
+                {(market.storeCount ?? associatedStores.length) === 1 ? "Store" : "Stores"}
               </p>
             </div>
           </CardContent>
@@ -327,7 +327,8 @@ export default function MarketDetailPage() {
               {assignedUsersCount > 1 && (
                 <div className="pt-2">
                   <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1 mb-2">
-                    <Users className="h-3 w-3" /> Additional Assigned Team ({assignedUsersCount - 1})
+                    <Users className="h-3 w-3" /> Additional Assigned Team ({assignedUsersCount - 1}
+                    )
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {market.assignedUsers?.slice(1).map((u) => (
@@ -352,7 +353,8 @@ export default function MarketDetailPage() {
             <CardHeader className="pb-3 border-b bg-muted/20">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                  <MapPin className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> State Manager
+                  <MapPin className="h-4 w-4 text-emerald-600 dark:text-emerald-400" /> State
+                  Manager
                 </CardTitle>
                 <Badge
                   variant="outline"
@@ -470,8 +472,8 @@ export default function MarketDetailPage() {
           <CardHeader className="pb-3 border-b bg-muted/20">
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                <Store className="h-4 w-4 text-purple-600 dark:text-purple-400" /> Associated Stores (
-                {associatedStores.length})
+                <Store className="h-4 w-4 text-purple-600 dark:text-purple-400" /> Associated Stores
+                ({market.storeCount ?? associatedStores.length})
               </CardTitle>
               <Button
                 variant="ghost"

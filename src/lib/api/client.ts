@@ -291,8 +291,11 @@ export const usersApi = {
     apiRequest<BackendUser>(USER_API_PATHS.updateUser, { method: "PUT", body: payload }),
 
   delete: (id: number | string | { id: number | string }) => {
-    const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
-    return apiRequest<null>(USER_API_PATHS.deleteUser(numericId), { method: "DELETE" });
+    const numericId = typeof id === "object" && id !== null ? (id as any).id : Number(id);
+    return apiRequest<null>(USER_API_PATHS.deleteUser, {
+      method: "DELETE",
+      body: { id: numericId },
+    });
   },
 
   updatePassword: (payload: { email: string; oldPassword: string; newPassword: string }) =>
@@ -372,10 +375,57 @@ export const StatesApi = {
 
 // ---------- Districts ---------- //
 
+export interface DistrictAssignedUser {
+  id: number;
+  name: string;
+  email?: string;
+  phone?: string;
+}
+
 export interface District {
   id: number;
   name: string;
-  stateId: number;
+  stateId?: number;
+  state?: {
+    id: number;
+    name: string;
+    symbol?: string;
+    assignedUsers?: DistrictAssignedUser[];
+    createdAt?: string;
+    updatedAt?: string;
+  } | null;
+  marketId?: number;
+  market?: {
+    id: number;
+    name: string;
+    state?: any;
+    assignedUsers?: DistrictAssignedUser[];
+    stores?: any[];
+    storeCount?: number;
+    createdAt?: string;
+    updatedAt?: string;
+  } | null;
+  assignedUsers?: DistrictAssignedUser[];
+  stores?: Array<{
+    id: number;
+    name: string;
+    number?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    email?: string | null;
+    doorCode?: string | null;
+    state?: any;
+    district?: any;
+    market?: any;
+    assignedUsers?: DistrictAssignedUser[];
+    createdAt?: string;
+    updatedAt?: string;
+  }>;
+  storeCount?: number;
+  manager?: string;
+  managerId?: number;
+  email?: string | null;
+  phone?: string | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -459,6 +509,8 @@ export interface Market {
     name: string;
   } | null;
   assignedUsers?: MarketAssignedUser[];
+  stores?: any[];
+  storeCount?: number;
   manager?: string;
   managerId?: number;
   email?: string;
@@ -482,11 +534,16 @@ export const MarketsApi = {
       if (params.size !== undefined) queryParts.push(`size=${params.size}`);
 
       if (params.state !== undefined && params.state !== "all") {
-        queryParts.push(`state=${params.state}`);
+        queryParts.push(`state=${encodeURIComponent(String(params.state))}`);
       }
 
       if (params.district !== undefined && params.district !== "all") {
-        queryParts.push(`district=${params.district}`);
+        queryParts.push(`district=${encodeURIComponent(String(params.district))}`);
+      }
+
+      const searchVal = (params as any).Search || (params as any).search;
+      if (searchVal) {
+        queryParts.push(`Search=${encodeURIComponent(String(searchVal))}`);
       }
     }
 
@@ -516,8 +573,11 @@ export const MarketsApi = {
   }) => apiRequest<Market>(MARKET_API_PATHS.updateMarket, { method: "PUT", body: payload }),
 
   delete: (id: number | string | { id: number | string }) => {
-    const numericId = typeof id === "object" && id !== null ? (id as any).id : id;
-    return apiRequest<null>(MARKET_API_PATHS.deleteMarket(numericId), { method: "DELETE" });
+    const numericId = typeof id === "object" && id !== null ? (id as any).id : Number(id);
+    return apiRequest<null>(MARKET_API_PATHS.deleteMarket, {
+      method: "DELETE",
+      body: { id: numericId },
+    });
   },
 };
 
@@ -765,12 +825,16 @@ export interface DepartmentEntity {
 export type Department = DepartmentEntity;
 
 export const DepartmentsApi = {
-  getAll: (params?: PaginationParams) => {
-    let url: string = DEPARTMENT_API_PATHS.getAll;
-    if (params && params.page !== undefined && params.size !== undefined) {
-      url = `${DEPARTMENT_API_PATHS.getAll}?page=${params.page}&size=${params.size}`;
+  getAll: (params?: PaginationParams & { Search?: string; search?: string }) => {
+    const queryParts: string[] = [];
+    if (params) {
+      if (params.page !== undefined) queryParts.push(`page=${params.page}`);
+      if (params.size !== undefined) queryParts.push(`size=${params.size}`);
+      const searchVal = params.Search || params.search;
+      if (searchVal) queryParts.push(`Search=${encodeURIComponent(String(searchVal))}`);
     }
-    return apiRequest<DepartmentEntity[]>(url);
+    const queryString = queryParts.length > 0 ? `?${queryParts.join("&")}` : "";
+    return apiRequest<DepartmentEntity[]>(`${DEPARTMENT_API_PATHS.getAll}${queryString}`);
   },
   get: (id: string | number) => apiRequest<DepartmentEntity>(DEPARTMENT_API_PATHS.department(id)),
   add: (payload: { name: string }) =>

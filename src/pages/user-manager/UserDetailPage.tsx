@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { usersApi, hierarchyApi } from "@/lib/api/client";
-import { portalsService } from "@/services/user-manager";
+import { portalsService, usersService } from "@/services/user-manager";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -172,7 +172,7 @@ export default function UserDetailPage() {
     }
     try {
       setDeleting(true);
-      const res = await usersApi.delete(Number(user.id));
+      const res = await usersService.delete(Number(user.id));
       if (res.success) {
         toast.success("User deleted");
         navigate("/admin/users");

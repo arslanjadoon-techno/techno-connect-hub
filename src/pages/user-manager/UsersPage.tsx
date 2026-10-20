@@ -14,15 +14,15 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { MultiSelect } from "@/components/multi-select";
+import { usersApi, hierarchyApi } from "@/lib/api/client";
 import {
-  usersApi,
-  hierarchyApi,
-  StatesApi,
-  DistrictsApi,
-  MarketsApi,
-  StoresApi,
-} from "@/lib/api/client";
-import { portalsService } from "@/services/user-manager";
+  portalsService,
+  statesService,
+  marketsService,
+  districtsService,
+  storesService,
+  departmentsService,
+} from "@/services/user-manager";
 import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 import {
@@ -88,15 +88,9 @@ function UsersPage() {
 
   const [portalFilter, setPortalFilter] = useState<string>("all");
 
-  const [dynamicRoles, setDynamicRoles] = useState<any[]>([]);
   const [dynamicDepts, setDynamicDepts] = useState<{ id: number; name: string }[]>([]);
-  const [portalsMasterList, setPortalsMasterList] = useState<any[]>([]);
-
   const [mainDeptSearch, setMainDeptSearch] = useState("");
-  const [mainPortalSearch, setMainPortalSearch] = useState(""); // Portal Toolbar Search state
-
   const mainDeptSearchRef = useRef<HTMLInputElement>(null);
-  const mainPortalSearchRef = useRef<HTMLInputElement>(null);
 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -116,33 +110,17 @@ function UsersPage() {
 
   const navigate = useNavigate();
 
-  // Fetching Portals using centralized service layer
-  const fetchPortalsMaster = async () => {
-    try {
-      const res = await portalsService.getAll();
-      if (res.success && Array.isArray(res.data)) {
-        setPortalsMasterList(res.data);
-      }
-    } catch (err) {
-      console.error("Failed to load portals structure:", err);
-    }
-  };
-
+  // Load only departments lookup for department filter
   const fetchInitialLookups = async () => {
     if (initialLookupsFetchedRef.current) return;
     try {
-      await fetchPortalsMaster();
-      const [rolesRes, deptsRes] = await Promise.all([
-        hierarchyApi.getRoles(),
-        hierarchyApi.getDepartments(),
-      ]);
-      if (rolesRes.success && Array.isArray(rolesRes.data)) setDynamicRoles(rolesRes.data);
-      if (deptsRes.success && Array.isArray(deptsRes.data)) setDynamicDepts(deptsRes.data);
-      if (rolesRes.success && deptsRes.success) {
+      const deptsRes = await departmentsService.getAll();
+      if (deptsRes.success && Array.isArray(deptsRes.data)) {
+        setDynamicDepts(deptsRes.data);
         initialLookupsFetchedRef.current = true;
       }
     } catch (err) {
-      console.error("Failed to load initial lookups:", err);
+      console.error("Failed to load departments lookup:", err);
     }
   };
 
@@ -244,7 +222,7 @@ function UsersPage() {
     }
     try {
       setActionLoading(true);
-      const res = await usersApi.delete(Number(u.id));
+      const res = await usersService.delete(Number(u.id));
       if (res.success) {
         toast.success("User record safely removed");
         lastFetchedKey.current = "";
@@ -309,12 +287,6 @@ function UsersPage() {
       (d.name || "").toLowerCase().includes(mainDeptSearch.toLowerCase()),
     );
   }, [dynamicDepts, mainDeptSearch]);
-
-  const filteredMainPortalsOptions = useMemo(() => {
-    return portalsMasterList.filter((p) =>
-      (p.name || "").toLowerCase().includes(mainPortalSearch.toLowerCase()),
-    );
-  }, [portalsMasterList, mainPortalSearch]);
 
   const getPortalColor = (name: string) => {
     const colors: Record<string, string> = {
@@ -563,8 +535,6 @@ function UsersPage() {
           renderForm={(initial, close) => (
             <UserForm
               initial={initial}
-              dynamicRoles={dynamicRoles}
-              portalsMasterList={portalsMasterList}
               onSaved={() => {
                 lastFetchedKey.current = "";
                 fetchUsers(page, size, deptFilter, portalFilter);
@@ -583,13 +553,13 @@ function UsersPage() {
 // ==========================================
 export function UserForm({
   initial,
-  dynamicRoles,
-  portalsMasterList,
+  dynamicRoles: initialDynamicRoles = [],
+  portalsMasterList: initialPortalsMasterList = [],
   onSaved,
 }: {
   initial: any | null;
-  dynamicRoles: any[];
-  portalsMasterList: any[];
+  dynamicRoles?: any[];
+  portalsMasterList?: any[];
   onSaved: () => void;
 }) {
   const [fullName, setFullName] = useState(initial?.fullName ?? "");
@@ -608,20 +578,31 @@ export function UserForm({
   };
 
   const [department, setDepartment] = useState<string>(
-    initial?.department === "—" ? "placeholder" : (initial?.department ?? "placeholder"),
+    initial?.department === "—"
+      ? "placeholder"
+      : (initial?.department?.name ?? initial?.department ?? "placeholder"),
   );
   const [allowedUserManagement, setAllowedUserManagement] = useState<boolean>(
     initial?.allowedUserManagement ?? false,
   );
   const [active, setActive] = useState<boolean>(initial?.active ?? true);
 
+  // Dynamic lookup options fetched when modal is mounted
+  const [dynamicRoles, setDynamicRoles] = useState<any[]>(initialDynamicRoles);
+  const [portalsMasterList, setPortalsMasterList] = useState<any[]>(initialPortalsMasterList);
+  const [dbDepts, setDbDepts] = useState<any[]>([]);
+  const [loadingInitialModalData, setLoadingInitialModalData] = useState(true);
+
+  // Portal access config map
   const [portalConfig, setPortalConfig] = useState<
     Record<string, { enabled: boolean; roleName: string }>
   >(() => {
     const initMap: Record<string, { enabled: boolean; roleName: string }> = {};
-    portalsMasterList.forEach((p) => {
-      initMap[p.name] = { enabled: false, roleName: "user" };
-    });
+    if (Array.isArray(initialPortalsMasterList)) {
+      initialPortalsMasterList.forEach((p) => {
+        initMap[p.name] = { enabled: false, roleName: "user" };
+      });
+    }
     if (initial && Array.isArray(initial.portalAccess)) {
       initial.portalAccess.forEach((pa: any) => {
         initMap[pa.portalName] = { enabled: true, roleName: pa.roleName };
@@ -630,69 +611,300 @@ export function UserForm({
     return initMap;
   });
 
-  const [dbDepts, setDbDepts] = useState<any[]>([]);
+  // Fetch departments, roles, and portals on modal open
+  useEffect(() => {
+    let isMounted = true;
+    const loadModalLookups = async () => {
+      try {
+        setLoadingInitialModalData(true);
+        const [rolesRes, deptsRes, portalsRes] = await Promise.all([
+          hierarchyApi.getRoles(),
+          departmentsService.getAll(),
+          portalsService.getAll(),
+        ]);
+        if (!isMounted) return;
+        if (rolesRes.success && Array.isArray(rolesRes.data)) {
+          setDynamicRoles(rolesRes.data);
+        }
+        if (deptsRes.success && Array.isArray(deptsRes.data)) {
+          setDbDepts(deptsRes.data);
+        }
+        if (portalsRes.success && Array.isArray(portalsRes.data)) {
+          setPortalsMasterList(portalsRes.data);
+          setPortalConfig((prev) => {
+            const next = { ...prev };
+            portalsRes.data.forEach((p: any) => {
+              if (!next[p.name]) {
+                next[p.name] = { enabled: false, roleName: "user" };
+              }
+            });
+            if (initial && Array.isArray(initial.portalAccess)) {
+              initial.portalAccess.forEach((pa: any) => {
+                next[pa.portalName] = { enabled: true, roleName: pa.roleName };
+              });
+            }
+            return next;
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load modal lookup data:", err);
+      } finally {
+        if (isMounted) setLoadingInitialModalData(false);
+      }
+    };
+    loadModalLookups();
+    return () => {
+      isMounted = false;
+    };
+  }, [initial]);
+
+  // Determine active roles across all enabled portals
+  const activeRolesList = useMemo(() => {
+    return Object.keys(portalConfig)
+      .filter((k) => portalConfig[k].enabled)
+      .map((k) => (portalConfig[k].roleName || "").toLowerCase().trim());
+  }, [portalConfig]);
+
+  // Normalization helper
+  const hasRole = (roleType: "store" | "district" | "market" | "state") => {
+    return activeRolesList.some((r) => {
+      const clean = r.replace(/[^a-z]/g, "");
+      if (roleType === "store") return clean === "storemanager";
+      if (roleType === "district") return clean === "districtmanager";
+      if (roleType === "market") return clean === "marketmanager";
+      if (roleType === "state") return clean === "statemanager";
+      return false;
+    });
+  };
+
+  const isStoreManager = hasRole("store");
+  const isDistrictManager = hasRole("district");
+  const isMarketManager = hasRole("market");
+  const isStateManager = hasRole("state");
+
+  // Regional state requirements
+  // District manager needs State -> Market -> District
+  // Market manager needs State -> Market
+  // State manager needs State
+  // Store manager needs Store
+  const needsState = isDistrictManager || isMarketManager || isStateManager;
+  const needsMarket = isDistrictManager || isMarketManager;
+  const needsDistrict = isDistrictManager;
+  const needsStore = isStoreManager;
+
+  const showRegionalCard = needsState || needsStore;
+
+  // Selected single values for regional dropdowns (State, Market, District, Store)
+  const initialSingleId = (arr: any[] | undefined) =>
+    Array.isArray(arr) && arr.length > 0 ? String(arr[0]?.id ?? arr[0]) : "";
+
+  const [selectedStateId, setSelectedStateId] = useState<string>(initialSingleId(initial?.states));
+  const [selectedMarketId, setSelectedMarketId] = useState<string>(
+    initialSingleId(initial?.markets),
+  );
+  const [selectedDistrictId, setSelectedDistrictId] = useState<string>(
+    initialSingleId(initial?.districts),
+  );
+  const [selectedStoreId, setSelectedStoreId] = useState<string>(initialSingleId(initial?.stores));
+
+  // Maintain array representations for backend API payload compatibility
+  const stateIds = useMemo(() => (selectedStateId ? [selectedStateId] : []), [selectedStateId]);
+  const marketIds = useMemo(() => (selectedMarketId ? [selectedMarketId] : []), [selectedMarketId]);
+  const districtIds = useMemo(
+    () => (selectedDistrictId ? [selectedDistrictId] : []),
+    [selectedDistrictId],
+  );
+  const storeIds = useMemo(() => (selectedStoreId ? [selectedStoreId] : []), [selectedStoreId]);
+
+  // Dynamic cascading option lists
   const [dbStates, setDbStates] = useState<any[]>([]);
-  const [dbDistricts, setDbDistricts] = useState<any[]>([]);
   const [dbMarkets, setDbMarkets] = useState<any[]>([]);
+  const [dbDistricts, setDbDistricts] = useState<any[]>([]);
   const [dbStores, setDbStores] = useState<any[]>([]);
 
-  const initialIds = (arr: any[] | undefined) =>
-    Array.isArray(arr) ? arr.map((x: any) => String(x?.id ?? x)).filter(Boolean) : [];
+  // Search input filters for Select dropdowns
+  const [stateSearch, setStateSearch] = useState("");
+  const [marketSearch, setMarketSearch] = useState("");
+  const [districtSearch, setDistrictSearch] = useState("");
+  const [storeSearch, setStoreSearch] = useState("");
 
-  const [stateIds, setStateIds] = useState<string[]>(initialIds(initial?.states));
-  const [districtIds, setDistrictIds] = useState<string[]>(initialIds(initial?.districts));
-  const [marketIds, setMarketIds] = useState<string[]>(initialIds(initial?.markets));
-  const [storeIds, setStoreIds] = useState<string[]>(initialIds(initial?.stores));
+  const stateSearchRef = useRef<HTMLInputElement>(null);
+  const marketSearchRef = useRef<HTMLInputElement>(null);
+  const districtSearchRef = useRef<HTMLInputElement>(null);
+  const storeSearchRef = useRef<HTMLInputElement>(null);
+
+  // Loading states
+  const [loadingStates, setLoadingStates] = useState(false);
+  const [loadingMarkets, setLoadingMarkets] = useState(false);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+  const [loadingStores, setLoadingStores] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
 
-  const activeRolesList = Object.keys(portalConfig)
-    .filter((k) => portalConfig[k].enabled)
-    .map((k) => portalConfig[k].roleName.toLowerCase());
+  // Flags for preserving initial edit selections
+  const isFirstMarketLoad = useRef(true);
+  const isFirstDistrictLoad = useRef(true);
 
-  const needsState = activeRolesList.some((r) =>
-    [
-      "state_manager",
-      "statemanager",
-      "district_manager",
-      "districtmanager",
-      "market_manager",
-      "marketmanager",
-      "store_manager",
-      "storemanager",
-    ].includes(r),
-  );
-  const needsDistrict = activeRolesList.some((r) =>
-    [
-      "district_manager",
-      "districtmanager",
-      "market_manager",
-      "marketmanager",
-      "store_manager",
-      "storemanager",
-    ].includes(r),
-  );
-  const needsMarket = activeRolesList.some((r) =>
-    ["market_manager", "marketmanager", "store_manager", "storemanager"].includes(r),
-  );
-  const needsStore = activeRolesList.some((r) => ["store_manager", "storemanager"].includes(r));
-
+  // 1. Load States ONLY when needsState is active
   useEffect(() => {
-    hierarchyApi.getDepartments().then((res) => {
-      if (res.success) setDbDepts(res.data);
+    if (!needsState) {
+      setDbStates([]);
+      setSelectedStateId("");
+      return;
+    }
+    let isMounted = true;
+    setLoadingStates(true);
+    statesService
+      .getAll()
+      .then((res) => {
+        if (!isMounted) return;
+        if (res.success && Array.isArray(res.data)) {
+          setDbStates(res.data);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load states:", err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingStates(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [needsState]);
+
+  // 2. Load Markets ONLY when State is selected AND needsMarket is true
+  useEffect(() => {
+    if (!needsMarket || !selectedStateId) {
+      setDbMarkets([]);
+      setSelectedMarketId("");
+      setDbDistricts([]);
+      setSelectedDistrictId("");
+      return;
+    }
+
+    let isMounted = true;
+    setLoadingMarkets(true);
+
+    const matchState = dbStates.find((s) => String(s.id) === selectedStateId);
+    const stateParam = matchState ? matchState.name : selectedStateId;
+
+    marketsService
+      .getAll({ State: stateParam })
+      .then((res) => {
+        if (!isMounted) return;
+        if (res.success && Array.isArray(res.data)) {
+          setDbMarkets(res.data);
+          if (isFirstMarketLoad.current) {
+            isFirstMarketLoad.current = false;
+          } else {
+            // When user changes state in form, reset selected market & district
+            setSelectedMarketId("");
+            setSelectedDistrictId("");
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load markets:", err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingMarkets(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [needsMarket, selectedStateId, dbStates]);
+
+  // 3. Load Districts ONLY when Market is selected AND needsDistrict is true
+  useEffect(() => {
+    if (!needsDistrict || !selectedMarketId) {
+      setDbDistricts([]);
+      setSelectedDistrictId("");
+      return;
+    }
+
+    let isMounted = true;
+    setLoadingDistricts(true);
+
+    const matchMarket = dbMarkets.find((m) => String(m.id) === selectedMarketId);
+    const marketParam = matchMarket ? matchMarket.name : selectedMarketId;
+
+    districtsService
+      .getAll({ Market: marketParam })
+      .then((res) => {
+        if (!isMounted) return;
+        if (res.success && Array.isArray(res.data)) {
+          setDbDistricts(res.data);
+          if (isFirstDistrictLoad.current) {
+            isFirstDistrictLoad.current = false;
+          } else {
+            // When user changes market in form, reset selected district
+            setSelectedDistrictId("");
+          }
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load districts:", err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingDistricts(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [needsDistrict, selectedMarketId, dbMarkets]);
+
+  // 4. Load Stores ONLY when Store Manager role is selected
+  useEffect(() => {
+    if (!needsStore) {
+      setDbStores([]);
+      setSelectedStoreId("");
+      return;
+    }
+    let isMounted = true;
+    setLoadingStores(true);
+    storesService
+      .getStoreDropdownList()
+      .then((res) => {
+        if (!isMounted) return;
+        if (res.success && Array.isArray(res.data)) {
+          setDbStores(res.data);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load stores:", err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingStores(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [needsStore]);
+
+  // Filtered dropdown lists based on inline search
+  const filteredDbStates = useMemo(() => {
+    return dbStates.filter((s) => s.name.toLowerCase().includes(stateSearch.toLowerCase()));
+  }, [dbStates, stateSearch]);
+
+  const filteredDbMarkets = useMemo(() => {
+    return dbMarkets.filter((m) => m.name.toLowerCase().includes(marketSearch.toLowerCase()));
+  }, [dbMarkets, marketSearch]);
+
+  const filteredDbDistricts = useMemo(() => {
+    return dbDistricts.filter((d) => d.name.toLowerCase().includes(districtSearch.toLowerCase()));
+  }, [dbDistricts, districtSearch]);
+
+  const filteredDbStores = useMemo(() => {
+    return dbStores.filter((s) => {
+      const searchLower = storeSearch.toLowerCase();
+      const nameMatch = (s.name || "").toLowerCase().includes(searchLower);
+      const numberMatch = s.number ? String(s.number).toLowerCase().includes(searchLower) : false;
+      return nameMatch || numberMatch;
     });
-    StatesApi.getAll({ size: 1000 } as any).then((res) => {
-      if (res.success && res.data) setDbStates(res.data);
-    });
-    DistrictsApi.getAll({ size: 5000 } as any).then((res) => {
-      if (res.success && res.data) setDbDistricts(res.data);
-    });
-    MarketsApi.getAll({ size: 5000 } as any).then((res) => {
-      if (res.success && res.data) setDbMarkets(res.data);
-    });
-    StoresApi.getAll({ size: 5000 } as any).then((res) => {
-      if (res.success && res.data) setDbStores(res.data);
-    });
-  }, []);
+  }, [dbStores, storeSearch]);
 
   const handlePortalToggle = (pName: string, checked: boolean) => {
     setPortalConfig((prev) => ({
@@ -746,24 +958,24 @@ export function UserForm({
   }, [hasSelectedPortals]);
 
   const stateError = useMemo(() => {
-    if (needsState && stateIds.length === 0) return "Select at least one state";
+    if (needsState && !selectedStateId) return "Please select a state";
     return null;
-  }, [needsState, stateIds.length]);
-
-  const districtError = useMemo(() => {
-    if (needsDistrict && districtIds.length === 0) return "Select at least one district";
-    return null;
-  }, [needsDistrict, districtIds.length]);
+  }, [needsState, selectedStateId]);
 
   const marketError = useMemo(() => {
-    if (needsMarket && marketIds.length === 0) return "Select at least one market";
+    if (needsMarket && !selectedMarketId) return "Please select a market";
     return null;
-  }, [needsMarket, marketIds.length]);
+  }, [needsMarket, selectedMarketId]);
+
+  const districtError = useMemo(() => {
+    if (needsDistrict && !selectedDistrictId) return "Please select a district";
+    return null;
+  }, [needsDistrict, selectedDistrictId]);
 
   const storeError = useMemo(() => {
-    if (needsStore && storeIds.length === 0) return "Select at least one store";
+    if (needsStore && !selectedStoreId) return "Please select a store";
     return null;
-  }, [needsStore, storeIds.length]);
+  }, [needsStore, selectedStoreId]);
 
   const canSave =
     !fullNameError &&
@@ -773,8 +985,8 @@ export function UserForm({
     !confirmPasswordError &&
     !portalsError &&
     !stateError &&
-    !districtError &&
     !marketError &&
+    !districtError &&
     !storeError;
 
   const firstError =
@@ -785,8 +997,8 @@ export function UserForm({
     confirmPasswordError ||
     portalsError ||
     stateError ||
-    districtError ||
     marketError ||
+    districtError ||
     storeError;
 
   const shouldShowFullNameError = (attemptedSubmit || touched.fullName) && !!fullNameError;
@@ -797,8 +1009,8 @@ export function UserForm({
     (attemptedSubmit || touched.confirmPassword) && !!confirmPasswordError;
   const shouldShowPortalsError = attemptedSubmit && !!portalsError;
   const shouldShowStateError = attemptedSubmit && !!stateError;
-  const shouldShowDistrictError = attemptedSubmit && !!districtError;
   const shouldShowMarketError = attemptedSubmit && !!marketError;
+  const shouldShowDistrictError = attemptedSubmit && !!districtError;
   const shouldShowStoreError = attemptedSubmit && !!storeError;
 
   const submit = async () => {
@@ -841,10 +1053,16 @@ export function UserForm({
         list
           .filter((x) => ids.includes(String(x.id)))
           .map((x) => ({ id: Number(x.id), name: x.name }));
+
       const selectedStates = pickObjs(dbStates, stateIds);
-      const selectedDistricts = pickObjs(dbDistricts, districtIds);
       const selectedMarkets = pickObjs(dbMarkets, marketIds);
-      const selectedStores = pickObjs(dbStores, storeIds);
+      const selectedDistricts = pickObjs(dbDistricts, districtIds);
+      const selectedStores =
+        pickObjs(dbStores, storeIds).length > 0
+          ? pickObjs(dbStores, storeIds)
+          : (initial?.stores || [])
+              .filter((x: any) => storeIds.includes(String(x.id)))
+              .map((x: any) => ({ id: Number(x.id), name: x.name }));
 
       const selectedDeptObj = dbDepts.find((d) => d.name === department);
 
@@ -858,22 +1076,26 @@ export function UserForm({
         assignedPortals,
         portalAccess,
         states: needsState ? selectedStates : [],
-        districts: needsDistrict ? selectedDistricts : [],
         markets: needsMarket ? selectedMarkets : [],
+        districts: needsDistrict ? selectedDistricts : [],
         stores: needsStore ? selectedStores : [],
       };
 
       if (initial) {
         const response = await usersApi.update({ id: Number(initial.id), ...payload });
         if (response.success) {
-          toast.success("User config sync finalized");
+          toast.success("User updated successfully");
           onSaved();
+        } else {
+          toast.error(response.message || "Failed to update user");
         }
       } else {
         const response = await usersApi.add({ ...payload, password } as any);
         if (response.success) {
           toast.success("User created successfully");
           onSaved();
+        } else {
+          toast.error(response.message || "Failed to create user");
         }
       }
     } catch (err: any) {
@@ -893,7 +1115,7 @@ export function UserForm({
       autoComplete="off"
       className="space-y-4 max-h-[82vh] overflow-y-auto px-1 scrollbar-thin"
     >
-      {/* Hidden dummy credentials to trap browser autofill and prevent targeting outer table search bar */}
+      {/* Hidden dummy credentials to trap browser autofill */}
       <input
         type="text"
         name="fake_user_shield"
@@ -915,55 +1137,51 @@ export function UserForm({
         </div>
       )}
 
+      {/* Row 1: Full Name & Email */}
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label
-            className={
-              shouldShowFullNameError ? "text-red-600 dark:text-red-400 font-semibold" : ""
-            }
-          >
-            Full name <span className="text-destructive">*</span>
+          <Label htmlFor="user-fullname">
+            Full name <span className="text-destructive font-semibold">*</span>
           </Label>
           <Input
+            id="user-fullname"
+            placeholder="John Doe"
             value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
+            onChange={(e) => {
+              setFullName(e.target.value);
+              markTouched("fullName");
+            }}
             onBlur={() => markTouched("fullName")}
-            placeholder="e.g. John Doe"
-            autoComplete="off"
             className={
-              shouldShowFullNameError
-                ? "border-red-500 focus-visible:ring-red-500 ring-2 ring-red-500/30 bg-red-50/40 dark:bg-red-950/20"
-                : ""
+              shouldShowFullNameError ? "border-destructive ring-1 ring-destructive/30" : ""
             }
           />
           {shouldShowFullNameError && (
-            <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1 font-medium mt-1">
+            <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
               {fullNameError}
             </p>
           )}
         </div>
+
         <div className="space-y-1.5">
-          <Label
-            className={shouldShowEmailError ? "text-red-600 dark:text-red-400 font-semibold" : ""}
-          >
-            Email or NTID <span className="text-destructive">*</span>
+          <Label htmlFor="user-email">
+            Email or NTID <span className="text-destructive font-semibold">*</span>
           </Label>
           <Input
+            id="user-email"
             type="text"
+            placeholder="johndoe or john@example.com"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              markTouched("email");
+            }}
             onBlur={() => markTouched("email")}
-            placeholder="you@techno.com or NTID"
-            autoComplete="new-password"
-            className={
-              shouldShowEmailError
-                ? "border-red-500 focus-visible:ring-red-500 ring-2 ring-red-500/30 bg-red-50/40 dark:bg-red-950/20"
-                : ""
-            }
+            className={shouldShowEmailError ? "border-destructive ring-1 ring-destructive/30" : ""}
           />
           {shouldShowEmailError && (
-            <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1 font-medium mt-1">
+            <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
               {emailError}
             </p>
@@ -971,22 +1189,24 @@ export function UserForm({
         </div>
       </div>
 
+      {/* Row 2: Phone & Department */}
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <Label>
-            Phone <span className="text-muted-foreground text-xs">(Optional)</span>
+          <Label htmlFor="user-phone">
+            Phone <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
           </Label>
           <Input
+            id="user-phone"
+            type="tel"
+            placeholder="+1 (555) 000-0000"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="e.g. +1 (123) 456-7890"
           />
         </div>
+
         <div className="space-y-1.5">
-          <Label
-            className={shouldShowDeptError ? "text-red-600 dark:text-red-400 font-semibold" : ""}
-          >
-            Department <span className="text-destructive">*</span>
+          <Label htmlFor="user-department">
+            Department <span className="text-destructive font-semibold">*</span>
           </Label>
           <Select
             value={department}
@@ -996,12 +1216,10 @@ export function UserForm({
             }}
           >
             <SelectTrigger
-              className={
-                shouldShowDeptError
-                  ? "border-red-500 focus:ring-red-500 ring-2 ring-red-500/30 bg-red-50/40 dark:bg-red-950/20 text-red-700 dark:text-red-300"
-                  : ""
-              }
-              onBlur={() => markTouched("department")}
+              id="user-department"
+              className={`w-full ${
+                shouldShowDeptError ? "border-destructive ring-1 ring-destructive/30" : ""
+              }`}
             >
               <SelectValue placeholder="Select department" />
             </SelectTrigger>
@@ -1011,13 +1229,13 @@ export function UserForm({
               </SelectItem>
               {dbDepts.map((d) => (
                 <SelectItem key={d.id} value={d.name}>
-                  {d.name || "—"}
+                  {d.name}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           {shouldShowDeptError && (
-            <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1 font-medium mt-1">
+            <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
               {departmentError}
             </p>
@@ -1025,179 +1243,109 @@ export function UserForm({
         </div>
       </div>
 
+      {/* Password fields only on create */}
       {!initial && (
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <Label
-              className={
-                shouldShowPasswordError ? "text-red-600 dark:text-red-400 font-semibold" : ""
-              }
-            >
-              Password <span className="text-destructive">*</span>
+            <Label htmlFor="user-password">
+              Password <span className="text-destructive font-semibold">*</span>
             </Label>
             <div className="relative">
               <Input
+                id="user-password"
                 type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  markTouched("password");
+                }}
                 onBlur={() => markTouched("password")}
-                placeholder="Min 6 characters"
-                autoComplete="new-password"
-                className={`pr-10 ${
-                  shouldShowPasswordError
-                    ? "border-red-500 focus-visible:ring-red-500 ring-2 ring-red-500/30 bg-red-50/40 dark:bg-red-950/20"
-                    : ""
+                className={`pr-9 ${
+                  shouldShowPasswordError ? "border-destructive ring-1 ring-destructive/30" : ""
                 }`}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-0.5"
                 tabIndex={-1}
-                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
             {shouldShowPasswordError && (
-              <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1 font-medium mt-1">
+              <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
                 <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                 {passwordError}
               </p>
             )}
-
-            {/* Explicit password requirements display as requested */}
-            <div
-              className={`mt-1.5 rounded-lg border p-2.5 text-[11px] space-y-1.5 transition-colors ${
-                shouldShowPasswordError
-                  ? "border-red-300 dark:border-red-900/60 bg-red-50/60 dark:bg-red-950/30"
-                  : "border-zinc-200 dark:border-zinc-800 bg-zinc-50/80 dark:bg-zinc-900/60"
-              }`}
-            >
-              <p
-                className={`font-semibold ${shouldShowPasswordError ? "text-red-700 dark:text-red-300" : "text-zinc-700 dark:text-zinc-300"}`}
-              >
-                Password Requirements:
-              </p>
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={`inline-block h-2 w-2 rounded-full shrink-0 ${
-                    password.length >= 6
-                      ? "bg-emerald-500 ring-2 ring-emerald-500/20"
-                      : shouldShowPasswordError
-                        ? "bg-red-500 ring-2 ring-red-500/20"
-                        : "bg-zinc-400"
-                  }`}
-                />
-                <span
-                  className={
-                    password.length >= 6
-                      ? "text-emerald-600 dark:text-emerald-400 font-medium"
-                      : shouldShowPasswordError
-                        ? "text-red-600 dark:text-red-400 font-medium"
-                        : "text-muted-foreground"
-                  }
-                >
-                  Length: Minimum 6 characters {password.length > 0 ? `(${password.length}/6)` : ""}
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span
-                  className={`inline-block h-2 w-2 rounded-full shrink-0 ${
-                    /[A-Za-z]/.test(password) && /[0-9]/.test(password)
-                      ? "bg-emerald-500 ring-2 ring-emerald-500/20"
-                      : "bg-zinc-400"
-                  }`}
-                />
-                <span
-                  className={
-                    /[A-Za-z]/.test(password) && /[0-9]/.test(password)
-                      ? "text-emerald-600 dark:text-emerald-400 font-medium"
-                      : "text-muted-foreground"
-                  }
-                >
-                  Type: Recommended combination of letters & numbers
-                </span>
-              </div>
-            </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label
-              className={
-                shouldShowConfirmError ? "text-red-600 dark:text-red-400 font-semibold" : ""
-              }
-            >
-              Confirm password <span className="text-destructive">*</span>
+            <Label htmlFor="user-confirm-password">
+              Confirm password <span className="text-destructive font-semibold">*</span>
             </Label>
             <div className="relative">
               <Input
+                id="user-confirm-password"
                 type={showConfirmPassword ? "text" : "password"}
+                placeholder="••••••••"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                onChange={(e) => {
+                  setConfirmPassword(e.target.value);
+                  markTouched("confirmPassword");
+                }}
                 onBlur={() => markTouched("confirmPassword")}
-                placeholder="Re-enter password"
-                autoComplete="new-password"
-                className={`pr-10 ${
-                  shouldShowConfirmError
-                    ? "border-red-500 focus-visible:ring-red-500 ring-2 ring-red-500/30 bg-red-50/40 dark:bg-red-950/20"
-                    : ""
+                className={`pr-9 ${
+                  shouldShowConfirmError ? "border-destructive ring-1 ring-destructive/30" : ""
                 }`}
               />
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-0.5"
                 tabIndex={-1}
-                aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
             {shouldShowConfirmError && (
-              <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1 font-medium mt-1">
+              <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
                 <AlertCircle className="h-3.5 w-3.5 shrink-0" />
                 {confirmPasswordError}
               </p>
             )}
-            {!shouldShowConfirmError &&
-              confirmPassword.length > 0 &&
-              password === confirmPassword && (
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1 font-medium mt-1">
-                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                  Passwords match
-                </p>
-              )}
           </div>
         </div>
       )}
 
-      <div className="bg-zinc-50 dark:bg-zinc-900 p-3 rounded-lg border border-zinc-200/60 dark:border-zinc-800 grid grid-cols-2 gap-4">
-        <div className="flex items-center justify-between space-x-2">
-          <div className="flex flex-col space-y-0.5">
-            <Label className="text-sm font-semibold">User Manager Access</Label>
-            <span className="text-[11px] text-muted-foreground">
-              Allows managing user directories administration
-            </span>
-          </div>
-          <Switch checked={allowedUserManagement} onCheckedChange={setAllowedUserManagement} />
+      {/* Row: Status toggles */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-800">
+        <div className="flex items-center gap-2">
+          <Switch
+            id="user-management-access"
+            checked={allowedUserManagement}
+            onCheckedChange={setAllowedUserManagement}
+          />
+          <Label htmlFor="user-management-access" className="text-xs cursor-pointer font-medium">
+            Grant User Management Portal Access
+          </Label>
         </div>
 
-        <div className="flex items-center justify-between space-x-2">
-          <div className="flex flex-col space-y-0.5">
-            <Label className="text-sm font-semibold">Account Status</Label>
-            <span className="text-[11px] text-muted-foreground">
-              Toggle active status state for portal operations logging
-            </span>
-          </div>
-          <Switch checked={active} onCheckedChange={setActive} />
+        <div className="flex items-center gap-2">
+          <Switch id="user-active-status" checked={active} onCheckedChange={setActive} />
+          <Label htmlFor="user-active-status" className="text-xs cursor-pointer font-medium">
+            Account Active
+          </Label>
         </div>
       </div>
 
+      {/* Portal Matrix Card */}
       <div
-        className={`border rounded-xl overflow-hidden shadow-sm transition-colors ${
+        className={`border rounded-xl overflow-hidden transition-all duration-200 ${
           shouldShowPortalsError
-            ? "border-destructive ring-1 ring-destructive/30 bg-destructive/[0.02]"
+            ? "border-destructive/60 ring-1 ring-destructive/20 shadow-sm"
             : "border-zinc-200 dark:border-zinc-800"
         }`}
       >
@@ -1217,61 +1365,68 @@ export function UserForm({
         </div>
 
         <div className="p-3 bg-white dark:bg-zinc-950 divide-y divide-zinc-100 dark:divide-zinc-900">
-          {portalsMasterList.map((p) => {
-            const isEnabled = portalConfig[p.name]?.enabled ?? false;
-            const currentRoleValue = portalConfig[p.name]?.roleName ?? "user";
+          {loadingInitialModalData && portalsMasterList.length === 0 ? (
+            <div className="py-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" /> Loading portal
+              permissions...
+            </div>
+          ) : (
+            portalsMasterList.map((p) => {
+              const isEnabled = portalConfig[p.name]?.enabled ?? false;
+              const currentRoleValue = portalConfig[p.name]?.roleName ?? "user";
 
-            return (
-              <div
-                key={p.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between py-3 gap-3 first:pt-1 last:pb-1"
-              >
-                <div className="flex items-center gap-3">
-                  <Switch
-                    id={`portal-toggle-${p.name}`}
-                    checked={isEnabled}
-                    onCheckedChange={(checked) => handlePortalToggle(p.name, checked)}
-                  />
-                  <div>
-                    <label
-                      htmlFor={`portal-toggle-${p.name}`}
-                      className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 cursor-pointer block capitalize"
+              return (
+                <div
+                  key={p.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between py-3 gap-3 first:pt-1 last:pb-1"
+                >
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      id={`portal-toggle-${p.name}`}
+                      checked={isEnabled}
+                      onCheckedChange={(checked) => handlePortalToggle(p.name, checked)}
+                    />
+                    <div>
+                      <label
+                        htmlFor={`portal-toggle-${p.name}`}
+                        className="text-sm font-semibold text-zinc-800 dark:text-zinc-200 cursor-pointer block capitalize"
+                      >
+                        {p.name} Portal
+                      </label>
+                      <span className="text-xs text-muted-foreground block">{p.description}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 min-w-[200px]">
+                    <span className="text-xs text-muted-foreground shrink-0">Assigned Role:</span>
+                    <Select
+                      disabled={!isEnabled}
+                      value={currentRoleValue}
+                      onValueChange={(val) => handlePortalRoleChange(p.name, val)}
                     >
-                      {p.name} Portal
-                    </label>
-                    <span className="text-xs text-muted-foreground block">{p.description}</span>
+                      <SelectTrigger
+                        className={`h-8 text-xs font-medium ${
+                          isEnabled
+                            ? "border-primary/50 ring-1 ring-primary/10"
+                            : "bg-zinc-50 border-zinc-200"
+                        }`}
+                      >
+                        <SelectValue placeholder="Choose role" />
+                      </SelectTrigger>
+
+                      <SelectContent>
+                        {dynamicRoles.map((r) => (
+                          <SelectItem key={r.id || r.name} value={r.name} className="text-xs">
+                            {formatRoleName(r.name)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-2 min-w-[200px]">
-                  <span className="text-xs text-muted-foreground shrink-0">Assigned Role:</span>
-                  <Select
-                    disabled={!isEnabled}
-                    value={currentRoleValue}
-                    onValueChange={(val) => handlePortalRoleChange(p.name, val)}
-                  >
-                    <SelectTrigger
-                      className={`h-8 text-xs font-medium ${
-                        isEnabled
-                          ? "border-primary/50 ring-1 ring-primary/10"
-                          : "bg-zinc-50 border-zinc-200"
-                      }`}
-                    >
-                      <SelectValue placeholder="Choose role" />
-                    </SelectTrigger>
-
-                    <SelectContent>
-                      {dynamicRoles.map((r) => (
-                        <SelectItem key={r.id || r.name} value={r.name} className="text-xs">
-                          {formatRoleName(r.name)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
 
         {shouldShowPortalsError && (
@@ -1282,27 +1437,71 @@ export function UserForm({
         )}
       </div>
 
-      {needsState && (
+      {/* Regional Hierarchy Configuration Setup (Single Selection with Search) */}
+      {showRegionalCard && (
         <div className="p-4 bg-zinc-50/50 dark:bg-zinc-900/40 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 space-y-3 animate-fade-in">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 pb-1 border-b border-zinc-200/60">
             <AlertCircle className="h-3.5 w-3.5" /> Regional Authority Hierarchy Configuration Setup
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {/* 1. STATE SELECTION (Single Select: Visible for State Manager, Market Manager, District Manager) */}
             {needsState && (
               <div className="space-y-1.5">
-                <Label>
-                  States <span className="text-destructive">*</span>
-                </Label>
-                <MultiSelect
-                  options={dbStates.map((s) => ({ value: String(s.id), label: s.name }))}
-                  value={stateIds}
-                  onChange={setStateIds}
-                  placeholder="Select states"
-                  className={
-                    shouldShowStateError ? "border-destructive ring-1 ring-destructive/30" : ""
-                  }
-                />
+                <div className="flex items-center justify-between">
+                  <Label>
+                    State <span className="text-destructive font-semibold">*</span>
+                  </Label>
+                  {loadingStates && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                </div>
+                <Select
+                  value={selectedStateId}
+                  disabled={loadingStates}
+                  onValueChange={setSelectedStateId}
+                  onOpenChange={(open) => {
+                    if (!open) setStateSearch("");
+                    else setTimeout(() => stateSearchRef.current?.focus(), 100);
+                  }}
+                >
+                  <SelectTrigger
+                    className={`w-full bg-white dark:bg-zinc-950 ${
+                      shouldShowStateError ? "border-destructive ring-1 ring-destructive/30" : ""
+                    }`}
+                  >
+                    <SelectValue
+                      placeholder={loadingStates ? "Loading states..." : "Select state"}
+                    />
+                  </SelectTrigger>
+                  <SelectContent
+                    onKeyDown={(e) => e.stopPropagation()}
+                    onKeyUp={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
+                      <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
+                      <input
+                        ref={stateSearchRef}
+                        placeholder="Search states..."
+                        value={stateSearch}
+                        onChange={(e) => {
+                          setStateSearch(e.target.value);
+                          setTimeout(() => stateSearchRef.current?.focus(), 0);
+                        }}
+                        className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
+                      />
+                    </div>
+                    {filteredDbStates.length === 0 ? (
+                      <p className="text-[11px] text-center text-muted-foreground p-2">
+                        {loadingStates ? "Fetching states..." : "No states found"}
+                      </p>
+                    ) : (
+                      filteredDbStates.map((s) => (
+                        <SelectItem key={s.id} value={String(s.id)}>
+                          {s.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
                 {shouldShowStateError && (
                   <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
                     <AlertCircle className="h-3.5 w-3.5 shrink-0" />
@@ -1312,43 +1511,71 @@ export function UserForm({
               </div>
             )}
 
-            {needsDistrict && (
-              <div className="space-y-1.5">
-                <Label>
-                  Districts <span className="text-destructive">*</span>
-                </Label>
-                <MultiSelect
-                  options={dbDistricts.map((d) => ({ value: String(d.id), label: d.name }))}
-                  value={districtIds}
-                  onChange={setDistrictIds}
-                  placeholder="Select districts"
-                  className={
-                    shouldShowDistrictError ? "border-destructive ring-1 ring-destructive/30" : ""
-                  }
-                />
-                {shouldShowDistrictError && (
-                  <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
-                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                    {districtError}
-                  </p>
-                )}
-              </div>
-            )}
-
+            {/* 2. MARKET SELECTION (Single Select: Visible for Market Manager, District Manager. Disabled until State is selected) */}
             {needsMarket && (
               <div className="space-y-1.5">
-                <Label>
-                  Markets <span className="text-destructive">*</span>
-                </Label>
-                <MultiSelect
-                  options={dbMarkets.map((m) => ({ value: String(m.id), label: m.name }))}
-                  value={marketIds}
-                  onChange={setMarketIds}
-                  placeholder="Select markets"
-                  className={
-                    shouldShowMarketError ? "border-destructive ring-1 ring-destructive/30" : ""
-                  }
-                />
+                <div className="flex items-center justify-between">
+                  <Label>
+                    Market <span className="text-destructive font-semibold">*</span>
+                  </Label>
+                  {loadingMarkets && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                </div>
+                <Select
+                  value={selectedMarketId}
+                  disabled={!selectedStateId || loadingMarkets}
+                  onValueChange={setSelectedMarketId}
+                  onOpenChange={(open) => {
+                    if (!open) setMarketSearch("");
+                    else setTimeout(() => marketSearchRef.current?.focus(), 100);
+                  }}
+                >
+                  <SelectTrigger
+                    className={`w-full bg-white dark:bg-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      shouldShowMarketError ? "border-destructive ring-1 ring-destructive/30" : ""
+                    }`}
+                  >
+                    <SelectValue
+                      placeholder={
+                        !selectedStateId
+                          ? "Select State First"
+                          : loadingMarkets
+                            ? "Loading markets..."
+                            : filteredDbMarkets.length === 0
+                              ? "No markets available"
+                              : "Select market"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent
+                    onKeyDown={(e) => e.stopPropagation()}
+                    onKeyUp={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
+                      <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
+                      <input
+                        ref={marketSearchRef}
+                        placeholder="Search markets..."
+                        value={marketSearch}
+                        onChange={(e) => {
+                          setMarketSearch(e.target.value);
+                          setTimeout(() => marketSearchRef.current?.focus(), 0);
+                        }}
+                        className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
+                      />
+                    </div>
+                    {filteredDbMarkets.length === 0 ? (
+                      <p className="text-[11px] text-center text-muted-foreground p-2">
+                        {loadingMarkets ? "Fetching markets..." : "No markets found"}
+                      </p>
+                    ) : (
+                      filteredDbMarkets.map((m) => (
+                        <SelectItem key={m.id} value={String(m.id)}>
+                          {m.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
                 {shouldShowMarketError && (
                   <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
                     <AlertCircle className="h-3.5 w-3.5 shrink-0" />
@@ -1358,20 +1585,137 @@ export function UserForm({
               </div>
             )}
 
-            {needsStore && (
+            {/* 3. DISTRICT SELECTION (Single Select: Visible for District Manager. Disabled until Market is selected) */}
+            {needsDistrict && (
               <div className="space-y-1.5">
-                <Label>
-                  Stores <span className="text-destructive">*</span>
-                </Label>
-                <MultiSelect
-                  options={dbStores.map((s) => ({ value: String(s.id), label: s.name }))}
-                  value={storeIds}
-                  onChange={setStoreIds}
-                  placeholder="Select stores"
-                  className={
-                    shouldShowStoreError ? "border-destructive ring-1 ring-destructive/30" : ""
-                  }
-                />
+                <div className="flex items-center justify-between">
+                  <Label>
+                    District <span className="text-destructive font-semibold">*</span>
+                  </Label>
+                  {loadingDistricts && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                </div>
+                <Select
+                  value={selectedDistrictId}
+                  disabled={!selectedMarketId || loadingDistricts}
+                  onValueChange={setSelectedDistrictId}
+                  onOpenChange={(open) => {
+                    if (!open) setDistrictSearch("");
+                    else setTimeout(() => districtSearchRef.current?.focus(), 100);
+                  }}
+                >
+                  <SelectTrigger
+                    className={`w-full bg-white dark:bg-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      shouldShowDistrictError ? "border-destructive ring-1 ring-destructive/30" : ""
+                    }`}
+                  >
+                    <SelectValue
+                      placeholder={
+                        !selectedMarketId
+                          ? "Select Market First"
+                          : loadingDistricts
+                            ? "Loading districts..."
+                            : filteredDbDistricts.length === 0
+                              ? "No districts available"
+                              : "Select district"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent
+                    onKeyDown={(e) => e.stopPropagation()}
+                    onKeyUp={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
+                      <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
+                      <input
+                        ref={districtSearchRef}
+                        placeholder="Search districts..."
+                        value={districtSearch}
+                        onChange={(e) => {
+                          setDistrictSearch(e.target.value);
+                          setTimeout(() => districtSearchRef.current?.focus(), 0);
+                        }}
+                        className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
+                      />
+                    </div>
+                    {filteredDbDistricts.length === 0 ? (
+                      <p className="text-[11px] text-center text-muted-foreground p-2">
+                        {loadingDistricts ? "Fetching districts..." : "No districts found"}
+                      </p>
+                    ) : (
+                      filteredDbDistricts.map((d) => (
+                        <SelectItem key={d.id} value={String(d.id)}>
+                          {d.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                {shouldShowDistrictError && (
+                  <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    {districtError}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* 4. STORE SELECTION (Single Select: Visible ONLY for Store Manager) */}
+            {needsStore && (
+              <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+                <div className="flex items-center justify-between">
+                  <Label>
+                    Store <span className="text-destructive font-semibold">*</span>
+                  </Label>
+                  {loadingStores && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                </div>
+                <Select
+                  value={selectedStoreId}
+                  disabled={loadingStores}
+                  onValueChange={setSelectedStoreId}
+                  onOpenChange={(open) => {
+                    if (!open) setStoreSearch("");
+                    else setTimeout(() => storeSearchRef.current?.focus(), 100);
+                  }}
+                >
+                  <SelectTrigger
+                    className={`w-full bg-white dark:bg-zinc-950 ${
+                      shouldShowStoreError ? "border-destructive ring-1 ring-destructive/30" : ""
+                    }`}
+                  >
+                    <SelectValue
+                      placeholder={loadingStores ? "Loading stores..." : "Select store"}
+                    />
+                  </SelectTrigger>
+                  <SelectContent
+                    onKeyDown={(e) => e.stopPropagation()}
+                    onKeyUp={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
+                      <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
+                      <input
+                        ref={storeSearchRef}
+                        placeholder="Search stores..."
+                        value={storeSearch}
+                        onChange={(e) => {
+                          setStoreSearch(e.target.value);
+                          setTimeout(() => storeSearchRef.current?.focus(), 0);
+                        }}
+                        className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
+                      />
+                    </div>
+                    {filteredDbStores.length === 0 ? (
+                      <p className="text-[11px] text-center text-muted-foreground p-2">
+                        {loadingStores ? "Fetching stores..." : "No stores found"}
+                      </p>
+                    ) : (
+                      filteredDbStores.map((s) => (
+                        <SelectItem key={s.id} value={String(s.id)}>
+                          {s.name} {s.number ? `(${s.number})` : ""}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
                 {shouldShowStoreError && (
                   <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
                     <AlertCircle className="h-3.5 w-3.5 shrink-0" />
