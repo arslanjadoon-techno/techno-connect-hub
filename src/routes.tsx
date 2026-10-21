@@ -298,8 +298,10 @@ export function AppRoutes() {
         <Route path="/ai-chat" element={<AiChatPage />} />
         <Route path="/chat/*" element={<ChatSystem />} />
         <Route path="/settings" element={<SettingsPage />} />
+
+
         {/* ---------- Ticketing Portal ---------- */}
-        {/* <Route path="/ticketing/dashboard" element={<TicketingDashboardPage />} /> */}
+        <Route path="/ticketing/dashboard" element={<TicketingDashboardPage />} />
         <Route
           path="/ticketing/tickets"
           element={
@@ -324,6 +326,8 @@ export function AppRoutes() {
             </PortalRouteGuard>
           }
         />
+
+
         {/* ---------- Commission Portal ---------- */}
         <Route
           path="/commission/dashboard"
@@ -388,7 +392,8 @@ export function AppRoutes() {
           <Route path="/ranker/criteria-details" element={<CriteriaDetailsPage />} />
         </Route>
 
-        {/* ---------- Lease / Scheduling / Ticketing Portals ---------- */}
+
+        {/* ---------- Leasing Portal ---------- */}
         <Route
           path="/lease/dashboard"
           element={
@@ -529,6 +534,8 @@ export function AppRoutes() {
             </PortalRouteGuard>
           }
         />
+
+        {/* ---------- Upcoming Scheduling Portal ---------- */}
         <Route
           path="/scheduling/dashboard"
           element={
@@ -537,14 +544,7 @@ export function AppRoutes() {
             </PortalRouteGuard>
           }
         />
-        <Route
-          path="/ticketing/dashboard"
-          element={
-            <PortalRouteGuard portalKey="ticketing">
-              <ComingSoon title="Ticketing Portal Dashboard" />
-            </PortalRouteGuard>
-          }
-        />
+
         {/* ---------- Reporting Portal ---------- */}
         <Route
           path="/reporting"
