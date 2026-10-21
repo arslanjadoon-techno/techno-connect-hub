@@ -295,106 +295,117 @@ function TicketDetail() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-6 pb-12 print:p-0 print:space-y-4">
-      {/* Top Header & Action Controls Bar */}
-      <div className="flex flex-col gap-4 border-b pb-4 lg:flex-row lg:items-center lg:justify-between print:hidden">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate("/ticketing/tickets")}
-            className="h-8 gap-1.5 px-2 text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" /> Back to tickets
-          </Button>
-          <div className="h-4 w-[1px] bg-border" />
-          <h1 className="font-display text-xl font-semibold tracking-tight">
-            Ticket Details <span className="font-mono text-primary font-bold">({ticket.id})</span>
-          </h1>
-        </div>
-
-        {/* Top Right Controls: 3 Dropdowns (Status, Team Type, Assignee) + Export to PDF Button */}
-        <div className="flex flex-wrap items-center gap-2">
-          {/* 1. Status Dropdown */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Status:
-            </span>
-            <Select
-              value={ticket.status}
-              onValueChange={(v) => updateStatus(v as TicketStatus)}
+      {/* Top Header: Line 1 & Line 2 */}
+      <div className="space-y-3 print:hidden">
+        {/* LINE 1: Back button, Ticket Title on left, and Export to PDF on the most right side */}
+        <div className="flex items-center justify-between gap-4 border-b pb-3">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate("/ticketing/tickets")}
+              className="h-9 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground"
             >
-              <SelectTrigger className="h-9 w-[130px] bg-card text-xs font-medium">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {allowedStatuses.map((s) => (
-                  <SelectItem key={s} value={s} className="text-xs">
-                    {getStatusLabel(s)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <ArrowLeft className="h-4 w-4" /> Back to tickets
+            </Button>
+            <div className="h-4 w-[1px] bg-border" />
+            <h1 className="font-display text-xl sm:text-2xl font-semibold tracking-tight whitespace-nowrap">
+              Ticket Details <span className="font-mono text-primary font-bold">({ticket.id})</span>
+            </h1>
           </div>
 
-          {/* 2. Team Type Dropdown */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Team Type:
-            </span>
-            <Select
-              value={currentTeamType}
-              onValueChange={(v) => updateTeamType(v as "Internal" | "External")}
-            >
-              <SelectTrigger className="h-9 w-[120px] bg-card text-xs font-medium">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Internal" className="text-xs">
-                  Internal
-                </SelectItem>
-                <SelectItem value="External" className="text-xs">
-                  External
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 3. Assignee Dropdown */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Assign:
-            </span>
-            <Select value={solverName} onValueChange={updateSolver}>
-              <SelectTrigger className="h-9 min-w-[150px] max-w-[200px] bg-card text-xs font-medium truncate">
-                <SelectValue placeholder="Select assignee" />
-              </SelectTrigger>
-              <SelectContent>
-                {currentTeamType === "Internal"
-                  ? internalOptions.map((opt) => (
-                      <SelectItem key={opt.id} value={opt.name} className="text-xs">
-                        {opt.name} ({opt.role})
-                      </SelectItem>
-                    ))
-                  : externalOptions.map((opt) => (
-                      <SelectItem key={opt.id} value={opt.name} className="text-xs">
-                        {opt.name}
-                      </SelectItem>
-                    ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* 4. Export to PDF Button */}
+          {/* Export to PDF Button on the far right */}
           <Button
             variant="outline"
             size="sm"
             onClick={handleExportPdf}
-            className="h-9 gap-1.5 text-xs font-medium"
+            className="h-9 gap-2 text-xs font-medium shrink-0 shadow-2xs hover:bg-muted"
             title="Export this ticket to PDF"
           >
-            <Printer className="h-3.5 w-3.5" />
+            <Printer className="h-4 w-4" />
             Export to PDF
           </Button>
+        </div>
+
+        {/* LINE 2: All 3 Filters placed cleanly on second line */}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl border bg-card/60 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Ticket Controls
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4">
+            {/* 1. Status Dropdown */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                Status:
+              </span>
+              <Select
+                value={ticket.status}
+                onValueChange={(v) => updateStatus(v as TicketStatus)}
+              >
+                <SelectTrigger className="h-9 w-[135px] bg-background text-xs font-medium">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {allowedStatuses.map((s) => (
+                    <SelectItem key={s} value={s} className="text-xs">
+                      {getStatusLabel(s)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 2. Team Type Dropdown */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                Team Type:
+              </span>
+              <Select
+                value={currentTeamType}
+                onValueChange={(v) => updateTeamType(v as "Internal" | "External")}
+              >
+                <SelectTrigger className="h-9 w-[125px] bg-background text-xs font-medium">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Internal" className="text-xs">
+                    Internal
+                  </SelectItem>
+                  <SelectItem value="External" className="text-xs">
+                    External
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 3. Assignee Dropdown */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                Assign:
+              </span>
+              <Select value={solverName} onValueChange={updateSolver}>
+                <SelectTrigger className="h-9 min-w-[170px] max-w-[240px] bg-background text-xs font-medium truncate">
+                  <SelectValue placeholder="Select assignee" />
+                </SelectTrigger>
+                <SelectContent>
+                  {currentTeamType === "Internal"
+                    ? internalOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={opt.name} className="text-xs">
+                          {opt.name} ({opt.role})
+                        </SelectItem>
+                      ))
+                    : externalOptions.map((opt) => (
+                        <SelectItem key={opt.id} value={opt.name} className="text-xs">
+                          {opt.name}
+                        </SelectItem>
+                      ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
       </div>
 
