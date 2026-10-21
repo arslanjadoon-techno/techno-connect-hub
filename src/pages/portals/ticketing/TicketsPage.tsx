@@ -400,14 +400,9 @@ export default function TicketsPage() {
     {
       key: "title",
       header: "Title",
-      searchValue: (t) => `${t.title} ${t.description || ""}`,
+      searchValue: (t) => t.title,
       accessor: (t) => (
-        <div className="max-w-xs sm:max-w-sm">
-          <div className="font-medium text-foreground">{t.title}</div>
-          {t.description && (
-            <div className="line-clamp-1 text-xs text-muted-foreground">{t.description}</div>
-          )}
-        </div>
+        <span className="font-medium text-foreground">{t.title}</span>
       ),
     },
     {
