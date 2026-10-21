@@ -36,7 +36,6 @@ import {
   Pencil,
   X,
   Power,
-  Printer,
 } from "lucide-react";
 import { getUserAvatarColor } from "./user-colors";
 import { UserForm } from "./UsersPage";
@@ -278,15 +277,6 @@ export default function UserDetailPage() {
               <X className="h-4 w-4" /> Cancel edit
             </Button>
           )}
-
-          <Button
-            variant="outline"
-            className="gap-2"
-            onClick={() => window.print()}
-            title="Export to PDF"
-          >
-            <Printer className="h-4 w-4" /> Export to PDF
-          </Button>
 
           {/* Activate / Deactivate with confirmation */}
           <AlertDialog>
