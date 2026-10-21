@@ -24,7 +24,6 @@ import {
   updateChatStatusService,
 } from "@/services/Team-chat/chat.service";
 import { getStoredUser } from "@/lib/api/client";
-import { usersService } from "@/services/user-manager/users.service";
 
 type ChatRecord = Record<string, any>;
 
@@ -45,7 +44,6 @@ type ChatDataOptions = {
   setEnterToSend: (value: any) => void;
   setLoadError: (value: any) => void;
   setLoading: (value: any) => void;
-  setManagedUsers: (value: any) => void;
   setMentionNotifications: (value: any) => void;
   setMessagePaginationByChat: (value: any) => void;
   setMessagesByChat: (value: any) => void;
@@ -100,7 +98,6 @@ export function useChatData({
   setEnterToSend,
   setLoadError,
   setLoading,
-  setManagedUsers,
   setMentionNotifications,
   setMessagePaginationByChat,
   setMessagesByChat,
@@ -280,7 +277,6 @@ export function useChatData({
         channelResponse,
         statusResponse,
         settingsResponse,
-        managedUsersResponse,
       ]: any[] = await Promise.all([
         getChatUsersService({ excludeSelf: true }),
         getChatConversationsService(),
@@ -290,10 +286,6 @@ export function useChatData({
         }),
         getChatSettingsService().catch((err) => {
           console.warn("[chat] settings load failed", err);
-          return null;
-        }),
-        usersService.getAll({ page: 1, size: 50 }).catch((err) => {
-          console.warn("[chat] managed users load failed", err);
           return null;
         }),
       ]);
@@ -337,9 +329,6 @@ export function useChatData({
       const chatUsers: ChatRecord[] = getArrayPayload(
         buddyResponse?.data?.data ?? buddyResponse?.data,
       ) as ChatRecord[];
-      const usersFromManagement: ChatRecord[] = getArrayPayload(
-        managedUsersResponse?.data?.data ?? managedUsersResponse?.data ?? managedUsersResponse,
-      );
       const chatConversations: ChatRecord[] = getArrayPayload(
         channelResponse?.data?.data ?? channelResponse?.data,
       ) as ChatRecord[];
@@ -349,7 +338,6 @@ export function useChatData({
       );
 
       setBuddies(chatUsers);
-      setManagedUsers(usersFromManagement.filter((user) => !isCurrentUserRecord(user)));
       setChannels(chatConversations);
 
       const statusPayload = unwrapEnvelope<Record<string, any>>(statusResponse);
@@ -537,7 +525,6 @@ export function useChatData({
     setEnterToSend,
     setLoadError,
     setLoading,
-    setManagedUsers,
     setMentionNotifications,
     setMutedChatIds,
     setProfileUser,

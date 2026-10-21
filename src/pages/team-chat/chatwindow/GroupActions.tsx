@@ -7,6 +7,7 @@ import {
   Loader2,
   LogOut,
   MessageSquareOff,
+  Trash2,
   UserMinus,
   Users,
   Volume2,
@@ -37,6 +38,7 @@ interface GroupActionsProps {
   onCloseLeaveConfirm: () => void;
   onCloseMenu?: () => void;
   onLeaveGroup?: (id: string | number) => void;
+  onDeleteGroup?: (id: string | number) => Promise<void>;
   onTransferOwnership?: (chatId: string | number, memberId: string | number) => Promise<void>;
   onRemoveMember?: (chatId: string | number, memberId: string | number) => Promise<void>;
   onOpenInfo?: () => void;
@@ -45,6 +47,7 @@ interface GroupActionsProps {
   onClearChat?: () => void;
   onOpenLeaveConfirm?: () => void;
   isGroupAdmin?: boolean;
+  isGroupOwner?: boolean;
   onToggleMute?: () => void;
   open: boolean;
   selectedChat?: Person | null;
@@ -119,6 +122,7 @@ export default function GroupActions({
   onCloseLeaveConfirm,
   onCloseMenu,
   onLeaveGroup,
+  onDeleteGroup,
   onTransferOwnership,
   onRemoveMember,
   onOpenInfo,
@@ -127,6 +131,7 @@ export default function GroupActions({
   onClearChat,
   onOpenLeaveConfirm,
   isGroupAdmin = false,
+  isGroupOwner = false,
   onToggleMute,
   open,
   selectedChat,
@@ -134,6 +139,8 @@ export default function GroupActions({
   const [transferOpen, setTransferOpen] = useState(false);
   const [removeMember, setRemoveMember] = useState<Person | null>(null);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
@@ -162,6 +169,7 @@ export default function GroupActions({
   ) {
     return null;
   }
+  if (!selectedChat) return null;
   const closeMenu = () => onCloseMenu?.();
   const memberId = (member: Person) => getBuddySendId(member) || getBuddyEmail(member);
   return (
@@ -197,6 +205,17 @@ export default function GroupActions({
             />
           )}
         </>
+        {isGroupOwner && (
+          <Action
+            icon={Trash2}
+            label="Delete group"
+            danger
+            onClick={() => {
+              closeMenu();
+              setDeleteConfirmOpen(true);
+            }}
+          />
+        )}
         <Separator />
         <Action
           icon={LogOut}
@@ -263,6 +282,48 @@ export default function GroupActions({
           <DialogFooter>
             <Button variant="ghost" onClick={onCloseInfo}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={isGroupOwner && deleteConfirmOpen}
+        onOpenChange={(value) => !value && !deleting && setDeleteConfirmOpen(false)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete group?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            This permanently deletes {selectedChat.title}, its messages, and its members.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" disabled={deleting} onClick={() => setDeleteConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleting}
+              onClick={async () => {
+                if (!onDeleteGroup || deleting) return;
+                setDeleting(true);
+                try {
+                  await onDeleteGroup(selectedChat.id);
+                  setDeleteConfirmOpen(false);
+                  onCloseInfo?.();
+                } finally {
+                  setDeleting(false);
+                }
+              }}
+            >
+              {deleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Deleting…
+                </>
+              ) : (
+                "Delete group"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

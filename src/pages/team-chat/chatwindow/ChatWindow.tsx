@@ -46,6 +46,7 @@ interface ChatWindowProps {
   handleSend?: () => void;
   onEndActiveCall?: () => void;
   onLeaveGroup?: (chatId: string | number) => void;
+  onDeleteGroup?: (chatId: string | number) => Promise<void>;
   onTransferOwnership?: (chatId: string | number, memberId: string | number) => Promise<void>;
   onRemoveGroupMember?: (chatId: string | number, memberId: string | number) => Promise<void>;
   onLoadOlderMessages?: () => void;
@@ -146,6 +147,7 @@ export default function ChatWindow({
   handleSend,
   onEndActiveCall,
   onLeaveGroup,
+  onDeleteGroup,
   onTransferOwnership,
   onRemoveGroupMember,
   onLoadOlderMessages,
@@ -249,6 +251,32 @@ export default function ChatWindow({
       .toLowerCase();
     return ADMIN_ROLES.includes(role);
   }, [isGroup, groupMembers, currentUser, chatRole]);
+
+  const isGroupOwner = useMemo(() => {
+    const conversationKind = String(
+      selectedChat?.raw?.metadata?.conversationKind ??
+        selectedChat?.raw?.metadata?.conversation_kind ??
+        selectedChat?.raw?.conversationKind ??
+        selectedChat?.raw?.conversation_kind ??
+        "group",
+    )
+      .trim()
+      .toLowerCase();
+    if (!isGroup || conversationKind === "channel") return false;
+    const participant = groupMembers.find((member) => isSamePerson(member, currentUser));
+    const role = String(
+      chatRole ??
+        participant?.conversationRole ??
+        participant?.conversation_role ??
+        participant?.memberRole ??
+        participant?.member_role ??
+        participant?.role ??
+        "",
+    )
+      .trim()
+      .toLowerCase();
+    return role === "owner";
+  }, [isGroup, groupMembers, currentUser, chatRole, selectedChat?.raw]);
 
   const isGroupMuted = mutedGroupIds.includes(String(selectedChat?.id));
 
@@ -543,7 +571,9 @@ export default function ChatWindow({
           onOpenAddMembers,
           onOpenChatMenu,
           onLeaveGroup,
+          onDeleteGroup,
           onRemoveGroupMember,
+          isGroupOwner,
           onScheduleCall,
           onSearchMessages,
           onToggleGroupMute,

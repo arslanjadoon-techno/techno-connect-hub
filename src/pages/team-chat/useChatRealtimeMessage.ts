@@ -15,11 +15,6 @@ import { markConversationReadService } from "@/services/Team-chat/chat.service";
 
 type ChatRecord = Record<string, any>;
 
-type ChatRealtimeClient = {
-  emit: (event: string, payload?: Record<string, any>) => Promise<any>;
-  readonly connected: boolean;
-};
-
 type ChatRealtimeMessageOptions = {
   blockedUserIds: string[];
   buddies: ChatRecord[];
@@ -37,9 +32,6 @@ type ChatRealtimeMessageOptions = {
   selectedChat: ChatRecord | null;
   setChannels: (updater: any) => void;
   setMessagesByChat: (updater: any) => void;
-  callSocketRef: {
-    current: ChatRealtimeClient | null;
-  };
 };
 
 export function useChatRealtimeMessage({
@@ -59,7 +51,6 @@ export function useChatRealtimeMessage({
   selectedChat,
   setChannels,
   setMessagesByChat,
-  callSocketRef,
 }: ChatRealtimeMessageOptions) {
   const fallbackHandledMessageKeysRef = useRef(new Set<string>());
   const messageKeysRef = handledRealtimeMessageKeysRef || fallbackHandledMessageKeysRef;
@@ -70,7 +61,11 @@ export function useChatRealtimeMessage({
 
       const senderId = getMessageSenderId(message);
       const isOwnMessage = senderId && senderId === currentUserId;
-      if (!isOwnMessage && blockedUserIds.includes(String(senderId))) return;
+
+      if (!isOwnMessage && blockedUserIds.includes(String(senderId))) {
+        return;
+      }
+
       const messageId =
         message?.message_id ||
         message?.messageId ||
@@ -78,14 +73,14 @@ export function useChatRealtimeMessage({
         message?.createdAt ||
         message?.timestamp ||
         "";
+
+      const hasMessageId =
+        messageId !== undefined && messageId !== null && String(messageId).trim().length > 0;
+
       const realtimeMessageKey = `${String(chatId)}:${String(messageId)}`;
 
-      if (messageId && messageKeysRef.current.has(realtimeMessageKey)) {
+      if (hasMessageId && messageKeysRef.current.has(realtimeMessageKey)) {
         return;
-      }
-
-      if (messageId) {
-        messageKeysRef.current.add(realtimeMessageKey);
       }
 
       const localKey = resolveLocalChatKey({
@@ -109,9 +104,9 @@ export function useChatRealtimeMessage({
         return;
       }
 
-      // Only mark the event as handled after validation succeeds.
+      // Record the event only after validation so invalid messages can be retried.
       if (hasMessageId) {
-        handledRealtimeMessageKeysRef.current.add(realtimeMessageKey);
+        messageKeysRef.current.add(realtimeMessageKey);
       }
 
       const selectedChatIds = [
@@ -128,7 +123,7 @@ export function useChatRealtimeMessage({
 
       const isActiveChat = selectedChatIds.includes(String(chatId));
 
-      const messageKeys = Array.from(
+      const chatKeys = Array.from(
         new Set(
           [localKey, ...(isActiveChat ? [selectedChat?.id, selectedChat?.chatId] : [])]
             .filter((value) => value !== undefined && value !== null && String(value).length > 0)
@@ -136,12 +131,13 @@ export function useChatRealtimeMessage({
         ),
       );
 
-      const existingMessages = messageKeys.reduce<ChatRecord[]>((allMessages, key) => {
+      const existingMessages = chatKeys.reduce<ChatRecord[]>((allMessages, key) => {
         return [...allMessages, ...(messagesByChat[key] || [])];
       }, []);
 
       const normalizedMessageId =
         normalizedMessage.id ?? normalizedMessage.message_id ?? normalizedMessage.messageId;
+
       const hasNormalizedMessageId =
         normalizedMessageId !== undefined &&
         normalizedMessageId !== null &&
@@ -151,6 +147,7 @@ export function useChatRealtimeMessage({
         hasNormalizedMessageId &&
         existingMessages.some((item) => {
           const existingId = item.id ?? item.message_id ?? item.messageId;
+
           return (
             existingId !== undefined &&
             existingId !== null &&
@@ -160,22 +157,19 @@ export function useChatRealtimeMessage({
         });
 
       const messageTimestamp = getMessageTimestamp(message);
-
       const isNewSinceRealtimeStarted =
         !messageTimestamp || messageTimestamp >= realtimeStartedAtRef.current;
 
       const isReadByCurrentUser = isMessageReadByUser(message, currentUserId, currentUserEmail);
-
       const isMentioned = messageMentionsUser(message, currentUserId, currentUserEmail);
-
       const shouldTreatAsRead = isActiveChat && !document.hidden;
 
       // Insert the incoming message, or reconcile its optimistic version.
-      if (messageKeys.length > 0) {
+      if (chatKeys.length > 0) {
         setMessagesByChat((prev: Record<string, ChatRecord[]>) => {
           const next = { ...prev };
 
-          messageKeys.forEach((key) => {
+          chatKeys.forEach((key) => {
             const existing = next[key] || [];
             const clientMessageId = normalizedMessage.clientMessageId;
 
@@ -217,7 +211,6 @@ export function useChatRealtimeMessage({
 
         const nextChannels = prev.map((channel: ChatRecord) => {
           const channelId = String(getChannelId(channel) ?? "");
-
           const conversationId = String(channel?.chat_id ?? channel?.chatId ?? channel?.id ?? "");
 
           if (channelId !== String(chatId) && conversationId !== String(chatId)) {
@@ -227,7 +220,6 @@ export function useChatRealtimeMessage({
           matchedExistingConversation = true;
 
           const currentUnreadCount = getUnreadCount(channel);
-
           const nextUnreadCount =
             !isOwnMessage && !shouldTreatAsRead ? currentUnreadCount + 1 : currentUnreadCount;
 
@@ -243,8 +235,7 @@ export function useChatRealtimeMessage({
           return nextChannels;
         }
 
-        // Create a conversation preview when this chat is not
-        // currently present in the conversation list.
+        // Create a conversation preview when this chat is not currently in the list.
         const sender = message?.sender && typeof message.sender === "object" ? message.sender : {};
 
         const matchingBuddy = buddies.find(
@@ -282,55 +273,25 @@ export function useChatRealtimeMessage({
         ];
       });
 
-      // Acknowledge delivery only for incoming messages.
-      // This requires the corresponding server Hub method.
-      if (!isOwnMessage && hasMessageId) {
-        const socket = callSocketRef.current;
-
-        if (socket?.connected) {
-          void socket
-            .emit("message:delivered:ack", {
-              chatId: String(chatId),
-              messageId: String(messageId),
-            })
-            .catch((error) => {
-              console.warn("[Chat] Delivery acknowledgement failed", error);
-            });
-        }
-      }
-
-      // Notify for a newly received incoming realtime message.
-      // The handler already deduplicates realtime message IDs above. Avoid using
-      // the message timestamp or read metadata to suppress notifications: server
-      // timestamps/read flags can be stale or normalized differently from the client.
       const isDoNotDisturb =
         String(currentStatus || "")
           .trim()
           .toLowerCase() === "dnd";
-      const shouldNotify = !isOwnMessage && !isDoNotDisturb && !isAlreadyLoaded;
 
-      console.log("[Chat notification debug]", {
-        chatId: String(chatId),
-        messageId: String(messageId || normalizedMessage.id || ""),
-        isOwnMessage,
-        currentStatus,
-        isAlreadyLoaded,
-        isNewSinceRealtimeStarted,
-        isReadByCurrentUser,
-        isMentioned,
-        muted: mutedChatIds.includes(String(chatId)),
-        permission: typeof Notification === "undefined" ? "unsupported" : Notification.permission,
-        pageHidden: typeof document !== "undefined" ? document.hidden : null,
-        shouldNotify,
-      });
+      const shouldNotify =
+        !isOwnMessage &&
+        !shouldTreatAsRead &&
+        !isDoNotDisturb &&
+        !isAlreadyLoaded &&
+        isNewSinceRealtimeStarted &&
+        !isReadByCurrentUser;
 
       const shouldNotifyMention = shouldNotify && isMentioned && mentionNotifications;
 
       if (shouldNotify) {
-        if (mutedChatIds.includes(String(chatId)) && !shouldNotifyMention) {
-          // Preserve receipt/read processing even when notifications
-          // are muted.
-        } else {
+        const isMuted = mutedChatIds.includes(String(chatId)) && !shouldNotifyMention;
+
+        if (!isMuted) {
           const matchingBuddy = buddies.find(
             (buddy) => String(getBuddySendId(buddy)) === String(senderId),
           );
@@ -357,18 +318,18 @@ export function useChatRealtimeMessage({
               }
             },
           });
+
           playMessageNotificationSound();
         }
       }
 
-      // Read acknowledgement remains separate from delivery.
       if (shouldTreatAsRead && !isOwnMessage) {
         markConversationReadService(chatId).catch(() => {});
       }
 
       return {
-        acknowledgeDelivery: !isOwnMessage,
-        acknowledgeRead: shouldTreatAsRead && !isOwnMessage,
+        acknowledgeDelivery: !isOwnMessage && hasMessageId,
+        acknowledgeRead: shouldTreatAsRead && !isOwnMessage && hasMessageId,
       };
     },
     [
@@ -388,7 +349,6 @@ export function useChatRealtimeMessage({
       selectedChat,
       setChannels,
       setMessagesByChat,
-      callSocketRef,
     ],
   );
 

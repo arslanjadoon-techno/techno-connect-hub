@@ -66,11 +66,13 @@ export default function ChatWindowHeader(props: Record<string, any>) {
     onOpenAddMembers,
     onOpenChatMenu,
     onLeaveGroup,
+    onDeleteGroup,
     onRemoveGroupMember,
     onScheduleCall,
     onSearchMessages,
     onToggleGroupMute,
     onTransferOwnership,
+    isGroupOwner,
     selectedChat,
     selectedUserBlocked,
     setChatMenuOpen,
@@ -339,9 +341,11 @@ export default function ChatWindowHeader(props: Record<string, any>) {
           onCloseLeaveConfirm={() => setLeaveConfirmOpen(false)}
           onCloseMenu={() => setGroupMenuAnchor(null)}
           onLeaveGroup={onLeaveGroup}
+          onDeleteGroup={onDeleteGroup}
           onTransferOwnership={onTransferOwnership}
           onRemoveMember={onRemoveGroupMember}
           isGroupAdmin={isGroupAdmin}
+          isGroupOwner={isGroupOwner}
           onOpenInfo={() => setGroupInfoOpen(true)}
           onOpenAddMembers={() => {
             setGroupInfoOpen(false);

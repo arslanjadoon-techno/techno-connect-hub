@@ -270,7 +270,12 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     setSendError,
   });
 
-  const { handleLeaveGroup, handleTransferOwnership, handleRemoveGroupMember } =
+  const {
+    handleLeaveGroup,
+    handleDeleteGroup,
+    handleTransferOwnership,
+    handleRemoveGroupMember,
+  } =
     useChatGroupActions({
       setChannels,
       setMessagesByChat,
@@ -429,6 +434,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         handleFileUpload,
         handleForwardMessage,
         handleLeaveGroup,
+        handleDeleteGroup,
         handlePinMessage,
         handleReaction,
         handleRemoveGroupMember,

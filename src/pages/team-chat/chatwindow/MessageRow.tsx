@@ -469,7 +469,14 @@ function MessageRow({
               >
                 {message.edited && !deleted && <span>Edited</span>}
                 {message.timestamp || ""}
-                {isMe && <Status status={message.deliveryStatus} />}
+                {isMe &&
+                  (message.deliveryStatus === "seen" || message.deliveryStatus === "read" ? (
+                    <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
+                  ) : message.deliveryStatus === "delivered" ? (
+                    <CheckCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                  ) : (
+                    <Check className="h-3.5 w-3.5" />
+                  ))}
               </span>
             </div>
           </div>
