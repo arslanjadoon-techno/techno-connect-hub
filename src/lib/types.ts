@@ -150,6 +150,14 @@ export interface TicketComment {
   createdAt: string;
 }
 
+export interface TicketAttachment {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+  dataUrl?: string;
+}
+
 export interface Ticket {
   id: string;
   title: string;
@@ -168,6 +176,11 @@ export interface Ticket {
   stateId: string;
   marketId?: string;
   districtId?: string;
+  marketName?: string;
+  creatorName?: string;
+  teamType?: "Internal" | "External";
+  solverName?: string;
+  attachments?: TicketAttachment[];
   history: { status: TicketStatus; at: string; by: string }[];
   comments: TicketComment[];
 }

@@ -37,6 +37,7 @@ import {
   Archive,
   Calendar as CalendarIcon,
   X,
+  XCircle,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -66,50 +67,85 @@ const STATUS_ICON: Record<TicketStatus, typeof Clock> = {
   reopen: RotateCw,
 };
 
-/** Per-status accent palette for the dashboard cards. */
+/** Per-status accent palette for the dashboard cards with distinct backgrounds. */
 const STATUS_CARD: Record<
   TicketStatus,
-  { gradient: string; iconBg: string; iconFg: string; ring: string }
+  {
+    bg: string;
+    border: string;
+    gradient: string;
+    iconBg: string;
+    iconFg: string;
+    ring: string;
+    textColor: string;
+    countColor: string;
+  }
 > = {
   pending: {
+    bg: "bg-amber-100/90 dark:bg-amber-950/60",
+    border: "border-amber-300/80 dark:border-amber-700/70",
     gradient:
-      "from-amber-100 via-amber-50 to-transparent dark:from-amber-500/15 dark:via-amber-500/5",
-    iconBg: "bg-amber-500/15",
-    iconFg: "text-amber-600 dark:text-amber-400",
-    ring: "ring-amber-500/30",
+      "from-amber-200/70 via-amber-100/40 to-transparent dark:from-amber-500/25 dark:via-amber-500/10",
+    iconBg: "bg-amber-500/25 dark:bg-amber-500/35",
+    iconFg: "text-amber-800 dark:text-amber-200",
+    ring: "hover:ring-amber-500/50",
+    textColor: "text-amber-900/90 dark:text-amber-200",
+    countColor: "text-amber-950 dark:text-amber-50",
   },
   assigned: {
-    gradient: "from-sky-100 via-sky-50 to-transparent dark:from-sky-500/15 dark:via-sky-500/5",
-    iconBg: "bg-sky-500/15",
-    iconFg: "text-sky-600 dark:text-sky-400",
-    ring: "ring-sky-500/30",
+    bg: "bg-sky-100/90 dark:bg-sky-950/60",
+    border: "border-sky-300/80 dark:border-sky-700/70",
+    gradient:
+      "from-sky-200/70 via-sky-100/40 to-transparent dark:from-sky-500/25 dark:via-sky-500/10",
+    iconBg: "bg-sky-500/25 dark:bg-sky-500/35",
+    iconFg: "text-sky-800 dark:text-sky-200",
+    ring: "hover:ring-sky-500/50",
+    textColor: "text-sky-900/90 dark:text-sky-200",
+    countColor: "text-sky-950 dark:text-sky-50",
   },
   completed: {
+    bg: "bg-emerald-100/90 dark:bg-emerald-950/60",
+    border: "border-emerald-300/80 dark:border-emerald-700/70",
     gradient:
-      "from-emerald-100 via-emerald-50 to-transparent dark:from-emerald-500/15 dark:via-emerald-500/5",
-    iconBg: "bg-emerald-500/15",
-    iconFg: "text-emerald-600 dark:text-emerald-400",
-    ring: "ring-emerald-500/30",
+      "from-emerald-200/70 via-emerald-100/40 to-transparent dark:from-emerald-500/25 dark:via-emerald-500/10",
+    iconBg: "bg-emerald-500/25 dark:bg-emerald-500/35",
+    iconFg: "text-emerald-800 dark:text-emerald-200",
+    ring: "hover:ring-emerald-500/50",
+    textColor: "text-emerald-900/90 dark:text-emerald-200",
+    countColor: "text-emerald-950 dark:text-emerald-50",
   },
   hold: {
+    bg: "bg-orange-100/90 dark:bg-orange-950/60",
+    border: "border-orange-300/80 dark:border-orange-700/70",
     gradient:
-      "from-slate-100 via-slate-50 to-transparent dark:from-slate-500/15 dark:via-slate-500/5",
-    iconBg: "bg-slate-500/15",
-    iconFg: "text-slate-600 dark:text-slate-300",
-    ring: "ring-slate-500/30",
+      "from-orange-200/70 via-orange-100/40 to-transparent dark:from-orange-500/25 dark:via-orange-500/10",
+    iconBg: "bg-orange-500/25 dark:bg-orange-500/35",
+    iconFg: "text-orange-800 dark:text-orange-200",
+    ring: "hover:ring-orange-500/50",
+    textColor: "text-orange-900/90 dark:text-orange-200",
+    countColor: "text-orange-950 dark:text-orange-50",
   },
   closed: {
+    bg: "bg-purple-100/90 dark:bg-purple-950/60",
+    border: "border-purple-300/80 dark:border-purple-700/70",
     gradient:
-      "from-violet-100 via-violet-50 to-transparent dark:from-violet-500/15 dark:via-violet-500/5",
-    iconBg: "bg-violet-500/15",
-    iconFg: "text-violet-600 dark:text-violet-400",
-    ring: "ring-violet-500/30",
+      "from-purple-200/70 via-purple-100/40 to-transparent dark:from-purple-500/25 dark:via-purple-500/10",
+    iconBg: "bg-purple-500/25 dark:bg-purple-500/35",
+    iconFg: "text-purple-800 dark:text-purple-200",
+    ring: "hover:ring-purple-500/50",
+    textColor: "text-purple-900/90 dark:text-purple-200",
+    countColor: "text-purple-950 dark:text-purple-50",
   },
   reopen: {
-    gradient: "from-rose-100 via-rose-50 to-transparent dark:from-rose-500/15 dark:via-rose-500/5",
-    iconBg: "bg-rose-500/15",
-    iconFg: "text-rose-600 dark:text-rose-400",
-    ring: "ring-rose-500/30",
+    bg: "bg-rose-100/90 dark:bg-rose-950/60",
+    border: "border-rose-300/80 dark:border-rose-700/70",
+    gradient:
+      "from-rose-200/70 via-rose-100/40 to-transparent dark:from-rose-500/25 dark:via-rose-500/10",
+    iconBg: "bg-rose-500/25 dark:bg-rose-500/35",
+    iconFg: "text-rose-800 dark:text-rose-200",
+    ring: "hover:ring-rose-500/50",
+    textColor: "text-rose-900/90 dark:text-rose-200",
+    countColor: "text-rose-950 dark:text-rose-50",
   },
 };
 
@@ -236,6 +272,7 @@ function DashboardPage() {
         <span className="px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Filters
         </span>
+        <DateRangePicker value={dateRange} onChange={setDateRange} />
         <FilterSelect
           value={department}
           onChange={(v) => setDepartment(v as typeof department)}
@@ -245,7 +282,6 @@ function DashboardPage() {
             ...ALL_DEPARTMENTS.map((d) => ({ value: d, label: d })),
           ]}
         />
-        <DateRangePicker value={dateRange} onChange={setDateRange} />
         <FilterSelect
           value={category}
           onChange={(v) => {
@@ -272,6 +308,27 @@ function DashboardPage() {
           ]}
           disabled={category === "all"}
         />
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={
+            department === "all" &&
+            !dateRange &&
+            category === "all" &&
+            locationId === "all"
+          }
+          onClick={() => {
+            setDateRange(undefined);
+            setDepartment("all");
+            setCategory("all");
+            setLocationId("all");
+          }}
+          className="h-9 px-3 text-xs font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 border border-dashed border-muted-foreground/30 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground transition-all duration-300 ease-out group active:scale-95"
+        >
+          <XCircle className="h-3.5 w-3.5 mr-1.5 text-muted-foreground/70 group-hover:text-destructive group-hover:rotate-90 transition-transform duration-300 ease-in-out" />
+          Clear Filters
+        </Button>
       </Card>
 
       <section>
@@ -290,25 +347,30 @@ function DashboardPage() {
           {(Object.keys(STATUS_META) as TicketStatus[]).map((s) => {
             const Icon = STATUS_ICON[s];
             const palette = STATUS_CARD[s];
+            const cardLabel = s === "pending" ? "Created" : STATUS_META[s].label;
             return (
               <button
                 key={s}
-                onClick={() => navigate("/ticketing/tickets?status=s")}
-                className={`group relative overflow-hidden rounded-xl border bg-card p-4 text-left transition-all hover:shadow-[var(--shadow-elegant)] hover:-translate-y-0.5 hover:ring-2 ${palette.ring}`}
+                onClick={() => navigate(`/ticketing/tickets?status=${s}`)}
+                className={`group relative overflow-hidden rounded-xl border p-4 text-left transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 hover:ring-2 ${palette.bg} ${palette.border} ${palette.ring}`}
               >
                 <div
-                  className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${palette.gradient} opacity-80`}
+                  className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${palette.gradient} opacity-90`}
                 />
                 <div className="relative">
                   <div className="flex items-center justify-between">
                     <span
-                      className={`flex h-8 w-8 items-center justify-center rounded-lg ${palette.iconBg}`}
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg shadow-xs ${palette.iconBg}`}
                     >
                       <Icon className={`h-4 w-4 ${palette.iconFg}`} />
                     </span>
                   </div>
-                  <div className="mt-3 text-xs text-muted-foreground">{STATUS_META[s].label}</div>
-                  <div className="mt-1 font-display text-3xl font-semibold">{counts[s]}</div>
+                  <div className={`mt-3 text-xs font-semibold ${palette.textColor}`}>
+                    {cardLabel}
+                  </div>
+                  <div className={`mt-1 font-display text-3xl font-bold tracking-tight ${palette.countColor}`}>
+                    {counts[s]}
+                  </div>
                 </div>
               </button>
             );
