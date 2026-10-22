@@ -25,6 +25,7 @@ import SettingsPage from "@/pages/settings/SettingsPage";
 import TicketingDashboardPage from "@/pages/portals/ticketing/DashboardPage";
 import TicketsPage from "@/pages/portals/ticketing/TicketsPage";
 import TicketDetailPage from "@/pages/portals/ticketing/TicketDetailPage";
+import SupportCategoriesPage from "@/pages/portals/ticketing/SupportCategoriesPage";
 import ExternalPage from "@/pages/portals/ticketing/ExternalPage";
 
 // ---------- Reporting Portal ---------- //
@@ -315,6 +316,14 @@ export function AppRoutes() {
           element={
             <PortalRouteGuard portalKey="ticketing">
               <TicketDetailPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/ticketing/categories"
+          element={
+            <PortalRouteGuard portalKey="ticketing">
+              <SupportCategoriesPage />
             </PortalRouteGuard>
           }
         />

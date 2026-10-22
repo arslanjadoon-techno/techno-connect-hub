@@ -43,6 +43,7 @@ import {
   Receipt,
   FileSignature,
   Eye,
+  FolderKanban,
 } from "lucide-react";
 
 import {
@@ -171,6 +172,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     items: [
       { title: "Dashboard", url: "/ticketing/dashboard", icon: LayoutDashboard },
       { title: "Tickets", url: "/ticketing/tickets", icon: TicketCheck },
+      { title: "Support Categories", url: "/ticketing/categories", icon: FolderKanban },
       { title: "External Team", url: "/ticketing/external", icon: Wrench },
     ],
   },
