@@ -44,6 +44,8 @@ import {
   FileSignature,
   Eye,
   FolderKanban,
+  Video,
+  ClipboardCheck,
 } from "lucide-react";
 
 import {
@@ -86,6 +88,7 @@ const PORTAL_ORDER = [
   "leasing",
   "ranker",
   "ticketing",
+  "surveillance",
   "leave",
   "scheduling",
   "reporting",
@@ -174,6 +177,14 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
       { title: "Tickets", url: "/ticketing/tickets", icon: TicketCheck },
       { title: "Support Categories", url: "/ticketing/categories", icon: FolderKanban },
       { title: "External Team", url: "/ticketing/external", icon: Wrench },
+    ],
+  },
+  surveillance: {
+    title: "Surveillance",
+    icon: Video,
+    items: [
+      { title: "Report Requests", url: "/surveillance/requests", icon: ClipboardCheck },
+      { title: "Surveillance Reports", url: "/surveillance/reports", icon: Video },
     ],
   },
   leave: {
@@ -404,6 +415,7 @@ function getCurrentPortalRole(user: any, pathname: string): string {
         (currentPortal === "commission" && pn.includes("commiss")) ||
         (currentPortal === "scheduling" && (pn.includes("schedul") || pn.includes("attendance"))) ||
         (currentPortal === "ticketing" && pn.includes("ticket")) ||
+        (currentPortal === "surveillance" && (pn.includes("surveill") || pn === "surveillance")) ||
         (currentPortal === "leasing" && pn.includes("leas")) ||
         (currentPortal === "ranker" && pn.includes("rank")) ||
         (currentPortal === "reporting" && pn.includes("report"))
@@ -503,6 +515,7 @@ export function AppSidebar() {
         (target === "leave" && (pNorm.includes("leave") || pNorm.includes("attendance"))) ||
         (target === "scheduling" && (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
         (target === "ticketing" && pNorm.includes("ticket")) ||
+        (target === "surveillance" && (pNorm.includes("surveill") || pNorm === "surveillance")) ||
         (target === "leasing" && pNorm.includes("leas")) ||
         (target === "commission" && pNorm.includes("commiss")) ||
         (target === "ranker" && pNorm.includes("rank")) ||
@@ -519,6 +532,7 @@ export function AppSidebar() {
         (target === "leave" && (pNorm.includes("leave") || pNorm.includes("attendance"))) ||
         (target === "scheduling" && (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
         (target === "ticketing" && pNorm.includes("ticket")) ||
+        (target === "surveillance" && (pNorm.includes("surveill") || pNorm === "surveillance")) ||
         (target === "leasing" && pNorm.includes("leas")) ||
         (target === "commission" && pNorm.includes("commiss")) ||
         (target === "ranker" && pNorm.includes("rank")) ||
@@ -537,6 +551,7 @@ export function AppSidebar() {
         (target === "leave" && (pNorm.includes("leave") || pNorm.includes("attendance"))) ||
         (target === "scheduling" && (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
         (target === "ticketing" && pNorm.includes("ticket")) ||
+        (target === "surveillance" && (pNorm.includes("surveill") || pNorm === "surveillance")) ||
         (target === "leasing" && pNorm.includes("leas")) ||
         (target === "commission" && pNorm.includes("commiss")) ||
         (target === "ranker" && pNorm.includes("rank")) ||
@@ -606,6 +621,34 @@ export function AppSidebar() {
           ? master.items.filter((i) => i.url === "/leave/approve")
           : master.items.filter((i) => i.url === "/leave/request"),
       };
+    }
+
+    // Surveillance Portal: "Report Requests" is for Admin, State Manager, Market Manager, District Manager.
+    // Regular "user" role only gets "Surveillance Reports"
+    if (key === "surveillance") {
+      const roleStr = (getPortalRole("surveillance") || user.roleName || user.role || "user")
+        .toLowerCase()
+        .replace(/[\s_-]/g, "");
+
+      const isRegularUser = roleStr === "user" || roleStr === "employee";
+      const isEligibleManager =
+        !isRegularUser &&
+        (roleStr.includes("admin") ||
+          roleStr.includes("statemanager") ||
+          roleStr.includes("marketmanager") ||
+          roleStr.includes("districtmanager") ||
+          roleStr.includes("manager") ||
+          roleStr.includes("state") ||
+          roleStr.includes("market") ||
+          roleStr.includes("district") ||
+          roleStr.includes("supervisor"));
+
+      if (!isEligibleManager) {
+        return {
+          ...master,
+          items: master.items.filter((i) => i.url !== "/surveillance/requests"),
+        };
+      }
     }
 
     return master;

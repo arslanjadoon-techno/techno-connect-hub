@@ -69,6 +69,11 @@ import LeasingDetailedPage from "@/pages/portals/leasing/LeasingDetailedPage";
 import RequestLeavePage from "@/pages/portals/leave-management/RequestLeave";
 import ApproveLeavePage from "@/pages/portals/leave-management/ApproveLeave";
 
+// ---------- Surveillance Portal ---------- //
+import ReportRequestsPage from "@/pages/portals/surveillance/ReportRequestsPage";
+import SurveillanceReportsPage from "@/pages/portals/surveillance/SurveillanceReportsPage";
+import { getSurveillanceRole, canRequestSurveillance } from "@/services/portals/surveillance/types";
+
 // ---------- User manager ---------- //
 import UsersPage from "@/pages/user-manager/UsersPage";
 import UserDetailPage from "@/pages/user-manager/UserDetailPage";
@@ -171,6 +176,26 @@ function LeaveApproveOnly({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function SurveillanceRequestsOnly({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const role = getSurveillanceRole(user);
+  if (!canRequestSurveillance(role)) {
+    return <Navigate to="/surveillance/reports" replace />;
+  }
+  return <>{children}</>;
+}
+
+function SurveillanceRedirect() {
+  const { user } = useAuth();
+  const role = getSurveillanceRole(user);
+  return (
+    <Navigate
+      to={canRequestSurveillance(role) ? "/surveillance/requests" : "/surveillance/reports"}
+      replace
+    />
+  );
+}
+
 function UserManagementOnly({ children }: { children: ReactNode }) {
   let isAllowed = false;
   try {
@@ -210,6 +235,7 @@ function PortalRouteGuard({ portalKey, children }: { portalKey: string; children
             (target === "scheduling" &&
               (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
             (target === "ticketing" && pNorm.includes("ticket")) ||
+            (target === "surveillance" && (pNorm.includes("surveill") || pNorm === "surveillance")) ||
             (target === "leasing" && pNorm.includes("leas")) ||
             (target === "commission" && pNorm.includes("commiss")) ||
             (target === "ranker" && pNorm.includes("rank")) ||
@@ -224,6 +250,7 @@ function PortalRouteGuard({ portalKey, children }: { portalKey: string; children
             (target === "scheduling" &&
               (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
             (target === "ticketing" && pNorm.includes("ticket")) ||
+            (target === "surveillance" && (pNorm.includes("surveill") || pNorm === "surveillance")) ||
             (target === "leasing" && pNorm.includes("leas")) ||
             (target === "commission" && pNorm.includes("commiss")) ||
             (target === "ranker" && pNorm.includes("rank")) ||
@@ -660,6 +687,35 @@ export function AppRoutes() {
             </PortalRouteGuard>
           }
         />
+
+        {/* ---------- Surveillance Portal ---------- */}
+        <Route
+          path="/surveillance"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceRedirect />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/surveillance/requests"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceRequestsOnly>
+                <ReportRequestsPage />
+              </SurveillanceRequestsOnly>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/surveillance/reports"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceReportsPage />
+            </PortalRouteGuard>
+          }
+        />
+
         {/* ---------- User Manager ---------- */}
         <Route
           path="/admin/users"
