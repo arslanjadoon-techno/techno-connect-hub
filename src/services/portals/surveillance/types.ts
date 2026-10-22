@@ -108,7 +108,7 @@ export function getSurveillanceRole(user: any): SurveillanceRole {
   // 1. Check portalAccess array
   if (Array.isArray(user.portalAccess)) {
     const entry = user.portalAccess.find((p: any) =>
-      norm(p?.portalName || "").includes("surveill"),
+      norm(p?.portalName || "").includes("surveil"),
     );
     if (entry?.roleName) {
       const r = norm(entry.roleName);

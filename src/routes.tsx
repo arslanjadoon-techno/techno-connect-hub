@@ -235,7 +235,7 @@ function PortalRouteGuard({ portalKey, children }: { portalKey: string; children
             (target === "scheduling" &&
               (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
             (target === "ticketing" && pNorm.includes("ticket")) ||
-            (target === "surveillance" && (pNorm.includes("surveill") || pNorm === "surveillance")) ||
+            (target === "surveillance" && (pNorm.includes("surveil") || pNorm === "surveillance")) ||
             (target === "leasing" && pNorm.includes("leas")) ||
             (target === "commission" && pNorm.includes("commiss")) ||
             (target === "ranker" && pNorm.includes("rank")) ||
@@ -250,7 +250,7 @@ function PortalRouteGuard({ portalKey, children }: { portalKey: string; children
             (target === "scheduling" &&
               (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
             (target === "ticketing" && pNorm.includes("ticket")) ||
-            (target === "surveillance" && (pNorm.includes("surveill") || pNorm === "surveillance")) ||
+            (target === "surveillance" && (pNorm.includes("surveil") || pNorm === "surveillance")) ||
             (target === "leasing" && pNorm.includes("leas")) ||
             (target === "commission" && pNorm.includes("commiss")) ||
             (target === "ranker" && pNorm.includes("rank")) ||

@@ -415,7 +415,7 @@ function getCurrentPortalRole(user: any, pathname: string): string {
         (currentPortal === "commission" && pn.includes("commiss")) ||
         (currentPortal === "scheduling" && (pn.includes("schedul") || pn.includes("attendance"))) ||
         (currentPortal === "ticketing" && pn.includes("ticket")) ||
-        (currentPortal === "surveillance" && (pn.includes("surveill") || pn === "surveillance")) ||
+        (currentPortal === "surveillance" && (pn.includes("surveil") || pn === "surveillance")) ||
         (currentPortal === "leasing" && pn.includes("leas")) ||
         (currentPortal === "ranker" && pn.includes("rank")) ||
         (currentPortal === "reporting" && pn.includes("report"))
@@ -515,7 +515,7 @@ export function AppSidebar() {
         (target === "leave" && (pNorm.includes("leave") || pNorm.includes("attendance"))) ||
         (target === "scheduling" && (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
         (target === "ticketing" && pNorm.includes("ticket")) ||
-        (target === "surveillance" && (pNorm.includes("surveill") || pNorm === "surveillance")) ||
+        (target === "surveillance" && (pNorm.includes("surveil") || pNorm === "surveillance")) ||
         (target === "leasing" && pNorm.includes("leas")) ||
         (target === "commission" && pNorm.includes("commiss")) ||
         (target === "ranker" && pNorm.includes("rank")) ||
@@ -532,7 +532,7 @@ export function AppSidebar() {
         (target === "leave" && (pNorm.includes("leave") || pNorm.includes("attendance"))) ||
         (target === "scheduling" && (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
         (target === "ticketing" && pNorm.includes("ticket")) ||
-        (target === "surveillance" && (pNorm.includes("surveill") || pNorm === "surveillance")) ||
+        (target === "surveillance" && (pNorm.includes("surveil") || pNorm === "surveillance")) ||
         (target === "leasing" && pNorm.includes("leas")) ||
         (target === "commission" && pNorm.includes("commiss")) ||
         (target === "ranker" && pNorm.includes("rank")) ||
@@ -551,7 +551,7 @@ export function AppSidebar() {
         (target === "leave" && (pNorm.includes("leave") || pNorm.includes("attendance"))) ||
         (target === "scheduling" && (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
         (target === "ticketing" && pNorm.includes("ticket")) ||
-        (target === "surveillance" && (pNorm.includes("surveill") || pNorm === "surveillance")) ||
+        (target === "surveillance" && (pNorm.includes("surveil") || pNorm === "surveillance")) ||
         (target === "leasing" && pNorm.includes("leas")) ||
         (target === "commission" && pNorm.includes("commiss")) ||
         (target === "ranker" && pNorm.includes("rank")) ||
