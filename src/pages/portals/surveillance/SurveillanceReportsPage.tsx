@@ -9,6 +9,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -98,16 +108,6 @@ const YES_NO_OPTIONS = [
   { value: "YES", label: "YES" },
   { value: "NO", label: "NO" },
 ];
-
-const TIME_FIELDS = [
-  "cashTime",
-  "time",
-  "bdiTime",
-  "timeLeft",
-  "timeReturned",
-  "backRoomTimeIn",
-  "backRoomTimeOut",
-] as const;
 
 const HOURS_12 = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 const MINUTES_60 = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
@@ -397,6 +397,7 @@ export default function SurveillanceReportsPage() {
   const [editableRows, setEditableRows] = useState<SurveillanceAuditRow[]>([]);
   const [expandedRowIds, setExpandedRowIds] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
 
   const metrics = useMemo(() => {
     return {
@@ -489,23 +490,10 @@ export default function SurveillanceReportsPage() {
     );
   };
 
-  // Auto-populates any time fields selected in preceding rows when adding a new row
+  // Adds a fresh audit row with all time fields reset to default ('-')
   const handleAddAuditRow = (storeName: string, defaultDate?: string) => {
     const nextRow = createEmptyAuditRow(storeName, defaultDate);
-
-    setEditableRows((prev) => {
-      for (const field of TIME_FIELDS) {
-        for (let i = prev.length - 1; i >= 0; i--) {
-          const existingTime = prev[i][field]?.trim();
-          if (existingTime) {
-            nextRow[field] = existingTime;
-            break;
-          }
-        }
-      }
-      return [...prev, nextRow];
-    });
-
+    setEditableRows((prev) => [...prev, nextRow]);
     setExpandedRowIds((prev) => ({ ...prev, [nextRow.id]: true }));
   };
 
@@ -558,6 +546,21 @@ export default function SurveillanceReportsPage() {
     );
   };
 
+  const handleRequestSubmitConfirmation = () => {
+    if (editableRows.length === 0) {
+      toast.error("Please add at least one audit row before submitting.");
+      return;
+    }
+
+    const hasMissingRep = editableRows.some((r) => !r.salesRep.trim());
+    if (hasMissingRep) {
+      toast.error("Please select a Sales Rep for every audit row before submitting.");
+      return;
+    }
+
+    setConfirmSubmitOpen(true);
+  };
+
   const handleSubmitEditableReport = async (reqItem: SurveillanceRequest) => {
     if (editableRows.length === 0) {
       toast.error("Please add at least one audit row before submitting.");
@@ -570,6 +573,7 @@ export default function SurveillanceReportsPage() {
       return;
     }
 
+    setConfirmSubmitOpen(false);
     setIsSubmitting(true);
 
     const existingReport = reports.find(
@@ -974,7 +978,7 @@ export default function SurveillanceReportsPage() {
                             onChange={(e) =>
                               handleUpdateRowField(row.id, "transType", e.target.value)
                             }
-                            placeholder="e.g. New Activation / Upgrade"
+                            placeholder="Bill Payment / Client"
                           />
                         </div>
 
@@ -1456,7 +1460,7 @@ export default function SurveillanceReportsPage() {
             <Button
               type="button"
               disabled={isSubmitting}
-              onClick={() => handleSubmitEditableReport(activeItem)}
+              onClick={handleRequestSubmitConfirmation}
               className="gap-2 text-xs font-semibold"
             >
               <Send className="h-3.5 w-3.5" />
@@ -1464,6 +1468,27 @@ export default function SurveillanceReportsPage() {
             </Button>
           </div>
         </div>
+
+        {/* Submit Report Confirmation Modal */}
+        <AlertDialog open={confirmSubmitOpen} onOpenChange={setConfirmSubmitOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Confirm Report Submission</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to submit this surveillance audit report? Once submitted, this report will be finalized for management review and cannot be modified later.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={isSubmitting}
+                onClick={() => handleSubmitEditableReport(activeItem)}
+              >
+                {isSubmitting ? "Submitting..." : "Confirm & Submit"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
