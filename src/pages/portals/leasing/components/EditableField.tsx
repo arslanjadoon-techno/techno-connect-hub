@@ -21,6 +21,7 @@ interface EditableFieldProps {
   onChange?: (value: string) => void;
   badgeTone?: string;
   colSpan?: string;
+  maxLength?: number;
 }
 
 const show = (v?: string | null) => (v && v.trim() !== "" ? v : "—");
@@ -35,6 +36,7 @@ export default function EditableField({
   onChange,
   badgeTone,
   colSpan = "",
+  maxLength,
 }: EditableFieldProps) {
   return (
     <div className={colSpan}>
@@ -54,7 +56,12 @@ export default function EditableField({
             </SelectContent>
           </Select>
         ) : type === "textarea" ? (
-          <Textarea value={value} onChange={(e) => onChange(e.target.value)} rows={2} />
+          <Textarea
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            rows={2}
+            maxLength={maxLength}
+          />
         ) : (
           <Input
             type={
@@ -69,6 +76,7 @@ export default function EditableField({
             value={value}
             onChange={(e) => onChange(e.target.value)}
             className="h-9"
+            maxLength={maxLength}
           />
         )
       ) : badgeTone ? (

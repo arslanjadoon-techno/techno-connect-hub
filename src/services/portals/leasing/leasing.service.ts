@@ -336,10 +336,11 @@ export class LeasingService {
 
   // ---------- Lease expiration remarks ---------- //
 
-  async getLeaseExpirationRemarks(techId: string): Promise<unknown[]> {
-    const data = await this.request<unknown[]>(LEASING_API_PATHS.getLeaseExpirationRemarks, {
-      query: { TechId: techId },
-    });
+  async getLeaseExpirationRemarks(techId: string): Promise<LeaseExpirationRemark[]> {
+    const data = await this.request<LeaseExpirationRemark[]>(
+      LEASING_API_PATHS.getLeaseExpirationRemarks,
+      { query: { TechId: techId } },
+    );
     return Array.isArray(data) ? data : [];
   }
 
