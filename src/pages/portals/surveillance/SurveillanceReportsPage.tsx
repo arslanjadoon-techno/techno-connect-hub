@@ -64,8 +64,8 @@ export default function SurveillanceReportsPage() {
   const { user } = useAuth();
   const detectedRole = useMemo(() => getSurveillanceRole(user), [user]);
 
-  // Role simulation state (allows testing both as User who submits and Managers who review)
-  const [activeRole, setActiveRole] = useState<SurveillanceRole>(detectedRole);
+  // View as is restricted strictly to User as per specifications
+  const [activeRole] = useState<SurveillanceRole>("user");
 
   const [requests] = useState<SurveillanceRequest[]>(INITIAL_SURVEILLANCE_REQUESTS);
   const [reports, setReports] = useState<SurveillanceReport[]>(INITIAL_SURVEILLANCE_REPORTS);
@@ -328,24 +328,15 @@ export default function SurveillanceReportsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Role switcher for easy UI demonstration */}
-          <div className="flex items-center gap-2 rounded-lg border bg-card/60 p-1 px-2 text-xs">
-            <span className="text-muted-foreground font-medium">Preview As:</span>
-            <Select
-              value={activeRole}
-              onValueChange={(v) => {
-                setActiveRole(v as SurveillanceRole);
-                toast.info(`Switched view to ${v.replace(/_/g, " ").toUpperCase()}`);
-              }}
-            >
-              <SelectTrigger className="h-7 w-[145px] text-xs font-semibold border-0 bg-transparent shadow-none focus:ring-0">
+          {/* View As selector: strictly User option only */}
+          <div className="flex items-center gap-2 rounded-lg border bg-card/60 p-1 px-2.5 text-xs">
+            <span className="text-muted-foreground font-medium">View As:</span>
+            <Select value="user" onValueChange={() => {}}>
+              <SelectTrigger className="h-7 w-[90px] text-xs font-semibold border-0 bg-transparent shadow-none focus:ring-0">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="user">User / Investigator</SelectItem>
-                <SelectItem value="district_manager">District Manager</SelectItem>
-                <SelectItem value="market_manager">Market Manager</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="user">User</SelectItem>
               </SelectContent>
             </Select>
           </div>

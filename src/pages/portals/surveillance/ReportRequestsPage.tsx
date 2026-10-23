@@ -34,25 +34,33 @@ import {
 } from "@/components/ui/select";
 import {
   Plus,
-  Eye,
   CheckCircle2,
   XCircle,
   Video,
   Store as StoreIcon,
-  Clock,
-  Shield,
-  FileText,
-  AlertTriangle,
   RotateCcw,
-  Building2,
   Check,
   X,
   Lock,
+  ArrowLeft,
+  User as UserIcon,
+  ShieldCheck,
+  FileText,
+  DollarSign,
+  Paperclip,
+  Star,
+  Printer,
+  Phone,
+  Mail,
+  Building,
+  Eye,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   AVAILABLE_STORES,
   INITIAL_SURVEILLANCE_REQUESTS,
+  INITIAL_SURVEILLANCE_REPORTS,
 } from "./surveillance-data";
 import {
   getSurveillanceRole,
@@ -61,6 +69,7 @@ import {
   type SurveillanceRequest,
   type SurveillancePriority,
   type SurveillanceRole,
+  type SurveillanceReport,
 } from "@/services/portals/surveillance/types";
 
 const PRIORITY_TONES: Record<SurveillancePriority, string> = {
@@ -125,17 +134,84 @@ const SHIFT_OPTIONS = [
   "Custom Specific Time Range",
 ];
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function StarRating({
+  value,
+  onChange,
+  disabled = false,
+}: {
+  value: number;
+  onChange?: (v: number) => void;
+  disabled?: boolean;
+}) {
+  const [hoverVal, setHoverVal] = useState<number | null>(null);
+  const displayVal = hoverVal ?? value;
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            type="button"
+            disabled={disabled}
+            onClick={() => onChange && onChange(star === value ? 0 : star)}
+            onMouseEnter={() => !disabled && setHoverVal(star)}
+            onMouseLeave={() => !disabled && setHoverVal(null)}
+            className={`p-0.5 transition-transform ${
+              disabled ? "cursor-default" : "cursor-pointer hover:scale-110"
+            }`}
+          >
+            <Star
+              className={`h-5 w-5 ${
+                star <= displayVal
+                  ? "fill-amber-400 text-amber-400"
+                  : "text-muted-foreground/30"
+              }`}
+            />
+          </button>
+        ))}
+      </div>
+      <span className="text-xs text-muted-foreground font-medium ml-1">
+        {displayVal > 0 ? `${displayVal} of 5 Stars` : "(No rating)"}
+      </span>
+      {!disabled && value > 0 && (
+        <button
+          type="button"
+          onClick={() => onChange && onChange(0)}
+          className="text-[11px] text-muted-foreground hover:text-foreground underline ml-2"
+        >
+          Clear
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function ReportRequestsPage() {
   const { user } = useAuth();
   const detectedRole = useMemo(() => getSurveillanceRole(user), [user]);
 
-  // Role simulation state (allows testing across Admin, State Manager, Market Manager, District Manager)
+  // Active role selector for testing between Admin / State Mgr / Market Mgr (can approve) and District Mgr (view only)
   const [activeRole, setActiveRole] = useState<SurveillanceRole>(() => {
-    // Default to detected role, fallback to admin/market_manager if viewer
     return canRequestSurveillance(detectedRole) ? detectedRole : "admin";
   });
 
   const [requests, setRequests] = useState<SurveillanceRequest[]>(INITIAL_SURVEILLANCE_REQUESTS);
+  const [reports, setReports] = useState<SurveillanceReport[]>(INITIAL_SURVEILLANCE_REPORTS);
+
+  // Active drill-down detail view state (null = list view)
+  const [selectedDetail, setSelectedDetail] = useState<SurveillanceRequest | null>(null);
+
+  // View Report modal state
+  const [viewReportOpen, setViewReportOpen] = useState(false);
+  const [reportReviewComments, setReportReviewComments] = useState("");
+  const [reportRating, setReportRating] = useState<number>(0);
 
   // Filter states
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -155,22 +231,28 @@ export default function ReportRequestsPage() {
   ]);
   const [notes, setNotes] = useState("");
 
-  // Details Modal
-  const [detailTarget, setDetailTarget] = useState<SurveillanceRequest | null>(null);
-
-  // Approve dialog
+  // Requisition Approve / Reject dialogs
   const [approveTarget, setApproveTarget] = useState<SurveillanceRequest | null>(null);
   const [approvalNotes, setApprovalNotes] = useState("");
-
-  // Reject dialog
   const [rejectTarget, setRejectTarget] = useState<SurveillanceRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
 
-  // Permissions according to user specification:
-  // "request approve sirf market manager ya state manager ya admin kr sakta hai, district manager k pas sirf view ka option hoga approve ka nahi."
+  // Role permissions
   const userCanApprove = canApproveSurveillance(activeRole);
 
-  // Handlers
+  // Get active report linked to current selected detail
+  const activeReport = useMemo(() => {
+    if (!selectedDetail) return null;
+    return (
+      reports.find(
+        (rep) =>
+          rep.id === selectedDetail.linkedReportId ||
+          rep.requestId === selectedDetail.id,
+      ) || null
+    );
+  }, [selectedDetail, reports]);
+
+  // Handlers for creating request
   const handleOpenCreate = () => {
     setTitle("");
     setNotes("");
@@ -226,7 +308,9 @@ export default function ReportRequestsPage() {
       requestedBy: user?.fullName || "Current User",
       requestedById: user?.id || "u-1",
       requesterRole: requesterRoleLabel,
-      requesterEmail: user?.email,
+      requesterEmail: user?.email || "user@techno.com",
+      requesterPhone: user?.phone || "+1 (555) 012-3456",
+      requesterDepartment: user?.department?.name || "Operations",
       areasToReview: selectedAreas,
       notes: notes.trim() || undefined,
       status: "pending_approval",
@@ -238,6 +322,7 @@ export default function ReportRequestsPage() {
     setCreateModalOpen(false);
   };
 
+  // Requisition Approval
   const handleApprove = () => {
     if (!approveTarget) return;
 
@@ -250,13 +335,14 @@ export default function ReportRequestsPage() {
     };
 
     setRequests((prev) => prev.map((r) => (r.id === approveTarget.id ? updated : r)));
-    if (detailTarget?.id === approveTarget.id) setDetailTarget(updated);
+    if (selectedDetail?.id === approveTarget.id) setSelectedDetail(updated);
 
     toast.success(`Request ${approveTarget.id} approved successfully!`);
     setApproveTarget(null);
     setApprovalNotes("");
   };
 
+  // Requisition Rejection
   const handleReject = () => {
     if (!rejectTarget) return;
     if (!rejectionReason.trim()) {
@@ -272,11 +358,97 @@ export default function ReportRequestsPage() {
     };
 
     setRequests((prev) => prev.map((r) => (r.id === rejectTarget.id ? updated : r)));
-    if (detailTarget?.id === rejectTarget.id) setDetailTarget(updated);
+    if (selectedDetail?.id === rejectTarget.id) setSelectedDetail(updated);
 
     toast.success(`Request ${rejectTarget.id} rejected.`);
     setRejectTarget(null);
     setRejectionReason("");
+  };
+
+  // Report Approval by Manager (with optional 5-star rating)
+  const handleApproveReport = () => {
+    if (!selectedDetail) return;
+
+    const reviewerName = user?.fullName || `${activeRole.replace(/_/g, " ")} Authority`;
+    const now = new Date().toISOString();
+
+    const updatedRequest: SurveillanceRequest = {
+      ...selectedDetail,
+      reportStatus: "approved",
+      reportApprovedBy: reviewerName,
+      reportApprovedAt: now,
+      managerRating: reportRating > 0 ? reportRating : selectedDetail.managerRating,
+      managerComments: reportReviewComments.trim() || selectedDetail.managerComments,
+      updatedAt: now,
+    };
+
+    setRequests((prev) => prev.map((r) => (r.id === selectedDetail.id ? updatedRequest : r)));
+    setSelectedDetail(updatedRequest);
+
+    if (activeReport) {
+      setReports((prev) =>
+        prev.map((rep) =>
+          rep.id === activeReport.id
+            ? {
+                ...rep,
+                status: "approved",
+                reviewedBy: reviewerName,
+                reviewedAt: now,
+                managerRating: reportRating > 0 ? reportRating : rep.managerRating,
+                managerComments: reportReviewComments.trim() || rep.managerComments,
+              }
+            : rep,
+        ),
+      );
+    }
+
+    toast.success("Surveillance report approved successfully!");
+    setViewReportOpen(false);
+  };
+
+  // Report Rejection by Manager
+  const handleRejectReport = () => {
+    if (!selectedDetail) return;
+    if (!reportReviewComments.trim()) {
+      toast.error("Please add review comments explaining why this report is rejected or needs revision.");
+      return;
+    }
+
+    const reviewerName = user?.fullName || `${activeRole.replace(/_/g, " ")} Authority`;
+    const now = new Date().toISOString();
+
+    const updatedRequest: SurveillanceRequest = {
+      ...selectedDetail,
+      reportStatus: "rejected",
+      reportApprovedBy: reviewerName,
+      reportApprovedAt: now,
+      managerComments: reportReviewComments.trim(),
+      managerRating: reportRating > 0 ? reportRating : undefined,
+      updatedAt: now,
+    };
+
+    setRequests((prev) => prev.map((r) => (r.id === selectedDetail.id ? updatedRequest : r)));
+    setSelectedDetail(updatedRequest);
+
+    if (activeReport) {
+      setReports((prev) =>
+        prev.map((rep) =>
+          rep.id === activeReport.id
+            ? {
+                ...rep,
+                status: "rejected",
+                reviewedBy: reviewerName,
+                reviewedAt: now,
+                managerComments: reportReviewComments.trim(),
+                managerRating: reportRating > 0 ? reportRating : undefined,
+              }
+            : rep,
+        ),
+      );
+    }
+
+    toast.success("Surveillance report rejected.");
+    setViewReportOpen(false);
   };
 
   // Filtered requests
@@ -298,54 +470,45 @@ export default function ReportRequestsPage() {
     };
   }, [requests]);
 
-  // Columns definition
+  // Strict 7 columns: Store, Market, Investigation Reason, Priority, Requested By, Prepared by, Status.
+  // Actions column removed. Row click opens detail page.
   const columns: Column<SurveillanceRequest>[] = useMemo(
     () => [
       {
-        key: "id",
-        header: "Request ID",
-        searchValue: (r) => r.id,
+        key: "store",
+        header: "Store",
+        searchValue: (r) => `${r.storeName} ${r.storeNumber || ""}`,
         accessor: (r) => (
-          <span className="font-mono text-xs font-semibold text-primary">{r.id}</span>
+          <div className="flex items-center gap-2">
+            <StoreIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+            <div>
+              <div className="font-semibold text-foreground text-sm">{r.storeName}</div>
+              <div className="text-[11px] text-muted-foreground font-mono">Ref: {r.id}</div>
+            </div>
+          </div>
         ),
       },
       {
-        key: "store",
-        header: "Store & Market",
-        searchValue: (r) => `${r.storeName} ${r.marketName} ${r.districtName}`,
+        key: "market",
+        header: "Market",
+        searchValue: (r) => `${r.marketName} ${r.districtName}`,
         accessor: (r) => (
           <div>
-            <div className="font-medium text-foreground text-sm flex items-center gap-1.5">
-              <StoreIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              {r.storeName}
-            </div>
-            <div className="text-xs text-muted-foreground mt-0.5">
-              {r.marketName} • {r.districtName}
-            </div>
+            <div className="font-medium text-foreground text-xs">{r.marketName}</div>
+            <div className="text-[11px] text-muted-foreground">{r.districtName}</div>
           </div>
         ),
       },
       {
         key: "investigation",
         header: "Investigation Reason",
-        searchValue: (r) => `${r.title} ${r.investigationType}`,
+        searchValue: (r) => `${r.investigationType} ${r.title}`,
         accessor: (r) => (
           <div className="max-w-xs sm:max-w-sm">
-            <span className="inline-block text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+            <span className="inline-block text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
               {r.investigationType}
             </span>
             <div className="font-medium text-foreground text-xs line-clamp-1">{r.title}</div>
-          </div>
-        ),
-      },
-      {
-        key: "schedule",
-        header: "Date & Shift",
-        searchValue: (r) => `${r.incidentDate} ${r.shift}`,
-        accessor: (r) => (
-          <div className="text-xs">
-            <div className="font-medium text-foreground">{r.incidentDate}</div>
-            <div className="text-muted-foreground line-clamp-1">{r.shift}</div>
           </div>
         ),
       },
@@ -360,15 +523,32 @@ export default function ReportRequestsPage() {
         ),
       },
       {
-        key: "requester",
+        key: "requestedBy",
         header: "Requested By",
         searchValue: (r) => `${r.requestedBy} ${r.requesterRole}`,
         accessor: (r) => (
           <div className="text-xs">
             <div className="font-medium text-foreground">{r.requestedBy}</div>
-            <Badge variant="outline" className="text-[10px] mt-0.5 text-muted-foreground font-normal">
-              {r.requesterRole}
-            </Badge>
+            <span className="text-[11px] text-muted-foreground">{r.requesterRole}</span>
+          </div>
+        ),
+      },
+      {
+        key: "preparedBy",
+        header: "Prepared by",
+        searchValue: (r) => r.preparedBy || "Unassigned",
+        accessor: (r) => (
+          <div className="text-xs">
+            {r.preparedBy ? (
+              <div>
+                <div className="font-medium text-foreground">{r.preparedBy}</div>
+                <span className="text-[11px] text-muted-foreground">
+                  {r.preparedByRole || "Surveillance Specialist"}
+                </span>
+              </div>
+            ) : (
+              <span className="text-muted-foreground italic">—</span>
+            )}
           </div>
         ),
       },
@@ -388,80 +568,638 @@ export default function ReportRequestsPage() {
           );
         },
       },
-      {
-        key: "actions",
-        header: <span className="text-right block w-full pr-2">Actions</span>,
-        accessor: (r) => {
-          const isPending = r.status === "pending_approval";
-          return (
-            <div className="flex items-center justify-end gap-1.5 pr-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setDetailTarget(r);
-                }}
-                className="h-8 gap-1 px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
-                title="View request details"
-              >
-                <Eye className="h-3.5 w-3.5" />
-                View
-              </Button>
-
-              {/* Approval Buttons: ONLY for Admin, State Manager, Market Manager!
-                  District Manager has view option only per user instruction. */}
-              {isPending && (
-                <>
-                  {userCanApprove ? (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setApproveTarget(r);
-                        }}
-                        className="h-8 px-2 text-xs font-medium text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40"
-                        title="Approve request"
-                      >
-                        <Check className="h-3.5 w-3.5 mr-1" />
-                        Approve
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setRejectTarget(r);
-                        }}
-                        className="h-8 px-2 text-xs font-medium text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
-                        title="Reject request"
-                      >
-                        <X className="h-3.5 w-3.5 mr-1" />
-                        Reject
-                      </Button>
-                    </>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="border-dashed border-muted-foreground/30 text-muted-foreground text-[10px] gap-1 cursor-default py-0.5 px-1.5"
-                      title="Only Market Managers, State Managers, and Admin can approve requests."
-                    >
-                      <Lock className="h-2.5 w-2.5" /> View Only
-                    </Badge>
-                  )}
-                </>
-              )}
-            </div>
-          );
-        },
-      },
     ],
-    [userCanApprove],
+    [],
   );
 
+  // If a detail row is selected, render the dedicated Detail Page
+  if (selectedDetail) {
+    const isPending = selectedDetail.status === "pending_approval";
+    const reportExists = Boolean(activeReport || selectedDetail.preparedBy || selectedDetail.status === "report_submitted");
+
+    return (
+      <div className="space-y-6">
+        {/* Top Header / Back Bar */}
+        <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSelectedDetail(null)}
+              className="h-8 gap-1.5 px-2.5 text-xs font-medium"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back to Reports
+            </Button>
+            <div className="flex items-center gap-2">
+              <h1 className="font-display text-xl font-bold tracking-tight text-foreground">
+                Report Details
+              </h1>
+              <Badge variant="outline" className="font-mono text-xs font-semibold">
+                {selectedDetail.id}
+              </Badge>
+              <Badge variant="outline" className={`text-xs font-semibold ${STATUS_CONFIG[selectedDetail.status]?.tone}`}>
+                {STATUS_CONFIG[selectedDetail.status]?.label}
+              </Badge>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* View Report Button */}
+            {reportExists ? (
+              <Button
+                onClick={() => {
+                  setReportReviewComments(selectedDetail.managerComments || "");
+                  setReportRating(selectedDetail.managerRating || 0);
+                  setViewReportOpen(true);
+                }}
+                className="gap-2 bg-primary text-primary-foreground shadow-xs font-medium text-xs h-9"
+              >
+                <Eye className="h-4 w-4" />
+                View Report
+                {selectedDetail.reportStatus === "approved" && (
+                  <Badge variant="secondary" className="ml-1 text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                    Approved
+                  </Badge>
+                )}
+              </Button>
+            ) : (
+              <Badge variant="outline" className="border-dashed text-muted-foreground text-xs py-1 px-2 gap-1.5">
+                <AlertCircle className="h-3.5 w-3.5" /> Report Not Yet Submitted
+              </Badge>
+            )}
+
+            {/* Quick Actions for Requisition approval if still pending */}
+            {isPending && userCanApprove && (
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setRejectTarget(selectedDetail)}
+                  className="h-9 text-xs"
+                >
+                  <X className="h-3.5 w-3.5 mr-1" /> Reject Request
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-9 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={() => setApproveTarget(selectedDetail)}
+                >
+                  <Check className="h-3.5 w-3.5 mr-1" /> Approve Request
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Top Banner Overview */}
+        <Card className="p-4 bg-muted/20 border-border/80">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <StoreIcon className="h-4 w-4 text-primary" />
+                <span className="font-semibold text-base text-foreground">
+                  {selectedDetail.storeName}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  • {selectedDetail.marketName} ({selectedDetail.districtName})
+                </span>
+              </div>
+              <h2 className="mt-1 text-sm font-medium text-foreground">
+                {selectedDetail.title}
+              </h2>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Badge variant="outline" className={`capitalize text-xs font-medium ${PRIORITY_TONES[selectedDetail.priority]}`}>
+                Priority: {selectedDetail.priority}
+              </Badge>
+              <Badge variant="outline" className="text-xs">
+                Incident Date: {selectedDetail.incidentDate}
+              </Badge>
+            </div>
+          </div>
+        </Card>
+
+        {/* 2-Column Section: Requested By & Prepared By */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Requested By Profile Card */}
+          <Card className="p-4 border-border/80 space-y-3">
+            <div className="flex items-center justify-between border-b pb-2">
+              <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
+                <UserIcon className="h-4 w-4 text-primary" />
+                <span>Requested By</span>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {selectedDetail.requesterRole}
+              </Badge>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="grid grid-cols-3 gap-2">
+                <span className="text-muted-foreground font-medium">Full Name:</span>
+                <span className="col-span-2 font-semibold text-foreground">
+                  {selectedDetail.requestedBy}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <span className="text-muted-foreground font-medium">Email:</span>
+                <span className="col-span-2 text-foreground flex items-center gap-1.5 font-mono">
+                  <Mail className="h-3 w-3 text-muted-foreground" />
+                  {selectedDetail.requesterEmail || "david.kim@techno.com"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <span className="text-muted-foreground font-medium">Phone:</span>
+                <span className="col-span-2 text-foreground flex items-center gap-1.5 font-mono">
+                  <Phone className="h-3 w-3 text-muted-foreground" />
+                  {selectedDetail.requesterPhone || "+1 (214) 555-0192"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <span className="text-muted-foreground font-medium">Department:</span>
+                <span className="col-span-2 text-foreground flex items-center gap-1.5">
+                  <Building className="h-3 w-3 text-muted-foreground" />
+                  {selectedDetail.requesterDepartment || "Regional Operations"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <span className="text-muted-foreground font-medium">Request Date:</span>
+                <span className="col-span-2 text-muted-foreground">
+                  {new Date(selectedDetail.createdAt).toLocaleString()}
+                </span>
+              </div>
+            </div>
+          </Card>
+
+          {/* Prepared By Profile Card */}
+          <Card className="p-4 border-border/80 space-y-3">
+            <div className="flex items-center justify-between border-b pb-2">
+              <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
+                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                <span>Prepared By (Submitter / Auditor)</span>
+              </div>
+              {selectedDetail.preparedBy ? (
+                <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                  Assigned & Active
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-xs text-muted-foreground">
+                  Pending Assignment
+                </Badge>
+              )}
+            </div>
+
+            {selectedDetail.preparedBy ? (
+              <div className="space-y-2 text-xs">
+                <div className="grid grid-cols-3 gap-2">
+                  <span className="text-muted-foreground font-medium">Auditor Name:</span>
+                  <span className="col-span-2 font-semibold text-foreground">
+                    {selectedDetail.preparedBy}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <span className="text-muted-foreground font-medium">Role:</span>
+                  <span className="col-span-2 text-foreground">
+                    {selectedDetail.preparedByRole || "Surveillance Auditor"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <span className="text-muted-foreground font-medium">Email:</span>
+                  <span className="col-span-2 text-foreground flex items-center gap-1.5 font-mono">
+                    <Mail className="h-3 w-3 text-muted-foreground" />
+                    {selectedDetail.preparedByEmail || "investigator@techno.com"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <span className="text-muted-foreground font-medium">Phone:</span>
+                  <span className="col-span-2 text-foreground flex items-center gap-1.5 font-mono">
+                    <Phone className="h-3 w-3 text-muted-foreground" />
+                    {selectedDetail.preparedByPhone || "+1 (214) 555-0821"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <span className="text-muted-foreground font-medium">Submitted At:</span>
+                  <span className="col-span-2 text-muted-foreground">
+                    {selectedDetail.preparedAt ? new Date(selectedDetail.preparedAt).toLocaleString() : "Recently submitted"}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="py-4 text-center text-xs text-muted-foreground space-y-1">
+                <p className="font-medium text-foreground">No Surveillance Report Submitted Yet</p>
+                <p>Once a user conducts the review and submits findings, their full profile and attachments will appear here.</p>
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Investigation Scope & Parameters */}
+        <Card className="p-4 border-border/80 space-y-3">
+          <div className="border-b pb-2">
+            <h3 className="text-sm font-semibold text-foreground">
+              Investigation Parameters & Camera Areas
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+            <div>
+              <span className="text-muted-foreground">Investigation Reason:</span>
+              <div className="font-semibold text-foreground mt-0.5">{selectedDetail.investigationType}</div>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Target Incident Date:</span>
+              <div className="font-semibold text-foreground mt-0.5">{selectedDetail.incidentDate}</div>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Target Shift:</span>
+              <div className="font-semibold text-foreground mt-0.5">{selectedDetail.shift}</div>
+            </div>
+            <div>
+              <span className="text-muted-foreground">Requisition Approval:</span>
+              <div className="mt-0.5">
+                {selectedDetail.approvedBy ? (
+                  <span className="text-emerald-600 font-medium">Approved by {selectedDetail.approvedBy}</span>
+                ) : selectedDetail.rejectionReason ? (
+                  <span className="text-rose-600 font-medium">Rejected</span>
+                ) : (
+                  <span className="text-amber-600 font-medium">Pending Manager Review</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Camera Areas */}
+          <div className="pt-2">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1.5">
+              Designated Camera Feeds to Review
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {selectedDetail.areasToReview.map((area) => (
+                <Badge key={area} variant="outline" className="bg-muted text-xs font-normal">
+                  <Video className="h-3 w-3 mr-1 text-primary inline" />
+                  {area}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          {/* Notes */}
+          {selectedDetail.notes && (
+            <div className="pt-2">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+                Requester Notes & Instructions
+              </span>
+              <div className="p-3 rounded-lg border bg-card text-foreground text-xs leading-relaxed whitespace-pre-wrap">
+                {selectedDetail.notes}
+              </div>
+            </div>
+          )}
+        </Card>
+
+        {/* Manager Review Status on Submitted Report */}
+        {selectedDetail.reportStatus && (
+          <Card className={`p-4 border ${selectedDetail.reportStatus === "approved" ? "border-emerald-300 bg-emerald-50/30 dark:bg-emerald-950/20" : "border-rose-300 bg-rose-50/30 dark:bg-rose-950/20"}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {selectedDetail.reportStatus === "approved" ? (
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                ) : (
+                  <XCircle className="h-5 w-5 text-rose-600" />
+                )}
+                <div>
+                  <div className="font-semibold text-sm text-foreground">
+                    Surveillance Report {selectedDetail.reportStatus === "approved" ? "Approved" : "Rejected"}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Reviewed by {selectedDetail.reportApprovedBy || "Management"} on{" "}
+                    {selectedDetail.reportApprovedAt ? new Date(selectedDetail.reportApprovedAt).toLocaleDateString() : ""}
+                  </div>
+                </div>
+              </div>
+
+              {selectedDetail.managerRating && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs text-muted-foreground font-medium">Auditor Rating:</span>
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        className={`h-4 w-4 ${
+                          s <= (selectedDetail.managerRating || 0)
+                            ? "fill-amber-400 text-amber-400"
+                            : "text-muted-foreground/30"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {selectedDetail.managerComments && (
+              <div className="mt-3 p-3 rounded-md bg-background/80 border text-xs text-foreground">
+                <span className="font-semibold block mb-0.5 text-muted-foreground">Manager Comments:</span>
+                {selectedDetail.managerComments}
+              </div>
+            )}
+          </Card>
+        )}
+
+        {/* VIEW REPORT DIALOG / MODAL */}
+        <Dialog open={viewReportOpen} onOpenChange={setViewReportOpen}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <div className="flex items-center justify-between pr-6">
+                <DialogTitle className="flex items-center gap-2 font-display text-lg">
+                  <FileText className="h-5 w-5 text-primary" />
+                  <span>Submitted Surveillance Report</span>
+                  <Badge variant="outline" className="font-mono text-xs">
+                    {activeReport?.id || "SRV-REP-202"}
+                  </Badge>
+                </DialogTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.print()}
+                  className="h-8 gap-1.5 text-xs"
+                >
+                  <Printer className="h-3.5 w-3.5" /> Print / Export
+                </Button>
+              </div>
+              <DialogDescription>
+                Official video investigation findings for {selectedDetail.storeName} (Request Ref: {selectedDetail.id}).
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-2 text-xs">
+              {/* Highlight summary card */}
+              <Card className="p-3.5 bg-muted/30">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div>
+                    <div className="text-muted-foreground uppercase text-[10px] font-bold">Store</div>
+                    <div className="font-semibold text-foreground text-sm mt-0.5">{selectedDetail.storeName}</div>
+                    <div className="text-[11px] text-muted-foreground">{selectedDetail.marketName}</div>
+                  </div>
+
+                  <div>
+                    <div className="text-muted-foreground uppercase text-[10px] font-bold">Incident Confirmed?</div>
+                    <div className="mt-1">
+                      {activeReport?.incidentConfirmed === "Yes" ? (
+                        <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-xs font-bold">
+                          Yes — Violation
+                        </Badge>
+                      ) : activeReport?.incidentConfirmed === "No" ? (
+                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-xs font-bold">
+                          No Violation
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs font-bold">
+                          Inconclusive
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-muted-foreground uppercase text-[10px] font-bold">Investigator</div>
+                    <div className="font-semibold text-foreground mt-0.5">
+                      {activeReport?.investigatorName || selectedDetail.preparedBy || "Michael Sterling"}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {activeReport?.reviewDate || selectedDetail.incidentDate}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="text-muted-foreground uppercase text-[10px] font-bold">Footage Quality</div>
+                    <div className="font-semibold text-foreground mt-0.5">
+                      {activeReport?.footageQuality || "Clear"}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {activeReport?.hoursReviewed || "16:00 - 21:30 (5.5 hrs)"}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Financial discrepancy */}
+              {(activeReport?.discrepancyAmount || selectedDetail.title.includes("$")) && (
+                <div className="flex items-center gap-2 p-2.5 rounded-lg border border-rose-200 bg-rose-50/60 dark:bg-rose-950/20 text-rose-800 dark:text-rose-300">
+                  <DollarSign className="h-4 w-4 shrink-0" />
+                  <span>
+                    <strong>Verified Cash / Stock Discrepancy:</strong>{" "}
+                    {activeReport?.discrepancyAmount || "$340.00"}
+                  </span>
+                </div>
+              )}
+
+              {/* Identified persons */}
+              <div>
+                <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
+                  Identified Persons Involved
+                </div>
+                <div className="p-2.5 rounded-lg border bg-card text-foreground">
+                  {activeReport?.personsInvolved || "Cashier on Register #2, Customer at 20:28 transaction"}
+                </div>
+              </div>
+
+              {/* Detailed Findings */}
+              <div>
+                <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
+                  Video Chronology & Investigation Findings
+                </div>
+                <div className="p-3.5 rounded-lg border bg-card text-foreground leading-relaxed whitespace-pre-wrap text-xs">
+                  {activeReport?.findings ||
+                    "At 20:29:14, during a transaction reversal of $340, cashier opened cash drawer and removed three $100 bills and two $20 bills. Instead of placing currency into the register drop pouch or returning to customer, employee folded currency and tucked it under counter register tray. Cashier did not count drawer down with closing supervisor."}
+                </div>
+              </div>
+
+              {/* Recommendations */}
+              <div>
+                <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
+                  Investigative Recommendation
+                </div>
+                <div className="p-3 rounded-lg border bg-primary/5 text-foreground leading-relaxed text-xs">
+                  {activeReport?.recommendation ||
+                    "Recommend immediate formal interview by Loss Prevention and Market Management. Discrepancy matches the shortage report exactly."}
+                </div>
+              </div>
+
+              {/* Attachments */}
+              <div>
+                <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1.5 flex items-center gap-1.5">
+                  <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                  Evidence Attachments
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(activeReport?.attachments || [
+                    { id: "att-3", name: "POS2_CashDrawer_2029_Angle.jpg", size: 520400, type: "image/jpeg" },
+                    { id: "att-4", name: "Register2_Journal_Audit.pdf", size: 980000, type: "application/pdf" },
+                  ]).map((file) => (
+                    <div
+                      key={file.id}
+                      className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-1.5 text-xs font-medium"
+                    >
+                      <FileText className="h-4 w-4 text-primary" />
+                      <span>{file.name}</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        ({formatFileSize(file.size)})
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* APPROVAL / REJECTION & 5-STAR RATING CONTROLS */}
+              <div className="mt-4 border-t pt-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold text-foreground text-xs uppercase tracking-wider">
+                    Manager Review & Decision
+                  </div>
+                  {!userCanApprove && (
+                    <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 bg-amber-50">
+                      <Lock className="h-2.5 w-2.5 mr-1" /> View Only (District Manager)
+                    </Badge>
+                  )}
+                </div>
+
+                {userCanApprove ? (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-semibold">
+                        Manager Comments / Review Remarks
+                      </Label>
+                      <Textarea
+                        value={reportReviewComments}
+                        onChange={(e) => setReportReviewComments(e.target.value)}
+                        placeholder="Add review observations, feedback, or directives for this surveillance report..."
+                        rows={2}
+                      />
+                    </div>
+
+                    <div className="space-y-1.5 pt-1">
+                      <Label className="text-xs font-semibold">
+                        Rate Submitter's Investigation (Optional 5-Star Rating)
+                      </Label>
+                      <StarRating
+                        value={reportRating}
+                        onChange={(v) => setReportRating(v)}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="p-3 rounded-lg border bg-muted/30 text-xs text-muted-foreground">
+                    Only Market Managers, State Managers, and Admin can approve or reject reports and assign ratings. District Managers have view-only access.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <DialogFooter className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+              <Button variant="outline" onClick={() => setViewReportOpen(false)}>
+                Close
+              </Button>
+
+              {userCanApprove && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleRejectReport}
+                    className="text-xs"
+                  >
+                    <X className="h-4 w-4 mr-1" /> Reject Report
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                    onClick={handleApproveReport}
+                  >
+                    <Check className="h-4 w-4 mr-1" /> Approve Report
+                  </Button>
+                </div>
+              )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* APPROVE CONFIRMATION DIALOG (For Request requisition) */}
+        <AlertDialog open={Boolean(approveTarget)} onOpenChange={(open) => !open && setApproveTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Approve Surveillance Request?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Authorize store surveillance review for{" "}
+                <strong className="text-foreground">{approveTarget?.storeName}</strong> ({approveTarget?.id}).
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="py-2">
+              <Label className="text-xs font-semibold">Approval Remarks (Optional)</Label>
+              <Input
+                value={approvalNotes}
+                onChange={(e) => setApprovalNotes(e.target.value)}
+                placeholder="e.g. Authorized for priority review..."
+                className="mt-1.5"
+              />
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleApprove}
+                className="bg-emerald-600 text-white hover:bg-emerald-700"
+              >
+                Confirm Approval
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* REJECT CONFIRMATION DIALOG (For Request requisition) */}
+        <AlertDialog open={Boolean(rejectTarget)} onOpenChange={(open) => !open && setRejectTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Reject Surveillance Request</AlertDialogTitle>
+              <AlertDialogDescription>
+                Provide a reason for declining request{" "}
+                <strong className="text-foreground">{rejectTarget?.id}</strong>.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="py-2">
+              <Label className="text-xs font-semibold">
+                Rejection Reason <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="State why this surveillance cannot be authorized..."
+                rows={3}
+                className="mt-1.5"
+              />
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleReject}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Reject Request
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    );
+  }
+
+  // DEFAULT VIEW: "Reports" List Table View
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -469,19 +1207,19 @@ export default function ReportRequestsPage() {
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="font-display text-2xl font-semibold tracking-tight">
-              Report Requests
+              Reports
             </h1>
             <Badge variant="outline" className="border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">
               Surveillance
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Request store surveillance video reviews, track approval lifecycle, and coordinate with auditing teams.
+            Store surveillance reports and requests overview. Click any row to view full details.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Role switcher indicator for UI demonstration */}
+          {/* Active Role Selector for Testing Permissions */}
           <div className="flex items-center gap-2 rounded-lg border bg-card/60 p-1 px-2 text-xs">
             <span className="text-muted-foreground font-medium">Active Role:</span>
             <Select
@@ -589,13 +1327,13 @@ export default function ReportRequestsPage() {
         )}
       </div>
 
-      {/* Table */}
+      {/* Table: strictly 7 columns, no actions column, row click opens detail page */}
       <DataTable
         rows={filteredRequests}
         columns={columns}
         rowKey={(r) => r.id}
-        searchPlaceholder="Search by Store, Request ID, Requester, or Reason..."
-        onRowClick={(r) => setDetailTarget(r)}
+        searchPlaceholder="Search by Store, Market, Reason, or Requester..."
+        onRowClick={(r) => setSelectedDetail(r)}
       />
 
       {/* CREATE REQUEST DIALOG */}
@@ -757,223 +1495,6 @@ export default function ReportRequestsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* REQUEST DETAILS MODAL */}
-      <Dialog open={Boolean(detailTarget)} onOpenChange={(open) => !open && setDetailTarget(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          {detailTarget && (
-            <>
-              <DialogHeader>
-                <div className="flex items-center justify-between pr-6">
-                  <DialogTitle className="flex items-center gap-2 font-display text-lg">
-                    <span>Request Details</span>
-                    <Badge variant="outline" className="font-mono text-xs">
-                      {detailTarget.id}
-                    </Badge>
-                  </DialogTitle>
-                  <Badge variant="outline" className={STATUS_CONFIG[detailTarget.status]?.tone}>
-                    {STATUS_CONFIG[detailTarget.status]?.label}
-                  </Badge>
-                </div>
-                <DialogDescription>
-                  Review the store surveillance requisition and investigation parameters.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4 py-2 text-xs">
-                {/* Store Card */}
-                <Card className="p-3.5 bg-muted/30">
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <div>
-                      <div className="text-muted-foreground font-medium uppercase text-[10px]">Store</div>
-                      <div className="font-semibold text-foreground text-sm mt-0.5">{detailTarget.storeName}</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground font-medium uppercase text-[10px]">Market & District</div>
-                      <div className="font-semibold text-foreground mt-0.5">{detailTarget.marketName} • {detailTarget.districtName}</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground font-medium uppercase text-[10px]">Target Date</div>
-                      <div className="font-semibold text-foreground mt-0.5">{detailTarget.incidentDate}</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground font-medium uppercase text-[10px]">Priority</div>
-                      <Badge variant="outline" className={`mt-0.5 capitalize ${PRIORITY_TONES[detailTarget.priority]}`}>
-                        {detailTarget.priority}
-                      </Badge>
-                    </div>
-                  </div>
-                </Card>
-
-                {/* Details */}
-                <div className="space-y-2">
-                  <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">
-                    Incident Title & Scope
-                  </div>
-                  <div className="text-sm font-semibold text-foreground">
-                    {detailTarget.title}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    <strong>Investigation Type:</strong> {detailTarget.investigationType} • <strong>Shift Window:</strong> {detailTarget.shift}
-                  </div>
-                </div>
-
-                {detailTarget.notes && (
-                  <div className="rounded-md border bg-card p-3">
-                    <div className="text-[10px] uppercase font-bold text-muted-foreground mb-1">
-                      Requester Notes & Instructions
-                    </div>
-                    <p className="text-xs leading-relaxed text-foreground whitespace-pre-wrap">
-                      {detailTarget.notes}
-                    </p>
-                  </div>
-                )}
-
-                {/* Camera Areas */}
-                <div>
-                  <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-1.5">
-                    Designated Camera Angles
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {detailTarget.areasToReview.map((area) => (
-                      <Badge key={area} variant="outline" className="bg-muted text-xs font-normal">
-                        <Video className="h-3 w-3 mr-1 text-primary inline" />
-                        {area}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Audit & Workflow History */}
-                <Card className="p-3 border-border/80">
-                  <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider mb-2">
-                    Request Audit Trail
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                    <div>
-                      <span className="text-muted-foreground">Requested By:</span>
-                      <div className="font-medium">{detailTarget.requestedBy} ({detailTarget.requesterRole})</div>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Created:</span>
-                      <div className="font-medium">{new Date(detailTarget.createdAt).toLocaleDateString()}</div>
-                    </div>
-                    {detailTarget.approvedBy && (
-                      <div>
-                        <span className="text-muted-foreground">Approved By:</span>
-                        <div className="font-medium text-emerald-600">{detailTarget.approvedBy}</div>
-                      </div>
-                    )}
-                    {detailTarget.rejectionReason && (
-                      <div className="col-span-2 text-rose-600">
-                        <span className="font-bold">Rejection Reason:</span>
-                        <div>{detailTarget.rejectionReason}</div>
-                      </div>
-                    )}
-                  </div>
-                </Card>
-              </div>
-
-              <DialogFooter className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
-                <Button variant="outline" onClick={() => setDetailTarget(null)}>
-                  Close
-                </Button>
-
-                {detailTarget.status === "pending_approval" && userCanApprove && (
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => {
-                        setRejectTarget(detailTarget);
-                        setDetailTarget(null);
-                      }}
-                    >
-                      <X className="h-4 w-4 mr-1" /> Reject Request
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                      onClick={() => {
-                        setApproveTarget(detailTarget);
-                        setDetailTarget(null);
-                      }}
-                    >
-                      <Check className="h-4 w-4 mr-1" /> Approve Request
-                    </Button>
-                  </div>
-                )}
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* APPROVE CONFIRMATION DIALOG */}
-      <AlertDialog open={Boolean(approveTarget)} onOpenChange={(open) => !open && setApproveTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Approve Surveillance Request?</AlertDialogTitle>
-            <AlertDialogDescription>
-              You are authorizing store surveillance review for{" "}
-              <strong className="text-foreground">{approveTarget?.storeName}</strong> ({approveTarget?.id}).
-              Once approved, the investigation team can proceed with video audit submission.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="py-2">
-            <Label className="text-xs font-semibold">Approval Remarks (Optional)</Label>
-            <Input
-              value={approvalNotes}
-              onChange={(e) => setApprovalNotes(e.target.value)}
-              placeholder="e.g. Approved for expedited review..."
-              className="mt-1.5"
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleApprove}
-              className="bg-emerald-600 text-white hover:bg-emerald-700"
-            >
-              Confirm Approval
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* REJECT CONFIRMATION DIALOG */}
-      <AlertDialog open={Boolean(rejectTarget)} onOpenChange={(open) => !open && setRejectTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reject Surveillance Request</AlertDialogTitle>
-            <AlertDialogDescription>
-              Provide a reason for declining request{" "}
-              <strong className="text-foreground">{rejectTarget?.id}</strong>.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="py-2">
-            <Label className="text-xs font-semibold">
-              Rejection Reason <span className="text-destructive">*</span>
-            </Label>
-            <Textarea
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-              placeholder="State why this surveillance cannot be authorized or if information is missing..."
-              rows={3}
-              className="mt-1.5"
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleReject}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Reject Request
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

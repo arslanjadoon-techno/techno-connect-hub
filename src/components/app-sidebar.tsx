@@ -183,7 +183,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     title: "Surveillance",
     icon: Video,
     items: [
-      { title: "Report Requests", url: "/surveillance/requests", icon: ClipboardCheck },
+      { title: "Reports", url: "/surveillance/requests", icon: ClipboardCheck },
       { title: "Surveillance Reports", url: "/surveillance/reports", icon: Video },
     ],
   },

@@ -66,6 +66,20 @@ export class SurveillanceService {
   async submitReport(payload: CreateSurveillanceReportPayload) {
     return http.post<SurveillanceReport>("/api/surveillance/reports", payload);
   }
+
+  /**
+   * Review submitted report (Approve or Reject with comments and optional 5-star rating)
+   */
+  async reviewReport(
+    id: string | number,
+    payload: {
+      action: "approve" | "reject";
+      comments?: string;
+      rating?: number;
+    },
+  ) {
+    return http.post<SurveillanceReport>(`/api/surveillance/reports/${id}/review`, payload);
+  }
 }
 
 export const surveillanceService = new SurveillanceService();

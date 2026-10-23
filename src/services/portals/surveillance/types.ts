@@ -25,6 +25,8 @@ export interface SurveillanceRequest {
   requestedById: string;
   requesterRole: string;
   requesterEmail?: string;
+  requesterPhone?: string;
+  requesterDepartment?: string;
   areasToReview: string[];
   notes?: string;
   status: SurveillanceRequestStatus;
@@ -34,6 +36,22 @@ export interface SurveillanceRequest {
   approvedAt?: string;
   rejectionReason?: string;
   linkedReportId?: string;
+
+  // Prepared By / Submitter Details
+  preparedBy?: string;
+  preparedById?: string;
+  preparedByEmail?: string;
+  preparedByPhone?: string;
+  preparedByRole?: string;
+  preparedByDepartment?: string;
+  preparedAt?: string;
+
+  // Manager Review & Rating on Report
+  reportApprovedBy?: string;
+  reportApprovedAt?: string;
+  reportStatus?: "approved" | "rejected" | "pending_review";
+  managerRating?: number; // 1 to 5 stars (optional)
+  managerComments?: string;
 }
 
 export interface SurveillanceAttachment {
@@ -53,6 +71,9 @@ export interface SurveillanceReport {
   investigatorName: string;
   investigatorId: string;
   investigatorEmail?: string;
+  investigatorPhone?: string;
+  investigatorRole?: string;
+  investigatorDepartment?: string;
   reviewDate: string;
   hoursReviewed: string;
   camerasReviewed: string[];
@@ -64,7 +85,11 @@ export interface SurveillanceReport {
   recommendation: string;
   attachments?: SurveillanceAttachment[];
   submittedAt: string;
-  status: "submitted" | "under_review" | "closed";
+  status: "submitted" | "approved" | "rejected" | "under_review" | "closed";
+  managerRating?: number; // 1-5 optional
+  managerComments?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
 }
 
 export interface CreateSurveillanceRequestPayload {
