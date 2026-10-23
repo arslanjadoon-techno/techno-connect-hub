@@ -60,6 +60,57 @@ export interface SurveillanceAttachment {
   type: string;
 }
 
+export interface SurveillanceAuditRow {
+  id: string;
+  date: string;
+  storeName: string;
+  invoice: string;
+  cashTime: string;
+  time: string;
+  bdiTime: string;
+  salesRep: string;
+  transType: string;
+  nb: string; // "NB" or ""
+  b: string; // "B" or ""
+  invoiceAmount: string;
+  totalTaken: string;
+  cash: string;
+  card: string;
+  difference: string;
+  receipt: string; // "YES", "NO", or ""
+  splitPayments: string;
+  fraudTransactions: string;
+  refundInvoice: string;
+  missOpportunity: string;
+  paymentFraud: string;
+  aalSwap: string;
+  mim: string;
+  notes: string;
+  pitchNb: string;
+  pitchQuality: string;
+  pitchNotes: string;
+  showingPhone: string;
+  accOffered: string;
+  maximize: string;
+  flipping: string;
+  bundleNb: string;
+  bundleStartB: string;
+  bundleEndB: string;
+  bundleAccGiven: string;
+  portIn: string;
+  nonUp: string;
+  smartPayMentioned: string;
+  aalBillSame: string;
+  onlineRejectedPayment: string;
+  nameOfRepLeaving: string;
+  timeLeft: string;
+  timeReturned: string;
+  backRoomTimeIn: string;
+  backRoomTimeOut: string;
+  offline: string;
+  rowHighlight?: "opening" | "amber" | "green" | "violation";
+}
+
 export interface SurveillanceReport {
   id: string;
   requestId: string;
@@ -72,7 +123,10 @@ export interface SurveillanceReport {
   submittedAt: string;
   status: "Report Received" | "Approved" | "Rejected";
 
-  // Specific Surveillance Audit Form Attributes
+  // Multi-row Surveillance Audit Log Entries
+  rows?: SurveillanceAuditRow[];
+
+  // Summary / Primary Audit Form Attributes
   date: string;
   storeName: string;
   invoiceNo: string;
@@ -96,7 +150,7 @@ export interface SurveillanceReport {
   mim: "Yes" | "No" | string;
   notes: string;
   pitchNb: string;
-  pitchQuality: "Good" | "Fair" | "Poor" | "Not Observed";
+  pitchQuality: "Good" | "Fair" | "Poor" | "Not Observed" | "AVG" | string;
   pitchNotes: string;
   showingPhone: "Yes" | "No";
   accOffered: "Yes" | "No";
@@ -145,6 +199,7 @@ export interface CreateSurveillanceRequestPayload {
 
 export interface CreateSurveillanceReportPayload {
   requestId: string;
+  rows?: SurveillanceAuditRow[];
   date: string;
   storeName: string;
   invoiceNo: string;
@@ -168,7 +223,7 @@ export interface CreateSurveillanceReportPayload {
   mim: "Yes" | "No" | string;
   notes: string;
   pitchNb: string;
-  pitchQuality: "Good" | "Fair" | "Poor" | "Not Observed";
+  pitchQuality: "Good" | "Fair" | "Poor" | "Not Observed" | "AVG" | string;
   pitchNotes: string;
   showingPhone: "Yes" | "No";
   accOffered: "Yes" | "No";

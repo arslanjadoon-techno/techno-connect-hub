@@ -49,11 +49,13 @@ import {
   INITIAL_SURVEILLANCE_REPORTS,
 } from "./surveillance-data";
 import {
+  surveillanceService,
   type SurveillanceReport,
   type SurveillanceRequest,
   type SurveillanceAttachment,
+  type SurveillanceAuditRow,
   type SurveillanceRole,
-} from "@/services/portals/surveillance/types";
+} from "@/services/portals/surveillance";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -126,10 +128,8 @@ export default function SurveillanceReportsPage() {
   const [formOffline, setFormOffline] = useState<"Yes" | "No">("No");
 
   const [attachments, setAttachments] = useState<SurveillanceAttachment[]>([]);
+  const [queuedRows, setQueuedRows] = useState<SurveillanceAuditRow[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Detail Modal state
-  const [detailTarget, setDetailTarget] = useState<SurveillanceReport | null>(null);
 
   // Selectable requests
   const eligibleRequests = useMemo(() => {
@@ -190,7 +190,80 @@ export default function SurveillanceReportsPage() {
     setFormBackRoomTimeOut("");
     setFormOffline("No");
     setAttachments([]);
+    setQueuedRows([]);
     setCreateModalOpen(true);
+  };
+
+  const buildCurrentAuditRow = (storeFallback: string): SurveillanceAuditRow => {
+    const isBillable = formClientType === "Billable";
+    const yesNo = (v: string) => (v.toLowerCase() === "yes" ? "YES" : v.toLowerCase() === "no" ? "NO" : v);
+
+    return {
+      id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      date: formDate,
+      storeName: formStoreName || storeFallback,
+      invoice: formInvoiceNo.trim(),
+      cashTime: formCashTime,
+      time: formTime,
+      bdiTime: formBdiTime,
+      salesRep: formSalesRep.trim(),
+      transType: formTransType,
+      nb: isBillable ? "" : "NB",
+      b: isBillable ? "B" : "",
+      invoiceAmount: formInvoiceAmount,
+      totalTaken: formTotalTaken,
+      cash: formPaymentMode === "Cash" ? formTotalTaken : "",
+      card: formPaymentMode === "Card" ? formTotalTaken : "",
+      difference: formDifference || "$0.00",
+      receipt: yesNo(formReceipt),
+      splitPayments: formSplitPayments === "Yes" ? "YES" : "",
+      fraudTransactions: formFraudTransactions === "Yes" ? "YES" : "",
+      refundInvoice: formRefundInvoice === "Yes" ? "YES" : "",
+      missOpportunity: formMissOpportunity === "Yes" ? "YES" : "",
+      paymentFraud: formPaymentFraud === "Yes" ? "YES" : "",
+      aalSwap: formAalSwap === "Yes" ? "YES" : "",
+      mim: formMim === "Yes" ? "YES" : "",
+      notes: formNotes.trim(),
+      pitchNb: formPitchNb.toLowerCase() === "yes" ? "YES" : formPitchNb,
+      pitchQuality: formPitchQuality === "Not Observed" ? "" : formPitchQuality.toUpperCase(),
+      pitchNotes: formPitchNotes.trim(),
+      showingPhone: formShowingPhone === "Yes" ? "YES" : "",
+      accOffered: formAccOffered === "Yes" ? "YES" : "",
+      maximize: formMaximize === "Yes" ? "YES" : "",
+      flipping: formFlipping === "Yes" ? "YES" : "",
+      bundleNb: formBundleNb !== "None" ? formBundleNb : "",
+      bundleStartB: formBundleStartB,
+      bundleEndB: formBundleEndB,
+      bundleAccGiven: formBundleAccGiven === "Yes" ? "YES" : "",
+      portIn: formPortIn === "Yes" ? "YES" : "",
+      nonUp: formNonUp === "Yes" ? "YES" : "",
+      smartPayMentioned: formSmartPayMentioned === "Yes" ? "YES" : "",
+      aalBillSame: formAalBillSame === "Yes" ? "YES" : "",
+      onlineRejectedPayment: formOnlineRejectedPayment === "Yes" ? "YES" : "",
+      nameOfRepLeaving: formNameOfRepLeaving !== "None" ? formNameOfRepLeaving.trim() : "",
+      timeLeft: formTimeLeft,
+      timeReturned: formTimeReturned,
+      backRoomTimeIn: formBackRoomTimeIn,
+      backRoomTimeOut: formBackRoomTimeOut,
+      offline: formOffline === "Yes" ? "YES" : "",
+      rowHighlight:
+        formFraudTransactions === "Yes" || formPaymentFraud === "Yes"
+          ? "violation"
+          : undefined,
+    };
+  };
+
+  const handleAddRowToDraft = () => {
+    if (!formSalesRep.trim()) {
+      toast.error("Please enter the sales representative name before adding a row.");
+      return;
+    }
+    const req = requests.find((r) => r.id === selectedRequestId);
+    const nextRow = buildCurrentAuditRow(req?.storeName || "Store Location");
+    setQueuedRows((prev) => [...prev, nextRow]);
+    setFormInvoiceNo(`INV-${Math.floor(70000 + Math.random() * 20000)}`);
+    setFormNotes("");
+    toast.success(`Row #${queuedRows.length + 1} added to audit report.`);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -206,41 +279,41 @@ export default function SurveillanceReportsPage() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleSubmitReport = () => {
+  const handleSubmitReport = async () => {
     if (!selectedRequestId) {
       toast.error("Please select an approved request to conduct surveillance against.");
       return;
     }
-    if (!formInvoiceNo.trim()) {
-      toast.error("Please enter the invoice number.");
-      return;
-    }
-    if (!formSalesRep.trim()) {
-      toast.error("Please enter the sales representative name.");
+    if (queuedRows.length === 0 && !formSalesRep.trim()) {
+      toast.error("Please enter the sales representative name or add at least one audit row.");
       return;
     }
 
     const req = requests.find((r) => r.id === selectedRequestId);
     const newReportId = `SRV-REP-${Math.floor(203 + reports.length)}`;
 
-    const newReport: SurveillanceReport = {
-      id: newReportId,
-      requestId: selectedRequestId,
-      investigatorName: user?.fullName || "Alex Rivera",
-      investigatorId: user?.id || "u-1",
-      investigatorEmail: user?.email || "alex.rivera@techno.com",
-      submittedAt: new Date().toISOString(),
-      status: "Report Received",
+    const finalRows: SurveillanceAuditRow[] =
+      formSalesRep.trim() && (queuedRows.length === 0 || formInvoiceNo.trim())
+        ? [...queuedRows, buildCurrentAuditRow(req?.storeName || "Store Location")]
+        : queuedRows;
 
-      // 44 Form Attributes
+    const payload = {
+      requestId: selectedRequestId,
+      rows: finalRows,
       date: formDate,
       storeName: formStoreName || req?.storeName || "Store Location",
-      invoiceNo: formInvoiceNo.trim(),
+      invoiceNo:
+        finalRows.length > 1
+          ? `${finalRows[0].invoice || "Start"} (${finalRows.length} Rows)`
+          : formInvoiceNo.trim() || "N/A",
       cashTime: formCashTime,
       time: formTime,
       bdiTime: formBdiTime,
-      salesRep: formSalesRep.trim(),
-      transType: formTransType,
+      salesRep: formSalesRep.trim() || finalRows[0]?.salesRep || "Sales Rep",
+      transType:
+        finalRows.length > 1
+          ? `Shift Audit (${finalRows.length} Entries)`
+          : formTransType,
       clientType: formClientType,
       invoiceAmount: formInvoiceAmount,
       totalTaken: formTotalTaken,
@@ -277,13 +350,28 @@ export default function SurveillanceReportsPage() {
       backRoomTimeIn: formBackRoomTimeIn,
       backRoomTimeOut: formBackRoomTimeOut,
       offline: formOffline,
-
       attachments: attachments.length > 0 ? attachments : undefined,
     };
 
+    try {
+      await surveillanceService.submitReport(payload);
+    } catch {
+      // Fallback to local state persistence in preview mode
+    }
+
+    const newReport: SurveillanceReport = {
+      id: newReportId,
+      investigatorName: user?.fullName || "Alex Rivera",
+      investigatorId: String(user?.id || "u-1"),
+      investigatorEmail: user?.email || "alex.rivera@techno.com",
+      submittedAt: new Date().toISOString(),
+      status: "Report Received",
+      ...payload,
+    };
+
+    INITIAL_SURVEILLANCE_REPORTS.unshift(newReport);
     setReports((prev) => [newReport, ...prev]);
 
-    // Update request status locally to Report Received
     if (req) {
       req.status = "Report Received";
       req.linkedReportId = newReportId;
@@ -291,7 +379,7 @@ export default function SurveillanceReportsPage() {
       req.preparedAt = new Date().toISOString();
     }
 
-    toast.success("Surveillance audit report submitted successfully!");
+    toast.success(`Surveillance audit report (${finalRows.length} rows) submitted successfully.`);
     setCreateModalOpen(false);
   };
 
@@ -971,13 +1059,70 @@ export default function SurveillanceReportsPage() {
                 </div>
               )}
             </div>
+            {/* Queued Audit Rows Preview */}
+            {queuedRows.length > 0 && (
+              <div className="space-y-2 rounded-lg border border-amber-300/70 bg-amber-50/40 dark:bg-amber-950/20 p-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-foreground">
+                    Added Audit Rows ({queuedRows.length})
+                  </span>
+                </div>
+                <div className="overflow-x-auto rounded border bg-background">
+                  <table className="w-full text-[11px] border-collapse">
+                    <thead>
+                      <tr className="bg-amber-500 text-slate-950 font-bold">
+                        <th className="px-2 py-1.5 text-left border-r border-slate-700/25">#</th>
+                        <th className="px-2 py-1.5 text-left border-r border-slate-700/25">Time</th>
+                        <th className="px-2 py-1.5 text-left border-r border-slate-700/25">Invoice</th>
+                        <th className="px-2 py-1.5 text-left border-r border-slate-700/25">Sales Rep</th>
+                        <th className="px-2 py-1.5 text-left border-r border-slate-700/25">Trans/Type</th>
+                        <th className="px-2 py-1.5 text-right border-r border-slate-700/25">Amount</th>
+                        <th className="px-2 py-1.5 text-center">Remove</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {queuedRows.map((qr, i) => (
+                        <tr key={qr.id} className="border-t">
+                          <td className="px-2 py-1 font-mono">{i + 1}</td>
+                          <td className="px-2 py-1 font-mono">{qr.time}</td>
+                          <td className="px-2 py-1 font-mono">{qr.invoice || "—"}</td>
+                          <td className="px-2 py-1">{qr.salesRep}</td>
+                          <td className="px-2 py-1">{qr.transType}</td>
+                          <td className="px-2 py-1 text-right font-mono">{qr.invoiceAmount}</td>
+                          <td className="px-2 py-1 text-center">
+                            <button
+                              type="button"
+                              onClick={() => setQueuedRows((prev) => prev.filter((_, idx) => idx !== i))}
+                              className="text-muted-foreground hover:text-destructive p-0.5"
+                            >
+                              <X className="h-3.5 w-3.5 inline" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
 
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setCreateModalOpen(false)}>
-              Cancel
+          <DialogFooter className="mt-4 flex flex-col sm:flex-row sm:justify-between gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={handleAddRowToDraft}
+              className="gap-1.5"
+            >
+              <Plus className="h-4 w-4" />
+              Add Row to Audit Table
             </Button>
-            <Button onClick={handleSubmitReport}>Submit Surveillance Report</Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setCreateModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSubmitReport}>Submit Surveillance Report</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
