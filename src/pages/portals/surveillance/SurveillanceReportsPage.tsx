@@ -25,9 +25,7 @@ import {
 import {
   Plus,
   Eye,
-  Video,
   Store as StoreIcon,
-  Clock,
   Printer,
   FileText,
   Paperclip,
@@ -36,10 +34,13 @@ import {
   HelpCircle,
   Image as ImageIcon,
   DollarSign,
-  User as UserIcon,
   UploadCloud,
   X,
   RotateCcw,
+  ShoppingBag,
+  ShieldAlert,
+  UserCheck,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -47,7 +48,6 @@ import {
   INITIAL_SURVEILLANCE_REPORTS,
 } from "./surveillance-data";
 import {
-  getSurveillanceRole,
   type SurveillanceReport,
   type SurveillanceRequest,
   type SurveillanceAttachment,
@@ -62,7 +62,6 @@ function formatFileSize(bytes: number): string {
 
 export default function SurveillanceReportsPage() {
   const { user } = useAuth();
-  const detectedRole = useMemo(() => getSurveillanceRole(user), [user]);
 
   // View as is restricted strictly to User as per specifications
   const [activeRole] = useState<SurveillanceRole>("user");
@@ -71,30 +70,69 @@ export default function SurveillanceReportsPage() {
   const [reports, setReports] = useState<SurveillanceReport[]>(INITIAL_SURVEILLANCE_REPORTS);
 
   // Filter states
-  const [confirmedFilter, setConfirmedFilter] = useState<string>("all");
-  const [qualityFilter, setQualityFilter] = useState<string>("all");
+  const [paymentModeFilter, setPaymentModeFilter] = useState<string>("all");
+  const [fraudFilter, setFraudFilter] = useState<string>("all");
 
   // Create Report Modal state
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [selectedRequestId, setSelectedRequestId] = useState<string>("");
-  const [reviewDate, setReviewDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [hoursReviewed, setHoursReviewed] = useState("16:00 - 20:30 (4.5 hrs)");
-  const [footageQuality, setFootageQuality] = useState<SurveillanceReport["footageQuality"]>("Clear");
-  const [incidentConfirmed, setIncidentConfirmed] = useState<SurveillanceReport["incidentConfirmed"]>("Yes");
-  const [discrepancyAmount, setDiscrepancyAmount] = useState("$340.00");
-  const [personsInvolved, setPersonsInvolved] = useState("");
-  const [findings, setFindings] = useState("");
-  const [recommendation, setRecommendation] = useState("");
+
+  // All 44 Surveillance Retail Audit Form Fields
+  const [formDate, setFormDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [formStoreName, setFormStoreName] = useState("");
+  const [formInvoiceNo, setFormInvoiceNo] = useState("");
+  const [formCashTime, setFormCashTime] = useState("");
+  const [formTime, setFormTime] = useState("");
+  const [formBdiTime, setFormBdiTime] = useState("");
+  const [formSalesRep, setFormSalesRep] = useState("");
+  const [formTransType, setFormTransType] = useState("New Activation");
+  const [formClientType, setFormClientType] = useState<"Billable" | "Non Billable">("Billable");
+  const [formInvoiceAmount, setFormInvoiceAmount] = useState("$0.00");
+  const [formTotalTaken, setFormTotalTaken] = useState("$0.00");
+  const [formPaymentMode, setFormPaymentMode] = useState<"Cash" | "Card" | "Split">("Card");
+  const [formDifference, setFormDifference] = useState("$0.00");
+  const [formReceipt, setFormReceipt] = useState<"Yes" | "No">("Yes");
+  const [formSplitPayments, setFormSplitPayments] = useState<"Yes" | "No">("No");
+  const [formFraudTransactions, setFormFraudTransactions] = useState<"Yes" | "No">("No");
+  const [formRefundInvoice, setFormRefundInvoice] = useState<"Yes" | "No">("No");
+  const [formMissOpportunity, setFormMissOpportunity] = useState<"Yes" | "No">("No");
+  const [formPaymentFraud, setFormPaymentFraud] = useState<"Yes" | "No">("No");
+  const [formAalSwap, setFormAalSwap] = useState<"Yes" | "No">("No");
+  const [formMim, setFormMim] = useState<"Yes" | "No">("Yes");
+  const [formNotes, setFormNotes] = useState("");
+  const [formPitchNb, setFormPitchNb] = useState("Yes");
+  const [formPitchQuality, setFormPitchQuality] = useState<"Good" | "Fair" | "Poor" | "Not Observed">("Good");
+  const [formPitchNotes, setFormPitchNotes] = useState("");
+  const [formShowingPhone, setFormShowingPhone] = useState<"Yes" | "No">("Yes");
+  const [formAccOffered, setFormAccOffered] = useState<"Yes" | "No">("Yes");
+  const [formMaximize, setFormMaximize] = useState<"Yes" | "No">("Yes");
+  const [formFlipping, setFormFlipping] = useState<"Yes" | "No">("No");
+  const [formBundleNb, setFormBundleNb] = useState("Standard Bundle");
+  const [formBundleStartB, setFormBundleStartB] = useState("Screen Protector");
+  const [formBundleEndB, setFormBundleEndB] = useState("Fast Charger");
+  const [formBundleAccGiven, setFormBundleAccGiven] = useState<"Yes" | "No">("Yes");
+  const [formPortIn, setFormPortIn] = useState<"Yes" | "No">("No");
+  const [formNonUp, setFormNonUp] = useState<"Yes" | "No">("No");
+  const [formSmartPayMentioned, setFormSmartPayMentioned] = useState<"Yes" | "No">("Yes");
+  const [formAalBillSame, setFormAalBillSame] = useState<"Yes" | "No">("Yes");
+  const [formOnlineRejectedPayment, setFormOnlineRejectedPayment] = useState<"Yes" | "No">("No");
+  const [formNameOfRepLeaving, setFormNameOfRepLeaving] = useState("");
+  const [formTimeLeft, setFormTimeLeft] = useState("");
+  const [formTimeReturned, setFormTimeReturned] = useState("");
+  const [formBackRoomTimeIn, setFormBackRoomTimeIn] = useState("");
+  const [formBackRoomTimeOut, setFormBackRoomTimeOut] = useState("");
+  const [formOffline, setFormOffline] = useState<"Yes" | "No">("No");
+
   const [attachments, setAttachments] = useState<SurveillanceAttachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Detail Modal state
   const [detailTarget, setDetailTarget] = useState<SurveillanceReport | null>(null);
 
-  // Approved requests available for report creation
+  // Selectable requests
   const eligibleRequests = useMemo(() => {
     return requests.filter(
-      (r) => r.status === "approved" || r.status === "in_progress",
+      (r) => r.status === "Approved" || r.status === "Report Requested",
     );
   }, [requests]);
 
@@ -103,19 +141,52 @@ export default function SurveillanceReportsPage() {
   }, [requests, selectedRequestId]);
 
   const handleOpenCreate = () => {
-    if (eligibleRequests.length > 0) {
-      setSelectedRequestId(eligibleRequests[0].id);
-    } else {
-      setSelectedRequestId(requests[0]?.id || "");
-    }
-    setReviewDate(new Date().toISOString().split("T")[0]);
-    setHoursReviewed("14:00 - 18:30 (4.5 hrs)");
-    setFootageQuality("Clear");
-    setIncidentConfirmed("Yes");
-    setDiscrepancyAmount("");
-    setPersonsInvolved("");
-    setFindings("");
-    setRecommendation("");
+    const targetReq = eligibleRequests[0] || requests[0];
+    setSelectedRequestId(targetReq ? targetReq.id : "");
+    setFormDate(new Date().toISOString().split("T")[0]);
+    setFormStoreName(targetReq ? targetReq.storeName : "Store #101 - Uptown Dallas");
+    setFormInvoiceNo(`INV-${Math.floor(70000 + Math.random() * 20000)}`);
+    setFormCashTime("14:15");
+    setFormTime("14:20");
+    setFormBdiTime("14:25");
+    setFormSalesRep("Marcus Young");
+    setFormTransType("New Activation & Accessory Bundle");
+    setFormClientType("Billable");
+    setFormInvoiceAmount("$350.00");
+    setFormTotalTaken("$350.00");
+    setFormPaymentMode("Card");
+    setFormDifference("$0.00");
+    setFormReceipt("Yes");
+    setFormSplitPayments("No");
+    setFormFraudTransactions("No");
+    setFormRefundInvoice("No");
+    setFormMissOpportunity("No");
+    setFormPaymentFraud("No");
+    setFormAalSwap("No");
+    setFormMim("Yes");
+    setFormNotes("");
+    setFormPitchNb("Yes");
+    setFormPitchQuality("Good");
+    setFormPitchNotes("Rep offered phone protection and tempered glass.");
+    setFormShowingPhone("Yes");
+    setFormAccOffered("Yes");
+    setFormMaximize("Yes");
+    setFormFlipping("No");
+    setFormBundleNb("Complete 2-Acc Bundle");
+    setFormBundleStartB("Case");
+    setFormBundleEndB("Charger");
+    setFormBundleAccGiven("Yes");
+    setFormPortIn("No");
+    setFormNonUp("No");
+    setFormSmartPayMentioned("Yes");
+    setFormAalBillSame("Yes");
+    setFormOnlineRejectedPayment("No");
+    setFormNameOfRepLeaving("None");
+    setFormTimeLeft("");
+    setFormTimeReturned("");
+    setFormBackRoomTimeIn("");
+    setFormBackRoomTimeOut("");
+    setFormOffline("No");
     setAttachments([]);
     setCreateModalOpen(true);
   };
@@ -138,64 +209,104 @@ export default function SurveillanceReportsPage() {
       toast.error("Please select an approved request to conduct surveillance against.");
       return;
     }
-    if (!findings.trim()) {
-      toast.error("Please provide investigation findings and observations.");
+    if (!formInvoiceNo.trim()) {
+      toast.error("Please enter the invoice number.");
       return;
     }
-    if (!recommendation.trim()) {
-      toast.error("Please provide a concluding recommendation.");
+    if (!formSalesRep.trim()) {
+      toast.error("Please enter the sales representative name.");
       return;
     }
 
     const req = requests.find((r) => r.id === selectedRequestId);
-    const newReportId = `SRV-REP-${Math.floor(202 + reports.length)}`;
+    const newReportId = `SRV-REP-${Math.floor(203 + reports.length)}`;
 
     const newReport: SurveillanceReport = {
       id: newReportId,
       requestId: selectedRequestId,
-      storeName: req?.storeName || "Store Location",
-      storeNumber: req?.storeNumber,
-      marketName: req?.marketName || "Market",
-      incidentDate: req?.incidentDate || reviewDate,
       investigatorName: user?.fullName || "Alex Rivera",
       investigatorId: user?.id || "u-1",
-      investigatorEmail: user?.email,
-      reviewDate,
-      hoursReviewed,
-      camerasReviewed: req?.areasToReview || ["POS 1 Register", "Customer Entrance"],
-      footageQuality,
-      incidentConfirmed,
-      discrepancyAmount: discrepancyAmount.trim() || undefined,
-      personsInvolved: personsInvolved.trim() || undefined,
-      findings: findings.trim(),
-      recommendation: recommendation.trim(),
-      attachments: attachments.length > 0 ? attachments : undefined,
+      investigatorEmail: user?.email || "alex.rivera@techno.com",
       submittedAt: new Date().toISOString(),
-      status: "submitted",
+      status: "Report Received",
+
+      // 44 Form Attributes
+      date: formDate,
+      storeName: formStoreName || req?.storeName || "Store Location",
+      invoiceNo: formInvoiceNo.trim(),
+      cashTime: formCashTime,
+      time: formTime,
+      bdiTime: formBdiTime,
+      salesRep: formSalesRep.trim(),
+      transType: formTransType,
+      clientType: formClientType,
+      invoiceAmount: formInvoiceAmount,
+      totalTaken: formTotalTaken,
+      paymentMode: formPaymentMode,
+      difference: formDifference,
+      receipt: formReceipt,
+      splitPayments: formSplitPayments,
+      fraudTransactions: formFraudTransactions,
+      refundInvoice: formRefundInvoice,
+      missOpportunity: formMissOpportunity,
+      paymentFraud: formPaymentFraud,
+      aalSwap: formAalSwap,
+      mim: formMim,
+      notes: formNotes.trim(),
+      pitchNb: formPitchNb,
+      pitchQuality: formPitchQuality,
+      pitchNotes: formPitchNotes.trim(),
+      showingPhone: formShowingPhone,
+      accOffered: formAccOffered,
+      maximize: formMaximize,
+      flipping: formFlipping,
+      bundleNb: formBundleNb,
+      bundleStartB: formBundleStartB,
+      bundleEndB: formBundleEndB,
+      bundleAccGiven: formBundleAccGiven,
+      portIn: formPortIn,
+      nonUp: formNonUp,
+      smartPayMentioned: formSmartPayMentioned,
+      aalBillSame: formAalBillSame,
+      onlineRejectedPayment: formOnlineRejectedPayment,
+      nameOfRepLeaving: formNameOfRepLeaving.trim(),
+      timeLeft: formTimeLeft,
+      timeReturned: formTimeReturned,
+      backRoomTimeIn: formBackRoomTimeIn,
+      backRoomTimeOut: formBackRoomTimeOut,
+      offline: formOffline,
+
+      attachments: attachments.length > 0 ? attachments : undefined,
     };
 
     setReports((prev) => [newReport, ...prev]);
 
-    // Also update request status locally
+    // Update request status locally to Report Received
     if (req) {
-      req.status = "report_submitted";
+      req.status = "Report Received";
       req.linkedReportId = newReportId;
+      req.preparedBy = user?.fullName || "Alex Rivera";
+      req.preparedAt = new Date().toISOString();
     }
 
-    toast.success("Surveillance report submitted successfully!");
+    toast.success("Surveillance audit report submitted successfully!");
     setCreateModalOpen(false);
   };
 
   // Filtered reports
   const filteredReports = useMemo(() => {
     return reports.filter((rep) => {
-      if (confirmedFilter !== "all" && rep.incidentConfirmed !== confirmedFilter) return false;
-      if (qualityFilter !== "all" && rep.footageQuality !== qualityFilter) return false;
+      if (paymentModeFilter !== "all" && rep.paymentMode !== paymentModeFilter) return false;
+      if (fraudFilter !== "all") {
+        const isFraud = rep.fraudTransactions === "Yes" || rep.paymentFraud === "Yes";
+        if (fraudFilter === "yes" && !isFraud) return false;
+        if (fraudFilter === "no" && isFraud) return false;
+      }
       return true;
     });
-  }, [reports, confirmedFilter, qualityFilter]);
+  }, [reports, paymentModeFilter, fraudFilter]);
 
-  // Columns definition
+  // Columns definition (Single information per column)
   const columns: Column<SurveillanceReport>[] = useMemo(
     () => [
       {
@@ -207,81 +318,80 @@ export default function SurveillanceReportsPage() {
         ),
       },
       {
-        key: "request",
-        header: "Request & Store",
-        searchValue: (r) => `${r.requestId} ${r.storeName} ${r.marketName}`,
+        key: "store",
+        header: "Store",
+        searchValue: (r) => r.storeName,
         accessor: (r) => (
-          <div>
-            <div className="font-medium text-foreground text-sm flex items-center gap-1.5">
-              <StoreIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              {r.storeName}
-            </div>
-            <div className="text-xs text-muted-foreground mt-0.5">
-              Ref: <span className="font-mono font-medium text-primary">{r.requestId}</span> • {r.marketName}
-            </div>
-          </div>
+          <span className="font-medium text-foreground text-sm">{r.storeName}</span>
         ),
       },
       {
-        key: "confirmed",
-        header: "Incident Confirmed?",
-        searchValue: (r) => r.incidentConfirmed,
+        key: "invoice",
+        header: "Invoice No",
+        searchValue: (r) => r.invoiceNo,
+        accessor: (r) => (
+          <span className="font-mono text-xs font-medium text-foreground">{r.invoiceNo}</span>
+        ),
+      },
+      {
+        key: "salesRep",
+        header: "Sales Rep",
+        searchValue: (r) => r.salesRep,
+        accessor: (r) => (
+          <span className="text-foreground text-sm">{r.salesRep}</span>
+        ),
+      },
+      {
+        key: "amount",
+        header: "Invoice Amount",
+        searchValue: (r) => r.invoiceAmount,
+        accessor: (r) => (
+          <span className="font-semibold text-foreground text-xs">{r.invoiceAmount}</span>
+        ),
+      },
+      {
+        key: "difference",
+        header: "Difference",
+        searchValue: (r) => r.difference,
+        accessor: (r) => (
+          <span className={`font-semibold text-xs ${r.difference !== "$0.00" && r.difference !== "0" ? "text-rose-600" : "text-emerald-600"}`}>
+            {r.difference}
+          </span>
+        ),
+      },
+      {
+        key: "fraud",
+        header: "Fraud / Violations",
+        searchValue: (r) => `${r.fraudTransactions} ${r.paymentFraud}`,
         accessor: (r) => {
-          if (r.incidentConfirmed === "Yes") {
-            return (
-              <Badge className="bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 gap-1 text-xs font-semibold">
-                <CheckCircle2 className="h-3 w-3" /> Yes
-              </Badge>
-            );
-          }
-          if (r.incidentConfirmed === "No") {
-            return (
-              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 gap-1 text-xs font-semibold">
-                <XCircle className="h-3 w-3" /> No Violation
-              </Badge>
-            );
-          }
-          return (
-            <Badge className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 gap-1 text-xs font-semibold">
-              <HelpCircle className="h-3 w-3" /> Inconclusive
+          const hasViolation = r.fraudTransactions === "Yes" || r.paymentFraud === "Yes";
+          return hasViolation ? (
+            <Badge variant="destructive" className="text-[10px]">
+              Violation Detected
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-[10px] text-emerald-700 border-emerald-300">
+              Clear
             </Badge>
           );
         },
       },
       {
-        key: "findings",
-        header: "Key Findings",
-        searchValue: (r) => r.findings,
+        key: "status",
+        header: "Status",
+        searchValue: (r) => r.status,
         accessor: (r) => (
-          <div className="max-w-xs sm:max-w-md">
-            <p className="line-clamp-2 text-xs text-foreground leading-relaxed">{r.findings}</p>
-            {r.discrepancyAmount && (
-              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-rose-600 mt-1">
-                <DollarSign className="h-3 w-3" /> Discrepancy: {r.discrepancyAmount}
-              </span>
-            )}
-          </div>
-        ),
-      },
-      {
-        key: "investigator",
-        header: "Auditor / User",
-        searchValue: (r) => r.investigatorName,
-        accessor: (r) => (
-          <div className="text-xs">
-            <div className="font-medium text-foreground">{r.investigatorName}</div>
-            <div className="text-muted-foreground">{new Date(r.submittedAt).toLocaleDateString()}</div>
-          </div>
-        ),
-      },
-      {
-        key: "footageQuality",
-        header: "Footage Quality",
-        searchValue: (r) => r.footageQuality,
-        accessor: (r) => (
-          <Badge variant="outline" className="text-xs font-normal">
-            <Video className="h-3 w-3 mr-1 text-primary inline" />
-            {r.footageQuality}
+          <Badge
+            variant="outline"
+            className={`text-xs font-semibold ${
+              r.status === "Approved"
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                : r.status === "Rejected"
+                  ? "bg-rose-50 text-rose-700 border-rose-200"
+                  : "bg-sky-50 text-sky-700 border-sky-200"
+            }`}
+          >
+            {r.status}
           </Badge>
         ),
       },
@@ -323,7 +433,7 @@ export default function SurveillanceReportsPage() {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Compile and submit detailed video reviews against authorized requests, document violations, and attach evidence.
+            Submit full surveillance audits, document transactions, compliance, and pitch quality.
           </p>
         </div>
 
@@ -351,38 +461,36 @@ export default function SurveillanceReportsPage() {
 
       {/* Toolbar filters */}
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={confirmedFilter} onValueChange={setConfirmedFilter}>
-          <SelectTrigger className="h-9 w-[180px]">
-            <SelectValue placeholder="Incident Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Incident Statuses</SelectItem>
-            <SelectItem value="Yes">Confirmed Violation (Yes)</SelectItem>
-            <SelectItem value="No">No Violation (No)</SelectItem>
-            <SelectItem value="Inconclusive">Inconclusive</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={qualityFilter} onValueChange={setQualityFilter}>
+        <Select value={paymentModeFilter} onValueChange={setPaymentModeFilter}>
           <SelectTrigger className="h-9 w-[170px]">
-            <SelectValue placeholder="Footage Quality" />
+            <SelectValue placeholder="Payment Mode" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Footage Qualities</SelectItem>
-            <SelectItem value="Clear">Clear</SelectItem>
-            <SelectItem value="Partially Obstructed">Partially Obstructed</SelectItem>
-            <SelectItem value="Poor / Glitchy">Poor / Glitchy</SelectItem>
-            <SelectItem value="No Coverage">No Coverage</SelectItem>
+            <SelectItem value="all">All Payment Modes</SelectItem>
+            <SelectItem value="Card">Card</SelectItem>
+            <SelectItem value="Cash">Cash</SelectItem>
+            <SelectItem value="Split">Split</SelectItem>
           </SelectContent>
         </Select>
 
-        {(confirmedFilter !== "all" || qualityFilter !== "all") && (
+        <Select value={fraudFilter} onValueChange={setFraudFilter}>
+          <SelectTrigger className="h-9 w-[170px]">
+            <SelectValue placeholder="Fraud Verification" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Audits</SelectItem>
+            <SelectItem value="yes">Violations Detected</SelectItem>
+            <SelectItem value="no">Clear of Violations</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {(paymentModeFilter !== "all" || fraudFilter !== "all") && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => {
-              setConfirmedFilter("all");
-              setQualityFilter("all");
+              setPaymentModeFilter("all");
+              setFraudFilter("all");
             }}
             className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground gap-1 border border-dashed"
           >
@@ -397,175 +505,415 @@ export default function SurveillanceReportsPage() {
         rows={filteredReports}
         columns={columns}
         rowKey={(r) => r.id}
-        searchPlaceholder="Search by Report ID, Request ID, Store, or Findings..."
+        searchPlaceholder="Search by Report ID, Store, Invoice No, or Sales Rep..."
         onRowClick={(r) => setDetailTarget(r)}
       />
 
-      {/* CREATE / SUBMIT SURVEILLANCE REPORT DIALOG */}
+      {/* SUBMIT SURVEILLANCE REPORT DIALOG (WITH ALL 44 ATTRIBUTES) */}
       <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Submit Surveillance Report</DialogTitle>
             <DialogDescription>
-              Submit video investigation findings against an authorized store surveillance request.
+              Complete the official surveillance audit form across all required retail transaction, pitch, and timing fields.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 sm:grid-cols-2 pt-2 text-xs">
-            {/* Linked Request Selection */}
-            <div className="sm:col-span-2 space-y-1.5">
+          <div className="space-y-5 pt-2 text-xs">
+            {/* Requisition link */}
+            <div className="space-y-1.5 p-3 rounded-lg border bg-muted/40">
               <Label className="text-xs font-semibold">
-                Select Approved Request <span className="text-destructive">*</span>
+                Select Authorized Request Reference <span className="text-destructive">*</span>
               </Label>
-              <Select value={selectedRequestId} onValueChange={setSelectedRequestId}>
+              <Select
+                value={selectedRequestId}
+                onValueChange={(v) => {
+                  setSelectedRequestId(v);
+                  const found = requests.find((r) => r.id === v);
+                  if (found) setFormStoreName(found.storeName);
+                }}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select an approved request" />
                 </SelectTrigger>
                 <SelectContent>
                   {requests.map((r) => (
                     <SelectItem key={r.id} value={r.id}>
-                      {r.id}: {r.storeName} — {r.title} ({r.incidentDate})
+                      {r.id}: {r.storeName} — {r.title}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Request Summary Preview */}
-            {selectedRequest && (
-              <div className="sm:col-span-2 p-3 rounded-lg border bg-muted/40 grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-muted-foreground">Store:</span>
-                  <div className="font-semibold text-foreground">{selectedRequest.storeName}</div>
+            {/* SECTION 1: Transaction & Timing Details */}
+            <div className="space-y-3 rounded-lg border p-3.5">
+              <div className="flex items-center gap-2 border-b pb-1 font-semibold text-foreground text-xs uppercase tracking-wide">
+                <ShoppingBag className="h-4 w-4 text-primary" />
+                1. Transaction & Billing Details
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Date</Label>
+                  <Input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} />
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Target Date:</span>
-                  <div className="font-semibold text-foreground">{selectedRequest.incidentDate} ({selectedRequest.shift})</div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Store Name</Label>
+                  <Input value={formStoreName} onChange={(e) => setFormStoreName(e.target.value)} />
                 </div>
-                <div className="col-span-2">
-                  <span className="text-muted-foreground">Camera Targets:</span>
-                  <div className="flex flex-wrap gap-1 mt-0.5">
-                    {selectedRequest.areasToReview.map((a) => (
-                      <Badge key={a} variant="outline" className="text-[10px] bg-background">
-                        {a}
-                      </Badge>
-                    ))}
-                  </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Invoice No</Label>
+                  <Input value={formInvoiceNo} onChange={(e) => setFormInvoiceNo(e.target.value)} placeholder="e.g. INV-78412" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Sales Rep</Label>
+                  <Input value={formSalesRep} onChange={(e) => setFormSalesRep(e.target.value)} placeholder="e.g. Elena Cole" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Time</Label>
+                  <Input value={formTime} onChange={(e) => setFormTime(e.target.value)} placeholder="e.g. 14:20" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Cash Time</Label>
+                  <Input value={formCashTime} onChange={(e) => setFormCashTime(e.target.value)} placeholder="e.g. 14:15" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">BDI Time</Label>
+                  <Input value={formBdiTime} onChange={(e) => setFormBdiTime(e.target.value)} placeholder="e.g. 14:25" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Trans/Type</Label>
+                  <Input value={formTransType} onChange={(e) => setFormTransType(e.target.value)} placeholder="e.g. Upgrade / Bill Payment" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Client Type</Label>
+                  <Select value={formClientType} onValueChange={(v) => setFormClientType(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Billable">Billable</SelectItem>
+                      <SelectItem value="Non Billable">Non Billable</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Invoice Amount</Label>
+                  <Input value={formInvoiceAmount} onChange={(e) => setFormInvoiceAmount(e.target.value)} placeholder="$0.00" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Total Taken</Label>
+                  <Input value={formTotalTaken} onChange={(e) => setFormTotalTaken(e.target.value)} placeholder="$0.00" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Payment mode</Label>
+                  <Select value={formPaymentMode} onValueChange={(v) => setFormPaymentMode(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Cash">Cash</SelectItem>
+                      <SelectItem value="Card">Card</SelectItem>
+                      <SelectItem value="Split">Split</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Difference</Label>
+                  <Input value={formDifference} onChange={(e) => setFormDifference(e.target.value)} placeholder="$0.00" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Receipt Given</Label>
+                  <Select value={formReceipt} onValueChange={(v) => setFormReceipt(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Split Payments</Label>
+                  <Select value={formSplitPayments} onValueChange={(v) => setFormSplitPayments(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-            )}
-
-            {/* Review Date */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">
-                Audit Conducted Date <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                type="date"
-                value={reviewDate}
-                onChange={(e) => setReviewDate(e.target.value)}
-              />
             </div>
 
-            {/* Hours Reviewed */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">
-                Video Hours Inspected <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                value={hoursReviewed}
-                onChange={(e) => setHoursReviewed(e.target.value)}
-                placeholder="e.g. 14:00 - 18:30 (4.5 hrs)"
-              />
+            {/* SECTION 2: Fraud & Audit Verification */}
+            <div className="space-y-3 rounded-lg border p-3.5">
+              <div className="flex items-center gap-2 border-b pb-1 font-semibold text-foreground text-xs uppercase tracking-wide">
+                <ShieldAlert className="h-4 w-4 text-rose-600" />
+                2. Fraud & Compliance Audit
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Fraud Transactions</Label>
+                  <Select value={formFraudTransactions} onValueChange={(v) => setFormFraudTransactions(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Refund Invoice</Label>
+                  <Select value={formRefundInvoice} onValueChange={(v) => setFormRefundInvoice(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Miss Opportunity</Label>
+                  <Select value={formMissOpportunity} onValueChange={(v) => setFormMissOpportunity(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Payment fraud</Label>
+                  <Select value={formPaymentFraud} onValueChange={(v) => setFormPaymentFraud(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">AAL Swap</Label>
+                  <Select value={formAalSwap} onValueChange={(v) => setFormAalSwap(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">MIM</Label>
+                  <Select value={formMim} onValueChange={(v) => setFormMim(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Online/Rejected Payment</Label>
+                  <Select value={formOnlineRejectedPayment} onValueChange={(v) => setFormOnlineRejectedPayment(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-1 pt-1">
+                <Label className="text-[11px] font-semibold">Audit Notes</Label>
+                <Textarea
+                  value={formNotes}
+                  onChange={(e) => setFormNotes(e.target.value)}
+                  placeholder="Document specific transaction details, cashier movements, drawer handling, or discrepancies..."
+                  rows={2}
+                />
+              </div>
             </div>
 
-            {/* Footage Quality */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Footage Quality / Clarity</Label>
-              <Select
-                value={footageQuality}
-                onValueChange={(v) => setFootageQuality(v as SurveillanceReport["footageQuality"])}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Clear">Clear</SelectItem>
-                  <SelectItem value="Partially Obstructed">Partially Obstructed</SelectItem>
-                  <SelectItem value="Poor / Glitchy">Poor / Glitchy</SelectItem>
-                  <SelectItem value="No Coverage">No Coverage</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* SECTION 3: Sales Pitch & Bundle Review */}
+            <div className="space-y-3 rounded-lg border p-3.5">
+              <div className="flex items-center gap-2 border-b pb-1 font-semibold text-foreground text-xs uppercase tracking-wide">
+                <UserCheck className="h-4 w-4 text-emerald-600" />
+                3. Sales Pitch & Bundle Verification
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Pitch NB</Label>
+                  <Input value={formPitchNb} onChange={(e) => setFormPitchNb(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Pitch Quality</Label>
+                  <Select value={formPitchQuality} onValueChange={(v) => setFormPitchQuality(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Good">Good</SelectItem>
+                      <SelectItem value="Fair">Fair</SelectItem>
+                      <SelectItem value="Poor">Poor</SelectItem>
+                      <SelectItem value="Not Observed">Not Observed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Showing Phone</Label>
+                  <Select value={formShowingPhone} onValueChange={(v) => setFormShowingPhone(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Acc Offered</Label>
+                  <Select value={formAccOffered} onValueChange={(v) => setFormAccOffered(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Maximize</Label>
+                  <Select value={formMaximize} onValueChange={(v) => setFormMaximize(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Flipping</Label>
+                  <Select value={formFlipping} onValueChange={(v) => setFormFlipping(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Bundle NB</Label>
+                  <Input value={formBundleNb} onChange={(e) => setFormBundleNb(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Bundle-Start B</Label>
+                  <Input value={formBundleStartB} onChange={(e) => setFormBundleStartB(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Bundle-End B</Label>
+                  <Input value={formBundleEndB} onChange={(e) => setFormBundleEndB(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Bundle Acc Given</Label>
+                  <Select value={formBundleAccGiven} onValueChange={(v) => setFormBundleAccGiven(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Port In</Label>
+                  <Select value={formPortIn} onValueChange={(v) => setFormPortIn(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Non-Up</Label>
+                  <Select value={formNonUp} onValueChange={(v) => setFormNonUp(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">SmartPay Mentioned</Label>
+                  <Select value={formSmartPayMentioned} onValueChange={(v) => setFormSmartPayMentioned(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">AAL Bill Same</Label>
+                  <Select value={formAalBillSame} onValueChange={(v) => setFormAalBillSame(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-1 pt-1">
+                <Label className="text-[11px] font-semibold">Pitch Notes</Label>
+                <Input
+                  value={formPitchNotes}
+                  onChange={(e) => setFormPitchNotes(e.target.value)}
+                  placeholder="Note customer response, accessory push, and closing pitch details..."
+                />
+              </div>
             </div>
 
-            {/* Incident Confirmed */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">
-                Incident / Violation Confirmed? <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={incidentConfirmed}
-                onValueChange={(v) => setIncidentConfirmed(v as SurveillanceReport["incidentConfirmed"])}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Yes">Yes — Violation Observed</SelectItem>
-                  <SelectItem value="No">No — No Misconduct Detected</SelectItem>
-                  <SelectItem value="Inconclusive">Inconclusive — Blindspot / Insufficient Evidence</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* SECTION 4: Floor Presence & Rep Timings */}
+            <div className="space-y-3 rounded-lg border p-3.5">
+              <div className="flex items-center gap-2 border-b pb-1 font-semibold text-foreground text-xs uppercase tracking-wide">
+                <Clock className="h-4 w-4 text-primary" />
+                4. Floor Presence & Rep Timings
+              </div>
 
-            {/* Discrepancy Amount */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Financial Discrepancy Amount (Optional)</Label>
-              <Input
-                value={discrepancyAmount}
-                onChange={(e) => setDiscrepancyAmount(e.target.value)}
-                placeholder="e.g. $340.00"
-              />
-            </div>
-
-            {/* Persons Involved */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Persons Identified / Involved</Label>
-              <Input
-                value={personsInvolved}
-                onChange={(e) => setPersonsInvolved(e.target.value)}
-                placeholder="e.g. Cashier on shift, customer in black jacket..."
-              />
-            </div>
-
-            {/* Findings */}
-            <div className="sm:col-span-2 space-y-1.5">
-              <Label className="text-xs font-semibold">
-                Detailed Investigation Findings & Chronology <span className="text-destructive">*</span>
-              </Label>
-              <Textarea
-                value={findings}
-                onChange={(e) => setFindings(e.target.value)}
-                placeholder="Document timestamp observations, camera angles, actions observed, and physical evidence seen on video..."
-                rows={4}
-              />
-            </div>
-
-            {/* Recommendations */}
-            <div className="sm:col-span-2 space-y-1.5">
-              <Label className="text-xs font-semibold">
-                Concluding Action Recommendation <span className="text-destructive">*</span>
-              </Label>
-              <Textarea
-                value={recommendation}
-                onChange={(e) => setRecommendation(e.target.value)}
-                placeholder="e.g. Recommend manager interview with employee, drawer re-audit, or security camera angle adjustment..."
-                rows={2}
-              />
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Name of Rep Leaving</Label>
+                  <Input value={formNameOfRepLeaving} onChange={(e) => setFormNameOfRepLeaving(e.target.value)} placeholder="e.g. Elena Cole" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Time Left</Label>
+                  <Input value={formTimeLeft} onChange={(e) => setFormTimeLeft(e.target.value)} placeholder="e.g. 15:00" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Time Returned</Label>
+                  <Input value={formTimeReturned} onChange={(e) => setFormTimeReturned(e.target.value)} placeholder="e.g. 15:30" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Back Room Time - In</Label>
+                  <Input value={formBackRoomTimeIn} onChange={(e) => setFormBackRoomTimeIn(e.target.value)} placeholder="e.g. 15:05" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Back Room Time - Out</Label>
+                  <Input value={formBackRoomTimeOut} onChange={(e) => setFormBackRoomTimeOut(e.target.value)} placeholder="e.g. 15:20" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold">Offline</Label>
+                  <Select value={formOffline} onValueChange={(v) => setFormOffline(v as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Yes">Yes</SelectItem>
+                      <SelectItem value="No">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
 
             {/* Attachments Section */}
-            <div className="sm:col-span-2 space-y-2 pt-1">
+            <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-semibold flex items-center gap-1.5">
                   <Paperclip className="h-4 w-4 text-muted-foreground" />
@@ -632,15 +980,15 @@ export default function SurveillanceReportsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* FULL REPORT DETAIL MODAL */}
+      {/* FULL REPORT DETAIL MODAL (Showing 44 fields) */}
       <Dialog open={Boolean(detailTarget)} onOpenChange={(open) => !open && setDetailTarget(null)}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
           {detailTarget && (
             <>
               <DialogHeader>
                 <div className="flex items-center justify-between pr-6">
                   <DialogTitle className="flex items-center gap-2 font-display text-lg">
-                    <span>Surveillance Report</span>
+                    <span>Surveillance Audit Report</span>
                     <Badge variant="outline" className="font-mono text-xs">
                       {detailTarget.id}
                     </Badge>
@@ -655,89 +1003,244 @@ export default function SurveillanceReportsPage() {
                   </Button>
                 </div>
                 <DialogDescription>
-                  Official video review findings for {detailTarget.storeName} (Request Ref: {detailTarget.requestId}).
+                  Detailed surveillance audit results for {detailTarget.storeName} (Request Ref: {detailTarget.requestId}).
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4 py-2 text-xs">
-                {/* Highlights Card */}
-                <Card className="p-3.5 bg-muted/30">
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {/* 1. Transaction Info */}
+                <div className="rounded-lg border bg-card p-3.5 space-y-3">
+                  <div className="flex items-center gap-2 border-b pb-1 font-semibold text-foreground text-xs uppercase tracking-wide">
+                    <ShoppingBag className="h-4 w-4 text-primary" />
+                    Transaction & Billing Details
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <div>
-                      <div className="text-muted-foreground uppercase text-[10px] font-bold">Store Location</div>
-                      <div className="font-semibold text-foreground text-sm mt-0.5">{detailTarget.storeName}</div>
-                      <div className="text-[11px] text-muted-foreground">{detailTarget.marketName}</div>
-                    </div>
-                    <div>
-                      <div className="text-muted-foreground uppercase text-[10px] font-bold">Violation Confirmed?</div>
-                      <div className="mt-1">
-                        {detailTarget.incidentConfirmed === "Yes" ? (
-                          <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-xs font-bold">
-                            Yes — Violation
-                          </Badge>
-                        ) : detailTarget.incidentConfirmed === "No" ? (
-                          <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-xs font-bold">
-                            No Violation
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs font-bold">
-                            Inconclusive
-                          </Badge>
-                        )}
-                      </div>
+                      <span className="text-muted-foreground block text-[11px]">Date</span>
+                      <span className="font-medium text-foreground">{detailTarget.date}</span>
                     </div>
                     <div>
-                      <div className="text-muted-foreground uppercase text-[10px] font-bold">Auditor</div>
-                      <div className="font-semibold text-foreground mt-0.5">{detailTarget.investigatorName}</div>
-                      <div className="text-[11px] text-muted-foreground">{new Date(detailTarget.submittedAt).toLocaleDateString()}</div>
+                      <span className="text-muted-foreground block text-[11px]">Store Name</span>
+                      <span className="font-medium text-foreground">{detailTarget.storeName}</span>
                     </div>
                     <div>
-                      <div className="text-muted-foreground uppercase text-[10px] font-bold">Footage Clarity</div>
-                      <div className="font-semibold text-foreground mt-0.5">{detailTarget.footageQuality}</div>
-                      <div className="text-[11px] text-muted-foreground">{detailTarget.hoursReviewed}</div>
+                      <span className="text-muted-foreground block text-[11px]">Invoice No</span>
+                      <span className="font-mono font-medium text-foreground">{detailTarget.invoiceNo}</span>
                     </div>
-                  </div>
-                </Card>
-
-                {/* Financial note if present */}
-                {detailTarget.discrepancyAmount && (
-                  <div className="flex items-center gap-2 p-2.5 rounded-lg border border-rose-200 bg-rose-50/60 dark:bg-rose-950/20 text-rose-800 dark:text-rose-300">
-                    <DollarSign className="h-4 w-4 shrink-0" />
-                    <span>
-                      <strong>Verified Financial / Cash Discrepancy:</strong> {detailTarget.discrepancyAmount}
-                    </span>
-                  </div>
-                )}
-
-                {/* Persons observed */}
-                {detailTarget.personsInvolved && (
-                  <div>
-                    <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
-                      Identified Persons
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Sales Rep</span>
+                      <span className="font-medium text-foreground">{detailTarget.salesRep}</span>
                     </div>
-                    <div className="p-2.5 rounded-lg border bg-card text-foreground">
-                      {detailTarget.personsInvolved}
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Time</span>
+                      <span className="font-medium text-foreground">{detailTarget.time}</span>
                     </div>
-                  </div>
-                )}
-
-                {/* Chronology & Findings */}
-                <div>
-                  <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
-                    Chronology & Video Findings
-                  </div>
-                  <div className="p-3.5 rounded-lg border bg-card text-foreground leading-relaxed whitespace-pre-wrap text-xs">
-                    {detailTarget.findings}
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Cash Time</span>
+                      <span className="font-medium text-foreground">{detailTarget.cashTime}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">BDI Time</span>
+                      <span className="font-medium text-foreground">{detailTarget.bdiTime}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Trans / Type</span>
+                      <span className="font-medium text-foreground">{detailTarget.transType}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Client Type</span>
+                      <Badge variant="outline" className="text-[11px]">
+                        {detailTarget.clientType}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Invoice Amount</span>
+                      <span className="font-semibold text-foreground">{detailTarget.invoiceAmount}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Total Taken</span>
+                      <span className="font-semibold text-foreground">{detailTarget.totalTaken}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Payment Mode</span>
+                      <span className="font-medium text-foreground">{detailTarget.paymentMode}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Difference</span>
+                      <span className={`font-semibold ${detailTarget.difference !== "$0.00" && detailTarget.difference !== "0" ? "text-rose-600" : "text-emerald-600"}`}>
+                        {detailTarget.difference}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Receipt Given</span>
+                      <span className="font-medium text-foreground">{detailTarget.receipt}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Split Payments</span>
+                      <span className="font-medium text-foreground">{detailTarget.splitPayments}</span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Recommendation */}
-                <div>
-                  <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
-                    Investigative Recommendation
+                {/* 2. Fraud & Compliance */}
+                <div className="rounded-lg border bg-card p-3.5 space-y-3">
+                  <div className="flex items-center gap-2 border-b pb-1 font-semibold text-foreground text-xs uppercase tracking-wide">
+                    <ShieldAlert className="h-4 w-4 text-rose-600" />
+                    Fraud & Compliance Verification
                   </div>
-                  <div className="p-3 rounded-lg border bg-primary/5 text-foreground leading-relaxed text-xs">
-                    {detailTarget.recommendation}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Fraud Transactions</span>
+                      <Badge variant={detailTarget.fraudTransactions === "Yes" ? "destructive" : "outline"} className="text-[10px]">
+                        {detailTarget.fraudTransactions}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Refund Invoice</span>
+                      <Badge variant={detailTarget.refundInvoice === "Yes" ? "destructive" : "outline"} className="text-[10px]">
+                        {detailTarget.refundInvoice}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Payment Fraud</span>
+                      <Badge variant={detailTarget.paymentFraud === "Yes" ? "destructive" : "outline"} className="text-[10px]">
+                        {detailTarget.paymentFraud}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Miss Opportunity</span>
+                      <span className="font-medium text-foreground">{detailTarget.missOpportunity}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">AAL Swap</span>
+                      <span className="font-medium text-foreground">{detailTarget.aalSwap}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">MIM</span>
+                      <span className="font-medium text-foreground">{detailTarget.mim}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Online / Rejected Payment</span>
+                      <span className="font-medium text-foreground">{detailTarget.onlineRejectedPayment}</span>
+                    </div>
+                  </div>
+                  {detailTarget.notes && (
+                    <div className="pt-2 border-t">
+                      <span className="text-[11px] font-semibold text-muted-foreground block mb-1">Audit Notes:</span>
+                      <p className="p-2.5 rounded bg-muted/40 leading-relaxed text-foreground whitespace-pre-wrap">
+                        {detailTarget.notes}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Pitch & Bundles */}
+                <div className="rounded-lg border bg-card p-3.5 space-y-3">
+                  <div className="flex items-center gap-2 border-b pb-1 font-semibold text-foreground text-xs uppercase tracking-wide">
+                    <UserCheck className="h-4 w-4 text-emerald-600" />
+                    Sales Pitch, Pitch Quality & Bundle Audit
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Pitch NB</span>
+                      <span className="font-medium text-foreground">{detailTarget.pitchNb}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Pitch Quality</span>
+                      <Badge variant="outline" className="text-[11px]">
+                        {detailTarget.pitchQuality}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Showing Phone</span>
+                      <span className="font-medium text-foreground">{detailTarget.showingPhone}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Acc Offered</span>
+                      <span className="font-medium text-foreground">{detailTarget.accOffered}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Maximize</span>
+                      <span className="font-medium text-foreground">{detailTarget.maximize}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Flipping</span>
+                      <span className="font-medium text-foreground">{detailTarget.flipping}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Bundle NB</span>
+                      <span className="font-medium text-foreground">{detailTarget.bundleNb}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Bundle Acc Given</span>
+                      <span className="font-medium text-foreground">{detailTarget.bundleAccGiven}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Bundle-Start B</span>
+                      <span className="font-medium text-foreground">{detailTarget.bundleStartB}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Bundle-End B</span>
+                      <span className="font-medium text-foreground">{detailTarget.bundleEndB}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Port In</span>
+                      <span className="font-medium text-foreground">{detailTarget.portIn}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Non-Up</span>
+                      <span className="font-medium text-foreground">{detailTarget.nonUp}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">SmartPay Mentioned</span>
+                      <span className="font-medium text-foreground">{detailTarget.smartPayMentioned}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">AAL Bill Same</span>
+                      <span className="font-medium text-foreground">{detailTarget.aalBillSame}</span>
+                    </div>
+                  </div>
+                  {detailTarget.pitchNotes && (
+                    <div className="pt-2 border-t">
+                      <span className="text-[11px] font-semibold text-muted-foreground block mb-1">Pitch Observations:</span>
+                      <p className="p-2.5 rounded bg-muted/40 leading-relaxed text-foreground">
+                        {detailTarget.pitchNotes}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* 4. Floor Timing */}
+                <div className="rounded-lg border bg-card p-3.5 space-y-3">
+                  <div className="flex items-center gap-2 border-b pb-1 font-semibold text-foreground text-xs uppercase tracking-wide">
+                    <Clock className="h-4 w-4 text-primary" />
+                    Floor Presence & Rep Timings
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Name of Rep Leaving</span>
+                      <span className="font-medium text-foreground">{detailTarget.nameOfRepLeaving || "None"}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Time Left</span>
+                      <span className="font-medium text-foreground">{detailTarget.timeLeft || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Time Returned</span>
+                      <span className="font-medium text-foreground">{detailTarget.timeReturned || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Offline</span>
+                      <span className="font-medium text-foreground">{detailTarget.offline}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Back Room Time - In</span>
+                      <span className="font-medium text-foreground">{detailTarget.backRoomTimeIn || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Back Room Time - Out</span>
+                      <span className="font-medium text-foreground">{detailTarget.backRoomTimeOut || "—"}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -753,11 +1256,7 @@ export default function SurveillanceReportsPage() {
                           key={file.id}
                           className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-1.5 text-xs font-medium"
                         >
-                          {file.type.includes("image") ? (
-                            <ImageIcon className="h-4 w-4 text-blue-500" />
-                          ) : (
-                            <FileText className="h-4 w-4 text-amber-500" />
-                          )}
+                          <FileText className="h-4 w-4 text-primary" />
                           <span>{file.name}</span>
                           <span className="text-[10px] text-muted-foreground">({formatFileSize(file.size)})</span>
                         </div>

@@ -55,6 +55,11 @@ import {
   Building,
   Eye,
   AlertCircle,
+  Clock,
+  ShoppingBag,
+  CreditCard,
+  UserCheck,
+  ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -70,36 +75,34 @@ import {
   type SurveillancePriority,
   type SurveillanceRole,
   type SurveillanceReport,
+  type SurveillanceRequestStatus,
 } from "@/services/portals/surveillance/types";
 
+// Exactly 3 priorities: low, medium, high (urgent removed)
 const PRIORITY_TONES: Record<SurveillancePriority, string> = {
   low: "bg-muted text-muted-foreground border-border",
   medium: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400",
   high: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
-  urgent: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400",
 };
 
+// Exactly 4 statuses: Report Requested, Report Received, Approved, Rejected
 const STATUS_CONFIG: Record<
-  SurveillanceRequest["status"],
+  SurveillanceRequestStatus,
   { label: string; tone: string }
 > = {
-  pending_approval: {
-    label: "Pending Approval",
+  "Report Requested": {
+    label: "Report Requested",
     tone: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
   },
-  approved: {
+  "Report Received": {
+    label: "Report Received",
+    tone: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400",
+  },
+  Approved: {
     label: "Approved",
     tone: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400",
   },
-  in_progress: {
-    label: "In Progress",
-    tone: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400",
-  },
-  report_submitted: {
-    label: "Report Submitted",
-    tone: "bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-400",
-  },
-  rejected: {
+  Rejected: {
     label: "Rejected",
     tone: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400",
   },
@@ -117,9 +120,9 @@ const CAMERA_AREA_OPTIONS = [
 
 const INVESTIGATION_TYPES = [
   "Cash Drawer Shortage",
-  "Inventory Discrepancy / Shrinkage",
+  "Inventory Discrepancy",
   "Customer Safety Incident",
-  "Suspicious Activity / Loitering",
+  "Suspicious Activity",
   "Employee Operational Audit",
   "Property Damage / Vandalism",
   "Other Special Review",
@@ -313,7 +316,7 @@ export default function ReportRequestsPage() {
       requesterDepartment: user?.department?.name || "Operations",
       areasToReview: selectedAreas,
       notes: notes.trim() || undefined,
-      status: "pending_approval",
+      status: "Report Requested",
       createdAt: new Date().toISOString(),
     };
 
@@ -328,7 +331,7 @@ export default function ReportRequestsPage() {
 
     const updated: SurveillanceRequest = {
       ...approveTarget,
-      status: "approved",
+      status: "Approved",
       approvedBy: user?.fullName || `${activeRole.replace(/_/g, " ")} Authority`,
       approvedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -352,7 +355,7 @@ export default function ReportRequestsPage() {
 
     const updated: SurveillanceRequest = {
       ...rejectTarget,
-      status: "rejected",
+      status: "Rejected",
       rejectionReason: rejectionReason.trim(),
       updatedAt: new Date().toISOString(),
     };
@@ -374,7 +377,8 @@ export default function ReportRequestsPage() {
 
     const updatedRequest: SurveillanceRequest = {
       ...selectedDetail,
-      reportStatus: "approved",
+      status: "Approved",
+      reportStatus: "Approved",
       reportApprovedBy: reviewerName,
       reportApprovedAt: now,
       managerRating: reportRating > 0 ? reportRating : selectedDetail.managerRating,
@@ -391,7 +395,7 @@ export default function ReportRequestsPage() {
           rep.id === activeReport.id
             ? {
                 ...rep,
-                status: "approved",
+                status: "Approved",
                 reviewedBy: reviewerName,
                 reviewedAt: now,
                 managerRating: reportRating > 0 ? reportRating : rep.managerRating,
@@ -419,7 +423,8 @@ export default function ReportRequestsPage() {
 
     const updatedRequest: SurveillanceRequest = {
       ...selectedDetail,
-      reportStatus: "rejected",
+      status: "Rejected",
+      reportStatus: "Rejected",
       reportApprovedBy: reviewerName,
       reportApprovedAt: now,
       managerComments: reportReviewComments.trim(),
@@ -436,7 +441,7 @@ export default function ReportRequestsPage() {
           rep.id === activeReport.id
             ? {
                 ...rep,
-                status: "rejected",
+                status: "Rejected",
                 reviewedBy: reviewerName,
                 reviewedAt: now,
                 managerComments: reportReviewComments.trim(),
@@ -460,56 +465,41 @@ export default function ReportRequestsPage() {
     });
   }, [requests, statusFilter, priorityFilter]);
 
-  // Metrics
+  // Metrics: exactly 3 cards as requested: Total Requests, Pending Approval (Report Requested), and Approved
   const metrics = useMemo(() => {
     return {
       total: requests.length,
-      pending: requests.filter((r) => r.status === "pending_approval").length,
-      approved: requests.filter((r) => r.status === "approved" || r.status === "in_progress").length,
-      submitted: requests.filter((r) => r.status === "report_submitted").length,
+      pendingApproval: requests.filter((r) => r.status === "Report Requested").length,
+      approved: requests.filter((r) => r.status === "Approved").length,
     };
   }, [requests]);
 
-  // Strict 7 columns: Store, Market, Investigation Reason, Priority, Requested By, Prepared by, Status.
-  // Actions column removed. Row click opens detail page.
+  // Columns: Single information per column, no dual text / subtitles!
+  // Columns: Store, Market, Investigation Reason, Priority, Requested By, Prepared by, Status.
   const columns: Column<SurveillanceRequest>[] = useMemo(
     () => [
       {
         key: "store",
         header: "Store",
-        searchValue: (r) => `${r.storeName} ${r.storeNumber || ""}`,
+        searchValue: (r) => r.storeName,
         accessor: (r) => (
-          <div className="flex items-center gap-2">
-            <StoreIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-            <div>
-              <div className="font-semibold text-foreground text-sm">{r.storeName}</div>
-              <div className="text-[11px] text-muted-foreground font-mono">Ref: {r.id}</div>
-            </div>
-          </div>
+          <span className="font-medium text-foreground text-sm">{r.storeName}</span>
         ),
       },
       {
         key: "market",
         header: "Market",
-        searchValue: (r) => `${r.marketName} ${r.districtName}`,
+        searchValue: (r) => r.marketName,
         accessor: (r) => (
-          <div>
-            <div className="font-medium text-foreground text-xs">{r.marketName}</div>
-            <div className="text-[11px] text-muted-foreground">{r.districtName}</div>
-          </div>
+          <span className="text-foreground text-sm">{r.marketName}</span>
         ),
       },
       {
         key: "investigation",
         header: "Investigation Reason",
-        searchValue: (r) => `${r.investigationType} ${r.title}`,
+        searchValue: (r) => r.title,
         accessor: (r) => (
-          <div className="max-w-xs sm:max-w-sm">
-            <span className="inline-block text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-              {r.investigationType}
-            </span>
-            <div className="font-medium text-foreground text-xs line-clamp-1">{r.title}</div>
-          </div>
+          <span className="text-foreground text-sm line-clamp-1">{r.title}</span>
         ),
       },
       {
@@ -525,37 +515,23 @@ export default function ReportRequestsPage() {
       {
         key: "requestedBy",
         header: "Requested By",
-        searchValue: (r) => `${r.requestedBy} ${r.requesterRole}`,
+        searchValue: (r) => r.requestedBy,
         accessor: (r) => (
-          <div className="text-xs">
-            <div className="font-medium text-foreground">{r.requestedBy}</div>
-            <span className="text-[11px] text-muted-foreground">{r.requesterRole}</span>
-          </div>
+          <span className="text-foreground text-sm">{r.requestedBy}</span>
         ),
       },
       {
         key: "preparedBy",
         header: "Prepared by",
-        searchValue: (r) => r.preparedBy || "Unassigned",
+        searchValue: (r) => r.preparedBy || "—",
         accessor: (r) => (
-          <div className="text-xs">
-            {r.preparedBy ? (
-              <div>
-                <div className="font-medium text-foreground">{r.preparedBy}</div>
-                <span className="text-[11px] text-muted-foreground">
-                  {r.preparedByRole || "Surveillance Specialist"}
-                </span>
-              </div>
-            ) : (
-              <span className="text-muted-foreground italic">—</span>
-            )}
-          </div>
+          <span className="text-foreground text-sm">{r.preparedBy || "—"}</span>
         ),
       },
       {
         key: "status",
         header: "Status",
-        searchValue: (r) => STATUS_CONFIG[r.status]?.label || r.status,
+        searchValue: (r) => r.status,
         accessor: (r) => {
           const cfg = STATUS_CONFIG[r.status] || {
             label: r.status,
@@ -574,8 +550,8 @@ export default function ReportRequestsPage() {
 
   // If a detail row is selected, render the dedicated Detail Page
   if (selectedDetail) {
-    const isPending = selectedDetail.status === "pending_approval";
-    const reportExists = Boolean(activeReport || selectedDetail.preparedBy || selectedDetail.status === "report_submitted");
+    const isPending = selectedDetail.status === "Report Requested";
+    const reportExists = Boolean(activeReport || selectedDetail.preparedBy || selectedDetail.status === "Report Received" || selectedDetail.status === "Approved");
 
     return (
       <div className="space-y-6">
@@ -617,7 +593,7 @@ export default function ReportRequestsPage() {
               >
                 <Eye className="h-4 w-4" />
                 View Report
-                {selectedDetail.reportStatus === "approved" && (
+                {selectedDetail.reportStatus === "Approved" && (
                   <Badge variant="secondary" className="ml-1 text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
                     Approved
                   </Badge>
@@ -662,7 +638,7 @@ export default function ReportRequestsPage() {
                   {selectedDetail.storeName}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  • {selectedDetail.marketName} ({selectedDetail.districtName})
+                  • {selectedDetail.marketName}
                 </span>
               </div>
               <h2 className="mt-1 text-sm font-medium text-foreground">
@@ -795,7 +771,7 @@ export default function ReportRequestsPage() {
             ) : (
               <div className="py-4 text-center text-xs text-muted-foreground space-y-1">
                 <p className="font-medium text-foreground">No Surveillance Report Submitted Yet</p>
-                <p>Once a user conducts the review and submits findings, their full profile and attachments will appear here.</p>
+                <p>Once an auditor submits the surveillance audit form, their complete report will appear here.</p>
               </div>
             )}
           </Card>
@@ -805,14 +781,14 @@ export default function ReportRequestsPage() {
         <Card className="p-4 border-border/80 space-y-3">
           <div className="border-b pb-2">
             <h3 className="text-sm font-semibold text-foreground">
-              Investigation Parameters & Camera Areas
+              Investigation Parameters
             </h3>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
             <div>
               <span className="text-muted-foreground">Investigation Reason:</span>
-              <div className="font-semibold text-foreground mt-0.5">{selectedDetail.investigationType}</div>
+              <div className="font-semibold text-foreground mt-0.5">{selectedDetail.title}</div>
             </div>
             <div>
               <span className="text-muted-foreground">Target Incident Date:</span>
@@ -821,18 +797,6 @@ export default function ReportRequestsPage() {
             <div>
               <span className="text-muted-foreground">Target Shift:</span>
               <div className="font-semibold text-foreground mt-0.5">{selectedDetail.shift}</div>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Requisition Approval:</span>
-              <div className="mt-0.5">
-                {selectedDetail.approvedBy ? (
-                  <span className="text-emerald-600 font-medium">Approved by {selectedDetail.approvedBy}</span>
-                ) : selectedDetail.rejectionReason ? (
-                  <span className="text-rose-600 font-medium">Rejected</span>
-                ) : (
-                  <span className="text-amber-600 font-medium">Pending Manager Review</span>
-                )}
-              </div>
             </div>
           </div>
 
@@ -866,17 +830,17 @@ export default function ReportRequestsPage() {
 
         {/* Manager Review Status on Submitted Report */}
         {selectedDetail.reportStatus && (
-          <Card className={`p-4 border ${selectedDetail.reportStatus === "approved" ? "border-emerald-300 bg-emerald-50/30 dark:bg-emerald-950/20" : "border-rose-300 bg-rose-50/30 dark:bg-rose-950/20"}`}>
+          <Card className={`p-4 border ${selectedDetail.reportStatus === "Approved" ? "border-emerald-300 bg-emerald-50/30 dark:bg-emerald-950/20" : "border-rose-300 bg-rose-50/30 dark:bg-rose-950/20"}`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                {selectedDetail.reportStatus === "approved" ? (
+                {selectedDetail.reportStatus === "Approved" ? (
                   <CheckCircle2 className="h-5 w-5 text-emerald-600" />
                 ) : (
                   <XCircle className="h-5 w-5 text-rose-600" />
                 )}
                 <div>
                   <div className="font-semibold text-sm text-foreground">
-                    Surveillance Report {selectedDetail.reportStatus === "approved" ? "Approved" : "Rejected"}
+                    Surveillance Report {selectedDetail.reportStatus === "Approved" ? "Approved" : "Rejected"}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     Reviewed by {selectedDetail.reportApprovedBy || "Management"} on{" "}
@@ -913,14 +877,14 @@ export default function ReportRequestsPage() {
           </Card>
         )}
 
-        {/* VIEW REPORT DIALOG / MODAL */}
+        {/* VIEW REPORT DIALOG / MODAL (Showing all 44 Retail Audit Attributes) */}
         <Dialog open={viewReportOpen} onOpenChange={setViewReportOpen}>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
             <DialogHeader>
               <div className="flex items-center justify-between pr-6">
                 <DialogTitle className="flex items-center gap-2 font-display text-lg">
                   <FileText className="h-5 w-5 text-primary" />
-                  <span>Submitted Surveillance Report</span>
+                  <span>Surveillance Audit Report</span>
                   <Badge variant="outline" className="font-mono text-xs">
                     {activeReport?.id || "SRV-REP-202"}
                   </Badge>
@@ -935,173 +899,323 @@ export default function ReportRequestsPage() {
                 </Button>
               </div>
               <DialogDescription>
-                Official video investigation findings for {selectedDetail.storeName} (Request Ref: {selectedDetail.id}).
+                Comprehensive retail surveillance audit for {selectedDetail.storeName} (Request Ref: {selectedDetail.id}).
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 py-2 text-xs">
-              {/* Highlight summary card */}
-              <Card className="p-3.5 bg-muted/30">
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  <div>
-                    <div className="text-muted-foreground uppercase text-[10px] font-bold">Store</div>
-                    <div className="font-semibold text-foreground text-sm mt-0.5">{selectedDetail.storeName}</div>
-                    <div className="text-[11px] text-muted-foreground">{selectedDetail.marketName}</div>
+            {activeReport && (
+              <div className="space-y-5 py-2 text-xs">
+                {/* 1. Transaction & Billing Section */}
+                <div className="rounded-lg border bg-card p-3.5 space-y-3">
+                  <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
+                    <ShoppingBag className="h-4 w-4 text-primary" />
+                    Transaction & Billing Specifics
                   </div>
-
-                  <div>
-                    <div className="text-muted-foreground uppercase text-[10px] font-bold">Incident Confirmed?</div>
-                    <div className="mt-1">
-                      {activeReport?.incidentConfirmed === "Yes" ? (
-                        <Badge className="bg-rose-100 text-rose-800 border-rose-300 text-xs font-bold">
-                          Yes — Violation
-                        </Badge>
-                      ) : activeReport?.incidentConfirmed === "No" ? (
-                        <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-xs font-bold">
-                          No Violation
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs font-bold">
-                          Inconclusive
-                        </Badge>
-                      )}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Date</span>
+                      <span className="font-medium text-foreground">{activeReport.date}</span>
                     </div>
-                  </div>
-
-                  <div>
-                    <div className="text-muted-foreground uppercase text-[10px] font-bold">Investigator</div>
-                    <div className="font-semibold text-foreground mt-0.5">
-                      {activeReport?.investigatorName || selectedDetail.preparedBy || "Michael Sterling"}
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Store Name</span>
+                      <span className="font-medium text-foreground">{activeReport.storeName}</span>
                     </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {activeReport?.reviewDate || selectedDetail.incidentDate}
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Invoice No</span>
+                      <span className="font-mono font-medium text-foreground">{activeReport.invoiceNo}</span>
                     </div>
-                  </div>
-
-                  <div>
-                    <div className="text-muted-foreground uppercase text-[10px] font-bold">Footage Quality</div>
-                    <div className="font-semibold text-foreground mt-0.5">
-                      {activeReport?.footageQuality || "Clear"}
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Sales Rep</span>
+                      <span className="font-medium text-foreground">{activeReport.salesRep}</span>
                     </div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {activeReport?.hoursReviewed || "16:00 - 21:30 (5.5 hrs)"}
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Time</span>
+                      <span className="font-medium text-foreground">{activeReport.time}</span>
                     </div>
-                  </div>
-                </div>
-              </Card>
-
-              {/* Financial discrepancy */}
-              {(activeReport?.discrepancyAmount || selectedDetail.title.includes("$")) && (
-                <div className="flex items-center gap-2 p-2.5 rounded-lg border border-rose-200 bg-rose-50/60 dark:bg-rose-950/20 text-rose-800 dark:text-rose-300">
-                  <DollarSign className="h-4 w-4 shrink-0" />
-                  <span>
-                    <strong>Verified Cash / Stock Discrepancy:</strong>{" "}
-                    {activeReport?.discrepancyAmount || "$340.00"}
-                  </span>
-                </div>
-              )}
-
-              {/* Identified persons */}
-              <div>
-                <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
-                  Identified Persons Involved
-                </div>
-                <div className="p-2.5 rounded-lg border bg-card text-foreground">
-                  {activeReport?.personsInvolved || "Cashier on Register #2, Customer at 20:28 transaction"}
-                </div>
-              </div>
-
-              {/* Detailed Findings */}
-              <div>
-                <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
-                  Video Chronology & Investigation Findings
-                </div>
-                <div className="p-3.5 rounded-lg border bg-card text-foreground leading-relaxed whitespace-pre-wrap text-xs">
-                  {activeReport?.findings ||
-                    "At 20:29:14, during a transaction reversal of $340, cashier opened cash drawer and removed three $100 bills and two $20 bills. Instead of placing currency into the register drop pouch or returning to customer, employee folded currency and tucked it under counter register tray. Cashier did not count drawer down with closing supervisor."}
-                </div>
-              </div>
-
-              {/* Recommendations */}
-              <div>
-                <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1">
-                  Investigative Recommendation
-                </div>
-                <div className="p-3 rounded-lg border bg-primary/5 text-foreground leading-relaxed text-xs">
-                  {activeReport?.recommendation ||
-                    "Recommend immediate formal interview by Loss Prevention and Market Management. Discrepancy matches the shortage report exactly."}
-                </div>
-              </div>
-
-              {/* Attachments */}
-              <div>
-                <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1.5 flex items-center gap-1.5">
-                  <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
-                  Evidence Attachments
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {(activeReport?.attachments || [
-                    { id: "att-3", name: "POS2_CashDrawer_2029_Angle.jpg", size: 520400, type: "image/jpeg" },
-                    { id: "att-4", name: "Register2_Journal_Audit.pdf", size: 980000, type: "application/pdf" },
-                  ]).map((file) => (
-                    <div
-                      key={file.id}
-                      className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-1.5 text-xs font-medium"
-                    >
-                      <FileText className="h-4 w-4 text-primary" />
-                      <span>{file.name}</span>
-                      <span className="text-[10px] text-muted-foreground">
-                        ({formatFileSize(file.size)})
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Cash Time</span>
+                      <span className="font-medium text-foreground">{activeReport.cashTime}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">BDI Time</span>
+                      <span className="font-medium text-foreground">{activeReport.bdiTime}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Trans / Type</span>
+                      <span className="font-medium text-foreground">{activeReport.transType}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Client Type</span>
+                      <Badge variant="outline" className="text-[11px] mt-0.5">
+                        {activeReport.clientType}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Invoice Amount</span>
+                      <span className="font-semibold text-foreground">{activeReport.invoiceAmount}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Total Taken</span>
+                      <span className="font-semibold text-foreground">{activeReport.totalTaken}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Payment Mode</span>
+                      <span className="font-medium text-foreground">{activeReport.paymentMode}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Difference</span>
+                      <span className={`font-semibold ${activeReport.difference !== "$0.00" && activeReport.difference !== "0" ? "text-rose-600" : "text-emerald-600"}`}>
+                        {activeReport.difference}
                       </span>
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* APPROVAL / REJECTION & 5-STAR RATING CONTROLS */}
-              <div className="mt-4 border-t pt-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="font-semibold text-foreground text-xs uppercase tracking-wider">
-                    Manager Review & Decision
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Receipt Given?</span>
+                      <span className="font-medium text-foreground">{activeReport.receipt}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Split Payments</span>
+                      <span className="font-medium text-foreground">{activeReport.splitPayments}</span>
+                    </div>
                   </div>
-                  {!userCanApprove && (
-                    <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 bg-amber-50">
-                      <Lock className="h-2.5 w-2.5 mr-1" /> View Only (District Manager)
-                    </Badge>
+                </div>
+
+                {/* 2. Fraud & Compliance Indicators */}
+                <div className="rounded-lg border bg-card p-3.5 space-y-3">
+                  <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
+                    <ShieldAlert className="h-4 w-4 text-rose-600" />
+                    Fraud & Compliance Verification
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Fraud Transactions</span>
+                      <Badge variant={activeReport.fraudTransactions === "Yes" ? "destructive" : "outline"} className="text-[10px]">
+                        {activeReport.fraudTransactions}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Refund Invoice</span>
+                      <Badge variant={activeReport.refundInvoice === "Yes" ? "destructive" : "outline"} className="text-[10px]">
+                        {activeReport.refundInvoice}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Payment Fraud</span>
+                      <Badge variant={activeReport.paymentFraud === "Yes" ? "destructive" : "outline"} className="text-[10px]">
+                        {activeReport.paymentFraud}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Miss Opportunity</span>
+                      <span className="font-medium text-foreground">{activeReport.missOpportunity}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">AAL Swap</span>
+                      <span className="font-medium text-foreground">{activeReport.aalSwap}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">MIM</span>
+                      <span className="font-medium text-foreground">{activeReport.mim}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Online / Rejected Payment</span>
+                      <span className="font-medium text-foreground">{activeReport.onlineRejectedPayment}</span>
+                    </div>
+                  </div>
+
+                  {activeReport.notes && (
+                    <div className="mt-2 pt-2 border-t">
+                      <span className="text-[11px] font-semibold text-muted-foreground block mb-1">
+                        Investigation Notes:
+                      </span>
+                      <p className="p-2.5 rounded bg-muted/40 text-foreground leading-relaxed whitespace-pre-wrap">
+                        {activeReport.notes}
+                      </p>
+                    </div>
                   )}
                 </div>
 
-                {userCanApprove ? (
-                  <>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs font-semibold">
-                        Manager Comments / Review Remarks
-                      </Label>
-                      <Textarea
-                        value={reportReviewComments}
-                        onChange={(e) => setReportReviewComments(e.target.value)}
-                        placeholder="Add review observations, feedback, or directives for this surveillance report..."
-                        rows={2}
-                      />
+                {/* 3. Sales Behavior, Pitch Quality & Bundles */}
+                <div className="rounded-lg border bg-card p-3.5 space-y-3">
+                  <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
+                    <UserCheck className="h-4 w-4 text-emerald-600" />
+                    Sales Pitch, Pitch Quality & Bundle Audit
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Pitch NB</span>
+                      <span className="font-medium text-foreground">{activeReport.pitchNb}</span>
                     </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Pitch Quality</span>
+                      <Badge variant="outline" className="text-[11px]">
+                        {activeReport.pitchQuality}
+                      </Badge>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Showing Phone</span>
+                      <span className="font-medium text-foreground">{activeReport.showingPhone}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Acc Offered</span>
+                      <span className="font-medium text-foreground">{activeReport.accOffered}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Maximize</span>
+                      <span className="font-medium text-foreground">{activeReport.maximize}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Flipping</span>
+                      <span className="font-medium text-foreground">{activeReport.flipping}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Bundle NB</span>
+                      <span className="font-medium text-foreground">{activeReport.bundleNb}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Bundle Acc Given</span>
+                      <span className="font-medium text-foreground">{activeReport.bundleAccGiven}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Bundle-Start B</span>
+                      <span className="font-medium text-foreground">{activeReport.bundleStartB}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Bundle-End B</span>
+                      <span className="font-medium text-foreground">{activeReport.bundleEndB}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Port In</span>
+                      <span className="font-medium text-foreground">{activeReport.portIn}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Non-Up</span>
+                      <span className="font-medium text-foreground">{activeReport.nonUp}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">SmartPay Mentioned</span>
+                      <span className="font-medium text-foreground">{activeReport.smartPayMentioned}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">AAL Bill Same</span>
+                      <span className="font-medium text-foreground">{activeReport.aalBillSame}</span>
+                    </div>
+                  </div>
 
-                    <div className="space-y-1.5 pt-1">
-                      <Label className="text-xs font-semibold">
-                        Rate Submitter's Investigation (Optional 5-Star Rating)
-                      </Label>
-                      <StarRating
-                        value={reportRating}
-                        onChange={(v) => setReportRating(v)}
-                      />
+                  {activeReport.pitchNotes && (
+                    <div className="mt-2 pt-2 border-t">
+                      <span className="text-[11px] font-semibold text-muted-foreground block mb-1">
+                        Pitch Observations:
+                      </span>
+                      <p className="p-2.5 rounded bg-muted/40 text-foreground leading-relaxed">
+                        {activeReport.pitchNotes}
+                      </p>
                     </div>
-                  </>
-                ) : (
-                  <div className="p-3 rounded-lg border bg-muted/30 text-xs text-muted-foreground">
-                    Only Market Managers, State Managers, and Admin can approve or reject reports and assign ratings. District Managers have view-only access.
+                  )}
+                </div>
+
+                {/* 4. Floor Coverage & Staff Movement */}
+                <div className="rounded-lg border bg-card p-3.5 space-y-3">
+                  <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
+                    <Clock className="h-4 w-4 text-primary" />
+                    Floor Coverage & Staff Timings
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Name of Rep Leaving</span>
+                      <span className="font-medium text-foreground">{activeReport.nameOfRepLeaving || "None"}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Time Left</span>
+                      <span className="font-medium text-foreground">{activeReport.timeLeft || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Time Returned</span>
+                      <span className="font-medium text-foreground">{activeReport.timeReturned || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Offline</span>
+                      <span className="font-medium text-foreground">{activeReport.offline}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Back Room Time - In</span>
+                      <span className="font-medium text-foreground">{activeReport.backRoomTimeIn || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground block text-[11px]">Back Room Time - Out</span>
+                      <span className="font-medium text-foreground">{activeReport.backRoomTimeOut || "—"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Attachments */}
+                {activeReport.attachments && activeReport.attachments.length > 0 && (
+                  <div>
+                    <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1.5 flex items-center gap-1.5">
+                      <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                      Evidence Attachments
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {activeReport.attachments.map((file) => (
+                        <div
+                          key={file.id}
+                          className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-1.5 text-xs font-medium"
+                        >
+                          <FileText className="h-4 w-4 text-primary" />
+                          <span>{file.name}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            ({formatFileSize(file.size)})
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
+
+                {/* APPROVAL / REJECTION & 5-STAR RATING CONTROLS */}
+                <div className="mt-4 border-t pt-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="font-semibold text-foreground text-xs uppercase tracking-wider">
+                      Manager Review & Decision
+                    </div>
+                    {!userCanApprove && (
+                      <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 bg-amber-50">
+                        <Lock className="h-2.5 w-2.5 mr-1" /> View Only (District Manager)
+                      </Badge>
+                    )}
+                  </div>
+
+                  {userCanApprove ? (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold">
+                          Manager Comments / Review Remarks
+                        </Label>
+                        <Textarea
+                          value={reportReviewComments}
+                          onChange={(e) => setReportReviewComments(e.target.value)}
+                          placeholder="Add review observations, feedback, or directives for this surveillance report..."
+                          rows={2}
+                        />
+                      </div>
+
+                      <div className="space-y-1.5 pt-1">
+                        <Label className="text-xs font-semibold">
+                          Rate Submitter's Investigation (Optional 5-Star Rating)
+                        </Label>
+                        <StarRating
+                          value={reportRating}
+                          onChange={(v) => setReportRating(v)}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="p-3 rounded-lg border bg-muted/30 text-xs text-muted-foreground">
+                      Only Market Managers, State Managers, and Admin can approve or reject reports and assign ratings. District Managers have view-only access.
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             <DialogFooter className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
               <Button variant="outline" onClick={() => setViewReportOpen(false)}>
@@ -1248,41 +1362,40 @@ export default function ReportRequestsPage() {
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Card className="p-4 border-border/80">
-          <div className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
+      {/* KPI Cards: Exactly 3 cards with distinct colors as requested */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {/* Card 1: Total Requests (Primary / Blue tone) */}
+        <Card className="p-4 border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900/50">
+          <div className="text-xs text-blue-800 dark:text-blue-300 font-medium uppercase tracking-wider">
             Total Requests
           </div>
-          <div className="mt-1 text-2xl font-bold font-display">{metrics.total}</div>
+          <div className="mt-1 text-2xl font-bold font-display text-blue-950 dark:text-blue-100">
+            {metrics.total}
+          </div>
         </Card>
-        <Card className="p-4 border-amber-300/80 bg-amber-50/40 dark:bg-amber-950/20">
+
+        {/* Card 2: Pending Approval (status === 'Report Requested') (Amber tone) */}
+        <Card className="p-4 border-amber-300/80 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/50">
           <div className="text-xs text-amber-800 dark:text-amber-300 font-medium uppercase tracking-wider">
             Pending Approval
           </div>
           <div className="mt-1 text-2xl font-bold text-amber-950 dark:text-amber-100 font-display">
-            {metrics.pending}
+            {metrics.pendingApproval}
           </div>
         </Card>
-        <Card className="p-4 border-emerald-300/80 bg-emerald-50/40 dark:bg-emerald-950/20">
+
+        {/* Card 3: Approved (status === 'Approved') (Emerald tone) */}
+        <Card className="p-4 border-emerald-300/80 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/50">
           <div className="text-xs text-emerald-800 dark:text-emerald-300 font-medium uppercase tracking-wider">
-            Approved & Active
+            Approved
           </div>
           <div className="mt-1 text-2xl font-bold text-emerald-950 dark:text-emerald-100 font-display">
             {metrics.approved}
           </div>
         </Card>
-        <Card className="p-4 border-purple-300/80 bg-purple-50/40 dark:bg-purple-950/20">
-          <div className="text-xs text-purple-800 dark:text-purple-300 font-medium uppercase tracking-wider">
-            Report Submitted
-          </div>
-          <div className="mt-1 text-2xl font-bold text-purple-950 dark:text-purple-100 font-display">
-            {metrics.submitted}
-          </div>
-        </Card>
       </div>
 
-      {/* Toolbar filters */}
+      {/* Toolbar filters: Statuses and 3 Priorities */}
       <div className="flex flex-wrap items-center gap-2">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="h-9 w-[170px]">
@@ -1290,11 +1403,10 @@ export default function ReportRequestsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="pending_approval">Pending Approval</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="report_submitted">Report Submitted</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
+            <SelectItem value="Report Requested">Report Requested</SelectItem>
+            <SelectItem value="Report Received">Report Received</SelectItem>
+            <SelectItem value="Approved">Approved</SelectItem>
+            <SelectItem value="Rejected">Rejected</SelectItem>
           </SelectContent>
         </Select>
 
@@ -1307,7 +1419,6 @@ export default function ReportRequestsPage() {
             <SelectItem value="low">Low</SelectItem>
             <SelectItem value="medium">Medium</SelectItem>
             <SelectItem value="high">High</SelectItem>
-            <SelectItem value="urgent">Urgent</SelectItem>
           </SelectContent>
         </Select>
 
@@ -1327,7 +1438,7 @@ export default function ReportRequestsPage() {
         )}
       </div>
 
-      {/* Table: strictly 7 columns, no actions column, row click opens detail page */}
+      {/* Table: strictly 7 columns, single info per column, no actions column, row click opens detail page */}
       <DataTable
         rows={filteredRequests}
         columns={columns}
@@ -1359,7 +1470,7 @@ export default function ReportRequestsPage() {
                 <SelectContent>
                   {AVAILABLE_STORES.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
-                      {s.name} ({s.market} • {s.district})
+                      {s.name} ({s.market})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -1416,7 +1527,7 @@ export default function ReportRequestsPage() {
               </Select>
             </div>
 
-            {/* Priority */}
+            {/* Priority: Strictly Low, Medium, High */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">Priority</Label>
               <Select value={priority} onValueChange={(v) => setPriority(v as SurveillancePriority)}>
@@ -1427,15 +1538,14 @@ export default function ReportRequestsPage() {
                   <SelectItem value="low">Low</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
                   <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="urgent">Urgent</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Request Title */}
+            {/* Request Title / Investigation Reason */}
             <div className="sm:col-span-2 space-y-1.5">
               <Label className="text-xs font-semibold">
-                Request Title / Incident Summary <span className="text-destructive">*</span>
+                Investigation Reason / Incident Summary <span className="text-destructive">*</span>
               </Label>
               <Input
                 value={title}

@@ -1,13 +1,12 @@
 export type SurveillanceRole = "admin" | "state_manager" | "market_manager" | "district_manager" | "user";
 
 export type SurveillanceRequestStatus =
-  | "pending_approval"
-  | "approved"
-  | "in_progress"
-  | "report_submitted"
-  | "rejected";
+  | "Report Requested"
+  | "Report Received"
+  | "Approved"
+  | "Rejected";
 
-export type SurveillancePriority = "low" | "medium" | "high" | "urgent";
+export type SurveillancePriority = "low" | "medium" | "high";
 
 export interface SurveillanceRequest {
   id: string;
@@ -49,7 +48,7 @@ export interface SurveillanceRequest {
   // Manager Review & Rating on Report
   reportApprovedBy?: string;
   reportApprovedAt?: string;
-  reportStatus?: "approved" | "rejected" | "pending_review";
+  reportStatus?: "Approved" | "Rejected" | "Pending Review";
   managerRating?: number; // 1 to 5 stars (optional)
   managerComments?: string;
 }
@@ -64,28 +63,65 @@ export interface SurveillanceAttachment {
 export interface SurveillanceReport {
   id: string;
   requestId: string;
-  storeName: string;
-  storeNumber?: string;
-  marketName: string;
-  incidentDate: string;
   investigatorName: string;
-  investigatorId: string;
+  investigatorId?: string;
   investigatorEmail?: string;
   investigatorPhone?: string;
   investigatorRole?: string;
   investigatorDepartment?: string;
-  reviewDate: string;
-  hoursReviewed: string;
-  camerasReviewed: string[];
-  footageQuality: "Clear" | "Partially Obstructed" | "Poor / Glitchy" | "No Coverage";
-  incidentConfirmed: "Yes" | "No" | "Inconclusive";
-  discrepancyAmount?: string;
-  personsInvolved?: string;
-  findings: string;
-  recommendation: string;
-  attachments?: SurveillanceAttachment[];
   submittedAt: string;
-  status: "submitted" | "approved" | "rejected" | "under_review" | "closed";
+  status: "Report Received" | "Approved" | "Rejected";
+
+  // Specific Surveillance Audit Form Attributes
+  date: string;
+  storeName: string;
+  invoiceNo: string;
+  cashTime: string;
+  time: string;
+  bdiTime: string;
+  salesRep: string;
+  transType: string;
+  clientType: "Billable" | "Non Billable";
+  invoiceAmount: string;
+  totalTaken: string;
+  paymentMode: "Cash" | "Card" | "Split";
+  difference: string;
+  receipt: "Yes" | "No";
+  splitPayments: "Yes" | "No";
+  fraudTransactions: "Yes" | "No";
+  refundInvoice: "Yes" | "No";
+  missOpportunity: "Yes" | "No";
+  paymentFraud: "Yes" | "No";
+  aalSwap: "Yes" | "No";
+  mim: "Yes" | "No" | string;
+  notes: string;
+  pitchNb: string;
+  pitchQuality: "Good" | "Fair" | "Poor" | "Not Observed";
+  pitchNotes: string;
+  showingPhone: "Yes" | "No";
+  accOffered: "Yes" | "No";
+  maximize: "Yes" | "No";
+  flipping: "Yes" | "No";
+  bundleNb: string;
+  bundleStartB: string;
+  bundleEndB: string;
+  bundleAccGiven: "Yes" | "No";
+  portIn: "Yes" | "No";
+  nonUp: "Yes" | "No";
+  smartPayMentioned: "Yes" | "No";
+  aalBillSame: "Yes" | "No";
+  onlineRejectedPayment: "Yes" | "No";
+  nameOfRepLeaving: string;
+  timeLeft: string;
+  timeReturned: string;
+  backRoomTimeIn: string;
+  backRoomTimeOut: string;
+  offline: "Yes" | "No";
+
+  // Optional video observations & attachments
+  attachments?: SurveillanceAttachment[];
+
+  // Review / rating
   managerRating?: number; // 1-5 optional
   managerComments?: string;
   reviewedBy?: string;
@@ -109,15 +145,50 @@ export interface CreateSurveillanceRequestPayload {
 
 export interface CreateSurveillanceReportPayload {
   requestId: string;
-  reviewDate: string;
-  hoursReviewed: string;
-  camerasReviewed: string[];
-  footageQuality: "Clear" | "Partially Obstructed" | "Poor / Glitchy" | "No Coverage";
-  incidentConfirmed: "Yes" | "No" | "Inconclusive";
-  discrepancyAmount?: string;
-  personsInvolved?: string;
-  findings: string;
-  recommendation: string;
+  date: string;
+  storeName: string;
+  invoiceNo: string;
+  cashTime: string;
+  time: string;
+  bdiTime: string;
+  salesRep: string;
+  transType: string;
+  clientType: "Billable" | "Non Billable";
+  invoiceAmount: string;
+  totalTaken: string;
+  paymentMode: "Cash" | "Card" | "Split";
+  difference: string;
+  receipt: "Yes" | "No";
+  splitPayments: "Yes" | "No";
+  fraudTransactions: "Yes" | "No";
+  refundInvoice: "Yes" | "No";
+  missOpportunity: "Yes" | "No";
+  paymentFraud: "Yes" | "No";
+  aalSwap: "Yes" | "No";
+  mim: "Yes" | "No" | string;
+  notes: string;
+  pitchNb: string;
+  pitchQuality: "Good" | "Fair" | "Poor" | "Not Observed";
+  pitchNotes: string;
+  showingPhone: "Yes" | "No";
+  accOffered: "Yes" | "No";
+  maximize: "Yes" | "No";
+  flipping: "Yes" | "No";
+  bundleNb: string;
+  bundleStartB: string;
+  bundleEndB: string;
+  bundleAccGiven: "Yes" | "No";
+  portIn: "Yes" | "No";
+  nonUp: "Yes" | "No";
+  smartPayMentioned: "Yes" | "No";
+  aalBillSame: "Yes" | "No";
+  onlineRejectedPayment: "Yes" | "No";
+  nameOfRepLeaving: string;
+  timeLeft: string;
+  timeReturned: string;
+  backRoomTimeIn: string;
+  backRoomTimeOut: string;
+  offline: "Yes" | "No";
   attachments?: SurveillanceAttachment[];
 }
 
