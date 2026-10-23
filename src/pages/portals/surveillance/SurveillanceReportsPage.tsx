@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { DataTable, type Column } from "@/components/data-table";
@@ -53,6 +53,8 @@ import {
   ChevronDown,
   ChevronUp,
   Send,
+  Save,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -396,6 +398,8 @@ export default function SurveillanceReportsPage() {
   const [isEditingReport, setIsEditingReport] = useState(false);
   const [editableRows, setEditableRows] = useState<SurveillanceAuditRow[]>([]);
   const [expandedRowIds, setExpandedRowIds] = useState<Record<string, boolean>>({});
+  const [savedRowTimestamps, setSavedRowTimestamps] = useState<Record<string, string>>({});
+  const [dirtyRowIds, setDirtyRowIds] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
 
@@ -413,6 +417,41 @@ export default function SurveillanceReportsPage() {
     };
   }, [requests]);
 
+  // Automatically restore active MMKV draft session after an unexpected refresh or power loss
+  useEffect(() => {
+    const activeSession = surveillanceService.getActiveDraftSession();
+    if (!activeSession?.isEditing || !activeSession.requestId) return;
+
+    const targetReq = INITIAL_SURVEILLANCE_REQUESTS.find(
+      (r) => r.id === activeSession.requestId && r.status === "Report Requested",
+    );
+    if (!targetReq) {
+      surveillanceService.clearActiveDraftSession();
+      return;
+    }
+
+    const savedRecords = surveillanceService.getDraftRows(targetReq.id);
+    if (savedRecords.length === 0) return;
+
+    const restoredRows = savedRecords.map((rec) => ({
+      ...rec.row,
+      attachments: rec.row.attachments ? [...rec.row.attachments] : [],
+    }));
+    const timestamps: Record<string, string> = {};
+    const expanded: Record<string, boolean> = {};
+    for (const rec of savedRecords) {
+      timestamps[rec.row.id] = rec.savedAt;
+      expanded[rec.row.id] = true;
+    }
+
+    setSelectedDetail(targetReq);
+    setEditableRows(restoredRows);
+    setSavedRowTimestamps(timestamps);
+    setDirtyRowIds({});
+    setExpandedRowIds(expanded);
+    setIsEditingReport(true);
+  }, []);
+
   // Strictly restrict Surveillance Reports page to "user" role
   if (!isSurveillanceUserRole(user)) {
     const role = getSurveillanceRole(user);
@@ -425,6 +464,33 @@ export default function SurveillanceReportsPage() {
   }
 
   const handleOpenEditableForm = (reqItem: SurveillanceRequest) => {
+    // 1. Check MMKV storage first for previously saved row-by-row draft entries
+    const savedRecords = surveillanceService.getDraftRows(reqItem.id);
+    if (savedRecords.length > 0) {
+      const restoredRows = savedRecords.map((rec) => ({
+        ...rec.row,
+        attachments: rec.row.attachments ? [...rec.row.attachments] : [],
+      }));
+      const timestamps: Record<string, string> = {};
+      const expanded: Record<string, boolean> = {};
+      for (const rec of savedRecords) {
+        timestamps[rec.row.id] = rec.savedAt;
+        expanded[rec.row.id] = true;
+      }
+
+      setEditableRows(restoredRows);
+      setSavedRowTimestamps(timestamps);
+      setDirtyRowIds({});
+      setExpandedRowIds(expanded);
+      surveillanceService.saveActiveDraftSession(reqItem.id, true);
+      setIsEditingReport(true);
+      toast.info(
+        `Restored ${restoredRows.length} saved audit ${restoredRows.length === 1 ? "row" : "rows"} from local storage.`,
+      );
+      return;
+    }
+
+    // 2. Otherwise initialize from existing report or start with a blank audit row
     const existingReport = reports.find(
       (rep) => rep.id === reqItem.linkedReportId || rep.requestId === reqItem.id,
     );
@@ -432,6 +498,9 @@ export default function SurveillanceReportsPage() {
     const initialDate =
       reqItem.incidentDate?.split(" - ")[0]?.trim() ||
       new Date().toISOString().split("T")[0];
+
+    setSavedRowTimestamps({});
+    setDirtyRowIds({});
 
     if (existingReport && existingReport.rows && existingReport.rows.length > 0) {
       const cloned = existingReport.rows.map((r) => ({
@@ -456,7 +525,31 @@ export default function SurveillanceReportsPage() {
       setExpandedRowIds({ [firstRow.id]: true });
     }
 
+    surveillanceService.saveActiveDraftSession(reqItem.id, true);
     setIsEditingReport(true);
+  };
+
+  const handleCloseEditableForm = () => {
+    surveillanceService.clearActiveDraftSession();
+    setIsEditingReport(false);
+  };
+
+  const handleSaveAuditRow = (
+    requestId: string,
+    row: SurveillanceAuditRow,
+    rowIndex: number,
+  ) => {
+    const savedRecord = surveillanceService.saveDraftRow(requestId, row, rowIndex);
+    setSavedRowTimestamps((prev) => ({
+      ...prev,
+      [row.id]: savedRecord.savedAt,
+    }));
+    setDirtyRowIds((prev) => ({
+      ...prev,
+      [row.id]: false,
+    }));
+    surveillanceService.saveActiveDraftSession(requestId, true);
+    toast.success(`Row #${rowIndex + 1} has been saved locally.`);
   };
 
   const handleUpdateRowField = <K extends keyof SurveillanceAuditRow>(
@@ -464,6 +557,7 @@ export default function SurveillanceReportsPage() {
     field: K,
     value: SurveillanceAuditRow[K],
   ) => {
+    setDirtyRowIds((prev) => ({ ...prev, [rowId]: true }));
     setEditableRows((prev) =>
       prev.map((row) => {
         if (row.id !== rowId) return row;
@@ -497,12 +591,23 @@ export default function SurveillanceReportsPage() {
     setExpandedRowIds((prev) => ({ ...prev, [nextRow.id]: true }));
   };
 
-  const handleRemoveAuditRow = (rowId: string) => {
+  const handleRemoveAuditRow = (requestId: string, rowId: string) => {
     if (editableRows.length <= 1) {
       toast.error("At least one audit entry row is required to submit a report.");
       return;
     }
+    surveillanceService.removeDraftRow(requestId, rowId);
     setEditableRows((prev) => prev.filter((r) => r.id !== rowId));
+    setSavedRowTimestamps((prev) => {
+      const next = { ...prev };
+      delete next[rowId];
+      return next;
+    });
+    setDirtyRowIds((prev) => {
+      const next = { ...prev };
+      delete next[rowId];
+      return next;
+    });
   };
 
   const toggleRowExpanded = (rowId: string) => {
@@ -523,6 +628,7 @@ export default function SurveillanceReportsPage() {
       type: f.type,
     }));
 
+    setDirtyRowIds((prev) => ({ ...prev, [rowId]: true }));
     setEditableRows((prev) =>
       prev.map((row) =>
         row.id === rowId
@@ -534,6 +640,7 @@ export default function SurveillanceReportsPage() {
   };
 
   const handleRemoveRowAttachment = (rowId: string, attId: string) => {
+    setDirtyRowIds((prev) => ({ ...prev, [rowId]: true }));
     setEditableRows((prev) =>
       prev.map((row) =>
         row.id === rowId
@@ -713,6 +820,11 @@ export default function SurveillanceReportsPage() {
       Object.assign(sharedReq, updatedReq);
     }
 
+    // Clear MMKV draft storage for this request once final submission succeeds
+    surveillanceService.clearRequestDraft(reqItem.id);
+    setSavedRowTimestamps({});
+    setDirtyRowIds({});
+
     setRequests((prev) => prev.map((r) => (r.id === reqItem.id ? updatedReq : r)));
     setSelectedDetail(updatedReq);
     setIsSubmitting(false);
@@ -809,7 +921,7 @@ export default function SurveillanceReportsPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setIsEditingReport(false)}
+              onClick={handleCloseEditableForm}
               className="h-8 gap-1.5 px-2.5 text-xs font-medium"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
@@ -843,6 +955,9 @@ export default function SurveillanceReportsPage() {
         <div className="space-y-4">
           {editableRows.map((row, index) => {
             const isExpanded = expandedRowIds[row.id] ?? true;
+            const rowSavedAt = savedRowTimestamps[row.id];
+            const isRowDirty = Boolean(dirtyRowIds[row.id]);
+            const isRowSavedClean = Boolean(rowSavedAt && !isRowDirty);
             const salesRepChoices =
               row.salesRep && !SALES_REP_NAMES.includes(row.salesRep)
                 ? [row.salesRep, ...SALES_REP_NAMES]
@@ -867,6 +982,22 @@ export default function SurveillanceReportsPage() {
                       {row.invoice.trim() ? `• Invoice: ${row.invoice}` : ""}
                       {row.time.trim() ? ` • Time: ${row.time}` : ""}
                     </span>
+                    {isRowSavedClean && (
+                      <Badge
+                        variant="outline"
+                        className="border-emerald-200 bg-emerald-50 text-[11px] font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400"
+                      >
+                        Saved
+                      </Badge>
+                    )}
+                    {rowSavedAt && isRowDirty && (
+                      <Badge
+                        variant="outline"
+                        className="border-amber-200 bg-amber-50 text-[11px] font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-400"
+                      >
+                        Unsaved Changes
+                      </Badge>
+                    )}
                     {isExpanded ? (
                       <ChevronUp className="ml-auto h-4 w-4 text-muted-foreground" />
                     ) : (
@@ -879,7 +1010,7 @@ export default function SurveillanceReportsPage() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleRemoveAuditRow(row.id)}
+                      onClick={() => handleRemoveAuditRow(activeItem.id, row.id)}
                       className="h-8 px-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30"
                       title="Remove Row"
                     >
@@ -1429,6 +1560,41 @@ export default function SurveillanceReportsPage() {
                         </p>
                       )}
                     </div>
+
+                    {/* Row-level MMKV Save Footer */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
+                      <div className="flex items-center gap-1.5 text-xs">
+                        {isRowSavedClean ? (
+                          <span className="inline-flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Saved locally at{" "}
+                            {new Date(rowSavedAt).toLocaleTimeString([], {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        ) : rowSavedAt && isRowDirty ? (
+                          <span className="font-medium text-amber-600 dark:text-amber-400">
+                            Unsaved changes in this row — click Save to update local draft.
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">
+                            Click Save to preserve this row locally against accidental navigation or power loss.
+                          </span>
+                        )}
+                      </div>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={isRowSavedClean ? "outline" : "default"}
+                        onClick={() => handleSaveAuditRow(activeItem.id, row, index)}
+                        className="h-8 gap-1.5 px-3.5 text-xs font-semibold"
+                      >
+                        <Save className="h-3.5 w-3.5" />
+                        {isRowSavedClean ? "Saved" : "Save"}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </Card>
@@ -1452,7 +1618,7 @@ export default function SurveillanceReportsPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => setIsEditingReport(false)}
+              onClick={handleCloseEditableForm}
               className="text-xs"
             >
               Cancel

@@ -114,6 +114,19 @@ export interface SurveillanceAuditRow {
   rowHighlight?: "opening" | "amber" | "green" | "violation";
 }
 
+export interface SavedAuditRowRecord {
+  requestId: string;
+  row: SurveillanceAuditRow;
+  rowOrder: number;
+  savedAt: string;
+}
+
+export interface ActiveSurveillanceDraftSession {
+  requestId: string;
+  isEditing: boolean;
+  updatedAt: string;
+}
+
 export interface SurveillanceReport {
   id: string;
   requestId: string;
