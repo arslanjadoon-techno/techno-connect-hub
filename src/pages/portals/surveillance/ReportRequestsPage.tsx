@@ -241,11 +241,17 @@ export default function ReportRequestsPage() {
     });
   }, [requests, marketFilter, statusFilter, priorityFilter]);
 
-  // Metrics: exactly 3 cards as requested: Total Requests, Pending Approval (Report Requested), and Approved
+  // Metrics: 4 summary cards — Total Requests, Received (Report Received, Approved, Rejected), Pending (Report Requested), and Approved
   const metrics = useMemo(() => {
     return {
       total: requests.length,
-      pendingApproval: requests.filter((r) => r.status === "Report Requested").length,
+      received: requests.filter(
+        (r) =>
+          r.status === "Report Received" ||
+          r.status === "Approved" ||
+          r.status === "Rejected",
+      ).length,
+      pending: requests.filter((r) => r.status === "Report Requested").length,
       approved: requests.filter((r) => r.status === "Approved").length,
     };
   }, [requests]);
@@ -654,9 +660,9 @@ export default function ReportRequestsPage() {
         </div>
       </div>
 
-      {/* KPI Cards: Exactly 3 cards with distinct colors as requested */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {/* Card 1: Total Requests (Primary / Blue tone) */}
+      {/* KPI Cards: 4 cards with distinct colors — Total Requests, Received, Pending, and Approved */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Card 1: Total Requests (Blue tone) */}
         <Card className="p-4 border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900/50">
           <div className="text-xs text-blue-800 dark:text-blue-300 font-medium uppercase tracking-wider">
             Total Requests
@@ -666,17 +672,27 @@ export default function ReportRequestsPage() {
           </div>
         </Card>
 
-        {/* Card 2: Pending Approval (status === 'Report Requested') (Amber tone) */}
-        <Card className="p-4 border-amber-300/80 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/50">
-          <div className="text-xs text-amber-800 dark:text-amber-300 font-medium uppercase tracking-wider">
-            Pending Approval
+        {/* Card 2: Received (Report Received, Approved, and Rejected) (Purple tone) */}
+        <Card className="p-4 border-purple-300/80 bg-purple-50/50 dark:bg-purple-950/20 dark:border-purple-900/50">
+          <div className="text-xs text-purple-800 dark:text-purple-300 font-medium uppercase tracking-wider">
+            Received
           </div>
-          <div className="mt-1 text-2xl font-bold text-amber-950 dark:text-amber-100 font-display">
-            {metrics.pendingApproval}
+          <div className="mt-1 text-2xl font-bold font-display text-purple-950 dark:text-purple-100">
+            {metrics.received}
           </div>
         </Card>
 
-        {/* Card 3: Approved (status === 'Approved') (Emerald tone) */}
+        {/* Card 3: Pending (Report Requested) (Amber tone) */}
+        <Card className="p-4 border-amber-300/80 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/50">
+          <div className="text-xs text-amber-800 dark:text-amber-300 font-medium uppercase tracking-wider">
+            Pending
+          </div>
+          <div className="mt-1 text-2xl font-bold text-amber-950 dark:text-amber-100 font-display">
+            {metrics.pending}
+          </div>
+        </Card>
+
+        {/* Card 4: Approved (Approved) (Emerald tone) */}
         <Card className="p-4 border-emerald-300/80 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/50">
           <div className="text-xs text-emerald-800 dark:text-emerald-300 font-medium uppercase tracking-wider">
             Approved

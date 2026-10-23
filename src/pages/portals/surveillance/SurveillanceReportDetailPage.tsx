@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   ArrowLeft,
-  Printer,
   Download,
   FileText,
   Image as ImageIcon,
@@ -523,14 +522,6 @@ export default function SurveillanceReportDetailPage() {
             className="h-9 gap-1.5 px-3.5 text-xs font-medium"
           >
             <Download className="h-3.5 w-3.5" /> Export CSV
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => window.print()}
-            className="h-9 gap-1.5 px-3.5 text-xs font-medium"
-          >
-            <Printer className="h-3.5 w-3.5" /> Print
           </Button>
         </div>
       </div>

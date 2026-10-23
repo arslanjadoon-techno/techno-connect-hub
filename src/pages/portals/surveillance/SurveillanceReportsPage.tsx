@@ -179,7 +179,12 @@ export default function SurveillanceReportsPage() {
   const metrics = useMemo(() => {
     return {
       total: requests.length,
-      submitted: requests.filter((r) => r.status === "Report Received").length,
+      submitted: requests.filter(
+        (r) =>
+          r.status === "Report Received" ||
+          r.status === "Approved" ||
+          r.status === "Rejected",
+      ).length,
       pending: requests.filter((r) => r.status === "Report Requested").length,
       approved: requests.filter((r) => r.status === "Approved").length,
     };
@@ -558,16 +563,6 @@ export default function SurveillanceReportsPage() {
             >
               <Plus className="h-3.5 w-3.5" />
               Add Row ({editableRows.length})
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              disabled={isSubmitting}
-              onClick={() => handleSubmitEditableReport(activeItem)}
-              className="h-9 gap-2 text-xs font-semibold shadow-xs"
-            >
-              <Send className="h-3.5 w-3.5" />
-              {isSubmitting ? "Submitting..." : "Submit Report"}
             </Button>
           </div>
         </div>
