@@ -72,6 +72,7 @@ import ApproveLeavePage from "@/pages/portals/leave-management/ApproveLeave";
 // ---------- Surveillance Portal ---------- //
 import ReportRequestsPage from "@/pages/portals/surveillance/ReportRequestsPage";
 import SurveillanceReportsPage from "@/pages/portals/surveillance/SurveillanceReportsPage";
+import SurveillanceReportDetailPage from "@/pages/portals/surveillance/SurveillanceReportDetailPage";
 import { getSurveillanceRole, canRequestSurveillance } from "@/services/portals/surveillance/types";
 
 // ---------- User manager ---------- //
@@ -712,6 +713,14 @@ export function AppRoutes() {
           element={
             <PortalRouteGuard portalKey="surveillance">
               <SurveillanceReportsPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/surveillance/reports/:id"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceReportDetailPage />
             </PortalRouteGuard>
           }
         />

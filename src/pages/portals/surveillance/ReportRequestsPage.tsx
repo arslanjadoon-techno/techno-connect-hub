@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { DataTable, type Column } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
@@ -41,31 +42,23 @@ import {
   RotateCcw,
   Check,
   X,
-  Lock,
   ArrowLeft,
   User as UserIcon,
   ShieldCheck,
   FileText,
-  DollarSign,
-  Paperclip,
   Star,
-  Printer,
   Phone,
   Mail,
   Building,
   Eye,
   AlertCircle,
+  Calendar,
   Clock,
-  ShoppingBag,
-  CreditCard,
-  UserCheck,
-  ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   AVAILABLE_STORES,
   INITIAL_SURVEILLANCE_REQUESTS,
-  INITIAL_SURVEILLANCE_REPORTS,
 } from "./surveillance-data";
 import {
   getSurveillanceRole,
@@ -74,7 +67,6 @@ import {
   type SurveillanceRequest,
   type SurveillancePriority,
   type SurveillanceRole,
-  type SurveillanceReport,
   type SurveillanceRequestStatus,
 } from "@/services/portals/surveillance/types";
 
@@ -108,95 +100,11 @@ const STATUS_CONFIG: Record<
   },
 };
 
-const CAMERA_AREA_OPTIONS = [
-  "POS 1 Register",
-  "POS 2 Register",
-  "Backroom / Cash Safe",
-  "Customer Entrance / Exit",
-  "Sales Floor & Displays",
-  "Delivery Gate / Alleyway",
-  "Inventory Stockroom",
-];
-
-const INVESTIGATION_TYPES = [
-  "Cash Drawer Shortage",
-  "Inventory Discrepancy",
-  "Customer Safety Incident",
-  "Suspicious Activity",
-  "Employee Operational Audit",
-  "Property Damage / Vandalism",
-  "Other Special Review",
-];
-
-const SHIFT_OPTIONS = [
-  "Morning Shift (08:00 - 16:00)",
-  "Evening Shift (16:00 - 00:00)",
-  "Closing Shift (20:00 - 23:00)",
-  "Overnight (00:00 - 08:00)",
-  "Full Day Review",
-  "Custom Specific Time Range",
-];
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function StarRating({
-  value,
-  onChange,
-  disabled = false,
-}: {
-  value: number;
-  onChange?: (v: number) => void;
-  disabled?: boolean;
-}) {
-  const [hoverVal, setHoverVal] = useState<number | null>(null);
-  const displayVal = hoverVal ?? value;
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className="flex items-center gap-1">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <button
-            key={star}
-            type="button"
-            disabled={disabled}
-            onClick={() => onChange && onChange(star === value ? 0 : star)}
-            onMouseEnter={() => !disabled && setHoverVal(star)}
-            onMouseLeave={() => !disabled && setHoverVal(null)}
-            className={`p-0.5 transition-transform ${
-              disabled ? "cursor-default" : "cursor-pointer hover:scale-110"
-            }`}
-          >
-            <Star
-              className={`h-5 w-5 ${
-                star <= displayVal
-                  ? "fill-amber-400 text-amber-400"
-                  : "text-muted-foreground/30"
-              }`}
-            />
-          </button>
-        ))}
-      </div>
-      <span className="text-xs text-muted-foreground font-medium ml-1">
-        {displayVal > 0 ? `${displayVal} of 5 Stars` : "(No rating)"}
-      </span>
-      {!disabled && value > 0 && (
-        <button
-          type="button"
-          onClick={() => onChange && onChange(0)}
-          className="text-[11px] text-muted-foreground hover:text-foreground underline ml-2"
-        >
-          Clear
-        </button>
-      )}
-    </div>
-  );
-}
+// Extract unique markets
+const MARKETS = Array.from(new Set(AVAILABLE_STORES.map((s) => s.market)));
 
 export default function ReportRequestsPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const detectedRole = useMemo(() => getSurveillanceRole(user), [user]);
 
@@ -206,32 +114,31 @@ export default function ReportRequestsPage() {
   });
 
   const [requests, setRequests] = useState<SurveillanceRequest[]>(INITIAL_SURVEILLANCE_REQUESTS);
-  const [reports, setReports] = useState<SurveillanceReport[]>(INITIAL_SURVEILLANCE_REPORTS);
 
   // Active drill-down detail view state (null = list view)
   const [selectedDetail, setSelectedDetail] = useState<SurveillanceRequest | null>(null);
-
-  // View Report modal state
-  const [viewReportOpen, setViewReportOpen] = useState(false);
-  const [reportReviewComments, setReportReviewComments] = useState("");
-  const [reportRating, setReportRating] = useState<number>(0);
 
   // Filter states
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
 
-  // Create Request Modal state
+  // Create Request Modal state - strictly conforming to requested fields:
+  // 1. Market dropdown
+  // 2. Store dropdown (filtered by selected market)
+  // 3. Date & time interval (both single date + interval time)
+  // 4. Priority (default "low")
+  // 5. Investigation Reason / Incident Summary
+  // 6. Additional Context / Special Instructions (optional, no red star)
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [selectedStoreId, setSelectedStoreId] = useState(AVAILABLE_STORES[0].id);
+  const [selectedMarket, setSelectedMarket] = useState(MARKETS[0]);
+  const [selectedStoreId, setSelectedStoreId] = useState(
+    AVAILABLE_STORES.find((s) => s.market === MARKETS[0])?.id || AVAILABLE_STORES[0].id,
+  );
   const [incidentDate, setIncidentDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [shift, setShift] = useState(SHIFT_OPTIONS[0]);
-  const [investigationType, setInvestigationType] = useState(INVESTIGATION_TYPES[0]);
-  const [priority, setPriority] = useState<SurveillancePriority>("high");
+  const [intervalStart, setIntervalStart] = useState("14:00");
+  const [intervalEnd, setIntervalEnd] = useState("18:00");
+  const [priority, setPriority] = useState<SurveillancePriority>("low");
   const [title, setTitle] = useState("");
-  const [selectedAreas, setSelectedAreas] = useState<string[]>([
-    "POS 1 Register",
-    "Backroom / Cash Safe",
-  ]);
   const [notes, setNotes] = useState("");
 
   // Requisition Approve / Reject dialogs
@@ -243,44 +150,50 @@ export default function ReportRequestsPage() {
   // Role permissions
   const userCanApprove = canApproveSurveillance(activeRole);
 
-  // Get active report linked to current selected detail
-  const activeReport = useMemo(() => {
-    if (!selectedDetail) return null;
-    return (
-      reports.find(
-        (rep) =>
-          rep.id === selectedDetail.linkedReportId ||
-          rep.requestId === selectedDetail.id,
-      ) || null
-    );
-  }, [selectedDetail, reports]);
+  // Stores filtered by currently selected market in modal
+  const storesForMarket = useMemo(() => {
+    return AVAILABLE_STORES.filter((s) => s.market === selectedMarket);
+  }, [selectedMarket]);
+
+  // Market change handler in modal
+  const handleMarketChange = (newMarket: string) => {
+    setSelectedMarket(newMarket);
+    const storesInNewMarket = AVAILABLE_STORES.filter((s) => s.market === newMarket);
+    if (storesInNewMarket.length > 0) {
+      setSelectedStoreId(storesInNewMarket[0].id);
+    }
+  };
 
   // Handlers for creating request
   const handleOpenCreate = () => {
     setTitle("");
     setNotes("");
-    setSelectedStoreId(AVAILABLE_STORES[0].id);
+    const defaultMarket = MARKETS[0];
+    setSelectedMarket(defaultMarket);
+    const firstStore = AVAILABLE_STORES.find((s) => s.market === defaultMarket) || AVAILABLE_STORES[0];
+    setSelectedStoreId(firstStore.id);
     setIncidentDate(new Date().toISOString().split("T")[0]);
-    setShift(SHIFT_OPTIONS[0]);
-    setInvestigationType(INVESTIGATION_TYPES[0]);
-    setPriority("high");
-    setSelectedAreas(["POS 1 Register", "Backroom / Cash Safe"]);
+    setIntervalStart("14:00");
+    setIntervalEnd("18:00");
+    setPriority("low"); // By default low selected
     setCreateModalOpen(true);
   };
 
-  const handleToggleArea = (area: string) => {
-    setSelectedAreas((prev) =>
-      prev.includes(area) ? prev.filter((a) => a !== area) : [...prev, area],
-    );
-  };
-
   const handleCreateRequest = () => {
-    if (!title.trim()) {
-      toast.error("Please enter a request title or incident summary.");
+    if (!selectedMarket) {
+      toast.error("Please select a market.");
       return;
     }
-    if (selectedAreas.length === 0) {
-      toast.error("Please select at least one camera area to review.");
+    if (!selectedStoreId) {
+      toast.error("Please select a store location.");
+      return;
+    }
+    if (!incidentDate) {
+      toast.error("Please select an incident date.");
+      return;
+    }
+    if (!title.trim()) {
+      toast.error("Please enter the investigation reason or incident summary.");
       return;
     }
 
@@ -296,6 +209,8 @@ export default function ReportRequestsPage() {
             ? "Market Manager"
             : "District Manager";
 
+    const formattedShift = intervalStart && intervalEnd ? `${intervalStart} - ${intervalEnd}` : "Full Day Review";
+
     const newRequest: SurveillanceRequest = {
       id: newId,
       storeId: store.id,
@@ -304,8 +219,8 @@ export default function ReportRequestsPage() {
       marketName: store.market,
       districtName: store.district,
       incidentDate,
-      shift,
-      investigationType,
+      shift: formattedShift,
+      investigationType: "Store Audit & Surveillance",
       priority,
       title: title.trim(),
       requestedBy: user?.fullName || "Current User",
@@ -314,7 +229,7 @@ export default function ReportRequestsPage() {
       requesterEmail: user?.email || "user@techno.com",
       requesterPhone: user?.phone || "+1 (555) 012-3456",
       requesterDepartment: user?.department?.name || "Operations",
-      areasToReview: selectedAreas,
+      areasToReview: ["POS Registers", "Sales Floor", "Backroom / Cash Safe"],
       notes: notes.trim() || undefined,
       status: "Report Requested",
       createdAt: new Date().toISOString(),
@@ -366,94 +281,6 @@ export default function ReportRequestsPage() {
     toast.success(`Request ${rejectTarget.id} rejected.`);
     setRejectTarget(null);
     setRejectionReason("");
-  };
-
-  // Report Approval by Manager (with optional 5-star rating)
-  const handleApproveReport = () => {
-    if (!selectedDetail) return;
-
-    const reviewerName = user?.fullName || `${activeRole.replace(/_/g, " ")} Authority`;
-    const now = new Date().toISOString();
-
-    const updatedRequest: SurveillanceRequest = {
-      ...selectedDetail,
-      status: "Approved",
-      reportStatus: "Approved",
-      reportApprovedBy: reviewerName,
-      reportApprovedAt: now,
-      managerRating: reportRating > 0 ? reportRating : selectedDetail.managerRating,
-      managerComments: reportReviewComments.trim() || selectedDetail.managerComments,
-      updatedAt: now,
-    };
-
-    setRequests((prev) => prev.map((r) => (r.id === selectedDetail.id ? updatedRequest : r)));
-    setSelectedDetail(updatedRequest);
-
-    if (activeReport) {
-      setReports((prev) =>
-        prev.map((rep) =>
-          rep.id === activeReport.id
-            ? {
-                ...rep,
-                status: "Approved",
-                reviewedBy: reviewerName,
-                reviewedAt: now,
-                managerRating: reportRating > 0 ? reportRating : rep.managerRating,
-                managerComments: reportReviewComments.trim() || rep.managerComments,
-              }
-            : rep,
-        ),
-      );
-    }
-
-    toast.success("Surveillance report approved successfully!");
-    setViewReportOpen(false);
-  };
-
-  // Report Rejection by Manager
-  const handleRejectReport = () => {
-    if (!selectedDetail) return;
-    if (!reportReviewComments.trim()) {
-      toast.error("Please add review comments explaining why this report is rejected or needs revision.");
-      return;
-    }
-
-    const reviewerName = user?.fullName || `${activeRole.replace(/_/g, " ")} Authority`;
-    const now = new Date().toISOString();
-
-    const updatedRequest: SurveillanceRequest = {
-      ...selectedDetail,
-      status: "Rejected",
-      reportStatus: "Rejected",
-      reportApprovedBy: reviewerName,
-      reportApprovedAt: now,
-      managerComments: reportReviewComments.trim(),
-      managerRating: reportRating > 0 ? reportRating : undefined,
-      updatedAt: now,
-    };
-
-    setRequests((prev) => prev.map((r) => (r.id === selectedDetail.id ? updatedRequest : r)));
-    setSelectedDetail(updatedRequest);
-
-    if (activeReport) {
-      setReports((prev) =>
-        prev.map((rep) =>
-          rep.id === activeReport.id
-            ? {
-                ...rep,
-                status: "Rejected",
-                reviewedBy: reviewerName,
-                reviewedAt: now,
-                managerComments: reportReviewComments.trim(),
-                managerRating: reportRating > 0 ? reportRating : undefined,
-              }
-            : rep,
-        ),
-      );
-    }
-
-    toast.success("Surveillance report rejected.");
-    setViewReportOpen(false);
   };
 
   // Filtered requests
@@ -551,10 +378,17 @@ export default function ReportRequestsPage() {
   // If a detail row is selected, render the dedicated Detail Page
   if (selectedDetail) {
     const isPending = selectedDetail.status === "Report Requested";
-    const reportExists = Boolean(activeReport || selectedDetail.preparedBy || selectedDetail.status === "Report Received" || selectedDetail.status === "Approved");
+    const reportExists = Boolean(
+      selectedDetail.linkedReportId ||
+      selectedDetail.preparedBy ||
+      selectedDetail.status === "Report Received" ||
+      selectedDetail.status === "Approved",
+    );
+
+    const targetReportId = selectedDetail.linkedReportId || (selectedDetail.id === "SRV-REQ-101" ? "SRV-REP-202" : "SRV-REP-201");
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
         {/* Top Header / Back Bar */}
         <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
@@ -581,14 +415,10 @@ export default function ReportRequestsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* View Report Button */}
+            {/* View Report Button -> Navigates to dedicated report page! */}
             {reportExists ? (
               <Button
-                onClick={() => {
-                  setReportReviewComments(selectedDetail.managerComments || "");
-                  setReportRating(selectedDetail.managerRating || 0);
-                  setViewReportOpen(true);
-                }}
+                onClick={() => navigate(`/surveillance/reports/${targetReportId}`)}
                 className="gap-2 bg-primary text-primary-foreground shadow-xs font-medium text-xs h-9"
               >
                 <Eye className="h-4 w-4" />
@@ -795,23 +625,8 @@ export default function ReportRequestsPage() {
               <div className="font-semibold text-foreground mt-0.5">{selectedDetail.incidentDate}</div>
             </div>
             <div>
-              <span className="text-muted-foreground">Target Shift:</span>
+              <span className="text-muted-foreground">Target Shift / Interval:</span>
               <div className="font-semibold text-foreground mt-0.5">{selectedDetail.shift}</div>
-            </div>
-          </div>
-
-          {/* Camera Areas */}
-          <div className="pt-2">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1.5">
-              Designated Camera Feeds to Review
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {selectedDetail.areasToReview.map((area) => (
-                <Badge key={area} variant="outline" className="bg-muted text-xs font-normal">
-                  <Video className="h-3 w-3 mr-1 text-primary inline" />
-                  {area}
-                </Badge>
-              ))}
             </div>
           </div>
 
@@ -819,7 +634,7 @@ export default function ReportRequestsPage() {
           {selectedDetail.notes && (
             <div className="pt-2">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
-                Requester Notes & Instructions
+                Additional Context / Special Instructions
               </span>
               <div className="p-3 rounded-lg border bg-card text-foreground text-xs leading-relaxed whitespace-pre-wrap">
                 {selectedDetail.notes}
@@ -876,374 +691,6 @@ export default function ReportRequestsPage() {
             )}
           </Card>
         )}
-
-        {/* VIEW REPORT DIALOG / MODAL (Showing all 44 Retail Audit Attributes) */}
-        <Dialog open={viewReportOpen} onOpenChange={setViewReportOpen}>
-          <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
-            <DialogHeader>
-              <div className="flex items-center justify-between pr-6">
-                <DialogTitle className="flex items-center gap-2 font-display text-lg">
-                  <FileText className="h-5 w-5 text-primary" />
-                  <span>Surveillance Audit Report</span>
-                  <Badge variant="outline" className="font-mono text-xs">
-                    {activeReport?.id || "SRV-REP-202"}
-                  </Badge>
-                </DialogTitle>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.print()}
-                  className="h-8 gap-1.5 text-xs"
-                >
-                  <Printer className="h-3.5 w-3.5" /> Print / Export
-                </Button>
-              </div>
-              <DialogDescription>
-                Comprehensive retail surveillance audit for {selectedDetail.storeName} (Request Ref: {selectedDetail.id}).
-              </DialogDescription>
-            </DialogHeader>
-
-            {activeReport && (
-              <div className="space-y-5 py-2 text-xs">
-                {/* 1. Transaction & Billing Section */}
-                <div className="rounded-lg border bg-card p-3.5 space-y-3">
-                  <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
-                    <ShoppingBag className="h-4 w-4 text-primary" />
-                    Transaction & Billing Specifics
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Date</span>
-                      <span className="font-medium text-foreground">{activeReport.date}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Store Name</span>
-                      <span className="font-medium text-foreground">{activeReport.storeName}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Invoice No</span>
-                      <span className="font-mono font-medium text-foreground">{activeReport.invoiceNo}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Sales Rep</span>
-                      <span className="font-medium text-foreground">{activeReport.salesRep}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Time</span>
-                      <span className="font-medium text-foreground">{activeReport.time}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Cash Time</span>
-                      <span className="font-medium text-foreground">{activeReport.cashTime}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">BDI Time</span>
-                      <span className="font-medium text-foreground">{activeReport.bdiTime}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Trans / Type</span>
-                      <span className="font-medium text-foreground">{activeReport.transType}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Client Type</span>
-                      <Badge variant="outline" className="text-[11px] mt-0.5">
-                        {activeReport.clientType}
-                      </Badge>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Invoice Amount</span>
-                      <span className="font-semibold text-foreground">{activeReport.invoiceAmount}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Total Taken</span>
-                      <span className="font-semibold text-foreground">{activeReport.totalTaken}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Payment Mode</span>
-                      <span className="font-medium text-foreground">{activeReport.paymentMode}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Difference</span>
-                      <span className={`font-semibold ${activeReport.difference !== "$0.00" && activeReport.difference !== "0" ? "text-rose-600" : "text-emerald-600"}`}>
-                        {activeReport.difference}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Receipt Given?</span>
-                      <span className="font-medium text-foreground">{activeReport.receipt}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Split Payments</span>
-                      <span className="font-medium text-foreground">{activeReport.splitPayments}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. Fraud & Compliance Indicators */}
-                <div className="rounded-lg border bg-card p-3.5 space-y-3">
-                  <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
-                    <ShieldAlert className="h-4 w-4 text-rose-600" />
-                    Fraud & Compliance Verification
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Fraud Transactions</span>
-                      <Badge variant={activeReport.fraudTransactions === "Yes" ? "destructive" : "outline"} className="text-[10px]">
-                        {activeReport.fraudTransactions}
-                      </Badge>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Refund Invoice</span>
-                      <Badge variant={activeReport.refundInvoice === "Yes" ? "destructive" : "outline"} className="text-[10px]">
-                        {activeReport.refundInvoice}
-                      </Badge>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Payment Fraud</span>
-                      <Badge variant={activeReport.paymentFraud === "Yes" ? "destructive" : "outline"} className="text-[10px]">
-                        {activeReport.paymentFraud}
-                      </Badge>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Miss Opportunity</span>
-                      <span className="font-medium text-foreground">{activeReport.missOpportunity}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">AAL Swap</span>
-                      <span className="font-medium text-foreground">{activeReport.aalSwap}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">MIM</span>
-                      <span className="font-medium text-foreground">{activeReport.mim}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Online / Rejected Payment</span>
-                      <span className="font-medium text-foreground">{activeReport.onlineRejectedPayment}</span>
-                    </div>
-                  </div>
-
-                  {activeReport.notes && (
-                    <div className="mt-2 pt-2 border-t">
-                      <span className="text-[11px] font-semibold text-muted-foreground block mb-1">
-                        Investigation Notes:
-                      </span>
-                      <p className="p-2.5 rounded bg-muted/40 text-foreground leading-relaxed whitespace-pre-wrap">
-                        {activeReport.notes}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* 3. Sales Behavior, Pitch Quality & Bundles */}
-                <div className="rounded-lg border bg-card p-3.5 space-y-3">
-                  <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
-                    <UserCheck className="h-4 w-4 text-emerald-600" />
-                    Sales Pitch, Pitch Quality & Bundle Audit
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Pitch NB</span>
-                      <span className="font-medium text-foreground">{activeReport.pitchNb}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Pitch Quality</span>
-                      <Badge variant="outline" className="text-[11px]">
-                        {activeReport.pitchQuality}
-                      </Badge>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Showing Phone</span>
-                      <span className="font-medium text-foreground">{activeReport.showingPhone}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Acc Offered</span>
-                      <span className="font-medium text-foreground">{activeReport.accOffered}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Maximize</span>
-                      <span className="font-medium text-foreground">{activeReport.maximize}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Flipping</span>
-                      <span className="font-medium text-foreground">{activeReport.flipping}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Bundle NB</span>
-                      <span className="font-medium text-foreground">{activeReport.bundleNb}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Bundle Acc Given</span>
-                      <span className="font-medium text-foreground">{activeReport.bundleAccGiven}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Bundle-Start B</span>
-                      <span className="font-medium text-foreground">{activeReport.bundleStartB}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Bundle-End B</span>
-                      <span className="font-medium text-foreground">{activeReport.bundleEndB}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Port In</span>
-                      <span className="font-medium text-foreground">{activeReport.portIn}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Non-Up</span>
-                      <span className="font-medium text-foreground">{activeReport.nonUp}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">SmartPay Mentioned</span>
-                      <span className="font-medium text-foreground">{activeReport.smartPayMentioned}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">AAL Bill Same</span>
-                      <span className="font-medium text-foreground">{activeReport.aalBillSame}</span>
-                    </div>
-                  </div>
-
-                  {activeReport.pitchNotes && (
-                    <div className="mt-2 pt-2 border-t">
-                      <span className="text-[11px] font-semibold text-muted-foreground block mb-1">
-                        Pitch Observations:
-                      </span>
-                      <p className="p-2.5 rounded bg-muted/40 text-foreground leading-relaxed">
-                        {activeReport.pitchNotes}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* 4. Floor Coverage & Staff Movement */}
-                <div className="rounded-lg border bg-card p-3.5 space-y-3">
-                  <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
-                    <Clock className="h-4 w-4 text-primary" />
-                    Floor Coverage & Staff Timings
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Name of Rep Leaving</span>
-                      <span className="font-medium text-foreground">{activeReport.nameOfRepLeaving || "None"}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Time Left</span>
-                      <span className="font-medium text-foreground">{activeReport.timeLeft || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Time Returned</span>
-                      <span className="font-medium text-foreground">{activeReport.timeReturned || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Offline</span>
-                      <span className="font-medium text-foreground">{activeReport.offline}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Back Room Time - In</span>
-                      <span className="font-medium text-foreground">{activeReport.backRoomTimeIn || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Back Room Time - Out</span>
-                      <span className="font-medium text-foreground">{activeReport.backRoomTimeOut || "—"}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Attachments */}
-                {activeReport.attachments && activeReport.attachments.length > 0 && (
-                  <div>
-                    <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1.5 flex items-center gap-1.5">
-                      <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
-                      Evidence Attachments
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {activeReport.attachments.map((file) => (
-                        <div
-                          key={file.id}
-                          className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-1.5 text-xs font-medium"
-                        >
-                          <FileText className="h-4 w-4 text-primary" />
-                          <span>{file.name}</span>
-                          <span className="text-[10px] text-muted-foreground">
-                            ({formatFileSize(file.size)})
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* APPROVAL / REJECTION & 5-STAR RATING CONTROLS */}
-                <div className="mt-4 border-t pt-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="font-semibold text-foreground text-xs uppercase tracking-wider">
-                      Manager Review & Decision
-                    </div>
-                    {!userCanApprove && (
-                      <Badge variant="outline" className="text-[10px] border-amber-300 text-amber-700 bg-amber-50">
-                        <Lock className="h-2.5 w-2.5 mr-1" /> View Only (District Manager)
-                      </Badge>
-                    )}
-                  </div>
-
-                  {userCanApprove ? (
-                    <>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold">
-                          Manager Comments / Review Remarks
-                        </Label>
-                        <Textarea
-                          value={reportReviewComments}
-                          onChange={(e) => setReportReviewComments(e.target.value)}
-                          placeholder="Add review observations, feedback, or directives for this surveillance report..."
-                          rows={2}
-                        />
-                      </div>
-
-                      <div className="space-y-1.5 pt-1">
-                        <Label className="text-xs font-semibold">
-                          Rate Submitter's Investigation (Optional 5-Star Rating)
-                        </Label>
-                        <StarRating
-                          value={reportRating}
-                          onChange={(v) => setReportRating(v)}
-                        />
-                      </div>
-                    </>
-                  ) : (
-                    <div className="p-3 rounded-lg border bg-muted/30 text-xs text-muted-foreground">
-                      Only Market Managers, State Managers, and Admin can approve or reject reports and assign ratings. District Managers have view-only access.
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <DialogFooter className="flex flex-wrap items-center justify-between gap-2 border-t pt-3">
-              <Button variant="outline" onClick={() => setViewReportOpen(false)}>
-                Close
-              </Button>
-
-              {userCanApprove && (
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleRejectReport}
-                    className="text-xs"
-                  >
-                    <X className="h-4 w-4 mr-1" /> Reject Report
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
-                    onClick={handleApproveReport}
-                  >
-                    <Check className="h-4 w-4 mr-1" /> Approve Report
-                  </Button>
-                </div>
-              )}
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         {/* APPROVE CONFIRMATION DIALOG (For Request requisition) */}
         <AlertDialog open={Boolean(approveTarget)} onOpenChange={(open) => !open && setApproveTarget(null)}>
@@ -1447,103 +894,108 @@ export default function ReportRequestsPage() {
         onRowClick={(r) => setSelectedDetail(r)}
       />
 
-      {/* CREATE REQUEST DIALOG */}
+      {/* CREATE REQUEST DIALOG - STRICTLY USER-REQUESTED FIELDS ONLY */}
       <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Request Store Surveillance Report</DialogTitle>
             <DialogDescription>
-              Submit an official surveillance footage request for store review. Requests require Market/State Manager or Admin approval.
+              Submit a surveillance footage review request for store investigation.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 sm:grid-cols-2 pt-2">
-            {/* Store Selection */}
-            <div className="sm:col-span-2 space-y-1.5">
+          <div className="space-y-4 pt-2 text-xs">
+            {/* 1. Market Dropdown (First Field) */}
+            <div className="space-y-1.5">
               <Label className="text-xs font-semibold">
-                Store Location <span className="text-destructive">*</span>
+                Market <span className="text-destructive">*</span>
+              </Label>
+              <Select value={selectedMarket} onValueChange={handleMarketChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select market" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MARKETS.map((m) => (
+                    <SelectItem key={m} value={m}>
+                      {m}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 2. Store Name List Dropdown (Filtered by Selected Market) */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">
+                Store <span className="text-destructive">*</span>
               </Label>
               <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select store" />
                 </SelectTrigger>
                 <SelectContent>
-                  {AVAILABLE_STORES.map((s) => (
+                  {storesForMarket.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
-                      {s.name} ({s.market})
+                      {s.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Incident Date */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">
-                Incident / Target Date <span className="text-destructive">*</span>
+            {/* 3. Date & Time Interval (Both single date + interval time) */}
+            <div className="space-y-2 rounded-lg border p-3 bg-muted/20">
+              <Label className="text-xs font-semibold flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5 text-primary" />
+                Incident Date & Time Interval <span className="text-destructive">*</span>
               </Label>
-              <Input
-                type="date"
-                value={incidentDate}
-                onChange={(e) => setIncidentDate(e.target.value)}
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                <div className="space-y-1">
+                  <span className="text-[11px] text-muted-foreground block">Target Date</span>
+                  <Input
+                    type="date"
+                    value={incidentDate}
+                    onChange={(e) => setIncidentDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[11px] text-muted-foreground block">Interval Start Time</span>
+                  <Input
+                    type="time"
+                    value={intervalStart}
+                    onChange={(e) => setIntervalStart(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[11px] text-muted-foreground block">Interval End Time</span>
+                  <Input
+                    type="time"
+                    value={intervalEnd}
+                    onChange={(e) => setIntervalEnd(e.target.value)}
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* Shift / Time range */}
+            {/* 4. Priority (By default "low" selected) */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">
-                Shift / Time Window <span className="text-destructive">*</span>
+                Priority <span className="text-destructive">*</span>
               </Label>
-              <Select value={shift} onValueChange={setShift}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SHIFT_OPTIONS.map((opt) => (
-                    <SelectItem key={opt} value={opt}>
-                      {opt}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Investigation Type */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">
-                Investigation Type <span className="text-destructive">*</span>
-              </Label>
-              <Select value={investigationType} onValueChange={setInvestigationType}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {INVESTIGATION_TYPES.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Priority: Strictly Low, Medium, High */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">Priority</Label>
               <Select value={priority} onValueChange={(v) => setPriority(v as SurveillancePriority)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="low">Low (Default)</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
                   <SelectItem value="high">High</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {/* Request Title / Investigation Reason */}
-            <div className="sm:col-span-2 space-y-1.5">
+            {/* 5. Investigation Reason / Incident Summary */}
+            <div className="space-y-1.5">
               <Label className="text-xs font-semibold">
                 Investigation Reason / Incident Summary <span className="text-destructive">*</span>
               </Label>
@@ -1554,44 +1006,15 @@ export default function ReportRequestsPage() {
               />
             </div>
 
-            {/* Specific Areas to Review */}
-            <div className="sm:col-span-2 space-y-2">
+            {/* 6. Additional Context / Special Instructions (Optional: no red star) */}
+            <div className="space-y-1.5">
               <Label className="text-xs font-semibold">
-                Specific Cameras / Areas to Inspect <span className="text-destructive">*</span>
+                Additional Context / Special Instructions
               </Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 rounded-lg border bg-muted/40">
-                {CAMERA_AREA_OPTIONS.map((area) => {
-                  const isChecked = selectedAreas.includes(area);
-                  return (
-                    <label
-                      key={area}
-                      onClick={() => handleToggleArea(area)}
-                      className={`flex items-center gap-2 p-2 rounded-md text-xs cursor-pointer border transition-colors ${
-                        isChecked
-                          ? "border-primary bg-primary/10 font-medium text-foreground"
-                          : "border-transparent hover:bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={isChecked}
-                        onChange={() => {}}
-                        className="rounded border-border text-primary focus:ring-primary"
-                      />
-                      <span>{area}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Notes / Context */}
-            <div className="sm:col-span-2 space-y-1.5">
-              <Label className="text-xs font-semibold">Additional Context / Special Instructions</Label>
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Include cashier names, specific timecodes, suspect attire or transaction numbers..."
+                placeholder="Include cashier names, suspect attire, specific transaction numbers or timecodes..."
                 rows={3}
               />
             </div>

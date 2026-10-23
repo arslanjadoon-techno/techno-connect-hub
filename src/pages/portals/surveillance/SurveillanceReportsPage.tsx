@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { DataTable, type Column } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,7 @@ function formatFileSize(bytes: number): string {
 
 export default function SurveillanceReportsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   // View as is restricted strictly to User as per specifications
   const [activeRole] = useState<SurveillanceRole>("user");
@@ -405,7 +407,7 @@ export default function SurveillanceReportsPage() {
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                setDetailTarget(r);
+                navigate(`/surveillance/reports/${r.id}`);
               }}
               className="h-8 gap-1.5 px-2.5 text-xs font-medium text-muted-foreground hover:text-foreground"
             >
@@ -416,7 +418,7 @@ export default function SurveillanceReportsPage() {
         ),
       },
     ],
-    [],
+    [navigate],
   );
 
   return (
@@ -506,7 +508,7 @@ export default function SurveillanceReportsPage() {
         columns={columns}
         rowKey={(r) => r.id}
         searchPlaceholder="Search by Report ID, Store, Invoice No, or Sales Rep..."
-        onRowClick={(r) => setDetailTarget(r)}
+        onRowClick={(r) => navigate(`/surveillance/reports/${r.id}`)}
       />
 
       {/* SUBMIT SURVEILLANCE REPORT DIALOG (WITH ALL 44 ATTRIBUTES) */}
@@ -977,302 +979,6 @@ export default function SurveillanceReportsPage() {
             </Button>
             <Button onClick={handleSubmitReport}>Submit Surveillance Report</Button>
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* FULL REPORT DETAIL MODAL (Showing 44 fields) */}
-      <Dialog open={Boolean(detailTarget)} onOpenChange={(open) => !open && setDetailTarget(null)}>
-        <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto">
-          {detailTarget && (
-            <>
-              <DialogHeader>
-                <div className="flex items-center justify-between pr-6">
-                  <DialogTitle className="flex items-center gap-2 font-display text-lg">
-                    <span>Surveillance Audit Report</span>
-                    <Badge variant="outline" className="font-mono text-xs">
-                      {detailTarget.id}
-                    </Badge>
-                  </DialogTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.print()}
-                    className="h-8 gap-1.5 text-xs"
-                  >
-                    <Printer className="h-3.5 w-3.5" /> Print / Export
-                  </Button>
-                </div>
-                <DialogDescription>
-                  Detailed surveillance audit results for {detailTarget.storeName} (Request Ref: {detailTarget.requestId}).
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4 py-2 text-xs">
-                {/* 1. Transaction Info */}
-                <div className="rounded-lg border bg-card p-3.5 space-y-3">
-                  <div className="flex items-center gap-2 border-b pb-1 font-semibold text-foreground text-xs uppercase tracking-wide">
-                    <ShoppingBag className="h-4 w-4 text-primary" />
-                    Transaction & Billing Details
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Date</span>
-                      <span className="font-medium text-foreground">{detailTarget.date}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Store Name</span>
-                      <span className="font-medium text-foreground">{detailTarget.storeName}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Invoice No</span>
-                      <span className="font-mono font-medium text-foreground">{detailTarget.invoiceNo}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Sales Rep</span>
-                      <span className="font-medium text-foreground">{detailTarget.salesRep}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Time</span>
-                      <span className="font-medium text-foreground">{detailTarget.time}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Cash Time</span>
-                      <span className="font-medium text-foreground">{detailTarget.cashTime}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">BDI Time</span>
-                      <span className="font-medium text-foreground">{detailTarget.bdiTime}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Trans / Type</span>
-                      <span className="font-medium text-foreground">{detailTarget.transType}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Client Type</span>
-                      <Badge variant="outline" className="text-[11px]">
-                        {detailTarget.clientType}
-                      </Badge>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Invoice Amount</span>
-                      <span className="font-semibold text-foreground">{detailTarget.invoiceAmount}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Total Taken</span>
-                      <span className="font-semibold text-foreground">{detailTarget.totalTaken}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Payment Mode</span>
-                      <span className="font-medium text-foreground">{detailTarget.paymentMode}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Difference</span>
-                      <span className={`font-semibold ${detailTarget.difference !== "$0.00" && detailTarget.difference !== "0" ? "text-rose-600" : "text-emerald-600"}`}>
-                        {detailTarget.difference}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Receipt Given</span>
-                      <span className="font-medium text-foreground">{detailTarget.receipt}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Split Payments</span>
-                      <span className="font-medium text-foreground">{detailTarget.splitPayments}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. Fraud & Compliance */}
-                <div className="rounded-lg border bg-card p-3.5 space-y-3">
-                  <div className="flex items-center gap-2 border-b pb-1 font-semibold text-foreground text-xs uppercase tracking-wide">
-                    <ShieldAlert className="h-4 w-4 text-rose-600" />
-                    Fraud & Compliance Verification
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Fraud Transactions</span>
-                      <Badge variant={detailTarget.fraudTransactions === "Yes" ? "destructive" : "outline"} className="text-[10px]">
-                        {detailTarget.fraudTransactions}
-                      </Badge>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Refund Invoice</span>
-                      <Badge variant={detailTarget.refundInvoice === "Yes" ? "destructive" : "outline"} className="text-[10px]">
-                        {detailTarget.refundInvoice}
-                      </Badge>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Payment Fraud</span>
-                      <Badge variant={detailTarget.paymentFraud === "Yes" ? "destructive" : "outline"} className="text-[10px]">
-                        {detailTarget.paymentFraud}
-                      </Badge>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Miss Opportunity</span>
-                      <span className="font-medium text-foreground">{detailTarget.missOpportunity}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">AAL Swap</span>
-                      <span className="font-medium text-foreground">{detailTarget.aalSwap}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">MIM</span>
-                      <span className="font-medium text-foreground">{detailTarget.mim}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Online / Rejected Payment</span>
-                      <span className="font-medium text-foreground">{detailTarget.onlineRejectedPayment}</span>
-                    </div>
-                  </div>
-                  {detailTarget.notes && (
-                    <div className="pt-2 border-t">
-                      <span className="text-[11px] font-semibold text-muted-foreground block mb-1">Audit Notes:</span>
-                      <p className="p-2.5 rounded bg-muted/40 leading-relaxed text-foreground whitespace-pre-wrap">
-                        {detailTarget.notes}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* 3. Pitch & Bundles */}
-                <div className="rounded-lg border bg-card p-3.5 space-y-3">
-                  <div className="flex items-center gap-2 border-b pb-1 font-semibold text-foreground text-xs uppercase tracking-wide">
-                    <UserCheck className="h-4 w-4 text-emerald-600" />
-                    Sales Pitch, Pitch Quality & Bundle Audit
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Pitch NB</span>
-                      <span className="font-medium text-foreground">{detailTarget.pitchNb}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Pitch Quality</span>
-                      <Badge variant="outline" className="text-[11px]">
-                        {detailTarget.pitchQuality}
-                      </Badge>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Showing Phone</span>
-                      <span className="font-medium text-foreground">{detailTarget.showingPhone}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Acc Offered</span>
-                      <span className="font-medium text-foreground">{detailTarget.accOffered}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Maximize</span>
-                      <span className="font-medium text-foreground">{detailTarget.maximize}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Flipping</span>
-                      <span className="font-medium text-foreground">{detailTarget.flipping}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Bundle NB</span>
-                      <span className="font-medium text-foreground">{detailTarget.bundleNb}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Bundle Acc Given</span>
-                      <span className="font-medium text-foreground">{detailTarget.bundleAccGiven}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Bundle-Start B</span>
-                      <span className="font-medium text-foreground">{detailTarget.bundleStartB}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Bundle-End B</span>
-                      <span className="font-medium text-foreground">{detailTarget.bundleEndB}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Port In</span>
-                      <span className="font-medium text-foreground">{detailTarget.portIn}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Non-Up</span>
-                      <span className="font-medium text-foreground">{detailTarget.nonUp}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">SmartPay Mentioned</span>
-                      <span className="font-medium text-foreground">{detailTarget.smartPayMentioned}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">AAL Bill Same</span>
-                      <span className="font-medium text-foreground">{detailTarget.aalBillSame}</span>
-                    </div>
-                  </div>
-                  {detailTarget.pitchNotes && (
-                    <div className="pt-2 border-t">
-                      <span className="text-[11px] font-semibold text-muted-foreground block mb-1">Pitch Observations:</span>
-                      <p className="p-2.5 rounded bg-muted/40 leading-relaxed text-foreground">
-                        {detailTarget.pitchNotes}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* 4. Floor Timing */}
-                <div className="rounded-lg border bg-card p-3.5 space-y-3">
-                  <div className="flex items-center gap-2 border-b pb-1 font-semibold text-foreground text-xs uppercase tracking-wide">
-                    <Clock className="h-4 w-4 text-primary" />
-                    Floor Presence & Rep Timings
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Name of Rep Leaving</span>
-                      <span className="font-medium text-foreground">{detailTarget.nameOfRepLeaving || "None"}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Time Left</span>
-                      <span className="font-medium text-foreground">{detailTarget.timeLeft || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Time Returned</span>
-                      <span className="font-medium text-foreground">{detailTarget.timeReturned || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Offline</span>
-                      <span className="font-medium text-foreground">{detailTarget.offline}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Back Room Time - In</span>
-                      <span className="font-medium text-foreground">{detailTarget.backRoomTimeIn || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground block text-[11px]">Back Room Time - Out</span>
-                      <span className="font-medium text-foreground">{detailTarget.backRoomTimeOut || "—"}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Attachments */}
-                {detailTarget.attachments && detailTarget.attachments.length > 0 && (
-                  <div>
-                    <div className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1.5">
-                      Evidence Attachments
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {detailTarget.attachments.map((file) => (
-                        <div
-                          key={file.id}
-                          className="flex items-center gap-2 rounded-lg border bg-muted/40 px-3 py-1.5 text-xs font-medium"
-                        >
-                          <FileText className="h-4 w-4 text-primary" />
-                          <span>{file.name}</span>
-                          <span className="text-[10px] text-muted-foreground">({formatFileSize(file.size)})</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <DialogFooter className="border-t pt-3">
-                <Button variant="outline" onClick={() => setDetailTarget(null)}>
-                  Close
-                </Button>
-              </DialogFooter>
-            </>
-          )}
         </DialogContent>
       </Dialog>
     </div>
