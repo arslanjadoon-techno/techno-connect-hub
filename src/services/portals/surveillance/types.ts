@@ -70,10 +70,12 @@ export interface SurveillanceAuditRow {
   bdiTime: string;
   salesRep: string;
   transType: string;
+  clientType?: string; // "Billable" | "Non Billable" | ""
   nb: string; // "NB" or ""
   b: string; // "B" or ""
   invoiceAmount: string;
   totalTaken: string;
+  paymentType?: string; // "Card" | "Cash" | ""
   cash: string;
   card: string;
   difference: string;

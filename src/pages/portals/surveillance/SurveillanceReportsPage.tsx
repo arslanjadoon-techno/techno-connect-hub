@@ -9,6 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -86,12 +91,233 @@ const STATUS_CONFIG: Record<
   },
 };
 
+const SALES_REP_NAMES = ["Abdul Razzak", "Dakshay Raval", "Marcus Young"];
+
+const YES_NO_OPTIONS = [
+  { value: "__empty__", label: "-" },
+  { value: "YES", label: "YES" },
+  { value: "NO", label: "NO" },
+];
+
+const TIME_FIELDS = [
+  "cashTime",
+  "time",
+  "bdiTime",
+  "timeLeft",
+  "timeReturned",
+  "backRoomTimeIn",
+  "backRoomTimeOut",
+] as const;
+
+const HOURS_12 = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+const MINUTES_60 = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
+
+function parseAmPmValue(raw: string | undefined): {
+  hour: string;
+  minute: string;
+  period: "AM" | "PM";
+  hasValue: boolean;
+} {
+  if (!raw || !raw.trim()) {
+    return { hour: "10", minute: "00", period: "AM", hasValue: false };
+  }
+  const str = raw.trim();
+  const match12 = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$/i);
+  if (match12) {
+    const h = String(Math.max(1, Math.min(12, parseInt(match12[1], 10))));
+    const m = match12[2];
+    const p = match12[3].toUpperCase() === "PM" ? "PM" : "AM";
+    return { hour: h, minute: m, period: p, hasValue: true };
+  }
+  const match24 = str.match(/^(\d{1,2}):(\d{2})/);
+  if (match24) {
+    let h24 = parseInt(match24[1], 10);
+    const m = match24[2];
+    const p: "AM" | "PM" = h24 >= 12 ? "PM" : "AM";
+    h24 = h24 % 12 || 12;
+    return { hour: String(h24), minute: m, period: p, hasValue: true };
+  }
+  return { hour: "10", minute: "00", period: "AM", hasValue: false };
+}
+
+function AmPmTimePicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (nextVal: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const parsed = parseAmPmValue(value);
+
+  const commitTime = (h: string, m: string, p: "AM" | "PM") => {
+    onChange(`${h}:${m} ${p}`);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-xs transition-colors hover:bg-accent/40 focus:outline-none focus:ring-1 focus:ring-ring"
+        >
+          <span className="flex items-center gap-2 truncate">
+            <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            {value && value.trim() ? (
+              <span className="font-medium text-foreground">{value}</span>
+            ) : (
+              <span className="text-muted-foreground">-</span>
+            )}
+          </span>
+          {value && value.trim() ? (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.stopPropagation();
+                  onChange("");
+                }
+              }}
+              className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              title="Clear time"
+            >
+              <X className="h-3 w-3" />
+            </span>
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+          )}
+        </button>
+      </PopoverTrigger>
+
+      <PopoverContent align="start" className="w-[272px] p-3 space-y-3">
+        {/* Live Preview Header */}
+        <div className="flex items-center justify-between border-b pb-2">
+          <div className="flex items-center gap-1.5">
+            <Clock className="h-3.5 w-3.5 text-primary" />
+            <span className="text-xs font-semibold text-foreground">
+              {parsed.hasValue ? `${parsed.hour}:${parsed.minute} ${parsed.period}` : "Select Time"}
+            </span>
+          </div>
+          {parsed.hasValue && (
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              className="text-[11px] font-medium text-muted-foreground hover:text-foreground underline"
+            >
+              Reset (-)
+            </button>
+          )}
+        </div>
+
+        {/* Hour / Minute / AM-PM Selector */}
+        <div className="grid grid-cols-12 gap-2">
+          {/* Hours (1-12) */}
+          <div className="col-span-5 space-y-1">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Hour
+            </div>
+            <div className="grid grid-cols-3 gap-1">
+              {HOURS_12.map((h) => {
+                const selected = parsed.hasValue && parsed.hour === h;
+                return (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => commitTime(h, parsed.minute, parsed.period)}
+                    className={`h-7 rounded text-xs font-medium transition-colors ${
+                      selected
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "border border-border/60 bg-card hover:bg-accent text-foreground"
+                    }`}
+                  >
+                    {h}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Minutes (00-59 scrollable) */}
+          <div className="col-span-4 space-y-1">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Minute
+            </div>
+            <div className="grid grid-cols-2 gap-1 max-h-[124px] overflow-y-auto pr-1">
+              {MINUTES_60.map((m) => {
+                const selected = parsed.hasValue && parsed.minute === m;
+                return (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => commitTime(parsed.hour, m, parsed.period)}
+                    className={`h-7 rounded text-xs font-mono font-medium transition-colors ${
+                      selected
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "border border-border/60 bg-card hover:bg-accent text-foreground"
+                    }`}
+                  >
+                    {m}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* AM / PM Period */}
+          <div className="col-span-3 space-y-1">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              AM/PM
+            </div>
+            <div className="flex flex-col gap-1.5">
+              {(["AM", "PM"] as const).map((p) => {
+                const selected = parsed.hasValue && parsed.period === p;
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => commitTime(parsed.hour, parsed.minute, p)}
+                    className={`h-9 rounded-md text-xs font-semibold transition-colors ${
+                      selected
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "border border-border bg-card hover:bg-accent text-foreground"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end border-t pt-2">
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => setOpen(false)}
+            className="h-7 px-3 text-xs font-medium"
+          >
+            Done
+          </Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+// All dropdowns (Yes/No/-, Sales Rep, Client Type, Payment Type, Pitch Quality) default to "" ("-")
 function createEmptyAuditRow(storeName: string, defaultDate?: string): SurveillanceAuditRow {
   return {
     id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -103,53 +329,49 @@ function createEmptyAuditRow(storeName: string, defaultDate?: string): Surveilla
     bdiTime: "",
     salesRep: "",
     transType: "",
+    clientType: "",
     nb: "",
-    b: "B",
+    b: "",
     invoiceAmount: "",
     totalTaken: "",
+    paymentType: "",
     cash: "",
     card: "",
-    difference: "$0.00",
-    receipt: "YES",
-    splitPayments: "NO",
-    fraudTransactions: "NO",
-    refundInvoice: "NO",
-    missOpportunity: "NO",
-    paymentFraud: "NO",
-    aalSwap: "NO",
-    mim: "NO",
+    difference: "",
+    receipt: "",
+    splitPayments: "",
+    fraudTransactions: "",
+    refundInvoice: "",
+    missOpportunity: "",
+    paymentFraud: "",
+    aalSwap: "",
+    mim: "",
     notes: "",
     pitchNb: "",
-    pitchQuality: "GOOD",
+    pitchQuality: "",
     pitchNotes: "",
-    showingPhone: "YES",
-    accOffered: "YES",
-    maximize: "YES",
-    flipping: "NO",
+    showingPhone: "",
+    accOffered: "",
+    maximize: "",
+    flipping: "",
     bundleNb: "",
     bundleStartB: "",
     bundleEndB: "",
-    bundleAccGiven: "YES",
-    portIn: "NO",
-    nonUp: "NO",
-    smartPayMentioned: "YES",
-    aalBillSame: "YES",
-    onlineRejectedPayment: "NO",
+    bundleAccGiven: "",
+    portIn: "",
+    nonUp: "",
+    smartPayMentioned: "",
+    aalBillSame: "",
+    onlineRejectedPayment: "",
     nameOfRepLeaving: "",
     timeLeft: "",
     timeReturned: "",
     backRoomTimeIn: "",
     backRoomTimeOut: "",
-    offline: "NO",
+    offline: "",
     attachments: [],
   };
 }
-
-const YES_NO_OPTIONS = [
-  { value: "__empty__", label: "-" },
-  { value: "YES", label: "YES" },
-  { value: "NO", label: "NO" },
-];
 
 function toSelectVal(val: string | undefined): string {
   if (!val || !val.trim()) return "__empty__";
@@ -206,11 +428,23 @@ export default function SurveillanceReportsPage() {
       (rep) => rep.id === reqItem.linkedReportId || rep.requestId === reqItem.id,
     );
 
-    const initialDate = reqItem.incidentDate?.split(" - ")[0]?.trim() || new Date().toISOString().split("T")[0];
+    const initialDate =
+      reqItem.incidentDate?.split(" - ")[0]?.trim() ||
+      new Date().toISOString().split("T")[0];
 
     if (existingReport && existingReport.rows && existingReport.rows.length > 0) {
       const cloned = existingReport.rows.map((r) => ({
         ...r,
+        clientType:
+          r.clientType ||
+          (r.b?.trim().toUpperCase() === "B"
+            ? "Billable"
+            : r.nb?.trim().toUpperCase() === "NB"
+              ? "Non Billable"
+              : ""),
+        paymentType:
+          r.paymentType ||
+          (r.card?.trim() ? "Card" : r.cash?.trim() ? "Cash" : ""),
         attachments: r.attachments ? [...r.attachments] : [],
       }));
       setEditableRows(cloned);
@@ -230,13 +464,48 @@ export default function SurveillanceReportsPage() {
     value: SurveillanceAuditRow[K],
   ) => {
     setEditableRows((prev) =>
-      prev.map((row) => (row.id === rowId ? { ...row, [field]: value } : row)),
+      prev.map((row) => {
+        if (row.id !== rowId) return row;
+
+        const updated: SurveillanceAuditRow = { ...row, [field]: value };
+
+        // Keep nb / b synchronized with merged Client Type dropdown
+        if (field === "clientType") {
+          const ct = String(value || "");
+          updated.b = ct === "Billable" ? "B" : "";
+          updated.nb = ct === "Non Billable" ? "NB" : "";
+        }
+
+        // Keep card / cash synchronized with merged Payment Type dropdown
+        if (field === "paymentType" || field === "totalTaken") {
+          const pt = field === "paymentType" ? String(value || "") : updated.paymentType || "";
+          const amt = field === "totalTaken" ? String(value || "") : updated.totalTaken || "";
+          updated.card = pt === "Card" ? amt.trim() || "Card" : "";
+          updated.cash = pt === "Cash" ? amt.trim() || "Cash" : "";
+        }
+
+        return updated;
+      }),
     );
   };
 
+  // Auto-populates any time fields selected in preceding rows when adding a new row
   const handleAddAuditRow = (storeName: string, defaultDate?: string) => {
     const nextRow = createEmptyAuditRow(storeName, defaultDate);
-    setEditableRows((prev) => [...prev, nextRow]);
+
+    setEditableRows((prev) => {
+      for (const field of TIME_FIELDS) {
+        for (let i = prev.length - 1; i >= 0; i--) {
+          const existingTime = prev[i][field]?.trim();
+          if (existingTime) {
+            nextRow[field] = existingTime;
+            break;
+          }
+        }
+      }
+      return [...prev, nextRow];
+    });
+
     setExpandedRowIds((prev) => ({ ...prev, [nextRow.id]: true }));
   };
 
@@ -297,7 +566,7 @@ export default function SurveillanceReportsPage() {
 
     const hasMissingRep = editableRows.some((r) => !r.salesRep.trim());
     if (hasMissingRep) {
-      toast.error("Please enter the Sales Rep name for every audit row before submitting.");
+      toast.error("Please select a Sales Rep for every audit row before submitting.");
       return;
     }
 
@@ -309,7 +578,7 @@ export default function SurveillanceReportsPage() {
     const reportId =
       existingReport?.id ||
       reqItem.linkedReportId ||
-      `SRV-REP-${Math.floor(203 + reports.length)}`;
+      `SRV-REP-${Math.floor(204 + reports.length)}`;
 
     const primaryRow = editableRows[0];
     const yesOrNo = (val: string): "Yes" | "No" =>
@@ -337,16 +606,15 @@ export default function SurveillanceReportsPage() {
         editableRows.length > 1
           ? `Shift Audit (${editableRows.length} Entries)`
           : primaryRow.transType || "Audit Entry",
-      clientType: (primaryRow.nb === "NB" ? "Non Billable" : "Billable") as
+      clientType: (primaryRow.clientType === "Non Billable" ? "Non Billable" : "Billable") as
         | "Billable"
         | "Non Billable",
       invoiceAmount: primaryRow.invoiceAmount || "$0.00",
       totalTaken: primaryRow.totalTaken || "$0.00",
-      paymentMode: (primaryRow.cash && primaryRow.card
-        ? "Split"
-        : primaryRow.cash
-          ? "Cash"
-          : "Card") as "Cash" | "Card" | "Split",
+      paymentMode: (primaryRow.paymentType === "Cash" ? "Cash" : "Card") as
+        | "Cash"
+        | "Card"
+        | "Split",
       difference: primaryRow.difference || "$0.00",
       receipt: yesOrNo(primaryRow.receipt),
       splitPayments: yesOrNo(primaryRow.splitPayments),
@@ -531,7 +799,7 @@ export default function SurveillanceReportsPage() {
 
     return (
       <div className="space-y-6 pb-12 animate-fade-in">
-        {/* Top Bar */}
+        {/* Top Bar (Only Add Row on top right; Submit Report is strictly at bottom right) */}
         <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <Button
@@ -571,6 +839,10 @@ export default function SurveillanceReportsPage() {
         <div className="space-y-4">
           {editableRows.map((row, index) => {
             const isExpanded = expandedRowIds[row.id] ?? true;
+            const salesRepChoices =
+              row.salesRep && !SALES_REP_NAMES.includes(row.salesRep)
+                ? [row.salesRep, ...SALES_REP_NAMES]
+                : SALES_REP_NAMES;
 
             return (
               <Card key={row.id} className="border-border/80 overflow-hidden shadow-xs">
@@ -654,41 +926,45 @@ export default function SurveillanceReportsPage() {
                           <Label className="text-[11px] font-semibold">
                             Sales Rep <span className="text-destructive">*</span>
                           </Label>
-                          <Input
-                            value={row.salesRep}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "salesRep", e.target.value)
+                          <Select
+                            value={toSelectVal(row.salesRep)}
+                            onValueChange={(v) =>
+                              handleUpdateRowField(row.id, "salesRep", fromSelectVal(v))
                             }
-                            placeholder="Enter sales rep name"
-                          />
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__empty__">-</SelectItem>
+                              {salesRepChoices.map((repName) => (
+                                <SelectItem key={repName} value={repName}>
+                                  {repName}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
 
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Cash Time</Label>
-                          <Input
+                          <AmPmTimePicker
                             value={row.cashTime}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "cashTime", e.target.value)
-                            }
-                            placeholder="e.g. 14:15"
+                            onChange={(val) => handleUpdateRowField(row.id, "cashTime", val)}
                           />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Time</Label>
-                          <Input
+                          <AmPmTimePicker
                             value={row.time}
-                            onChange={(e) => handleUpdateRowField(row.id, "time", e.target.value)}
-                            placeholder="e.g. 14:20"
+                            onChange={(val) => handleUpdateRowField(row.id, "time", val)}
                           />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">BDI TIME</Label>
-                          <Input
+                          <AmPmTimePicker
                             value={row.bdiTime}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "bdiTime", e.target.value)
-                            }
-                            placeholder="e.g. 14:25"
+                            onChange={(val) => handleUpdateRowField(row.id, "bdiTime", val)}
                           />
                         </div>
                         <div className="space-y-1">
@@ -703,11 +979,11 @@ export default function SurveillanceReportsPage() {
                         </div>
 
                         <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">NB (Non-Billable)</Label>
+                          <Label className="text-[11px] font-semibold">Client Type</Label>
                           <Select
-                            value={toSelectVal(row.nb)}
+                            value={toSelectVal(row.clientType)}
                             onValueChange={(v) =>
-                              handleUpdateRowField(row.id, "nb", fromSelectVal(v))
+                              handleUpdateRowField(row.id, "clientType", fromSelectVal(v))
                             }
                           >
                             <SelectTrigger>
@@ -715,27 +991,12 @@ export default function SurveillanceReportsPage() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="__empty__">-</SelectItem>
-                              <SelectItem value="NB">NB</SelectItem>
+                              <SelectItem value="Billable">Billable</SelectItem>
+                              <SelectItem value="Non Billable">Non Billable</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">B (Billable)</Label>
-                          <Select
-                            value={toSelectVal(row.b)}
-                            onValueChange={(v) =>
-                              handleUpdateRowField(row.id, "b", fromSelectVal(v))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__empty__">-</SelectItem>
-                              <SelectItem value="B">B</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
+
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Invoice Amount</Label>
                           <Input
@@ -758,21 +1019,24 @@ export default function SurveillanceReportsPage() {
                         </div>
 
                         <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Cash</Label>
-                          <Input
-                            value={row.cash}
-                            onChange={(e) => handleUpdateRowField(row.id, "cash", e.target.value)}
-                            placeholder="$0.00"
-                          />
+                          <Label className="text-[11px] font-semibold">Payment Type</Label>
+                          <Select
+                            value={toSelectVal(row.paymentType)}
+                            onValueChange={(v) =>
+                              handleUpdateRowField(row.id, "paymentType", fromSelectVal(v))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__empty__">-</SelectItem>
+                              <SelectItem value="Card">Card</SelectItem>
+                              <SelectItem value="Cash">Cash</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Card</Label>
-                          <Input
-                            value={row.card}
-                            onChange={(e) => handleUpdateRowField(row.id, "card", e.target.value)}
-                            placeholder="$0.00"
-                          />
-                        </div>
+
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Difference</Label>
                           <Input
@@ -890,13 +1154,23 @@ export default function SurveillanceReportsPage() {
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Pitch NB</Label>
-                          <Input
-                            value={row.pitchNb}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "pitchNb", e.target.value)
+                          <Select
+                            value={toSelectVal(row.pitchNb)}
+                            onValueChange={(v) =>
+                              handleUpdateRowField(row.id, "pitchNb", fromSelectVal(v))
                             }
-                            placeholder="e.g. YES"
-                          />
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {YES_NO_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Pitch Quality</Label>
@@ -1044,42 +1318,34 @@ export default function SurveillanceReportsPage() {
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Time Left</Label>
-                          <Input
+                          <AmPmTimePicker
                             value={row.timeLeft}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "timeLeft", e.target.value)
-                            }
-                            placeholder="e.g. 15:00"
+                            onChange={(val) => handleUpdateRowField(row.id, "timeLeft", val)}
                           />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Time Returned</Label>
-                          <Input
+                          <AmPmTimePicker
                             value={row.timeReturned}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "timeReturned", e.target.value)
-                            }
-                            placeholder="e.g. 15:12"
+                            onChange={(val) => handleUpdateRowField(row.id, "timeReturned", val)}
                           />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Back Room Time - In</Label>
-                          <Input
+                          <AmPmTimePicker
                             value={row.backRoomTimeIn}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "backRoomTimeIn", e.target.value)
+                            onChange={(val) =>
+                              handleUpdateRowField(row.id, "backRoomTimeIn", val)
                             }
-                            placeholder="e.g. 16:05"
                           />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Back Room Time - Out</Label>
-                          <Input
+                          <AmPmTimePicker
                             value={row.backRoomTimeOut}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "backRoomTimeOut", e.target.value)
+                            onChange={(val) =>
+                              handleUpdateRowField(row.id, "backRoomTimeOut", val)
                             }
-                            placeholder="e.g. 16:10"
                           />
                         </div>
                         <div className="space-y-1">

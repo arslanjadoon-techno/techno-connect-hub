@@ -71,10 +71,12 @@ function buildFallbackRowFromReport(report: SurveillanceReport): SurveillanceAud
     bdiTime: report.bdiTime,
     salesRep: report.salesRep,
     transType: report.transType,
+    clientType: report.clientType,
     nb: isBillable ? "" : "NB",
     b: isBillable ? "B" : "",
     invoiceAmount: report.invoiceAmount,
     totalTaken: report.totalTaken,
+    paymentType: report.paymentMode === "Cash" ? "Cash" : report.paymentMode === "Card" ? "Card" : "",
     cash: isCash ? report.totalTaken : "",
     card: isCard ? report.totalTaken : "",
     difference: report.difference || "$0.00",
@@ -130,12 +132,10 @@ const AUDIT_DATA_FIELDS: AuditDataField[] = [
   { key: "bdiTime", label: "BDI TIME" },
   { key: "salesRep", label: "Sales Rep" },
   { key: "transType", label: "Trans/Type" },
-  { key: "nb", label: "NB" },
-  { key: "b", label: "B" },
+  { key: "clientType", label: "Client Type" },
   { key: "invoiceAmount", label: "Invoice Amount" },
   { key: "totalTaken", label: "Total Taken" },
-  { key: "cash", label: "Cash" },
-  { key: "card", label: "Card" },
+  { key: "paymentType", label: "Payment Type" },
   { key: "difference", label: "Difference" },
   { key: "receipt", label: "Receipt" },
   { key: "splitPayments", label: "Split Payments" },
@@ -266,6 +266,26 @@ export default function SurveillanceReportDetailPage() {
     return [buildFallbackRowFromReport(report)];
   }, [report]);
 
+  const resolveFieldDisplay = (
+    row: SurveillanceAuditRow,
+    key: AuditDataField["key"],
+  ): string => {
+    if (key === "clientType") {
+      if (row.clientType && row.clientType.trim()) return formatCellValue(row.clientType);
+      if (row.b?.trim().toUpperCase() === "B") return "Billable";
+      if (row.nb?.trim().toUpperCase() === "NB") return "Non Billable";
+      return "-";
+    }
+    if (key === "paymentType") {
+      if (row.paymentType && row.paymentType.trim()) return formatCellValue(row.paymentType);
+      if (row.card && row.card.trim() && row.cash && row.cash.trim()) return "Card / Cash";
+      if (row.card && row.card.trim()) return "Card";
+      if (row.cash && row.cash.trim()) return "Cash";
+      return "-";
+    }
+    return formatCellValue(row[key]);
+  };
+
   // Consistent DataTable columns with uniform text color, "-" for missing values, and Attachments last column
   const columns: Column<SurveillanceAuditRow>[] = useMemo(() => {
     const dataCols: Column<SurveillanceAuditRow>[] = AUDIT_DATA_FIELDS.map((field) => ({
@@ -275,9 +295,9 @@ export default function SurveillanceReportDetailPage() {
         field.key === "notes" || field.key === "pitchNotes"
           ? "min-w-[220px] max-w-[300px] whitespace-normal text-foreground"
           : "whitespace-nowrap text-foreground",
-      searchValue: (row) => formatCellValue(row[field.key]),
+      searchValue: (row) => resolveFieldDisplay(row, field.key),
       accessor: (row) => (
-        <span className="text-foreground">{formatCellValue(row[field.key])}</span>
+        <span className="text-foreground">{resolveFieldDisplay(row, field.key)}</span>
       ),
     }));
 
@@ -329,7 +349,7 @@ export default function SurveillanceReportDetailPage() {
 
     const csvLines = allRows.map((row) => {
       const cells = AUDIT_DATA_FIELDS.map((c) => {
-        const val = formatCellValue(row[c.key]);
+        const val = resolveFieldDisplay(row, c.key);
         return `"${val.replace(/"/g, '""')}"`;
       });
       const attCell =
