@@ -299,9 +299,9 @@ export default function ReportRequestsPage() {
       {
         key: "preparedBy",
         header: "Prepared by",
-        searchValue: (r) => r.preparedBy || "—",
+        searchValue: (r) => r.preparedBy || "-",
         accessor: (r) => (
-          <span className="text-foreground text-sm">{r.preparedBy || "—"}</span>
+          <span className="text-foreground text-sm">{r.preparedBy || "-"}</span>
         ),
       },
       {

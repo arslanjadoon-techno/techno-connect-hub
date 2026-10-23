@@ -282,6 +282,9 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
         difference: "($0.60)",
         receipt: "YES",
         notes: "Minor coin rounding variance observed at register.",
+        attachments: [
+          { id: "att-r201-4", name: "Reg1_1014_CoinTray.jpg", size: 312400, type: "image/jpeg" },
+        ],
       }),
       makeAuditRow({
         id: "r201-5",
@@ -470,7 +473,9 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
         accOffered: "YES",
         maximize: "YES",
         bundleAccGiven: "YES",
-        rowHighlight: "green",
+        attachments: [
+          { id: "att-r201-16", name: "RevvlTab_Bundle_1208.jpg", size: 428100, type: "image/jpeg" },
+        ],
       }),
       makeAuditRow({
         id: "r201-17",
@@ -649,7 +654,9 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
         bundleAccGiven: "YES",
         portIn: "YES",
         smartPayMentioned: "YES",
-        rowHighlight: "amber",
+        attachments: [
+          { id: "att-r202-4", name: "SplitPay_Receipt_78409.pdf", size: 215000, type: "application/pdf" },
+        ],
       }),
       makeAuditRow({
         id: "r202-5",
@@ -721,7 +728,10 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
         timeReturned: "—",
         backRoomTimeIn: "8:34:00 PM",
         backRoomTimeOut: "8:39:00 PM",
-        rowHighlight: "violation",
+        attachments: [
+          { id: "att-r202-7a", name: "POS2_CashDrawer_2029_Angle.jpg", size: 520400, type: "image/jpeg" },
+          { id: "att-r202-7b", name: "Register2_Journal_78412.pdf", size: 640000, type: "application/pdf" },
+        ],
       }),
       makeAuditRow({
         id: "r202-8",

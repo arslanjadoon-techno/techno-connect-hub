@@ -246,10 +246,7 @@ export default function SurveillanceReportsPage() {
       backRoomTimeIn: formBackRoomTimeIn,
       backRoomTimeOut: formBackRoomTimeOut,
       offline: formOffline === "Yes" ? "YES" : "",
-      rowHighlight:
-        formFraudTransactions === "Yes" || formPaymentFraud === "Yes"
-          ? "violation"
-          : undefined,
+      attachments: attachments.length > 0 ? [...attachments] : undefined,
     };
   };
 
@@ -263,6 +260,7 @@ export default function SurveillanceReportsPage() {
     setQueuedRows((prev) => [...prev, nextRow]);
     setFormInvoiceNo(`INV-${Math.floor(70000 + Math.random() * 20000)}`);
     setFormNotes("");
+    setAttachments([]);
     toast.success(`Row #${queuedRows.length + 1} added to audit report.`);
   };
 
@@ -410,42 +408,42 @@ export default function SurveillanceReportsPage() {
       {
         key: "store",
         header: "Store",
-        searchValue: (r) => r.storeName,
+        searchValue: (r) => r.storeName || "-",
         accessor: (r) => (
-          <span className="font-medium text-foreground text-sm">{r.storeName}</span>
+          <span className="font-medium text-foreground text-sm">{r.storeName || "-"}</span>
         ),
       },
       {
         key: "invoice",
         header: "Invoice No",
-        searchValue: (r) => r.invoiceNo,
+        searchValue: (r) => r.invoiceNo || "-",
         accessor: (r) => (
-          <span className="font-mono text-xs font-medium text-foreground">{r.invoiceNo}</span>
+          <span className="font-mono text-xs font-medium text-foreground">{r.invoiceNo || "-"}</span>
         ),
       },
       {
         key: "salesRep",
         header: "Sales Rep",
-        searchValue: (r) => r.salesRep,
+        searchValue: (r) => r.salesRep || "-",
         accessor: (r) => (
-          <span className="text-foreground text-sm">{r.salesRep}</span>
+          <span className="text-foreground text-sm">{r.salesRep || "-"}</span>
         ),
       },
       {
         key: "amount",
         header: "Invoice Amount",
-        searchValue: (r) => r.invoiceAmount,
+        searchValue: (r) => r.invoiceAmount || "-",
         accessor: (r) => (
-          <span className="font-semibold text-foreground text-xs">{r.invoiceAmount}</span>
+          <span className="font-semibold text-foreground text-xs">{r.invoiceAmount || "-"}</span>
         ),
       },
       {
         key: "difference",
         header: "Difference",
-        searchValue: (r) => r.difference,
+        searchValue: (r) => r.difference || "-",
         accessor: (r) => (
-          <span className={`font-semibold text-xs ${r.difference !== "$0.00" && r.difference !== "0" ? "text-rose-600" : "text-emerald-600"}`}>
-            {r.difference}
+          <span className="font-semibold text-xs text-foreground">
+            {r.difference || "-"}
           </span>
         ),
       },
@@ -1061,35 +1059,41 @@ export default function SurveillanceReportsPage() {
             </div>
             {/* Queued Audit Rows Preview */}
             {queuedRows.length > 0 && (
-              <div className="space-y-2 rounded-lg border border-amber-300/70 bg-amber-50/40 dark:bg-amber-950/20 p-3">
+              <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-foreground">
                     Added Audit Rows ({queuedRows.length})
                   </span>
                 </div>
-                <div className="overflow-x-auto rounded border bg-background">
-                  <table className="w-full text-[11px] border-collapse">
-                    <thead>
-                      <tr className="bg-amber-500 text-slate-950 font-bold">
-                        <th className="px-2 py-1.5 text-left border-r border-slate-700/25">#</th>
-                        <th className="px-2 py-1.5 text-left border-r border-slate-700/25">Time</th>
-                        <th className="px-2 py-1.5 text-left border-r border-slate-700/25">Invoice</th>
-                        <th className="px-2 py-1.5 text-left border-r border-slate-700/25">Sales Rep</th>
-                        <th className="px-2 py-1.5 text-left border-r border-slate-700/25">Trans/Type</th>
-                        <th className="px-2 py-1.5 text-right border-r border-slate-700/25">Amount</th>
-                        <th className="px-2 py-1.5 text-center">Remove</th>
+                <div className="overflow-x-auto rounded-lg border bg-card">
+                  <table className="w-full text-xs border-collapse">
+                    <thead className="themed-thead border-b">
+                      <tr>
+                        <th className="px-2.5 py-2 text-left font-medium text-muted-foreground">#</th>
+                        <th className="px-2.5 py-2 text-left font-medium text-muted-foreground">Time</th>
+                        <th className="px-2.5 py-2 text-left font-medium text-muted-foreground">Invoice</th>
+                        <th className="px-2.5 py-2 text-left font-medium text-muted-foreground">Sales Rep</th>
+                        <th className="px-2.5 py-2 text-left font-medium text-muted-foreground">Trans/Type</th>
+                        <th className="px-2.5 py-2 text-right font-medium text-muted-foreground">Amount</th>
+                        <th className="px-2.5 py-2 text-left font-medium text-muted-foreground">Attachments</th>
+                        <th className="px-2.5 py-2 text-center font-medium text-muted-foreground">Remove</th>
                       </tr>
                     </thead>
                     <tbody>
                       {queuedRows.map((qr, i) => (
                         <tr key={qr.id} className="border-t">
-                          <td className="px-2 py-1 font-mono">{i + 1}</td>
-                          <td className="px-2 py-1 font-mono">{qr.time}</td>
-                          <td className="px-2 py-1 font-mono">{qr.invoice || "—"}</td>
-                          <td className="px-2 py-1">{qr.salesRep}</td>
-                          <td className="px-2 py-1">{qr.transType}</td>
-                          <td className="px-2 py-1 text-right font-mono">{qr.invoiceAmount}</td>
-                          <td className="px-2 py-1 text-center">
+                          <td className="px-2.5 py-2 text-foreground">{i + 1}</td>
+                          <td className="px-2.5 py-2 text-foreground">{qr.time || "-"}</td>
+                          <td className="px-2.5 py-2 text-foreground">{qr.invoice || "-"}</td>
+                          <td className="px-2.5 py-2 text-foreground">{qr.salesRep || "-"}</td>
+                          <td className="px-2.5 py-2 text-foreground">{qr.transType || "-"}</td>
+                          <td className="px-2.5 py-2 text-right text-foreground">{qr.invoiceAmount || "-"}</td>
+                          <td className="px-2.5 py-2 text-foreground">
+                            {qr.attachments && qr.attachments.length > 0
+                              ? qr.attachments.map((a) => a.name).join(", ")
+                              : "-"}
+                          </td>
+                          <td className="px-2.5 py-2 text-center">
                             <button
                               type="button"
                               onClick={() => setQueuedRows((prev) => prev.filter((_, idx) => idx !== i))}

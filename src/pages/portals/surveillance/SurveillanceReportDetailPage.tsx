@@ -1,9 +1,9 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
+import { DataTable, type Column } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
@@ -19,12 +19,12 @@ import {
   Printer,
   Download,
   FileText,
+  Image as ImageIcon,
   Paperclip,
   Check,
   X,
   Star,
   Lock,
-  Search,
   CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -39,6 +39,7 @@ import {
   type SurveillanceReport,
   type SurveillanceRequest,
   type SurveillanceAuditRow,
+  type SurveillanceAttachment,
 } from "@/services/portals/surveillance";
 
 function formatFileSize(bytes: number): string {
@@ -47,28 +48,19 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function parseCurrencyValue(raw: string): number {
-  if (!raw) return 0;
-  const trimmed = raw.trim();
-  const isParenNegative = trimmed.startsWith("(") && trimmed.endsWith(")");
-  const numeric = parseFloat(trimmed.replace(/[^0-9.-]/g, ""));
-  if (Number.isNaN(numeric)) return 0;
-  return isParenNegative ? -Math.abs(numeric) : numeric;
-}
-
-function formatAccountingCurrency(val: number): string {
-  if (Math.abs(val) < 0.005) return "$0.00";
-  if (val < 0) {
-    return `($${Math.abs(val).toFixed(2)})`;
-  }
-  return `$${val.toFixed(2)}`;
+function formatCellValue(val: unknown): string {
+  if (val === null || val === undefined) return "-";
+  const str = String(val).trim();
+  if (!str || str === "—" || str.toLowerCase() === "none") return "-";
+  return str;
 }
 
 function buildFallbackRowFromReport(report: SurveillanceReport): SurveillanceAuditRow {
   const isBillable = report.clientType === "Billable";
   const isCash = report.paymentMode === "Cash";
   const isCard = report.paymentMode === "Card";
-  const yesNo = (v?: string) => (v && v.toLowerCase() === "yes" ? "YES" : v && v.toLowerCase() === "no" ? "NO" : v || "");
+  const yesNo = (v?: string) =>
+    v && v.toLowerCase() === "yes" ? "YES" : v && v.toLowerCase() === "no" ? "NO" : v || "";
 
   return {
     id: `${report.id}-row-1`,
@@ -112,74 +104,71 @@ function buildFallbackRowFromReport(report: SurveillanceReport): SurveillanceAud
     smartPayMentioned: yesNo(report.smartPayMentioned) === "YES" ? "YES" : "",
     aalBillSame: yesNo(report.aalBillSame) === "YES" ? "YES" : "",
     onlineRejectedPayment: yesNo(report.onlineRejectedPayment) === "YES" ? "YES" : "",
-    nameOfRepLeaving: report.nameOfRepLeaving && report.nameOfRepLeaving !== "None" ? report.nameOfRepLeaving : "",
+    nameOfRepLeaving:
+      report.nameOfRepLeaving && report.nameOfRepLeaving !== "None" ? report.nameOfRepLeaving : "",
     timeLeft: report.timeLeft && report.timeLeft !== "—" ? report.timeLeft : "",
     timeReturned: report.timeReturned && report.timeReturned !== "—" ? report.timeReturned : "",
-    backRoomTimeIn: report.backRoomTimeIn && report.backRoomTimeIn !== "—" ? report.backRoomTimeIn : "",
-    backRoomTimeOut: report.backRoomTimeOut && report.backRoomTimeOut !== "—" ? report.backRoomTimeOut : "",
+    backRoomTimeIn:
+      report.backRoomTimeIn && report.backRoomTimeIn !== "—" ? report.backRoomTimeIn : "",
+    backRoomTimeOut:
+      report.backRoomTimeOut && report.backRoomTimeOut !== "—" ? report.backRoomTimeOut : "",
     offline: yesNo(report.offline) === "YES" ? "YES" : "",
-    rowHighlight:
-      report.fraudTransactions === "Yes" || report.paymentFraud === "Yes"
-        ? "violation"
-        : undefined,
+    attachments: report.attachments,
   };
 }
 
-interface AuditColumnDef {
-  key: keyof SurveillanceAuditRow;
+interface AuditDataField {
+  key: Exclude<keyof SurveillanceAuditRow, "id" | "attachments" | "rowHighlight">;
   label: string;
-  align?: "left" | "center" | "right";
-  mono?: boolean;
-  minWidth?: string;
 }
 
-const AUDIT_TABLE_COLUMNS: AuditColumnDef[] = [
-  { key: "date", label: "Date", align: "center", mono: true, minWidth: "min-w-[96px]" },
-  { key: "storeName", label: "Store Name", align: "left", minWidth: "min-w-[210px]" },
-  { key: "invoice", label: "Invoice", align: "center", mono: true, minWidth: "min-w-[82px]" },
-  { key: "cashTime", label: "Cash Time", align: "center", mono: true, minWidth: "min-w-[98px]" },
-  { key: "time", label: "Time", align: "center", mono: true, minWidth: "min-w-[98px]" },
-  { key: "bdiTime", label: "BDI TIME", align: "center", mono: true, minWidth: "min-w-[98px]" },
-  { key: "salesRep", label: "Sales Rep", align: "center", minWidth: "min-w-[130px]" },
-  { key: "transType", label: "Trans/Type", align: "center", minWidth: "min-w-[170px]" },
-  { key: "nb", label: "NB", align: "center", minWidth: "min-w-[44px]" },
-  { key: "b", label: "B", align: "center", minWidth: "min-w-[40px]" },
-  { key: "invoiceAmount", label: "Invoice Amount", align: "right", mono: true, minWidth: "min-w-[116px]" },
-  { key: "totalTaken", label: "Total Taken", align: "right", mono: true, minWidth: "min-w-[104px]" },
-  { key: "cash", label: "Cash", align: "right", mono: true, minWidth: "min-w-[88px]" },
-  { key: "card", label: "Card", align: "right", mono: true, minWidth: "min-w-[88px]" },
-  { key: "difference", label: "Difference", align: "right", mono: true, minWidth: "min-w-[96px]" },
-  { key: "receipt", label: "Receipt", align: "center", minWidth: "min-w-[74px]" },
-  { key: "splitPayments", label: "Split Payments", align: "center", minWidth: "min-w-[110px]" },
-  { key: "fraudTransactions", label: "Fraud Transactions", align: "center", minWidth: "min-w-[136px]" },
-  { key: "refundInvoice", label: "Refund Invoice", align: "center", minWidth: "min-w-[114px]" },
-  { key: "missOpportunity", label: "Miss Opportunity", align: "center", minWidth: "min-w-[126px]" },
-  { key: "paymentFraud", label: "Payment fraud", align: "center", minWidth: "min-w-[114px]" },
-  { key: "aalSwap", label: "AAL Swap", align: "center", minWidth: "min-w-[88px]" },
-  { key: "mim", label: "MIM", align: "center", minWidth: "min-w-[64px]" },
-  { key: "notes", label: "Notes", align: "left", minWidth: "min-w-[220px]" },
-  { key: "pitchNb", label: "Pitch NB", align: "center", minWidth: "min-w-[82px]" },
-  { key: "pitchQuality", label: "Pitch Quality", align: "center", minWidth: "min-w-[104px]" },
-  { key: "pitchNotes", label: "Pitch Notes", align: "left", minWidth: "min-w-[200px]" },
-  { key: "showingPhone", label: "Showing Phone?", align: "center", minWidth: "min-w-[124px]" },
-  { key: "accOffered", label: "Acc Offered", align: "center", minWidth: "min-w-[98px]" },
-  { key: "maximize", label: "Maximize", align: "center", minWidth: "min-w-[88px]" },
-  { key: "flipping", label: "Flipping", align: "center", minWidth: "min-w-[82px]" },
-  { key: "bundleNb", label: "Bundle NB", align: "center", minWidth: "min-w-[96px]" },
-  { key: "bundleStartB", label: "Bundle-Start B", align: "center", minWidth: "min-w-[118px]" },
-  { key: "bundleEndB", label: "Bundle-End B", align: "center", minWidth: "min-w-[114px]" },
-  { key: "bundleAccGiven", label: "Bundle Acc Given", align: "center", minWidth: "min-w-[128px]" },
-  { key: "portIn", label: "Port In", align: "center", minWidth: "min-w-[74px]" },
-  { key: "nonUp", label: "Non-Up", align: "center", minWidth: "min-w-[76px]" },
-  { key: "smartPayMentioned", label: "SmartPay Mentioned", align: "center", minWidth: "min-w-[148px]" },
-  { key: "aalBillSame", label: "AAL Bill Same", align: "center", minWidth: "min-w-[110px]" },
-  { key: "onlineRejectedPayment", label: "Online/Rejected Payment", align: "center", minWidth: "min-w-[176px]" },
-  { key: "nameOfRepLeaving", label: "Name of Rep Leaving", align: "center", minWidth: "min-w-[152px]" },
-  { key: "timeLeft", label: "Time Left", align: "center", mono: true, minWidth: "min-w-[94px]" },
-  { key: "timeReturned", label: "Time Returned", align: "center", mono: true, minWidth: "min-w-[114px]" },
-  { key: "backRoomTimeIn", label: "Back Room Time - In", align: "center", mono: true, minWidth: "min-w-[144px]" },
-  { key: "backRoomTimeOut", label: "Back Room Time - Out", align: "center", mono: true, minWidth: "min-w-[152px]" },
-  { key: "offline", label: "Offline", align: "center", minWidth: "min-w-[74px]" },
+const AUDIT_DATA_FIELDS: AuditDataField[] = [
+  { key: "date", label: "Date" },
+  { key: "storeName", label: "Store Name" },
+  { key: "invoice", label: "Invoice" },
+  { key: "cashTime", label: "Cash Time" },
+  { key: "time", label: "Time" },
+  { key: "bdiTime", label: "BDI TIME" },
+  { key: "salesRep", label: "Sales Rep" },
+  { key: "transType", label: "Trans/Type" },
+  { key: "nb", label: "NB" },
+  { key: "b", label: "B" },
+  { key: "invoiceAmount", label: "Invoice Amount" },
+  { key: "totalTaken", label: "Total Taken" },
+  { key: "cash", label: "Cash" },
+  { key: "card", label: "Card" },
+  { key: "difference", label: "Difference" },
+  { key: "receipt", label: "Receipt" },
+  { key: "splitPayments", label: "Split Payments" },
+  { key: "fraudTransactions", label: "Fraud Transactions" },
+  { key: "refundInvoice", label: "Refund Invoice" },
+  { key: "missOpportunity", label: "Miss Opportunity" },
+  { key: "paymentFraud", label: "Payment fraud" },
+  { key: "aalSwap", label: "AAL Swap" },
+  { key: "mim", label: "MIM" },
+  { key: "notes", label: "Notes" },
+  { key: "pitchNb", label: "Pitch NB" },
+  { key: "pitchQuality", label: "Pitch Quality" },
+  { key: "pitchNotes", label: "Pitch Notes" },
+  { key: "showingPhone", label: "Showing Phone?" },
+  { key: "accOffered", label: "Acc Offered" },
+  { key: "maximize", label: "Maximize" },
+  { key: "flipping", label: "Flipping" },
+  { key: "bundleNb", label: "Bundle NB" },
+  { key: "bundleStartB", label: "Bundle-Start B" },
+  { key: "bundleEndB", label: "Bundle-End B" },
+  { key: "bundleAccGiven", label: "Bundle Acc Given" },
+  { key: "portIn", label: "Port In" },
+  { key: "nonUp", label: "Non-Up" },
+  { key: "smartPayMentioned", label: "SmartPay Mentioned" },
+  { key: "aalBillSame", label: "AAL Bill Same" },
+  { key: "onlineRejectedPayment", label: "Online/Rejected Payment" },
+  { key: "nameOfRepLeaving", label: "Name of Rep Leaving" },
+  { key: "timeLeft", label: "Time Left" },
+  { key: "timeReturned", label: "Time Returned" },
+  { key: "backRoomTimeIn", label: "Back Room Time - In" },
+  { key: "backRoomTimeOut", label: "Back Room Time - Out" },
+  { key: "offline", label: "Offline" },
 ];
 
 function StarRating({
@@ -235,8 +224,6 @@ function StarRating({
   );
 }
 
-type RowFilterMode = "all" | "invoiced" | "discrepancies";
-
 export default function SurveillanceReportDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -259,16 +246,19 @@ export default function SurveillanceReportDetailPage() {
     return requestsList.find((r) => r.id === report.requestId || r.linkedReportId === report.id);
   }, [requestsList, report]);
 
-  // Table search & filter states
-  const [searchQuery, setSearchQuery] = useState("");
-  const [rowFilter, setRowFilter] = useState<RowFilterMode>("all");
+  // Row attachment viewer modal state
+  const [selectedRowAttachments, setSelectedRowAttachments] = useState<{
+    invoice: string;
+    time: string;
+    files: SurveillanceAttachment[];
+  } | null>(null);
 
   // Review states
   const [managerRating, setManagerRating] = useState<number>(report?.managerRating || 0);
   const [declineModalOpen, setDeclineModalOpen] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
 
-  // Resolve multi-row audit dataset
+  // Multi-row audit dataset
   const allRows: SurveillanceAuditRow[] = useMemo(() => {
     if (!report) return [];
     if (report.rows && report.rows.length > 0) {
@@ -277,84 +267,80 @@ export default function SurveillanceReportDetailPage() {
     return [buildFallbackRowFromReport(report)];
   }, [report]);
 
-  const filteredRows = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return allRows.filter((row) => {
-      if (rowFilter === "invoiced" && !row.invoice.trim()) {
-        return false;
-      }
-      if (rowFilter === "discrepancies") {
-        const diffNum = parseCurrencyValue(row.difference);
-        const hasFlag =
-          Math.abs(diffNum) >= 0.01 ||
-          row.fraudTransactions === "YES" ||
-          row.paymentFraud === "YES" ||
-          row.refundInvoice === "YES" ||
-          row.missOpportunity === "YES" ||
-          row.receipt === "NO";
-        if (!hasFlag) return false;
-      }
-      if (!q) return true;
-      return (
-        row.invoice.toLowerCase().includes(q) ||
-        row.salesRep.toLowerCase().includes(q) ||
-        row.transType.toLowerCase().includes(q) ||
-        row.storeName.toLowerCase().includes(q) ||
-        row.notes.toLowerCase().includes(q) ||
-        row.pitchNotes.toLowerCase().includes(q)
-      );
-    });
-  }, [allRows, searchQuery, rowFilter]);
+  // Consistent DataTable columns with uniform text color, "-" for missing values, and Attachments last column
+  const columns: Column<SurveillanceAuditRow>[] = useMemo(() => {
+    const dataCols: Column<SurveillanceAuditRow>[] = AUDIT_DATA_FIELDS.map((field) => ({
+      key: field.key,
+      header: field.label,
+      className:
+        field.key === "notes" || field.key === "pitchNotes"
+          ? "min-w-[220px] max-w-[300px] whitespace-normal text-foreground"
+          : "whitespace-nowrap text-foreground",
+      searchValue: (row) => formatCellValue(row[field.key]),
+      accessor: (row) => (
+        <span className="text-foreground">{formatCellValue(row[field.key])}</span>
+      ),
+    }));
 
-  // Computed ledger totals across filtered rows
-  const ledgerTotals = useMemo(() => {
-    let totalInvoice = 0;
-    let totalTaken = 0;
-    let totalCash = 0;
-    let totalCard = 0;
-    let totalDiff = 0;
-    let nbCount = 0;
-    let bCount = 0;
-    let violationCount = 0;
-
-    for (const r of filteredRows) {
-      totalInvoice += parseCurrencyValue(r.invoiceAmount);
-      totalTaken += parseCurrencyValue(r.totalTaken);
-      totalCash += parseCurrencyValue(r.cash);
-      totalCard += parseCurrencyValue(r.card);
-      totalDiff += parseCurrencyValue(r.difference);
-      if (r.nb === "NB") nbCount += 1;
-      if (r.b === "B") bCount += 1;
-      if (
-        r.fraudTransactions === "YES" ||
-        r.paymentFraud === "YES" ||
-        r.refundInvoice === "YES"
-      ) {
-        violationCount += 1;
-      }
-    }
-
-    return {
-      totalInvoice,
-      totalTaken,
-      totalCash,
-      totalCard,
-      totalDiff,
-      nbCount,
-      bCount,
-      violationCount,
+    const attachmentCol: Column<SurveillanceAuditRow> = {
+      key: "attachments",
+      header: "Attachments",
+      className: "whitespace-nowrap text-foreground",
+      searchValue: (row) =>
+        row.attachments && row.attachments.length > 0
+          ? row.attachments.map((a) => a.name).join(" ")
+          : "-",
+      accessor: (row) => {
+        if (!row.attachments || row.attachments.length === 0) {
+          return <span className="text-foreground">-</span>;
+        }
+        return (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedRowAttachments({
+                invoice: formatCellValue(row.invoice),
+                time: formatCellValue(row.time),
+                files: row.attachments || [],
+              });
+            }}
+            className="inline-flex items-center gap-1.5 text-foreground underline-offset-4 hover:underline"
+          >
+            <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span>
+              {row.attachments.length === 1
+                ? row.attachments[0].name
+                : `${row.attachments[0].name} (+${row.attachments.length - 1})`}
+            </span>
+          </button>
+        );
+      },
     };
-  }, [filteredRows]);
+
+    return [...dataCols, attachmentCol];
+  }, []);
 
   const handleExportCsv = () => {
     if (!report) return;
-    const headers = AUDIT_TABLE_COLUMNS.map((c) => `"${c.label.replace(/"/g, '""')}"`).join(",");
-    const csvLines = filteredRows.map((row) =>
-      AUDIT_TABLE_COLUMNS.map((c) => {
-        const val = String(row[c.key] ?? "");
+    const headers = [
+      ...AUDIT_DATA_FIELDS.map((c) => `"${c.label.replace(/"/g, '""')}"`),
+      '"Attachments"',
+    ].join(",");
+
+    const csvLines = allRows.map((row) => {
+      const cells = AUDIT_DATA_FIELDS.map((c) => {
+        const val = formatCellValue(row[c.key]);
         return `"${val.replace(/"/g, '""')}"`;
-      }).join(","),
-    );
+      });
+      const attCell =
+        row.attachments && row.attachments.length > 0
+          ? row.attachments.map((a) => a.name).join("; ")
+          : "-";
+      cells.push(`"${attCell.replace(/"/g, '""')}"`);
+      return cells.join(",");
+    });
+
     const csvContent = [headers, ...csvLines].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -365,7 +351,7 @@ export default function SurveillanceReportDetailPage() {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    toast.success(`Exported ${filteredRows.length} audit rows to CSV.`);
+    toast.success(`Exported ${allRows.length} audit rows to CSV.`);
   };
 
   const handleApprove = async () => {
@@ -512,7 +498,7 @@ export default function SurveillanceReportDetailPage() {
 
   return (
     <div className="space-y-6 pb-12 animate-fade-in">
-      {/* Top Navigation & Action Header */}
+      {/* Top Header (Clean Title without sub-tags) */}
       <div className="flex flex-col gap-4 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Button
@@ -524,32 +510,9 @@ export default function SurveillanceReportDetailPage() {
             <ArrowLeft className="h-3.5 w-3.5" />
             Back
           </Button>
-          <div>
-            <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
-              Surveillance Audit Report
-            </h1>
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-1">
-              <span className="font-mono font-semibold text-foreground">{report.id}</span>
-              <span aria-hidden="true">·</span>
-              <span
-                className={`font-semibold ${
-                  report.status === "Approved"
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : report.status === "Rejected"
-                      ? "text-rose-600 dark:text-rose-400"
-                      : "text-sky-600 dark:text-sky-400"
-                }`}
-              >
-                {report.status}
-              </span>
-              <span aria-hidden="true">·</span>
-              <span>
-                Auditor: <strong className="text-foreground">{report.investigatorName}</strong>
-              </span>
-              <span aria-hidden="true">·</span>
-              <span>Submitted {new Date(report.submittedAt).toLocaleString()}</span>
-            </div>
-          </div>
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">
+            Surveillance Audit Report
+          </h1>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -572,401 +535,14 @@ export default function SurveillanceReportDetailPage() {
         </div>
       </div>
 
-      {/* KPI Summary Strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <Card className="p-3.5 bg-card border-border/80">
-          <span className="text-[11px] font-medium text-muted-foreground block">
-            Store Location
-          </span>
-          <div className="font-semibold text-sm text-foreground truncate mt-1" title={report.storeName}>
-            {report.storeName}
-          </div>
-        </Card>
-
-        <Card className="p-3.5 bg-card border-border/80">
-          <span className="text-[11px] font-medium text-muted-foreground block">
-            Logged Audit Rows
-          </span>
-          <div className="font-mono tabular-nums font-bold text-base text-foreground mt-1">
-            {filteredRows.length}{" "}
-            <span className="text-xs font-normal text-muted-foreground">
-              ({ledgerTotals.nbCount} NB / {ledgerTotals.bCount} B)
-            </span>
-          </div>
-        </Card>
-
-        <Card className="p-3.5 bg-card border-border/80">
-          <span className="text-[11px] font-medium text-muted-foreground block">
-            Invoice Total
-          </span>
-          <div className="font-mono tabular-nums font-bold text-base text-foreground mt-1">
-            {formatAccountingCurrency(ledgerTotals.totalInvoice)}
-          </div>
-        </Card>
-
-        <Card className="p-3.5 bg-card border-border/80">
-          <span className="text-[11px] font-medium text-muted-foreground block">
-            Total Taken
-          </span>
-          <div className="font-mono tabular-nums font-bold text-base text-foreground mt-1">
-            {formatAccountingCurrency(ledgerTotals.totalTaken)}
-          </div>
-        </Card>
-
-        <Card className="p-3.5 bg-card border-border/80">
-          <span className="text-[11px] font-medium text-muted-foreground block">
-            Net Difference
-          </span>
-          <div
-            className={`font-mono tabular-nums font-bold text-base mt-1 ${
-              Math.abs(ledgerTotals.totalDiff) >= 0.01
-                ? "text-rose-600 dark:text-rose-400"
-                : "text-emerald-600 dark:text-emerald-400"
-            }`}
-          >
-            {formatAccountingCurrency(ledgerTotals.totalDiff)}
-          </div>
-        </Card>
-
-        <Card className="p-3.5 bg-card border-border/80">
-          <span className="text-[11px] font-medium text-muted-foreground block">
-            Audit Compliance
-          </span>
-          <div
-            className={`font-semibold text-sm mt-1 ${
-              ledgerTotals.violationCount > 0
-                ? "text-rose-600 dark:text-rose-400"
-                : "text-emerald-600 dark:text-emerald-400"
-            }`}
-          >
-            {ledgerTotals.violationCount > 0
-              ? `${ledgerTotals.violationCount} Violation Flagged`
-              : "Clear — Verified"}
-          </div>
-        </Card>
-      </div>
-
-      {/* Multi-Row Surveillance Audit Spreadsheet Table */}
-      <Card className="border-border/90 overflow-hidden shadow-xs">
-        {/* Toolbar */}
-        <div className="flex flex-col gap-3 p-4 border-b bg-muted/20 lg:flex-row lg:items-center lg:justify-between">
-          <div className="relative w-full lg:max-w-sm">
-            <Search className="h-4 w-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search invoice, sales rep, trans/type, notes..."
-              className="pl-9 h-9 text-xs bg-background"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between lg:justify-end gap-3">
-            <div className="flex items-center gap-1 p-1 bg-muted rounded-lg">
-              <button
-                type="button"
-                onClick={() => setRowFilter("all")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  rowFilter === "all"
-                    ? "bg-background text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                All Rows ({allRows.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setRowFilter("invoiced")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  rowFilter === "invoiced"
-                    ? "bg-background text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Invoiced Only
-              </button>
-              <button
-                type="button"
-                onClick={() => setRowFilter("discrepancies")}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  rowFilter === "discrepancies"
-                    ? "bg-background text-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                Discrepancies & Flags
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Scrollable Spreadsheet Grid */}
-        <div className="w-full overflow-x-auto max-h-[640px] overflow-y-auto">
-          <table className="w-full border-collapse text-xs">
-            <thead className="sticky top-0 z-20">
-              <tr className="bg-amber-500 text-slate-950">
-                <th className="sticky left-0 z-30 bg-amber-500 border-b border-r border-slate-700/35 px-2.5 py-2.5 text-center font-bold whitespace-nowrap min-w-[42px]">
-                  #
-                </th>
-                {AUDIT_TABLE_COLUMNS.map((col) => (
-                  <th
-                    key={col.key}
-                    className={`border-b border-r border-slate-700/35 px-3 py-2.5 font-bold whitespace-nowrap ${
-                      col.minWidth || ""
-                    } ${
-                      col.align === "right"
-                        ? "text-right"
-                        : col.align === "center"
-                          ? "text-center"
-                          : "text-left"
-                    }`}
-                  >
-                    {col.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-
-            <tbody>
-              {filteredRows.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={AUDIT_TABLE_COLUMNS.length + 1}
-                    className="py-12 text-center text-muted-foreground text-sm"
-                  >
-                    No audit rows match your current filter criteria.
-                  </td>
-                </tr>
-              ) : (
-                filteredRows.map((row, idx) => {
-                  const isOpeningRow = row.rowHighlight === "opening";
-                  const rowBgClass =
-                    row.rowHighlight === "amber"
-                      ? "bg-amber-100/75 hover:bg-amber-100 dark:bg-amber-950/35 dark:hover:bg-amber-950/50"
-                      : row.rowHighlight === "green"
-                        ? "bg-emerald-100/65 hover:bg-emerald-100/90 dark:bg-emerald-950/35 dark:hover:bg-emerald-950/50"
-                        : row.rowHighlight === "violation"
-                          ? "bg-rose-100/70 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-950/55"
-                          : "bg-background hover:bg-muted/40";
-
-                  const stickyIndexBg =
-                    row.rowHighlight === "amber"
-                      ? "bg-amber-100 dark:bg-amber-950"
-                      : row.rowHighlight === "green"
-                        ? "bg-emerald-100 dark:bg-emerald-950"
-                        : row.rowHighlight === "violation"
-                          ? "bg-rose-100 dark:bg-rose-950"
-                          : "bg-muted/60 dark:bg-slate-900";
-
-                  return (
-                    <tr key={row.id || idx} className={`transition-colors ${rowBgClass}`}>
-                      <td
-                        className={`sticky left-0 z-10 border-b border-r border-slate-300 dark:border-slate-800 px-2 py-2 text-center font-mono tabular-nums text-[11px] text-muted-foreground font-semibold ${stickyIndexBg}`}
-                      >
-                        {idx + 1}
-                      </td>
-
-                      {AUDIT_TABLE_COLUMNS.map((col) => {
-                        const rawVal = String(row[col.key] ?? "");
-
-                        // Opening / Shift Handover purple/maroon highlight on Time through Trans/Type cells (matching spreadsheet format)
-                        const isOpeningHighlightCell =
-                          isOpeningRow &&
-                          (col.key === "time" ||
-                            col.key === "bdiTime" ||
-                            col.key === "salesRep" ||
-                            col.key === "transType");
-
-                        // Negative Difference or Flagged Fraud styling
-                        const isNegativeDiff =
-                          col.key === "difference" &&
-                          (rawVal.startsWith("(") || rawVal.startsWith("-"));
-
-                        const isPositiveDiff =
-                          col.key === "difference" &&
-                          !isNegativeDiff &&
-                          rawVal !== "" &&
-                          rawVal !== "$0.00" &&
-                          rawVal !== "0";
-
-                        const isFraudFlag =
-                          (col.key === "fraudTransactions" ||
-                            col.key === "paymentFraud" ||
-                            col.key === "refundInvoice" ||
-                            col.key === "onlineRejectedPayment") &&
-                          rawVal.toUpperCase() === "YES";
-
-                        const isNoReceiptFlag =
-                          col.key === "receipt" && rawVal.toUpperCase() === "NO";
-
-                        return (
-                          <td
-                            key={col.key}
-                            className={`border-b border-r border-slate-300 dark:border-slate-800 px-2.5 py-2 ${
-                              col.key === "notes" || col.key === "pitchNotes"
-                                ? "whitespace-normal min-w-[220px] max-w-[300px]"
-                                : "whitespace-nowrap"
-                            } ${
-                              col.mono ? "font-mono tabular-nums" : ""
-                            } ${
-                              col.align === "right"
-                                ? "text-right"
-                                : col.align === "center"
-                                  ? "text-center"
-                                  : "text-left"
-                            } ${
-                              isOpeningHighlightCell
-                                ? "bg-[#6b1d4a] text-white font-bold"
-                                : isNegativeDiff || isFraudFlag
-                                  ? "text-rose-600 dark:text-rose-400 font-bold"
-                                  : isPositiveDiff
-                                    ? "text-emerald-700 dark:text-emerald-400 font-semibold"
-                                    : isNoReceiptFlag
-                                      ? "text-amber-700 dark:text-amber-400 font-semibold"
-                                      : "text-foreground"
-                            }`}
-                          >
-                            {rawVal}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-
-            {/* Spreadsheet Summary Totals Footer */}
-            {filteredRows.length > 0 && (
-              <tfoot className="sticky bottom-0 z-10 bg-slate-100 dark:bg-slate-900 border-t-2 border-slate-400 dark:border-slate-700 font-semibold text-xs">
-                <tr>
-                  <td className="sticky left-0 z-20 bg-slate-100 dark:bg-slate-900 border-r border-slate-300 dark:border-slate-800 px-2 py-2.5 text-center font-mono">
-                    Σ
-                  </td>
-                  {AUDIT_TABLE_COLUMNS.map((col) => {
-                    if (col.key === "storeName") {
-                      return (
-                        <td
-                          key={col.key}
-                          className="border-r border-slate-300 dark:border-slate-800 px-3 py-2.5 text-left font-bold text-foreground"
-                        >
-                          Total ({filteredRows.length} Audit Rows)
-                        </td>
-                      );
-                    }
-                    if (col.key === "nb") {
-                      return (
-                        <td
-                          key={col.key}
-                          className="border-r border-slate-300 dark:border-slate-800 px-2 py-2.5 text-center font-mono tabular-nums"
-                        >
-                          {ledgerTotals.nbCount || ""}
-                        </td>
-                      );
-                    }
-                    if (col.key === "b") {
-                      return (
-                        <td
-                          key={col.key}
-                          className="border-r border-slate-300 dark:border-slate-800 px-2 py-2.5 text-center font-mono tabular-nums"
-                        >
-                          {ledgerTotals.bCount || ""}
-                        </td>
-                      );
-                    }
-                    if (col.key === "invoiceAmount") {
-                      return (
-                        <td
-                          key={col.key}
-                          className="border-r border-slate-300 dark:border-slate-800 px-2.5 py-2.5 text-right font-mono tabular-nums font-bold"
-                        >
-                          {formatAccountingCurrency(ledgerTotals.totalInvoice)}
-                        </td>
-                      );
-                    }
-                    if (col.key === "totalTaken") {
-                      return (
-                        <td
-                          key={col.key}
-                          className="border-r border-slate-300 dark:border-slate-800 px-2.5 py-2.5 text-right font-mono tabular-nums font-bold"
-                        >
-                          {formatAccountingCurrency(ledgerTotals.totalTaken)}
-                        </td>
-                      );
-                    }
-                    if (col.key === "cash") {
-                      return (
-                        <td
-                          key={col.key}
-                          className="border-r border-slate-300 dark:border-slate-800 px-2.5 py-2.5 text-right font-mono tabular-nums font-bold"
-                        >
-                          {formatAccountingCurrency(ledgerTotals.totalCash)}
-                        </td>
-                      );
-                    }
-                    if (col.key === "card") {
-                      return (
-                        <td
-                          key={col.key}
-                          className="border-r border-slate-300 dark:border-slate-800 px-2.5 py-2.5 text-right font-mono tabular-nums font-bold"
-                        >
-                          {formatAccountingCurrency(ledgerTotals.totalCard)}
-                        </td>
-                      );
-                    }
-                    if (col.key === "difference") {
-                      return (
-                        <td
-                          key={col.key}
-                          className={`border-r border-slate-300 dark:border-slate-800 px-2.5 py-2.5 text-right font-mono tabular-nums font-bold ${
-                            ledgerTotals.totalDiff < -0.005
-                              ? "text-rose-600 dark:text-rose-400"
-                              : ""
-                          }`}
-                        >
-                          {formatAccountingCurrency(ledgerTotals.totalDiff)}
-                        </td>
-                      );
-                    }
-                    return (
-                      <td
-                        key={col.key}
-                        className="border-r border-slate-300 dark:border-slate-800 px-2.5 py-2.5"
-                      />
-                    );
-                  })}
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
-      </Card>
-
-      {/* Evidence Attachments */}
-      {report.attachments && report.attachments.length > 0 && (
-        <Card className="p-5 border-border/80 space-y-3">
-          <div className="flex items-center gap-2 border-b pb-2 font-semibold text-foreground text-sm">
-            <Paperclip className="h-4 w-4 text-muted-foreground" />
-            Evidence Attachments & Footage Stills
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {report.attachments.map((file) => (
-              <div
-                key={file.id}
-                className="flex items-center justify-between gap-2 p-3 rounded-lg border bg-muted/30 text-xs"
-              >
-                <div className="flex items-center gap-2 truncate">
-                  <FileText className="h-5 w-5 text-primary shrink-0" />
-                  <div className="truncate">
-                    <span className="font-semibold text-foreground truncate block">{file.name}</span>
-                    <span className="text-[10px] text-muted-foreground">{formatFileSize(file.size)}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
+      {/* Consistent Application DataTable with Top-Right Search Bar */}
+      <DataTable
+        rows={allRows}
+        columns={columns}
+        rowKey={(r, i) => r.id || String(i)}
+        pageSize={25}
+        searchPlaceholder="Search audit records..."
+      />
 
       {/* Manager Review, Decline Reason & Optional 5-Star Submitter Rating */}
       <Card className="p-5 border-border/80 space-y-4">
@@ -989,7 +565,7 @@ export default function SurveillanceReportDetailPage() {
                 <span className="text-muted-foreground block text-[11px]">Reviewed & Decided By:</span>
                 <span className="font-semibold text-foreground text-sm">{report.reviewedBy}</span>
                 <span className="text-muted-foreground text-[11px] block mt-0.5">
-                  on {report.reviewedAt ? new Date(report.reviewedAt).toLocaleString() : ""}
+                  on {report.reviewedAt ? new Date(report.reviewedAt).toLocaleString() : "-"}
                 </span>
               </div>
 
@@ -1063,6 +639,55 @@ export default function SurveillanceReportDetailPage() {
           </div>
         )}
       </Card>
+
+      {/* Row Attachments Viewer Dialog */}
+      <Dialog
+        open={Boolean(selectedRowAttachments)}
+        onOpenChange={(open) => {
+          if (!open) setSelectedRowAttachments(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Row Attachments</DialogTitle>
+            <DialogDescription>
+              Invoice: {selectedRowAttachments?.invoice || "-"} · Time:{" "}
+              {selectedRowAttachments?.time || "-"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 py-2">
+            {selectedRowAttachments?.files.map((file) => (
+              <div
+                key={file.id}
+                className="flex items-center justify-between gap-2 p-3 rounded-lg border bg-muted/30 text-xs"
+              >
+                <div className="flex items-center gap-2.5 truncate">
+                  {file.type?.includes("image") ? (
+                    <ImageIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                  ) : (
+                    <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                  )}
+                  <div className="truncate">
+                    <span className="font-medium text-foreground truncate block">
+                      {file.name}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {formatFileSize(file.size)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedRowAttachments(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Decline Report Modal with Mandatory Reason */}
       <Dialog open={declineModalOpen} onOpenChange={setDeclineModalOpen}>

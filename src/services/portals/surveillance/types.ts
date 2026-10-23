@@ -108,6 +108,7 @@ export interface SurveillanceAuditRow {
   backRoomTimeIn: string;
   backRoomTimeOut: string;
   offline: string;
+  attachments?: SurveillanceAttachment[];
   rowHighlight?: "opening" | "amber" | "green" | "violation";
 }
 
