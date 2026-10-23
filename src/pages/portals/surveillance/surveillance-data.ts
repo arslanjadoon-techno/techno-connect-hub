@@ -11,7 +11,7 @@ export const INITIAL_SURVEILLANCE_REQUESTS: SurveillanceRequest[] = [
     storeNumber: "101",
     marketName: "Dallas North",
     districtName: "District 1",
-    incidentDate: "2026-10-18",
+    incidentDate: "2026-10-18 - 2026-10-19",
     shift: "Evening Shift (16:00 - 00:00)",
     investigationType: "Cash Drawer Shortage",
     priority: "high",

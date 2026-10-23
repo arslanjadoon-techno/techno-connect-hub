@@ -119,13 +119,14 @@ export default function ReportRequestsPage() {
   const [selectedDetail, setSelectedDetail] = useState<SurveillanceRequest | null>(null);
 
   // Filter states
+  const [marketFilter, setMarketFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
 
   // Create Request Modal state - strictly conforming to requested fields:
   // 1. Market dropdown
   // 2. Store dropdown (filtered by selected market)
-  // 3. Date & time interval (both single date + interval time)
+  // 3. Date interval (single day or multiple days)
   // 4. Priority (default "low")
   // 5. Investigation Reason / Incident Summary
   // 6. Additional Context / Special Instructions (optional, no red star)
@@ -134,9 +135,8 @@ export default function ReportRequestsPage() {
   const [selectedStoreId, setSelectedStoreId] = useState(
     AVAILABLE_STORES.find((s) => s.market === MARKETS[0])?.id || AVAILABLE_STORES[0].id,
   );
-  const [incidentDate, setIncidentDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [intervalStart, setIntervalStart] = useState("14:00");
-  const [intervalEnd, setIntervalEnd] = useState("18:00");
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [priority, setPriority] = useState<SurveillancePriority>("low");
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
@@ -172,10 +172,10 @@ export default function ReportRequestsPage() {
     setSelectedMarket(defaultMarket);
     const firstStore = AVAILABLE_STORES.find((s) => s.market === defaultMarket) || AVAILABLE_STORES[0];
     setSelectedStoreId(firstStore.id);
-    setIncidentDate(new Date().toISOString().split("T")[0]);
-    setIntervalStart("14:00");
-    setIntervalEnd("18:00");
-    setPriority("low"); // By default low selected
+    const today = new Date().toISOString().split("T")[0];
+    setStartDate(today);
+    setEndDate(today);
+    setPriority("low");
     setCreateModalOpen(true);
   };
 
@@ -188,8 +188,8 @@ export default function ReportRequestsPage() {
       toast.error("Please select a store location.");
       return;
     }
-    if (!incidentDate) {
-      toast.error("Please select an incident date.");
+    if (!startDate) {
+      toast.error("Please select a start date.");
       return;
     }
     if (!title.trim()) {
@@ -209,7 +209,7 @@ export default function ReportRequestsPage() {
             ? "Market Manager"
             : "District Manager";
 
-    const formattedShift = intervalStart && intervalEnd ? `${intervalStart} - ${intervalEnd}` : "Full Day Review";
+    const formattedDateRange = endDate && endDate !== startDate ? `${startDate} - ${endDate}` : startDate;
 
     const newRequest: SurveillanceRequest = {
       id: newId,
@@ -218,8 +218,8 @@ export default function ReportRequestsPage() {
       storeNumber: store.number,
       marketName: store.market,
       districtName: store.district,
-      incidentDate,
-      shift: formattedShift,
+      incidentDate: formattedDateRange,
+      shift: "Surveillance Review",
       investigationType: "Store Audit & Surveillance",
       priority,
       title: title.trim(),
@@ -286,11 +286,12 @@ export default function ReportRequestsPage() {
   // Filtered requests
   const filteredRequests = useMemo(() => {
     return requests.filter((r) => {
+      if (marketFilter !== "all" && r.marketName !== marketFilter) return false;
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
       if (priorityFilter !== "all" && r.priority !== priorityFilter) return false;
       return true;
     });
-  }, [requests, statusFilter, priorityFilter]);
+  }, [requests, marketFilter, statusFilter, priorityFilter]);
 
   // Metrics: exactly 3 cards as requested: Total Requests, Pending Approval (Report Requested), and Approved
   const metrics = useMemo(() => {
@@ -405,12 +406,6 @@ export default function ReportRequestsPage() {
               <h1 className="font-display text-xl font-bold tracking-tight text-foreground">
                 Report Details
               </h1>
-              <Badge variant="outline" className="font-mono text-xs font-semibold">
-                {selectedDetail.id}
-              </Badge>
-              <Badge variant="outline" className={`text-xs font-semibold ${STATUS_CONFIG[selectedDetail.status]?.tone}`}>
-                {STATUS_CONFIG[selectedDetail.status]?.label}
-              </Badge>
             </div>
           </div>
 
@@ -460,7 +455,7 @@ export default function ReportRequestsPage() {
 
         {/* Top Banner Overview */}
         <Card className="p-4 bg-muted/20 border-border/80">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
                 <StoreIcon className="h-4 w-4 text-primary" />
@@ -475,27 +470,48 @@ export default function ReportRequestsPage() {
                 {selectedDetail.title}
               </h2>
             </div>
+
+            {/* Middle: Prominent Report Status */}
+            <div className="flex flex-col items-center justify-center px-5 py-2 rounded-lg border bg-card shadow-xs">
+              <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
+                Report Status
+              </span>
+              <div className="mt-0.5 flex items-center gap-2">
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${
+                    selectedDetail.status === "Approved"
+                      ? "bg-emerald-500"
+                      : selectedDetail.status === "Rejected"
+                        ? "bg-rose-500"
+                        : selectedDetail.status === "Report Received"
+                          ? "bg-blue-500"
+                          : "bg-amber-500"
+                  }`}
+                />
+                <span className="text-base font-bold text-foreground">
+                  {STATUS_CONFIG[selectedDetail.status]?.label || selectedDetail.status}
+                </span>
+              </div>
+            </div>
+
             <div className="flex items-center gap-2 shrink-0">
-              <Badge variant="outline" className={`capitalize text-xs font-medium ${PRIORITY_TONES[selectedDetail.priority]}`}>
+              <Badge variant="outline" className={`capitalize text-xs font-semibold px-2.5 py-1 ${PRIORITY_TONES[selectedDetail.priority]}`}>
                 Priority: {selectedDetail.priority}
-              </Badge>
-              <Badge variant="outline" className="text-xs">
-                Incident Date: {selectedDetail.incidentDate}
               </Badge>
             </div>
           </div>
         </Card>
 
-        {/* 2-Column Section: Requested By & Prepared By */}
+        {/* 2-Column Section: Requested By & Prepared By with distinct colors */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Requested By Profile Card */}
-          <Card className="p-4 border-border/80 space-y-3">
+          {/* Requested By Profile Card (Blue Accent Tone) */}
+          <Card className="p-4 border-blue-200/80 bg-blue-50/40 dark:bg-blue-950/25 dark:border-blue-900/50 space-y-3">
             <div className="flex items-center justify-between border-b pb-2">
               <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
-                <UserIcon className="h-4 w-4 text-primary" />
+                <UserIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                 <span>Requested By</span>
               </div>
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-xs border-blue-300 text-blue-800 dark:text-blue-300">
                 {selectedDetail.requesterRole}
               </Badge>
             </div>
@@ -541,22 +557,13 @@ export default function ReportRequestsPage() {
             </div>
           </Card>
 
-          {/* Prepared By Profile Card */}
-          <Card className="p-4 border-border/80 space-y-3">
+          {/* Prepared By Profile Card (Purple Accent Tone, without Assigned & Active tag) */}
+          <Card className="p-4 border-purple-200/80 bg-purple-50/40 dark:bg-purple-950/25 dark:border-purple-900/50 space-y-3">
             <div className="flex items-center justify-between border-b pb-2">
               <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
-                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                <ShieldCheck className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                 <span>Prepared By (Submitter / Auditor)</span>
               </div>
-              {selectedDetail.preparedBy ? (
-                <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
-                  Assigned & Active
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="text-xs text-muted-foreground">
-                  Pending Assignment
-                </Badge>
-              )}
             </div>
 
             {selectedDetail.preparedBy ? (
@@ -607,7 +614,7 @@ export default function ReportRequestsPage() {
           </Card>
         </div>
 
-        {/* Investigation Scope & Parameters */}
+        {/* Investigation Parameters: Strictly Investigation Reason, Surveillance Date, and Additional Context */}
         <Card className="p-4 border-border/80 space-y-3">
           <div className="border-b pb-2">
             <h3 className="text-sm font-semibold text-foreground">
@@ -615,82 +622,26 @@ export default function ReportRequestsPage() {
             </h3>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
-              <span className="text-muted-foreground">Investigation Reason:</span>
-              <div className="font-semibold text-foreground mt-0.5">{selectedDetail.title}</div>
+              <span className="text-muted-foreground block font-medium">Investigation Reason:</span>
+              <div className="font-semibold text-foreground mt-0.5 text-sm">{selectedDetail.title}</div>
             </div>
             <div>
-              <span className="text-muted-foreground">Target Incident Date:</span>
-              <div className="font-semibold text-foreground mt-0.5">{selectedDetail.incidentDate}</div>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Target Shift / Interval:</span>
-              <div className="font-semibold text-foreground mt-0.5">{selectedDetail.shift}</div>
+              <span className="text-muted-foreground block font-medium">Surveillance Date:</span>
+              <div className="font-semibold text-foreground mt-0.5 text-sm">{selectedDetail.incidentDate}</div>
             </div>
           </div>
 
-          {/* Notes */}
-          {selectedDetail.notes && (
-            <div className="pt-2">
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
-                Additional Context / Special Instructions
-              </span>
-              <div className="p-3 rounded-lg border bg-card text-foreground text-xs leading-relaxed whitespace-pre-wrap">
-                {selectedDetail.notes}
-              </div>
+          <div className="pt-2 border-t">
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
+              Additional Context / Special Instructions
+            </span>
+            <div className="p-3 rounded-lg border bg-card text-foreground text-xs leading-relaxed whitespace-pre-wrap">
+              {selectedDetail.notes || "No additional context or special instructions provided."}
             </div>
-          )}
+          </div>
         </Card>
-
-        {/* Manager Review Status on Submitted Report */}
-        {selectedDetail.reportStatus && (
-          <Card className={`p-4 border ${selectedDetail.reportStatus === "Approved" ? "border-emerald-300 bg-emerald-50/30 dark:bg-emerald-950/20" : "border-rose-300 bg-rose-50/30 dark:bg-rose-950/20"}`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                {selectedDetail.reportStatus === "Approved" ? (
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                ) : (
-                  <XCircle className="h-5 w-5 text-rose-600" />
-                )}
-                <div>
-                  <div className="font-semibold text-sm text-foreground">
-                    Surveillance Report {selectedDetail.reportStatus === "Approved" ? "Approved" : "Rejected"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    Reviewed by {selectedDetail.reportApprovedBy || "Management"} on{" "}
-                    {selectedDetail.reportApprovedAt ? new Date(selectedDetail.reportApprovedAt).toLocaleDateString() : ""}
-                  </div>
-                </div>
-              </div>
-
-              {selectedDetail.managerRating && (
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs text-muted-foreground font-medium">Auditor Rating:</span>
-                  <div className="flex items-center gap-0.5">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star
-                        key={s}
-                        className={`h-4 w-4 ${
-                          s <= (selectedDetail.managerRating || 0)
-                            ? "fill-amber-400 text-amber-400"
-                            : "text-muted-foreground/30"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {selectedDetail.managerComments && (
-              <div className="mt-3 p-3 rounded-md bg-background/80 border text-xs text-foreground">
-                <span className="font-semibold block mb-0.5 text-muted-foreground">Manager Comments:</span>
-                {selectedDetail.managerComments}
-              </div>
-            )}
-          </Card>
-        )}
 
         {/* APPROVE CONFIRMATION DIALOG (For Request requisition) */}
         <AlertDialog open={Boolean(approveTarget)} onOpenChange={(open) => !open && setApproveTarget(null)}>
@@ -780,28 +731,6 @@ export default function ReportRequestsPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {/* Active Role Selector for Testing Permissions */}
-          <div className="flex items-center gap-2 rounded-lg border bg-card/60 p-1 px-2 text-xs">
-            <span className="text-muted-foreground font-medium">Active Role:</span>
-            <Select
-              value={activeRole}
-              onValueChange={(v) => {
-                setActiveRole(v as SurveillanceRole);
-                toast.info(`Switched preview role to ${v.replace(/_/g, " ").toUpperCase()}`);
-              }}
-            >
-              <SelectTrigger className="h-7 w-[155px] text-xs font-semibold border-0 bg-transparent shadow-none focus:ring-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="state_manager">State Manager</SelectItem>
-                <SelectItem value="market_manager">Market Manager</SelectItem>
-                <SelectItem value="district_manager">District Manager</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           <Button onClick={handleOpenCreate} className="gap-2 shadow-xs">
             <Plus className="h-4 w-4" />
             Request Surveillance
@@ -842,8 +771,22 @@ export default function ReportRequestsPage() {
         </Card>
       </div>
 
-      {/* Toolbar filters: Statuses and 3 Priorities */}
+      {/* Toolbar filters: Market (1st), Status, Priority */}
       <div className="flex flex-wrap items-center gap-2">
+        <Select value={marketFilter} onValueChange={setMarketFilter}>
+          <SelectTrigger className="h-9 w-[170px]">
+            <SelectValue placeholder="Market" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Markets</SelectItem>
+            {MARKETS.map((m) => (
+              <SelectItem key={m} value={m}>
+                {m}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="h-9 w-[170px]">
             <SelectValue placeholder="Status" />
@@ -869,11 +812,12 @@ export default function ReportRequestsPage() {
           </SelectContent>
         </Select>
 
-        {(statusFilter !== "all" || priorityFilter !== "all") && (
+        {(statusFilter !== "all" || priorityFilter !== "all" || marketFilter !== "all") && (
           <Button
             variant="ghost"
             size="sm"
             onClick={() => {
+              setMarketFilter("all");
               setStatusFilter("all");
               setPriorityFilter("all");
             }}
@@ -943,41 +887,41 @@ export default function ReportRequestsPage() {
               </Select>
             </div>
 
-            {/* 3. Date & Time Interval (Both single date + interval time) */}
-            <div className="space-y-2 rounded-lg border p-3 bg-muted/20">
-              <Label className="text-xs font-semibold flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5 text-primary" />
-                Incident Date & Time Interval <span className="text-destructive">*</span>
+            {/* 3. Date Interval (Single day or multiple days) */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">
+                Date <span className="text-destructive">*</span>
               </Label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <span className="text-[11px] text-muted-foreground block">Target Date</span>
+                  <span className="text-[11px] text-muted-foreground block">Start Date</span>
                   <Input
                     type="date"
-                    value={incidentDate}
-                    onChange={(e) => setIncidentDate(e.target.value)}
+                    value={startDate}
+                    onChange={(e) => {
+                      setStartDate(e.target.value);
+                      if (!endDate || e.target.value > endDate) {
+                        setEndDate(e.target.value);
+                      }
+                    }}
                   />
                 </div>
                 <div className="space-y-1">
-                  <span className="text-[11px] text-muted-foreground block">Interval Start Time</span>
+                  <span className="text-[11px] text-muted-foreground block">End Date</span>
                   <Input
-                    type="time"
-                    value={intervalStart}
-                    onChange={(e) => setIntervalStart(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <span className="text-[11px] text-muted-foreground block">Interval End Time</span>
-                  <Input
-                    type="time"
-                    value={intervalEnd}
-                    onChange={(e) => setIntervalEnd(e.target.value)}
+                    type="date"
+                    value={endDate}
+                    min={startDate}
+                    onChange={(e) => setEndDate(e.target.value)}
                   />
                 </div>
               </div>
+              <p className="text-[11px] text-muted-foreground">
+                Pick the same start and end date for a single day, or different dates for an interval range.
+              </p>
             </div>
 
-            {/* 4. Priority (By default "low" selected) */}
+            {/* 4. Priority */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">
                 Priority <span className="text-destructive">*</span>
@@ -987,7 +931,7 @@ export default function ReportRequestsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="low">Low (Default)</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
                   <SelectItem value="medium">Medium</SelectItem>
                   <SelectItem value="high">High</SelectItem>
                 </SelectContent>
