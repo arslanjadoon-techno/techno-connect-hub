@@ -1,4 +1,5 @@
 import {
+  deleteGroupConversationService,
   leaveGroupConversationService,
   removeGroupMemberService,
   transferGroupOwnershipService,
@@ -41,13 +42,62 @@ export function useChatGroupActions({
     }
   };
 
+  const handleDeleteGroup = async (chatId: any) => {
+    if (!chatId) return;
+    try {
+      await deleteGroupConversationService(chatId);
+      setChannels((prev: any[]) =>
+        prev.filter((channel) => String(getChannelId(channel)) !== String(chatId)),
+      );
+      setMessagesByChat((prev: Record<string, any[]>) => {
+        const next = { ...prev };
+        delete next[String(chatId)];
+        return next;
+      });
+      setMutedChatIds((prev: string[]) => {
+        const next = prev.filter((id) => id !== String(chatId));
+        updateChatSettingsService({ mutedChatIds: next }).catch(() => {});
+        return next;
+      });
+      setSelectedChat(null);
+      navigate(CHAT_APP_BASE_PATH);
+    } catch (error) {
+      setSendError(normalizeChatError(error));
+    }
+  };
+
   const handleTransferOwnership = async (chatId: any, userId: any) => {
-    if (!chatId || !userId) return;
+    if (chatId == null || userId == null) return;
+
+    const apiStartedAt = performance.now();
+
     try {
       await transferGroupOwnershipService(chatId, userId);
-      await fetchChatData();
+
+      console.info(
+        `[Transfer Ownership] API completed in ${(performance.now() - apiStartedAt).toFixed(0)} ms`,
+      );
+
+      // The ownership update succeeded.
       setSendError("");
+
+      // Refresh in the background instead of blocking the dialog.
+      const refreshStartedAt = performance.now();
+
+      void Promise.resolve()
+        .then(() => fetchChatData())
+        .then(() => {
+          console.info(
+            `[Transfer Ownership] Background refresh completed in ${(
+              performance.now() - refreshStartedAt
+            ).toFixed(0)} ms`,
+          );
+        })
+        .catch((error) => {
+          console.error("[Transfer Ownership] Background refresh failed", error);
+        });
     } catch (error) {
+      console.error("[Transfer Ownership] API failed", error);
       setSendError(normalizeChatError(error));
       throw error;
     }
@@ -77,5 +127,10 @@ export function useChatGroupActions({
     }
   };
 
-  return { handleLeaveGroup, handleTransferOwnership, handleRemoveGroupMember };
+  return {
+    handleLeaveGroup,
+    handleDeleteGroup,
+    handleTransferOwnership,
+    handleRemoveGroupMember,
+  };
 }

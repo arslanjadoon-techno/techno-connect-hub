@@ -19,6 +19,7 @@ import {
   type UserPermissionEntry,
 } from "./api/client";
 import { authService } from "@/services/auth";
+import { clearAllCachedChatMessages } from ".././pages/team-chat/chatMessageIndexedDb";
 
 export type LoginResult =
   | { kind: "authenticated"; user: User }
@@ -124,7 +125,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const stored = getStoredUser<any>();
     return stored ? mapBackendUser(stored) : null;
   });
-  const [permissions, setPermissions] = useState<UserPermissionEntry[]>(() => getStoredPermissions());
+  const [permissions, setPermissions] = useState<UserPermissionEntry[]>(() =>
+    getStoredPermissions(),
+  );
 
   // Keep React state in sync if the stored user changes elsewhere.
   useEffect(() => {
@@ -192,6 +195,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStoredPermissions(null);
     setUser(null);
     setPermissions([]);
+    // Clear the local chat cache without blocking logout.
+    void clearAllCachedChatMessages().catch((error) => {
+      console.warn("Failed to clear chat cache on logout:", error);
+    });
   }, []);
 
   const value = useMemo(

@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { getChatMessagesService } from "@/services/Team-chat/chat.service";
 import { normalizeChatMessages } from "./chatMessageNormalization";
 import { getCachedChatMessages, saveCachedChatMessages } from "./chatMessageIndexedDb";
@@ -9,8 +10,6 @@ type UseChatMessageHistoryProps = {
   selectedChat: ChatMessage | null;
   setMessagesByChat: React.Dispatch<React.SetStateAction<ChatMessageMap>>;
 };
-
-console.log("[ChatCache] History module loaded");
 
 function getMessageKey(message: ChatMessage): string {
   const id =
@@ -52,9 +51,7 @@ export function useChatMessageHistory({
   selectedChat,
   setMessagesByChat,
 }: UseChatMessageHistoryProps) {
-  console.log("[ChatCache] History hook rendered", selectedChat?.id);
-
-  const refreshSelectedChatMessages = async (chatId: string | number): Promise<void> => {
+  const refreshSelectedChatMessages = useCallback(async (chatId: string | number): Promise<void> => {
     const chat = selectedChat;
 
     if (chatId === undefined || chatId === null || String(chatId).trim() === "" || !chat) {
@@ -65,13 +62,9 @@ export function useChatMessageHistory({
     const primaryChatId = String(chat.id ?? chatId);
     const requestedChatId = String(chatId);
 
-    console.log("[ChatCache] Refresh started", primaryChatId);
-
     // 1. Load cached messages first.
     try {
       const cachedMessages = await getCachedChatMessages(primaryChatId);
-
-      console.log("[ChatCache] Cached messages found:", cachedMessages.length);
 
       if (cachedMessages.length > 0) {
         setMessagesByChat((prev) => {
@@ -93,8 +86,6 @@ export function useChatMessageHistory({
 
     // 2. Fetch the latest server history.
     try {
-      console.log("[ChatCache] Requesting server history:", chatId);
-
       const response: any = await getChatMessagesService(chatId, {
         limit: 100,
       });
@@ -102,8 +93,6 @@ export function useChatMessageHistory({
       const responseData = response?.data?.data ?? response?.data ?? response;
 
       const normalizedMessages: ChatMessage[] = normalizeChatMessages(responseData, chat);
-
-      console.log("[ChatCache] Server messages received:", normalizedMessages.length);
 
       // 3. Merge with the latest React state.
       // Keep existing real-time and cached messages.
@@ -127,11 +116,10 @@ export function useChatMessageHistory({
 
       await saveCachedChatMessages(primaryChatId, messagesToSave);
 
-      console.log("[ChatCache] IndexedDB save completed:", primaryChatId, messagesToSave.length);
     } catch (error) {
       console.error("[ChatCache] Server history refresh failed:", error);
     }
-  };
+  }, [selectedChat, setMessagesByChat]);
 
   return {
     refreshSelectedChatMessages,

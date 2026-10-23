@@ -153,8 +153,13 @@ const apiRequest = async <T>(
 
   if (dedupeKey) {
     inFlight.set(dedupeKey, promise);
-    // Clean up whether it succeeds or fails
-    promise.finally(() => inFlight.delete(dedupeKey));
+    // Clean up without creating a second rejected promise. Calling finally()
+    // here without handling its returned promise causes an extra
+    // "Uncaught (in promise)" in the browser when the request fails.
+    promise.then(
+      () => inFlight.delete(dedupeKey),
+      () => inFlight.delete(dedupeKey),
+    );
   }
 
   return promise;
@@ -285,6 +290,9 @@ export const removeGroupMemberService = (chatId: ChatId, userId: ChatId) =>
 
 export const leaveGroupConversationService = (chatId: ChatId) =>
   api.post(`/api/v1/chat/${encodeURIComponent(chatId)}/leave`, {}, CHAT_HEADERS);
+
+export const deleteGroupConversationService = (chatId: ChatId) =>
+  api.delete(`/api/v1/chat/${encodeURIComponent(chatId)}`, CHAT_HEADERS);
 
 export const transferGroupOwnershipService = (chatId: ChatId, userId: ChatId) =>
   api.post(`/api/v1/chat/${encodeURIComponent(chatId)}/transfer-owner`, { userId }, CHAT_HEADERS);

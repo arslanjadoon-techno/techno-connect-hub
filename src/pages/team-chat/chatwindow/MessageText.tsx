@@ -12,7 +12,6 @@ export default function MessageText({
   mentionableUsers?: RecordValue[];
 }) {
   const labels = mentionableUsers.map((user) => getBuddyName(user)).filter(Boolean);
-  console.log(labels,'lee')
   const escapedLabels = labels.map((label) => String(label).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   const mentionPattern = escapedLabels.length
     ? new RegExp("(@(?:" + escapedLabels.join("|") + "))(?=\\s|$|[.,!?;:])", "g")

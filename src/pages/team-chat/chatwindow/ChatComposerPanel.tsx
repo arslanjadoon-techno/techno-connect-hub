@@ -1,4 +1,5 @@
-import { AlertCircle, Bold, CheckCircle2, Italic, Mic, Paperclip, Send, Smile } from "lucide-react";
+import { useLayoutEffect, useMemo, type KeyboardEvent } from "react";
+import { AlertCircle, CheckCircle2, Mic, Paperclip, Smile, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import EmojiPicker from "./EmojiPicker";
@@ -7,12 +8,12 @@ import ScheduleCallDialog from "../calls/ScheduleCallDialog";
 import { ForwardMessageDialog } from "./ChatWindowPanels";
 import { getBuddyEmail, getBuddyName, getBuddySendId } from "../chatHealper";
 import { AttachmentPreview } from "./AttachmentPreview";
-import { useMemo } from "react";
+
+const MAX_INPUT_HEIGHT = 224; // px, about 9 lines; scrolls after this
 
 export default function ChatComposerPanel(props: Record<string, any>) {
   const {
     actionsMessage,
-    applyTextFormat,
     availableChats = [],
     composerInputRef,
     currentMessages = [],
@@ -20,7 +21,6 @@ export default function ChatComposerPanel(props: Record<string, any>) {
     editingMessage,
     emojiAnchor,
     emojiTarget,
-    enterToSend,
     fileInputRef,
     groupMembers = [],
     handleComposerChange,
@@ -43,7 +43,6 @@ export default function ChatComposerPanel(props: Record<string, any>) {
     setActionsMessage,
     setEmojiAnchor,
     setEmojiTarget,
-    setRecording,
     setScheduleCallOpen,
     toggleRecording,
     uploading,
@@ -52,6 +51,19 @@ export default function ChatComposerPanel(props: Record<string, any>) {
     setMediaDialogOpen,
     handleCancelComposerMode,
   } = props;
+
+  // Grow the text box with its content so longer messages stay visible.
+  useLayoutEffect(() => {
+    const el = composerInputRef?.current as HTMLTextAreaElement | null;
+    if (!el) return;
+    el.style.height = "auto";
+    const next = Math.min(el.scrollHeight, MAX_INPUT_HEIGHT);
+    el.style.height = `${next}px`;
+    el.style.overflowY = el.scrollHeight > MAX_INPUT_HEIGHT ? "auto" : "hidden";
+  }, [inputValue, composerInputRef]);
+
+  const busy = Boolean(uploading || (editingMessage && sending));
+  const canSend = !busy && (inputValue.trim().length > 0 || pendingFiles.length > 0);
 
   const mentionCandidates = useMemo(() => {
     if (selectedChat?.type !== "channel" && selectedChat?.type !== "group") {
@@ -109,12 +121,40 @@ export default function ChatComposerPanel(props: Record<string, any>) {
       .slice(0, 8);
   }, [mentionCandidates, mentionQuery]);
 
+  // Enter sends. Shift+Enter inserts a new line (the textarea's default behavior).
+  const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    // While the mention list is open, Enter picks the first match instead of sending.
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      !event.nativeEvent.isComposing &&
+      mentionQuery !== null &&
+      filteredMentionMembers.length > 0
+    ) {
+      event.preventDefault();
+      insertMention(filteredMentionMembers[0].member);
+      return;
+    }
+
+    // Let the parent handle anything else first (for example Escape closing the mention list).
+    onComposerKeyDown?.(event);
+    if (event.defaultPrevented) return;
+
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      if (canSend) handleSend?.();
+    }
+  };
+
+  const bannerBase = "flex items-center gap-2 border-t px-3 py-2 text-xs";
+
   return (
     <>
       {replyToMessage && (
-        <div className="flex items-center gap-2 border-t bg-muted/40 px-3 py-2 text-xs">
-          <span className="min-w-0 flex-1 truncate">
-            Replying to {replyToMessage.authorName || "message"}
+        <div className={`${bannerBase} bg-muted/40`}>
+          <span className="min-w-0 flex-1 truncate text-muted-foreground">
+            Replying to{" "}
+            <span className="text-foreground">{replyToMessage.authorName || "message"}</span>
           </span>
           <Button size="sm" variant="ghost" onClick={handleCancelComposerMode}>
             Cancel
@@ -122,7 +162,7 @@ export default function ChatComposerPanel(props: Record<string, any>) {
         </div>
       )}
       {editingMessage && (
-        <div className="flex items-center justify-between border-t bg-muted/40 px-3 py-2 text-xs">
+        <div className={`${bannerBase} justify-between bg-muted/40`}>
           <span>Editing message</span>
           <Button size="sm" variant="ghost" onClick={handleCancelComposerMode}>
             Cancel
@@ -132,7 +172,7 @@ export default function ChatComposerPanel(props: Record<string, any>) {
       {sendError && (
         <div
           role={sendMessageIsSuccess ? "status" : "alert"}
-          className={`flex items-center gap-2 border-t px-3 py-2 text-xs ${sendMessageIsSuccess ? "bg-muted/40 text-muted-foreground" : "bg-destructive/5 text-destructive"}`}
+          className={`${bannerBase} ${sendMessageIsSuccess ? "bg-muted/40 text-muted-foreground" : "bg-destructive/5 text-destructive"}`}
         >
           {sendMessageIsSuccess ? (
             <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
@@ -142,33 +182,42 @@ export default function ChatComposerPanel(props: Record<string, any>) {
           <span className="min-w-0 break-words">{sendError}</span>
         </div>
       )}
-      <footer className="sticky bottom-0 z-10 shrink-0 border-t bg-card p-1.5">
-        <div className="overflow-hidden rounded-xl border bg-background">
+
+      <footer className="sticky bottom-0 z-10 shrink-0 border-t bg-card p-2">
+        <div className="overflow-hidden rounded-xl border bg-background focus-within:ring-1 focus-within:ring-ring">
           <input ref={fileInputRef} type="file" multiple hidden onChange={props.handleFileUpload} />
+
           {pendingFiles.length > 0 && (
             <div className="flex gap-2 overflow-x-auto px-3 pt-2">
               {pendingFiles.map((file: File, index: number) => (
-                <button
-                  type="button"
+                <div
                   key={`${file.name}-${index}`}
-                  className="flex shrink-0 items-center gap-2 rounded-md border bg-background px-2 py-1 text-xs"
-                  onClick={() => removePendingFile?.(index)}
+                  className="flex shrink-0 items-center gap-2 rounded-md border bg-muted/40 py-1 pl-2 pr-1 text-xs"
                 >
                   <AttachmentPreview file={file} />
-                  <span className="max-w-[220px] truncate">{file.name}</span> ×
-                </button>
+                  <span className="max-w-[200px] truncate">{file.name}</span>
+                  <button
+                    type="button"
+                    aria-label={`Remove ${file.name}`}
+                    className="flex h-5 w-5 items-center justify-center rounded hover:bg-muted"
+                    onClick={() => removePendingFile?.(index)}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
               ))}
             </div>
           )}
+
           {recording && (
-            <div className="flex items-center gap-2 border-b bg-destructive/5 px-3 py-2 text-xs font-medium text-destructive">
+            <div className="flex items-center gap-2 border-b bg-destructive/5 px-3 py-2 text-xs text-destructive">
               <span className="h-2 w-2 animate-pulse rounded-full bg-destructive" />
-              Recording voice message… click the microphone to stop
+              Recording voice message. Select the microphone to stop.
             </div>
           )}
 
-          {mentionQuery !== null && (
-            <div className="max-h-48 overflow-y-auto border-b bg-popover p-1 shadow-sm">
+          {mentionQuery !== null && filteredMentionMembers.length > 0 && (
+            <div className="max-h-48 overflow-y-auto border-b bg-popover p-1">
               {filteredMentionMembers.map(({ member, email, name }) => (
                 <button
                   key={String(getBuddySendId(member) || email)}
@@ -179,7 +228,7 @@ export default function ChatComposerPanel(props: Record<string, any>) {
                     insertMention(member);
                   }}
                 >
-                  <span className="font-medium">{name}</span>
+                  <span>{name}</span>
                   <span className="ml-2 truncate text-xs text-muted-foreground">
                     {getBuddyEmail(member)}
                   </span>
@@ -188,85 +237,65 @@ export default function ChatComposerPanel(props: Record<string, any>) {
             </div>
           )}
 
-          <Textarea
-            ref={composerInputRef}
-            value={inputValue}
-            placeholder="Write a message…"
-            disabled={Boolean(uploading || (editingMessage && sending))}
-            onChange={(event) =>
-              handleComposerChange(event.target.value, event.target.selectionStart || 0)
-            }
-            onKeyDown={onComposerKeyDown}
-            onBlur={() => onTyping?.(false)}
-            rows={1}
-            className="min-h-[42px] resize-none rounded-none border-0 px-3 py-2 text-sm shadow-none focus-visible:ring-0"
-          />
-          <div className="flex items-center justify-between border-t px-1.5 py-1">
-            <div className="flex items-center gap-0.5">
-              <Button
-                size="icon"
-                variant="ghost"
-                disabled={Boolean(uploading || (editingMessage && sending))}
-                onClick={() => fileInputRef.current?.click()}
-                title="Attach file"
-              >
-                <Paperclip className="h-[18px] w-[18px]" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                title="Emoji"
-                disabled={Boolean(uploading || (editingMessage && sending))}
-                onClick={(event) => setEmojiAnchor(event.currentTarget)}
-              >
-                <Smile className="h-[18px] w-[18px]" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                title="Bold"
-                disabled={Boolean(uploading || (editingMessage && sending))}
-                onClick={() => applyTextFormat("**")}
-              >
-                <Bold className="h-[18px] w-[18px]" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                title="Italic"
-                disabled={Boolean(uploading || (editingMessage && sending))}
-                onClick={() => applyTextFormat("*")}
-              >
-                <Italic className="h-[18px] w-[18px]" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={toggleRecording}
-                title={recording ? "Stop recording" : "Record voice message"}
-              >
-                <Mic className={`h-[18px] w-[18px] ${recording ? "text-destructive" : ""}`} />
-              </Button>
-            </div>
+          <div className="flex items-end gap-1 px-1.5 py-1">
             <Button
-              size="sm"
-              disabled={Boolean(
-                uploading ||
-                (editingMessage && sending) ||
-                (!inputValue.trim() && pendingFiles.length === 0),
-              )}
-              onClick={handleSend}
-              className="gap-1.5 px-4"
+              size="icon"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => fileInputRef.current?.click()}
+              title="Attach file"
+              aria-label="Attach file"
             >
-              Send <Send className="h-4 w-4" />
+              <Paperclip className="h-[18px] w-[18px]" />
+            </Button>
+
+            <Textarea
+              ref={composerInputRef}
+              value={inputValue}
+              placeholder="Write a message"
+              aria-label="Message"
+              disabled={busy}
+              onChange={(event) =>
+                handleComposerChange(event.target.value, event.target.selectionStart || 0)
+              }
+              onKeyDown={handleKeyDown}
+              onBlur={() => onTyping?.(false)}
+              rows={1}
+              className="min-h-[40px] flex-1 resize-none rounded-none border-0 bg-transparent px-1 py-2 text-sm font-normal shadow-none focus-visible:ring-0"
+            />
+
+            <Button
+              size="icon"
+              variant="ghost"
+              title="Emoji"
+              aria-label="Emoji"
+              disabled={busy}
+              onClick={(event) => setEmojiAnchor(event.currentTarget)}
+            >
+              <Smile className="h-[18px] w-[18px]" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={toggleRecording}
+              title={recording ? "Stop recording" : "Record voice message"}
+              aria-label={recording ? "Stop recording" : "Record voice message"}
+            >
+              <Mic className={`h-[18px] w-[18px] ${recording ? "text-destructive" : ""}`} />
             </Button>
           </div>
         </div>
-        <div className="mt-1 flex justify-between text-[11px] text-muted-foreground">
-          <span>{enterToSend ? "Enter sends" : "Ctrl+Enter sends"}</span>
-          <span>{pendingFiles.length > 0 ? `${pendingFiles.length} attachment(s)` : ""}</span>
+
+        <div className="mt-1 flex justify-between px-1 text-[11px] text-muted-foreground">
+          <span>Enter to send, Shift+Enter for a new line</span>
+          <span>
+            {pendingFiles.length > 0
+              ? `${pendingFiles.length} ${pendingFiles.length === 1 ? "attachment" : "attachments"}`
+              : ""}
+          </span>
         </div>
       </footer>
+
       <EmojiPicker
         anchorEl={emojiAnchor}
         onClose={() => {

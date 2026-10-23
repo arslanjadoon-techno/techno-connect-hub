@@ -63,6 +63,7 @@ export default function ChatSystemView(props: Record<string, any>) {
     handleCopyMessage,
     handleCreateGroup,
     handleDeleteMessages,
+    handleDeleteGroup,
     handleEditMessage,
     handleEndActiveCall,
     handleEnterToSendChange,
@@ -299,6 +300,7 @@ export default function ChatSystemView(props: Record<string, any>) {
             handleSend={handleSend}
             onEndActiveCall={handleEndActiveCall}
             onLeaveGroup={handleLeaveGroup}
+            onDeleteGroup={handleDeleteGroup}
             onTransferOwnership={handleTransferOwnership}
             onRemoveGroupMember={handleRemoveGroupMember}
             inputValue={inputValue}

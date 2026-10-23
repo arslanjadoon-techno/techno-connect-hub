@@ -1,6 +1,5 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import {
-  getBuddyEmail,
   getBuddySendId,
   getChannelId,
   getImageUrl,
@@ -28,7 +27,7 @@ type ChatRealtimeMessageOptions = {
   mutedChatIds: string[];
   mentionNotifications: boolean;
   navigate: (path: string) => void;
-  handledRealtimeMessageKeysRef: { current: Set<string> };
+  handledRealtimeMessageKeysRef?: { current: Set<string> };
   realtimeStartedAtRef: { current: number };
   selectedChat: ChatRecord | null;
   setChannels: (updater: any) => void;
@@ -53,13 +52,20 @@ export function useChatRealtimeMessage({
   setChannels,
   setMessagesByChat,
 }: ChatRealtimeMessageOptions) {
+  const fallbackHandledMessageKeysRef = useRef(new Set<string>());
+  const messageKeysRef = handledRealtimeMessageKeysRef || fallbackHandledMessageKeysRef;
+
   const handleRealtimeMessage = useCallback(
     ({ chatId, message }: { chatId: string | number; message: ChatRecord }) => {
       if (!chatId || !message) return;
 
       const senderId = getMessageSenderId(message);
       const isOwnMessage = senderId && senderId === currentUserId;
-      if (!isOwnMessage && blockedUserIds.includes(String(senderId))) return;
+
+      if (!isOwnMessage && blockedUserIds.includes(String(senderId))) {
+        return;
+      }
+
       const messageId =
         message?.message_id ||
         message?.messageId ||
@@ -67,14 +73,14 @@ export function useChatRealtimeMessage({
         message?.createdAt ||
         message?.timestamp ||
         "";
+
+      const hasMessageId =
+        messageId !== undefined && messageId !== null && String(messageId).trim().length > 0;
+
       const realtimeMessageKey = `${String(chatId)}:${String(messageId)}`;
 
-      if (messageId && handledRealtimeMessageKeysRef.current.has(realtimeMessageKey)) {
+      if (hasMessageId && messageKeysRef.current.has(realtimeMessageKey)) {
         return;
-      }
-
-      if (messageId) {
-        handledRealtimeMessageKeysRef.current.add(realtimeMessageKey);
       }
 
       const localKey = resolveLocalChatKey({
@@ -83,14 +89,25 @@ export function useChatRealtimeMessage({
         buddies,
         currentUserId,
       });
+
       const normalizedMessage = normalizeRealtimeMessage(message, {
         ...(selectedChat || {}),
         id: localKey || selectedChat?.id,
         currentUserId,
       });
 
-      if (!normalizedMessage) return;
-      if (blockedUserIds.includes(String(normalizedMessage.authorId))) return;
+      if (!normalizedMessage) {
+        return;
+      }
+
+      if (blockedUserIds.includes(String(normalizedMessage.authorId))) {
+        return;
+      }
+
+      // Record the event only after validation so invalid messages can be retried.
+      if (hasMessageId) {
+        messageKeysRef.current.add(realtimeMessageKey);
+      }
 
       const selectedChatIds = [
         selectedChat?.id,
@@ -101,75 +118,111 @@ export function useChatRealtimeMessage({
         selectedChat?.raw?.conversationId,
         selectedChat?.raw?.conversation_id,
       ]
-        .filter(Boolean)
+        .filter((value) => value !== undefined && value !== null && String(value).length > 0)
         .map(String);
+
       const isActiveChat = selectedChatIds.includes(String(chatId));
-      const messageKeys = Array.from(
+
+      const chatKeys = Array.from(
         new Set(
           [localKey, ...(isActiveChat ? [selectedChat?.id, selectedChat?.chatId] : [])]
-            .filter(Boolean)
+            .filter((value) => value !== undefined && value !== null && String(value).length > 0)
             .map(String),
         ),
       );
-      const existingMessages = messageKeys.reduce<ChatRecord[]>(
-        (allMessages, key) => [...allMessages, ...(messagesByChat[key] || [])],
-        [],
-      );
-      const isAlreadyLoaded = existingMessages.some(
-        (item) => String(item.id) === String(normalizedMessage.id),
-      );
+
+      const existingMessages = chatKeys.reduce<ChatRecord[]>((allMessages, key) => {
+        return [...allMessages, ...(messagesByChat[key] || [])];
+      }, []);
+
+      const normalizedMessageId =
+        normalizedMessage.id ?? normalizedMessage.message_id ?? normalizedMessage.messageId;
+
+      const hasNormalizedMessageId =
+        normalizedMessageId !== undefined &&
+        normalizedMessageId !== null &&
+        String(normalizedMessageId).length > 0;
+
+      const isAlreadyLoaded =
+        hasNormalizedMessageId &&
+        existingMessages.some((item) => {
+          const existingId = item.id ?? item.message_id ?? item.messageId;
+
+          return (
+            existingId !== undefined &&
+            existingId !== null &&
+            String(existingId).length > 0 &&
+            String(existingId) === String(normalizedMessageId)
+          );
+        });
+
       const messageTimestamp = getMessageTimestamp(message);
       const isNewSinceRealtimeStarted =
         !messageTimestamp || messageTimestamp >= realtimeStartedAtRef.current;
+
       const isReadByCurrentUser = isMessageReadByUser(message, currentUserId, currentUserEmail);
       const isMentioned = messageMentionsUser(message, currentUserId, currentUserEmail);
-
       const shouldTreatAsRead = isActiveChat && !document.hidden;
 
-      if (messageKeys.length > 0) {
+      // Insert the incoming message, or reconcile its optimistic version.
+      if (chatKeys.length > 0) {
         setMessagesByChat((prev: Record<string, ChatRecord[]>) => {
           const next = { ...prev };
-          messageKeys.forEach((key) => {
+
+          chatKeys.forEach((key) => {
             const existing = next[key] || [];
             const clientMessageId = normalizedMessage.clientMessageId;
+
             const optimisticIndex = clientMessageId
               ? existing.findIndex(
                   (item) => String(item.clientMessageId) === String(clientMessageId),
                 )
               : -1;
+
             if (optimisticIndex >= 0) {
               const updated = [...existing];
+
               updated[optimisticIndex] = {
                 ...updated[optimisticIndex],
                 ...normalizedMessage,
                 sendState: "sent",
                 deliveryStatus: normalizedMessage.deliveryStatus || "sent",
               };
+
               next[key] = updated;
-            } else if (
-              !existing.some((item: ChatRecord) => String(item.id) === String(normalizedMessage.id))
-            ) {
-              next[key] = [...existing, normalizedMessage];
+            } else {
+              const alreadyExists = existing.some(
+                (item: ChatRecord) => String(item.id) === String(normalizedMessage.id),
+              );
+
+              if (!alreadyExists) {
+                next[key] = [...existing, normalizedMessage];
+              }
             }
           });
+
           return next;
         });
       }
 
+      // Update the conversation preview and unread count.
       setChannels((prev: ChatRecord[]) => {
         let matchedExistingConversation = false;
+
         const nextChannels = prev.map((channel: ChatRecord) => {
-          const channelId = String(getChannelId(channel));
-          const conversationId = String(channel?.chat_id || channel?.chatId || channel?.id || "");
+          const channelId = String(getChannelId(channel) ?? "");
+          const conversationId = String(channel?.chat_id ?? channel?.chatId ?? channel?.id ?? "");
 
           if (channelId !== String(chatId) && conversationId !== String(chatId)) {
             return channel;
           }
 
           matchedExistingConversation = true;
+
           const currentUnreadCount = getUnreadCount(channel);
           const nextUnreadCount =
             !isOwnMessage && !shouldTreatAsRead ? currentUnreadCount + 1 : currentUnreadCount;
+
           return {
             ...channel,
             lastMessage: message,
@@ -182,23 +235,27 @@ export function useChatRealtimeMessage({
           return nextChannels;
         }
 
-        const sender = message?.sender || {};
+        // Create a conversation preview when this chat is not currently in the list.
+        const sender = message?.sender && typeof message.sender === "object" ? message.sender : {};
+
+        const matchingBuddy = buddies.find(
+          (buddy) => String(getBuddySendId(buddy)) === String(senderId),
+        );
+
         const senderUser = {
-          ...(typeof sender === "object" ? sender : {}),
+          ...sender,
           id: senderId,
           user_id: senderId,
           name:
             sender?.name ||
             sender?.display_name ||
             sender?.displayName ||
-            buddies.find((buddy) => getBuddySendId(buddy) === senderId)?.name ||
+            matchingBuddy?.name ||
             "Chat user",
-          email:
-            sender?.email ||
-            sender?.email_id ||
-            buddies.find((buddy) => getBuddySendId(buddy) === senderId)?.email ||
-            "",
+          email: sender?.email || sender?.email_id || matchingBuddy?.email || "",
         };
+
+        const initialUnreadCount = !isOwnMessage && !shouldTreatAsRead ? 1 : 0;
 
         return [
           {
@@ -208,53 +265,72 @@ export function useChatRealtimeMessage({
             isDirect: true,
             title: senderUser.name,
             participants: [senderUser, currentUser].filter(Boolean),
-            unreadCount: !isOwnMessage && !shouldTreatAsRead ? 1 : 0,
-            unread_count: !isOwnMessage && !shouldTreatAsRead ? 1 : 0,
+            unreadCount: initialUnreadCount,
+            unread_count: initialUnreadCount,
             lastMessage: message,
           },
           ...nextChannels,
         ];
       });
 
+      const isDoNotDisturb =
+        String(currentStatus || "")
+          .trim()
+          .toLowerCase() === "dnd";
+
       const shouldNotify =
         !isOwnMessage &&
-        currentStatus !== "dnd" &&
+        !shouldTreatAsRead &&
+        !isDoNotDisturb &&
         !isAlreadyLoaded &&
         isNewSinceRealtimeStarted &&
         !isReadByCurrentUser;
+
       const shouldNotifyMention = shouldNotify && isMentioned && mentionNotifications;
 
       if (shouldNotify) {
-        if (mutedChatIds.includes(String(chatId)) && !shouldNotifyMention) return;
+        const isMuted = mutedChatIds.includes(String(chatId)) && !shouldNotifyMention;
 
-        const senderName =
-          message?.sender?.name ||
-          message?.sender?.display_name ||
-          buddies.find((buddy) => getBuddySendId(buddy) === senderId)?.name ||
-          "Someone";
+        if (!isMuted) {
+          const matchingBuddy = buddies.find(
+            (buddy) => String(getBuddySendId(buddy)) === String(senderId),
+          );
 
-        showChatNotification({
-          title: shouldNotifyMention ? `${senderName} mentioned you` : senderName,
-          body: shouldNotifyMention
-            ? `${senderName}: ${getMessageText(message)}`
-            : getMessageText(message),
-          icon: getImageUrl(message?.sender),
-          tag: `chat-${chatId}`,
-          url: localKey
-            ? `${CHAT_APP_BASE_PATH}/${encodeURIComponent(localKey)}`
-            : CHAT_APP_BASE_PATH,
-          onClick: () => {
-            if (localKey) {
-              navigate(`${CHAT_APP_BASE_PATH}/${encodeURIComponent(localKey)}`);
-            }
-          },
-        });
-        playMessageNotificationSound();
+          const senderName =
+            message?.sender?.name ||
+            message?.sender?.display_name ||
+            matchingBuddy?.name ||
+            "Someone";
+
+          showChatNotification({
+            title: shouldNotifyMention ? `${senderName} mentioned you` : senderName,
+            body: shouldNotifyMention
+              ? `${senderName}: ${getMessageText(message)}`
+              : getMessageText(message),
+            icon: getImageUrl(message?.sender),
+            tag: `chat-${chatId}`,
+            url: localKey
+              ? `${CHAT_APP_BASE_PATH}/${encodeURIComponent(localKey)}`
+              : CHAT_APP_BASE_PATH,
+            onClick: () => {
+              if (localKey) {
+                navigate(`${CHAT_APP_BASE_PATH}/${encodeURIComponent(localKey)}`);
+              }
+            },
+          });
+
+          playMessageNotificationSound();
+        }
       }
 
       if (shouldTreatAsRead && !isOwnMessage) {
         markConversationReadService(chatId).catch(() => {});
       }
+
+      return {
+        acknowledgeDelivery: !isOwnMessage && hasMessageId,
+        acknowledgeRead: shouldTreatAsRead && !isOwnMessage && hasMessageId,
+      };
     },
     [
       blockedUserIds,
@@ -268,6 +344,7 @@ export function useChatRealtimeMessage({
       mutedChatIds,
       mentionNotifications,
       navigate,
+      messageKeysRef,
       realtimeStartedAtRef,
       selectedChat,
       setChannels,

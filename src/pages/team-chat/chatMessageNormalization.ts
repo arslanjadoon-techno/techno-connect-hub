@@ -200,4 +200,3 @@ export const resolveLocalChatKey = ({
 
   return normalizedChatId;
 };
-
