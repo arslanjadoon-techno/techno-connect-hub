@@ -73,7 +73,11 @@ import ApproveLeavePage from "@/pages/portals/leave-management/ApproveLeave";
 import ReportRequestsPage from "@/pages/portals/surveillance/ReportRequestsPage";
 import SurveillanceReportsPage from "@/pages/portals/surveillance/SurveillanceReportsPage";
 import SurveillanceReportDetailPage from "@/pages/portals/surveillance/SurveillanceReportDetailPage";
-import { getSurveillanceRole, canRequestSurveillance } from "@/services/portals/surveillance/types";
+import {
+  getSurveillanceRole,
+  canRequestSurveillance,
+  isSurveillanceUserRole,
+} from "@/services/portals/surveillance/types";
 
 // ---------- User manager ---------- //
 import UsersPage from "@/pages/user-manager/UsersPage";
@@ -181,17 +185,39 @@ function SurveillanceRequestsOnly({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const role = getSurveillanceRole(user);
   if (!canRequestSurveillance(role)) {
-    return <Navigate to="/surveillance/reports" replace />;
+    return (
+      <Navigate
+        to={isSurveillanceUserRole(user) ? "/surveillance/reports" : "/ai-chat"}
+        replace
+      />
+    );
+  }
+  return <>{children}</>;
+}
+
+function SurveillanceUserOnly({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  if (!isSurveillanceUserRole(user)) {
+    const role = getSurveillanceRole(user);
+    return (
+      <Navigate
+        to={canRequestSurveillance(role) ? "/surveillance/requests" : "/ai-chat"}
+        replace
+      />
+    );
   }
   return <>{children}</>;
 }
 
 function SurveillanceRedirect() {
   const { user } = useAuth();
+  if (isSurveillanceUserRole(user)) {
+    return <Navigate to="/surveillance/reports" replace />;
+  }
   const role = getSurveillanceRole(user);
   return (
     <Navigate
-      to={canRequestSurveillance(role) ? "/surveillance/requests" : "/surveillance/reports"}
+      to={canRequestSurveillance(role) ? "/surveillance/requests" : "/ai-chat"}
       replace
     />
   );
@@ -712,7 +738,9 @@ export function AppRoutes() {
           path="/surveillance/reports"
           element={
             <PortalRouteGuard portalKey="surveillance">
-              <SurveillanceReportsPage />
+              <SurveillanceUserOnly>
+                <SurveillanceReportsPage />
+              </SurveillanceUserOnly>
             </PortalRouteGuard>
           }
         />

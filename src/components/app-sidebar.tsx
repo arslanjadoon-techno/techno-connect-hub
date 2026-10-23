@@ -459,7 +459,8 @@ export function AppSidebar() {
 
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
   const groupActive = (g: Group) =>
-    g.items.some((i) => isActive(i.url) || (i.children?.some((c) => isActive(c.url)) ?? false));
+    g.items.some((i) => isActive(i.url) || (i.children?.some((c) => isActive(c.url)) ?? false)) ||
+    (g.title === "Surveillance" && pathname.startsWith("/surveillance/"));
   // Accordion: only one group open at a time. `null` = follow the active route.
   const isGroupOpen = (g: Group) => (openGroup === null ? groupActive(g) : openGroup === g.title);
   const toggleGroup = (g: Group) => setOpenGroup(isGroupOpen(g) ? "" : g.title);
@@ -623,16 +624,17 @@ export function AppSidebar() {
       };
     }
 
-    // Surveillance Portal: "Report Requests" is for Admin, State Manager, Market Manager, District Manager.
-    // Regular "user" role only gets "Surveillance Reports"
+    // Surveillance Portal:
+    // - "Reports" (/surveillance/requests) is for Admin, State Manager, Market Manager, District Manager.
+    // - "Surveillance Reports" (/surveillance/reports) is strictly ONLY visible to the "user" role.
     if (key === "surveillance") {
-      const roleStr = (getPortalRole("surveillance") || user.roleName || user.role || "user")
+      const roleStr = (getPortalRole("surveillance") || user.roleName || user.role || "")
         .toLowerCase()
         .replace(/[\s_-]/g, "");
 
-      const isRegularUser = roleStr === "user" || roleStr === "employee";
+      const isStrictUser = roleStr === "user";
       const isEligibleManager =
-        !isRegularUser &&
+        !isStrictUser &&
         (roleStr.includes("admin") ||
           roleStr.includes("statemanager") ||
           roleStr.includes("marketmanager") ||
@@ -643,12 +645,14 @@ export function AppSidebar() {
           roleStr.includes("district") ||
           roleStr.includes("supervisor"));
 
-      if (!isEligibleManager) {
-        return {
-          ...master,
-          items: master.items.filter((i) => i.url !== "/surveillance/requests"),
-        };
-      }
+      return {
+        ...master,
+        items: master.items.filter((i) => {
+          if (i.url === "/surveillance/reports") return isStrictUser;
+          if (i.url === "/surveillance/requests") return isEligibleManager;
+          return true;
+        }),
+      };
     }
 
     return master;

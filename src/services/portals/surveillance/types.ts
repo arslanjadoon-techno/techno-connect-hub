@@ -282,6 +282,28 @@ export function getSurveillanceRole(user: any): SurveillanceRole {
   return "user";
 }
 
+/** Check whether user strictly has the 'user' role for the surveillance portal */
+export function isSurveillanceUserRole(user: any): boolean {
+  if (!user) return false;
+
+  const norm = (s: string) =>
+    String(s || "")
+      .toLowerCase()
+      .replace(/[\s_-]/g, "");
+
+  if (Array.isArray(user.portalAccess)) {
+    const entry = user.portalAccess.find((p: any) =>
+      norm(p?.portalName || "").includes("surveil"),
+    );
+    if (entry?.roleName) {
+      return norm(entry.roleName) === "user";
+    }
+  }
+
+  const rawRole = norm(user.roleName || user.role || "");
+  return rawRole === "user";
+}
+
 export function canRequestSurveillance(role: SurveillanceRole): boolean {
   return (
     role === "admin" ||
