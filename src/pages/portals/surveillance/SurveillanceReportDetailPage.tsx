@@ -545,100 +545,109 @@ export default function SurveillanceReportDetailPage() {
       />
 
       {/* Manager Review, Decline Reason & Optional 5-Star Submitter Rating */}
-      <Card className="p-5 border-border/80 space-y-4">
-        <div className="flex items-center justify-between border-b pb-2">
-          <div className="flex items-center gap-2 font-semibold text-foreground text-sm">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            Manager Review & Submitter Rating
+      {(userCanApprove || Boolean(report.reviewedBy) || userRole === "district_manager") && (
+        <Card className="p-5 border-border/80 space-y-4">
+          <div className="flex items-center justify-between border-b pb-2">
+            <div className="flex items-center gap-2 font-semibold text-foreground text-sm">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              Manager Review & Submitter Rating
+            </div>
+            {!userCanApprove && (
+              <span className="inline-flex items-center text-xs text-amber-700 dark:text-amber-400 font-medium">
+                <Lock className="h-3.5 w-3.5 mr-1" />{" "}
+                {userRole === "district_manager" ? "View Only (District Manager)" : "Read Only"}
+              </span>
+            )}
           </div>
-          {!userCanApprove && (
-            <span className="inline-flex items-center text-xs text-amber-700 dark:text-amber-400 font-medium">
-              <Lock className="h-3.5 w-3.5 mr-1" /> View Only (District Manager)
-            </span>
-          )}
-        </div>
 
-        {report.reviewedBy ? (
-          <div className="space-y-3">
-            <div className="p-3.5 rounded-lg border bg-muted/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
-              <div>
-                <span className="text-muted-foreground block text-[11px]">Reviewed & Decided By:</span>
-                <span className="font-semibold text-foreground text-sm">{report.reviewedBy}</span>
-                <span className="text-muted-foreground text-[11px] block mt-0.5">
-                  on {report.reviewedAt ? new Date(report.reviewedAt).toLocaleString() : "-"}
-                </span>
+          {report.reviewedBy ? (
+            <div className="space-y-3">
+              <div className="p-3.5 rounded-lg border bg-muted/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
+                <div>
+                  <span className="text-muted-foreground block text-[11px]">Reviewed & Decided By:</span>
+                  <span className="font-semibold text-foreground text-sm">{report.reviewedBy}</span>
+                  <span className="text-muted-foreground text-[11px] block mt-0.5">
+                    on {report.reviewedAt ? new Date(report.reviewedAt).toLocaleString() : "-"}
+                  </span>
+                </div>
+
+                {report.managerRating && (
+                  <div>
+                    <span className="text-muted-foreground block text-[11px]">Submitter Rating:</span>
+                    <div className="flex items-center gap-0.5 mt-1">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star
+                          key={s}
+                          className={`h-4 w-4 ${
+                            s <= (report.managerRating || 0)
+                              ? "fill-amber-400 text-amber-400"
+                              : "text-muted-foreground/30"
+                          }`}
+                        />
+                      ))}
+                      <span className="text-xs font-semibold ml-1.5 text-foreground">
+                        {report.managerRating} / 5
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {report.managerRating && (
-                <div>
-                  <span className="text-muted-foreground block text-[11px]">Submitter Rating:</span>
-                  <div className="flex items-center gap-0.5 mt-1">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star
-                        key={s}
-                        className={`h-4 w-4 ${
-                          s <= (report.managerRating || 0)
-                            ? "fill-amber-400 text-amber-400"
-                            : "text-muted-foreground/30"
-                        }`}
-                      />
-                    ))}
-                    <span className="text-xs font-semibold ml-1.5 text-foreground">
-                      {report.managerRating} / 5
-                    </span>
-                  </div>
+              {report.managerComments && (
+                <div className="p-3.5 rounded-lg border bg-card text-xs">
+                  <span className="text-[11px] font-semibold text-muted-foreground block mb-1">
+                    {report.status === "Rejected" ? "Decline Reason:" : "Manager Remarks:"}
+                  </span>
+                  <p className="text-foreground leading-relaxed whitespace-pre-wrap">
+                    {report.managerComments}
+                  </p>
                 </div>
               )}
             </div>
+          ) : (
+            !userCanApprove && (
+              <p className="text-xs text-muted-foreground">
+                This report is currently awaiting management review.
+              </p>
+            )
+          )}
 
-            {report.managerComments && (
-              <div className="p-3.5 rounded-lg border bg-card text-xs">
-                <span className="text-[11px] font-semibold text-muted-foreground block mb-1">
-                  {report.status === "Rejected" ? "Decline Reason:" : "Manager Remarks:"}
-                </span>
-                <p className="text-foreground leading-relaxed whitespace-pre-wrap">
-                  {report.managerComments}
-                </p>
+          {userCanApprove && (
+            <div className="space-y-4 pt-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">
+                  Rate Submitter's Investigation (Optional 5-Star Rating)
+                </Label>
+                <StarRating
+                  value={managerRating}
+                  onChange={(v) => setManagerRating(v)}
+                />
               </div>
-            )}
-          </div>
-        ) : null}
 
-        {userCanApprove && (
-          <div className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">
-                Rate Submitter's Investigation (Optional 5-Star Rating)
-              </Label>
-              <StarRating
-                value={managerRating}
-                onChange={(v) => setManagerRating(v)}
-              />
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    setDeclineReason("");
+                    setDeclineModalOpen(true);
+                  }}
+                  className="py-2 px-4 text-xs font-medium"
+                >
+                  <X className="h-4 w-4 mr-1.5" />
+                  Decline Report
+                </Button>
+                <Button
+                  onClick={handleApprove}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 text-xs font-medium"
+                >
+                  <Check className="h-4 w-4 mr-1.5" />
+                  Approve Report
+                </Button>
+              </div>
             </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  setDeclineReason("");
-                  setDeclineModalOpen(true);
-                }}
-                className="py-2 px-4 text-xs font-medium"
-              >
-                <X className="h-4 w-4 mr-1.5" />
-                Decline Report
-              </Button>
-              <Button
-                onClick={handleApprove}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 text-xs font-medium"
-              >
-                <Check className="h-4 w-4 mr-1.5" />
-                Approve Report
-              </Button>
-            </div>
-          </div>
-        )}
-      </Card>
+          )}
+        </Card>
+      )}
 
       {/* Row Attachments Viewer Dialog */}
       <Dialog

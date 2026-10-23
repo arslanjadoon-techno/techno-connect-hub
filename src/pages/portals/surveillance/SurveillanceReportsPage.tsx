@@ -63,6 +63,7 @@ const PRIORITY_TONES: Record<SurveillancePriority, string> = {
   high: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
 };
 
+// Statuses for Surveillance Reports page: Report Requested, Report Submitted, Approved, Rejected
 const STATUS_CONFIG: Record<
   SurveillanceRequestStatus,
   { label: string; tone: string }
@@ -72,7 +73,7 @@ const STATUS_CONFIG: Record<
     tone: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
   },
   "Report Received": {
-    label: "Report Received",
+    label: "Report Submitted",
     tone: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400",
   },
   Approved: {
@@ -174,6 +175,15 @@ export default function SurveillanceReportsPage() {
   const [editableRows, setEditableRows] = useState<SurveillanceAuditRow[]>([]);
   const [expandedRowIds, setExpandedRowIds] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const metrics = useMemo(() => {
+    return {
+      total: requests.length,
+      submitted: requests.filter((r) => r.status === "Report Received").length,
+      pending: requests.filter((r) => r.status === "Report Requested").length,
+      approved: requests.filter((r) => r.status === "Approved").length,
+    };
+  }, [requests]);
 
   // Strictly restrict Surveillance Reports page to "user" role
   if (!isSurveillanceUserRole(user)) {
@@ -485,7 +495,7 @@ export default function SurveillanceReportsPage() {
       {
         key: "status",
         header: "Status",
-        searchValue: (r) => r.status || "-",
+        searchValue: (r) => (r.status ? STATUS_CONFIG[r.status]?.label || r.status : "-"),
         accessor: (r) => {
           if (!r.status) return <span className="text-foreground text-sm">-</span>;
           const cfg = STATUS_CONFIG[r.status] || {
@@ -1197,23 +1207,20 @@ export default function SurveillanceReportsPage() {
     );
   }
 
-  // VIEW 2: REPORT DETAILS PAGE (Identical structure to ReportRequestsPage detail view + "Submit Report" button)
+  // VIEW 2: REPORT DETAILS PAGE (Identical structure to ReportRequestsPage detail view)
   if (selectedDetail) {
     const item =
       requests.find((r) => r.id === selectedDetail.id) ||
       INITIAL_SURVEILLANCE_REQUESTS.find((r) => r.id === selectedDetail.id) ||
       selectedDetail;
 
-    const reportExists = Boolean(
-      item.linkedReportId ||
-        item.preparedBy ||
-        item.status === "Report Received" ||
-        item.status === "Approved" ||
-        item.status === "Rejected",
-    );
-
     const targetReportId =
-      item.linkedReportId || (item.id === "SRV-REQ-101" ? "SRV-REP-202" : "SRV-REP-201");
+      item.linkedReportId ||
+      (item.id === "SRV-REQ-101"
+        ? "SRV-REP-202"
+        : item.id === "SRV-REQ-105"
+          ? "SRV-REP-203"
+          : "SRV-REP-201");
 
     return (
       <div className="space-y-6 animate-fade-in">
@@ -1237,24 +1244,23 @@ export default function SurveillanceReportsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {item.status !== "Report Requested" && reportExists && (
+            {item.status === "Report Requested" ? (
               <Button
-                variant="outline"
+                onClick={() => handleOpenEditableForm(item)}
+                className="gap-2 bg-primary text-primary-foreground shadow-xs font-medium text-xs h-9"
+              >
+                <FileText className="h-4 w-4" />
+                Submit Report
+              </Button>
+            ) : (
+              <Button
                 onClick={() => navigate(`/surveillance/reports/${targetReportId}`)}
-                className="gap-2 font-medium text-xs h-9"
+                className="gap-2 bg-primary text-primary-foreground shadow-xs font-medium text-xs h-9"
               >
                 <Eye className="h-4 w-4" />
                 View Report
               </Button>
             )}
-
-            <Button
-              onClick={() => handleOpenEditableForm(item)}
-              className="gap-2 bg-primary text-primary-foreground shadow-xs font-medium text-xs h-9"
-            >
-              <FileText className="h-4 w-4" />
-              Submit Report
-            </Button>
           </div>
         </div>
 
@@ -1521,8 +1527,51 @@ export default function SurveillanceReportsPage() {
           </h1>
         </div>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Click any row to view report details and submit a surveillance audit report.
+          Click any row to view report details or submit a surveillance audit report.
         </p>
+      </div>
+
+      {/* Top Dashboard Summary Cards (4 Distinct Colors) */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Card 1: Total Requests (Blue tone) */}
+        <Card className="p-4 border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900/50">
+          <div className="text-xs text-blue-800 dark:text-blue-300 font-medium uppercase tracking-wider">
+            Total Requests
+          </div>
+          <div className="mt-1 text-2xl font-bold font-display text-blue-950 dark:text-blue-100">
+            {metrics.total}
+          </div>
+        </Card>
+
+        {/* Card 2: Submitted (Purple tone) */}
+        <Card className="p-4 border-purple-300/80 bg-purple-50/50 dark:bg-purple-950/20 dark:border-purple-900/50">
+          <div className="text-xs text-purple-800 dark:text-purple-300 font-medium uppercase tracking-wider">
+            Submitted
+          </div>
+          <div className="mt-1 text-2xl font-bold font-display text-purple-950 dark:text-purple-100">
+            {metrics.submitted}
+          </div>
+        </Card>
+
+        {/* Card 3: Pending (Amber tone) */}
+        <Card className="p-4 border-amber-300/80 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/50">
+          <div className="text-xs text-amber-800 dark:text-amber-300 font-medium uppercase tracking-wider">
+            Pending
+          </div>
+          <div className="mt-1 text-2xl font-bold font-display text-amber-950 dark:text-amber-100">
+            {metrics.pending}
+          </div>
+        </Card>
+
+        {/* Card 4: Approved (Emerald tone) */}
+        <Card className="p-4 border-emerald-300/80 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/50">
+          <div className="text-xs text-emerald-800 dark:text-emerald-300 font-medium uppercase tracking-wider">
+            Approved
+          </div>
+          <div className="mt-1 text-2xl font-bold font-display text-emerald-950 dark:text-emerald-100">
+            {metrics.approved}
+          </div>
+        </Card>
       </div>
 
       {/* Standard DataTable with only the 5 requested columns */}
