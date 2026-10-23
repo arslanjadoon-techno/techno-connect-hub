@@ -195,12 +195,27 @@ export default function SurveillanceReportDetailPage() {
                 reportStatus: "Rejected",
                 reportApprovedBy: reviewerName,
                 reportApprovedAt: now,
+                rejectionReason: reason,
                 managerComments: reason,
                 managerRating: managerRating > 0 ? managerRating : undefined,
               }
             : req,
         ),
       );
+
+      // Keep mock store in sync for navigation between pages
+      const targetReq = INITIAL_SURVEILLANCE_REQUESTS.find((r) => r.id === linkedRequest.id);
+      if (targetReq) {
+        targetReq.status = "Rejected";
+        targetReq.reportStatus = "Rejected";
+        targetReq.reportApprovedBy = reviewerName;
+        targetReq.reportApprovedAt = now;
+        targetReq.rejectionReason = reason;
+        targetReq.managerComments = reason;
+        if (managerRating > 0) {
+          targetReq.managerRating = managerRating;
+        }
+      }
     }
 
     toast.success(`Surveillance report ${report.id} has been declined.`);

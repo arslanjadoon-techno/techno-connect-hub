@@ -326,15 +326,21 @@ export default function ReportRequestsPage() {
 
   // If a detail row is selected, render the dedicated Detail Page
   if (selectedDetail) {
-    const isPending = selectedDetail.status === "Report Requested";
+    const item =
+      requests.find((r) => r.id === selectedDetail.id) ||
+      INITIAL_SURVEILLANCE_REQUESTS.find((r) => r.id === selectedDetail.id) ||
+      selectedDetail;
+
+    const isPending = item.status === "Report Requested";
     const reportExists = Boolean(
-      selectedDetail.linkedReportId ||
-      selectedDetail.preparedBy ||
-      selectedDetail.status === "Report Received" ||
-      selectedDetail.status === "Approved",
+      item.linkedReportId ||
+      item.preparedBy ||
+      item.status === "Report Received" ||
+      item.status === "Approved" ||
+      item.status === "Rejected",
     );
 
-    const targetReportId = selectedDetail.linkedReportId || (selectedDetail.id === "SRV-REQ-101" ? "SRV-REP-202" : "SRV-REP-201");
+    const targetReportId = item.linkedReportId || (item.id === "SRV-REQ-101" ? "SRV-REP-202" : "SRV-REP-201");
 
     return (
       <div className="space-y-6 animate-fade-in">
@@ -359,16 +365,21 @@ export default function ReportRequestsPage() {
 
           <div className="flex flex-wrap items-center gap-2">
             {/* View Report Button -> Only when status is NOT 'Report Requested' and report exists */}
-            {selectedDetail.status !== "Report Requested" && reportExists && (
+            {item.status !== "Report Requested" && reportExists && (
               <Button
                 onClick={() => navigate(`/surveillance/reports/${targetReportId}`)}
                 className="gap-2 bg-primary text-primary-foreground shadow-xs font-medium text-xs h-9"
               >
                 <Eye className="h-4 w-4" />
                 View Report
-                {selectedDetail.status === "Approved" && (
+                {item.status === "Approved" && (
                   <Badge variant="secondary" className="ml-1 text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
                     Approved
+                  </Badge>
+                )}
+                {item.status === "Rejected" && (
+                  <Badge variant="secondary" className="ml-1 text-[10px] bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
+                    Rejected
                   </Badge>
                 )}
               </Button>
@@ -383,14 +394,14 @@ export default function ReportRequestsPage() {
               <div className="flex items-center gap-2">
                 <StoreIcon className="h-4 w-4 text-primary" />
                 <span className="font-semibold text-base text-foreground">
-                  {selectedDetail.storeName}
+                  {item.storeName}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  • {selectedDetail.marketName}
+                  • {item.marketName}
                 </span>
               </div>
               <h2 className="mt-1 text-sm font-medium text-foreground">
-                {selectedDetail.title}
+                {item.title}
               </h2>
             </div>
 
@@ -402,24 +413,24 @@ export default function ReportRequestsPage() {
               <div className="mt-0.5 flex items-center gap-2">
                 <span
                   className={`h-2.5 w-2.5 rounded-full ${
-                    selectedDetail.status === "Approved"
+                    item.status === "Approved"
                       ? "bg-emerald-500"
-                      : selectedDetail.status === "Rejected"
+                      : item.status === "Rejected"
                         ? "bg-rose-500"
-                        : selectedDetail.status === "Report Received"
+                        : item.status === "Report Received"
                           ? "bg-blue-500"
                           : "bg-amber-500"
                   }`}
                 />
                 <span className="text-base font-bold text-foreground">
-                  {STATUS_CONFIG[selectedDetail.status]?.label || selectedDetail.status}
+                  {STATUS_CONFIG[item.status]?.label || item.status}
                 </span>
               </div>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <Badge variant="outline" className={`capitalize text-xs font-semibold px-2.5 py-1 ${PRIORITY_TONES[selectedDetail.priority]}`}>
-                Priority: {selectedDetail.priority}
+              <Badge variant="outline" className={`capitalize text-xs font-semibold px-2.5 py-1 ${PRIORITY_TONES[item.priority]}`}>
+                Priority: {item.priority}
               </Badge>
             </div>
           </div>
@@ -435,7 +446,7 @@ export default function ReportRequestsPage() {
                 <span>Requested By</span>
               </div>
               <Badge variant="outline" className="text-xs border-blue-300 text-blue-800 dark:text-blue-300">
-                {selectedDetail.requesterRole}
+                {item.requesterRole}
               </Badge>
             </div>
 
@@ -443,7 +454,7 @@ export default function ReportRequestsPage() {
               <div className="grid grid-cols-3 gap-2">
                 <span className="text-muted-foreground font-medium">Full Name:</span>
                 <span className="col-span-2 font-semibold text-foreground">
-                  {selectedDetail.requestedBy}
+                  {item.requestedBy}
                 </span>
               </div>
 
@@ -451,7 +462,7 @@ export default function ReportRequestsPage() {
                 <span className="text-muted-foreground font-medium">Email:</span>
                 <span className="col-span-2 text-foreground flex items-center gap-1.5 font-mono">
                   <Mail className="h-3 w-3 text-muted-foreground" />
-                  {selectedDetail.requesterEmail || "david.kim@techno.com"}
+                  {item.requesterEmail || "david.kim@techno.com"}
                 </span>
               </div>
 
@@ -459,7 +470,7 @@ export default function ReportRequestsPage() {
                 <span className="text-muted-foreground font-medium">Phone:</span>
                 <span className="col-span-2 text-foreground flex items-center gap-1.5 font-mono">
                   <Phone className="h-3 w-3 text-muted-foreground" />
-                  {selectedDetail.requesterPhone || "+1 (214) 555-0192"}
+                  {item.requesterPhone || "+1 (214) 555-0192"}
                 </span>
               </div>
 
@@ -467,14 +478,14 @@ export default function ReportRequestsPage() {
                 <span className="text-muted-foreground font-medium">Department:</span>
                 <span className="col-span-2 text-foreground flex items-center gap-1.5">
                   <Building className="h-3 w-3 text-muted-foreground" />
-                  {selectedDetail.requesterDepartment || "Regional Operations"}
+                  {item.requesterDepartment || "Regional Operations"}
                 </span>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
                 <span className="text-muted-foreground font-medium">Request Date:</span>
                 <span className="col-span-2 text-muted-foreground">
-                  {new Date(selectedDetail.createdAt).toLocaleString()}
+                  {new Date(item.createdAt).toLocaleString()}
                 </span>
               </div>
             </div>
@@ -489,19 +500,19 @@ export default function ReportRequestsPage() {
               </div>
             </div>
 
-            {selectedDetail.preparedBy ? (
+            {item.preparedBy ? (
               <div className="space-y-2 text-xs">
                 <div className="grid grid-cols-3 gap-2">
                   <span className="text-muted-foreground font-medium">Auditor Name:</span>
                   <span className="col-span-2 font-semibold text-foreground">
-                    {selectedDetail.preparedBy}
+                    {item.preparedBy}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
                   <span className="text-muted-foreground font-medium">Role:</span>
                   <span className="col-span-2 text-foreground">
-                    {selectedDetail.preparedByRole || "Surveillance Auditor"}
+                    {item.preparedByRole || "Surveillance Auditor"}
                   </span>
                 </div>
 
@@ -509,7 +520,7 @@ export default function ReportRequestsPage() {
                   <span className="text-muted-foreground font-medium">Email:</span>
                   <span className="col-span-2 text-foreground flex items-center gap-1.5 font-mono">
                     <Mail className="h-3 w-3 text-muted-foreground" />
-                    {selectedDetail.preparedByEmail || "investigator@techno.com"}
+                    {item.preparedByEmail || "investigator@techno.com"}
                   </span>
                 </div>
 
@@ -517,14 +528,14 @@ export default function ReportRequestsPage() {
                   <span className="text-muted-foreground font-medium">Phone:</span>
                   <span className="col-span-2 text-foreground flex items-center gap-1.5 font-mono">
                     <Phone className="h-3 w-3 text-muted-foreground" />
-                    {selectedDetail.preparedByPhone || "+1 (214) 555-0821"}
+                    {item.preparedByPhone || "+1 (214) 555-0821"}
                   </span>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
                   <span className="text-muted-foreground font-medium">Submitted At:</span>
                   <span className="col-span-2 text-muted-foreground">
-                    {selectedDetail.preparedAt ? new Date(selectedDetail.preparedAt).toLocaleString() : "Recently submitted"}
+                    {item.preparedAt ? new Date(item.preparedAt).toLocaleString() : "Recently submitted"}
                   </span>
                 </div>
               </div>
@@ -537,6 +548,53 @@ export default function ReportRequestsPage() {
           </Card>
         </div>
 
+        {/* Rejection / Declined Reason Section (Displayed when the report or request is rejected) */}
+        {(item.status === "Rejected" ||
+          item.reportStatus === "Rejected" ||
+          Boolean(item.rejectionReason || (item.status !== "Approved" && item.managerComments))) && (
+          <Card className="p-4 border-rose-200/90 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/60 space-y-3">
+            <div className="flex items-center justify-between border-b border-rose-200/80 dark:border-rose-900/40 pb-2">
+              <div className="flex items-center gap-2 text-rose-900 dark:text-rose-200 font-semibold text-sm">
+                <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                <span>Rejection Reason</span>
+              </div>
+              <Badge
+                variant="outline"
+                className="border-rose-300 bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 text-xs font-semibold"
+              >
+                Rejected
+              </Badge>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="p-3.5 rounded-lg border border-rose-200/90 bg-white/90 dark:bg-card text-foreground leading-relaxed whitespace-pre-wrap text-xs shadow-xs font-medium">
+                {item.rejectionReason ||
+                  item.managerComments ||
+                  "This report was declined during management review."}
+              </div>
+
+              {(item.reportApprovedBy || item.approvedBy) && (
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground pt-1 px-0.5">
+                  <span>
+                    Reviewed by:{" "}
+                    <strong className="text-foreground font-semibold">
+                      {item.reportApprovedBy || item.approvedBy}
+                    </strong>
+                  </span>
+                  {(item.reportApprovedAt || item.approvedAt) && (
+                    <span>
+                      Date:{" "}
+                      {new Date(
+                        item.reportApprovedAt || item.approvedAt || "",
+                      ).toLocaleString()}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </Card>
+        )}
+
         {/* Investigation Parameters: Strictly Investigation Reason, Surveillance Date, and Additional Context */}
         <Card className="p-4 border-border/80 space-y-3">
           <div className="border-b pb-2">
@@ -548,11 +606,11 @@ export default function ReportRequestsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
             <div>
               <span className="text-muted-foreground block font-medium">Investigation Reason:</span>
-              <div className="font-semibold text-foreground mt-0.5 text-sm">{selectedDetail.title}</div>
+              <div className="font-semibold text-foreground mt-0.5 text-sm">{item.title}</div>
             </div>
             <div>
               <span className="text-muted-foreground block font-medium">Surveillance Date:</span>
-              <div className="font-semibold text-foreground mt-0.5 text-sm">{selectedDetail.incidentDate}</div>
+              <div className="font-semibold text-foreground mt-0.5 text-sm">{item.incidentDate}</div>
             </div>
           </div>
 
@@ -561,7 +619,7 @@ export default function ReportRequestsPage() {
               Additional Context / Special Instructions
             </span>
             <div className="p-3 rounded-lg border bg-card text-foreground text-xs leading-relaxed whitespace-pre-wrap">
-              {selectedDetail.notes || "No additional context or special instructions provided."}
+              {item.notes || "No additional context or special instructions provided."}
             </div>
           </div>
         </Card>
