@@ -7,6 +7,14 @@ import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   ArrowLeft,
   Printer,
   FileText,
@@ -121,8 +129,9 @@ export default function SurveillanceReportDetailPage() {
   }, [requestsList, report]);
 
   // Review states
-  const [managerComments, setManagerComments] = useState(report?.managerComments || "");
   const [managerRating, setManagerRating] = useState<number>(report?.managerRating || 0);
+  const [declineModalOpen, setDeclineModalOpen] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
 
   const handleApprove = () => {
     if (!report) return;
@@ -135,7 +144,6 @@ export default function SurveillanceReportDetailPage() {
       reviewedBy: reviewerName,
       reviewedAt: now,
       managerRating: managerRating > 0 ? managerRating : report.managerRating,
-      managerComments: managerComments.trim() || report.managerComments,
     };
 
     setReportList((prev) => prev.map((r) => (r.id === report.id ? updated : r)));
@@ -152,7 +160,6 @@ export default function SurveillanceReportDetailPage() {
                 reportApprovedBy: reviewerName,
                 reportApprovedAt: now,
                 managerRating: managerRating > 0 ? managerRating : req.managerRating,
-                managerComments: managerComments.trim() || req.managerComments,
               }
             : req,
         ),
@@ -162,13 +169,8 @@ export default function SurveillanceReportDetailPage() {
     toast.success(`Surveillance report ${report.id} approved successfully!`);
   };
 
-  const handleReject = () => {
+  const executeDecline = (reason: string) => {
     if (!report) return;
-    if (!managerComments.trim()) {
-      toast.error("Please add review remarks explaining why this report is rejected or needs revision.");
-      return;
-    }
-
     const reviewerName = user?.fullName || "Regional Management Authority";
     const now = new Date().toISOString();
 
@@ -177,7 +179,7 @@ export default function SurveillanceReportDetailPage() {
       status: "Rejected",
       reviewedBy: reviewerName,
       reviewedAt: now,
-      managerComments: managerComments.trim(),
+      managerComments: reason,
       managerRating: managerRating > 0 ? managerRating : undefined,
     };
 
@@ -193,7 +195,7 @@ export default function SurveillanceReportDetailPage() {
                 reportStatus: "Rejected",
                 reportApprovedBy: reviewerName,
                 reportApprovedAt: now,
-                managerComments: managerComments.trim(),
+                managerComments: reason,
                 managerRating: managerRating > 0 ? managerRating : undefined,
               }
             : req,
@@ -201,7 +203,7 @@ export default function SurveillanceReportDetailPage() {
       );
     }
 
-    toast.success(`Surveillance report ${report.id} rejected.`);
+    toast.success(`Surveillance report ${report.id} has been declined.`);
   };
 
   if (!report) {
@@ -705,7 +707,7 @@ export default function SurveillanceReportDetailPage() {
             {report.managerComments && (
               <div className="p-3 rounded-lg border bg-card text-xs">
                 <span className="text-[11px] font-semibold text-muted-foreground block mb-1">
-                  Manager Comments:
+                  {report.status === "Rejected" ? "Decline Reason:" : "Manager Remarks:"}
                 </span>
                 <p className="text-foreground leading-relaxed whitespace-pre-wrap">
                   {report.managerComments}
@@ -720,18 +722,6 @@ export default function SurveillanceReportDetailPage() {
           <div className="space-y-4 pt-2">
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">
-                Manager Review Comments & Feedback
-              </Label>
-              <Textarea
-                value={managerComments}
-                onChange={(e) => setManagerComments(e.target.value)}
-                placeholder="Enter feedback, directives, or reasons for report approval or rejection..."
-                rows={3}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">
                 Rate Submitter's Investigation (Optional 5-Star Rating)
               </Label>
               <StarRating
@@ -743,11 +733,14 @@ export default function SurveillanceReportDetailPage() {
             <div className="flex items-center justify-end gap-3 pt-2">
               <Button
                 variant="destructive"
-                onClick={handleReject}
+                onClick={() => {
+                  setDeclineReason("");
+                  setDeclineModalOpen(true);
+                }}
                 className="text-xs font-medium"
               >
                 <X className="h-4 w-4 mr-1.5" />
-                Reject Report
+                Decline Report
               </Button>
               <Button
                 onClick={handleApprove}
@@ -760,6 +753,49 @@ export default function SurveillanceReportDetailPage() {
           </div>
         )}
       </Card>
+
+      {/* Decline Report Modal with Mandatory Reason */}
+      <Dialog open={declineModalOpen} onOpenChange={setDeclineModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Decline Surveillance Report</DialogTitle>
+            <DialogDescription>
+              Please enter the decline reason. A valid reason is required to decline this report.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 py-2">
+            <Label className="text-xs font-semibold">
+              Decline Reason <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              placeholder="State why this report is declined or requires reinvestigation..."
+              rows={4}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeclineModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (!declineReason.trim()) {
+                  toast.error("Please enter a reason for declining the report.");
+                  return;
+                }
+                executeDecline(declineReason.trim());
+                setDeclineModalOpen(false);
+              }}
+            >
+              Confirm Decline
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

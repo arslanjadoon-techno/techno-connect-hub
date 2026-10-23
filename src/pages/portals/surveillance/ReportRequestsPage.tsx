@@ -141,15 +141,6 @@ export default function ReportRequestsPage() {
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
 
-  // Requisition Approve / Reject dialogs
-  const [approveTarget, setApproveTarget] = useState<SurveillanceRequest | null>(null);
-  const [approvalNotes, setApprovalNotes] = useState("");
-  const [rejectTarget, setRejectTarget] = useState<SurveillanceRequest | null>(null);
-  const [rejectionReason, setRejectionReason] = useState("");
-
-  // Role permissions
-  const userCanApprove = canApproveSurveillance(activeRole);
-
   // Stores filtered by currently selected market in modal
   const storesForMarket = useMemo(() => {
     return AVAILABLE_STORES.filter((s) => s.market === selectedMarket);
@@ -238,49 +229,6 @@ export default function ReportRequestsPage() {
     setRequests((prev) => [newRequest, ...prev]);
     toast.success("Surveillance report request submitted successfully!");
     setCreateModalOpen(false);
-  };
-
-  // Requisition Approval
-  const handleApprove = () => {
-    if (!approveTarget) return;
-
-    const updated: SurveillanceRequest = {
-      ...approveTarget,
-      status: "Approved",
-      approvedBy: user?.fullName || `${activeRole.replace(/_/g, " ")} Authority`,
-      approvedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    setRequests((prev) => prev.map((r) => (r.id === approveTarget.id ? updated : r)));
-    if (selectedDetail?.id === approveTarget.id) setSelectedDetail(updated);
-
-    toast.success(`Request ${approveTarget.id} approved successfully!`);
-    setApproveTarget(null);
-    setApprovalNotes("");
-  };
-
-  // Requisition Rejection
-  const handleReject = () => {
-    if (!rejectTarget) return;
-    if (!rejectionReason.trim()) {
-      toast.error("Please specify a reason for rejecting the request.");
-      return;
-    }
-
-    const updated: SurveillanceRequest = {
-      ...rejectTarget,
-      status: "Rejected",
-      rejectionReason: rejectionReason.trim(),
-      updatedAt: new Date().toISOString(),
-    };
-
-    setRequests((prev) => prev.map((r) => (r.id === rejectTarget.id ? updated : r)));
-    if (selectedDetail?.id === rejectTarget.id) setSelectedDetail(updated);
-
-    toast.success(`Request ${rejectTarget.id} rejected.`);
-    setRejectTarget(null);
-    setRejectionReason("");
   };
 
   // Filtered requests
@@ -410,45 +358,20 @@ export default function ReportRequestsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* View Report Button -> Navigates to dedicated report page! */}
-            {reportExists ? (
+            {/* View Report Button -> Only when status is NOT 'Report Requested' and report exists */}
+            {selectedDetail.status !== "Report Requested" && reportExists && (
               <Button
                 onClick={() => navigate(`/surveillance/reports/${targetReportId}`)}
                 className="gap-2 bg-primary text-primary-foreground shadow-xs font-medium text-xs h-9"
               >
                 <Eye className="h-4 w-4" />
                 View Report
-                {selectedDetail.reportStatus === "Approved" && (
+                {selectedDetail.status === "Approved" && (
                   <Badge variant="secondary" className="ml-1 text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
                     Approved
                   </Badge>
                 )}
               </Button>
-            ) : (
-              <Badge variant="outline" className="border-dashed text-muted-foreground text-xs py-1 px-2 gap-1.5">
-                <AlertCircle className="h-3.5 w-3.5" /> Report Not Yet Submitted
-              </Badge>
-            )}
-
-            {/* Quick Actions for Requisition approval if still pending */}
-            {isPending && userCanApprove && (
-              <div className="flex items-center gap-1.5">
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setRejectTarget(selectedDetail)}
-                  className="h-9 text-xs"
-                >
-                  <X className="h-3.5 w-3.5 mr-1" /> Reject Request
-                </Button>
-                <Button
-                  size="sm"
-                  className="h-9 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
-                  onClick={() => setApproveTarget(selectedDetail)}
-                >
-                  <Check className="h-3.5 w-3.5 mr-1" /> Approve Request
-                </Button>
-              </div>
             )}
           </div>
         </div>
@@ -642,71 +565,6 @@ export default function ReportRequestsPage() {
             </div>
           </div>
         </Card>
-
-        {/* APPROVE CONFIRMATION DIALOG (For Request requisition) */}
-        <AlertDialog open={Boolean(approveTarget)} onOpenChange={(open) => !open && setApproveTarget(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Approve Surveillance Request?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Authorize store surveillance review for{" "}
-                <strong className="text-foreground">{approveTarget?.storeName}</strong> ({approveTarget?.id}).
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <div className="py-2">
-              <Label className="text-xs font-semibold">Approval Remarks (Optional)</Label>
-              <Input
-                value={approvalNotes}
-                onChange={(e) => setApprovalNotes(e.target.value)}
-                placeholder="e.g. Authorized for priority review..."
-                className="mt-1.5"
-              />
-            </div>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleApprove}
-                className="bg-emerald-600 text-white hover:bg-emerald-700"
-              >
-                Confirm Approval
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-
-        {/* REJECT CONFIRMATION DIALOG (For Request requisition) */}
-        <AlertDialog open={Boolean(rejectTarget)} onOpenChange={(open) => !open && setRejectTarget(null)}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Reject Surveillance Request</AlertDialogTitle>
-              <AlertDialogDescription>
-                Provide a reason for declining request{" "}
-                <strong className="text-foreground">{rejectTarget?.id}</strong>.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <div className="py-2">
-              <Label className="text-xs font-semibold">
-                Rejection Reason <span className="text-destructive">*</span>
-              </Label>
-              <Textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="State why this surveillance cannot be authorized..."
-                rows={3}
-                className="mt-1.5"
-              />
-            </div>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleReject}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              >
-                Reject Request
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
       </div>
     );
   }
