@@ -1,5 +1,14 @@
 import { useLayoutEffect, useMemo, type KeyboardEvent } from "react";
-import { AlertCircle, CheckCircle2, Mic, Paperclip, Smile, X } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Mic,
+  Paperclip,
+  Smile,
+  X,
+  ClipboardCheck,
+  Megaphone,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import EmojiPicker from "./EmojiPicker";
@@ -8,6 +17,7 @@ import ScheduleCallDialog from "../calls/ScheduleCallDialog";
 import { ForwardMessageDialog } from "./ChatWindowPanels";
 import { getBuddyEmail, getBuddyName, getBuddySendId } from "../chatHealper";
 import { AttachmentPreview } from "./AttachmentPreview";
+import OTPDialog from "./OTPDialog";
 
 const MAX_INPUT_HEIGHT = 224; // px, about 9 lines; scrolls after this
 
@@ -184,7 +194,7 @@ export default function ChatComposerPanel(props: Record<string, any>) {
       )}
 
       <footer className="sticky bottom-0 z-10 shrink-0 border-t bg-card p-2">
-        <div className="overflow-hidden rounded-xl border bg-background focus-within:ring-1 focus-within:ring-ring">
+        <div className="relative rounded-xl border bg-background focus-within:ring-1 focus-within:ring-ring">
           <input ref={fileInputRef} type="file" multiple hidden onChange={props.handleFileUpload} />
 
           {pendingFiles.length > 0 && (
@@ -264,6 +274,33 @@ export default function ChatComposerPanel(props: Record<string, any>) {
               className="min-h-[40px] flex-1 resize-none rounded-none border-0 bg-transparent px-1 py-2 text-sm font-normal shadow-none focus-visible:ring-0"
             />
 
+            {(selectedChat?.type === "channel" || selectedChat?.type === "group") && (
+              <>
+                <OTPDialog onSubmit={props.handleOTPRequest} />
+
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  title="Audit"
+                  aria-label="Audit"
+                  disabled={busy}
+                  onClick={(event) => setEmojiAnchor(event.currentTarget)}
+                >
+                  <ClipboardCheck className="h-[18px] w-[18px]" />
+                </Button>
+
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  title="Announcements"
+                  aria-label="Announcements"
+                  disabled={busy}
+                  onClick={(event) => setEmojiAnchor(event.currentTarget)}
+                >
+                  <Megaphone className="h-[18px] w-[18px]" />
+                </Button>
+              </>
+            )}
             <Button
               size="icon"
               variant="ghost"

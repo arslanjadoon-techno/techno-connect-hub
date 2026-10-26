@@ -44,6 +44,7 @@ interface ChatWindowProps {
   handleReaction?: (messageId: string | number, emoji: string) => void;
   handleReplyToMessage?: (message: MessageRecord) => void;
   handleSend?: () => void;
+  handleOTPRequest?: (request: { type: string; amount: number; notes: string }) => void | Promise<void>;
   onEndActiveCall?: () => void;
   onLeaveGroup?: (chatId: string | number) => void;
   onDeleteGroup?: (chatId: string | number) => Promise<void>;
@@ -145,6 +146,7 @@ export default function ChatWindow({
   handleReaction,
   handleReplyToMessage,
   handleSend,
+  handleOTPRequest,
   onEndActiveCall,
   onLeaveGroup,
   onDeleteGroup,
@@ -656,6 +658,7 @@ export default function ChatWindow({
           handleForwardMessage,
           handleReaction,
           handleSend,
+          handleOTPRequest,
           inputValue,
           insertEmoji,
           insertMention,

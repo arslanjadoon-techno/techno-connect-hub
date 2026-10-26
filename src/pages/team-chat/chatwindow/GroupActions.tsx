@@ -6,7 +6,6 @@ import {
   Info,
   Loader2,
   LogOut,
-  MessageSquareOff,
   Trash2,
   UserMinus,
   Users,

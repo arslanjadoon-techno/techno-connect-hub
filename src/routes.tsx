@@ -89,6 +89,7 @@ import ReportingApp from "./pages/portals/reporting/ReportingApp";
 import StoreWisePdCompensationPage from "./pages/portals/reporting/store-wise-pd-compensation/page";
 import RetentionActivationPage from "./pages/portals/reporting/retention-activation/page";
 import ProfitabilityPage from "./pages/portals/reporting/profitability/page";
+import OtpApprovalPage from "@/pages/portals/otp/OtpApprovalPage";
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -246,6 +247,16 @@ function PermissionRouteGuard({ permKey, children }: { permKey: string; children
   return <>{children}</>;
 }
 
+function OtpRouteGuard({ kind, children }: { kind: "manager" | "backoffice"; children: ReactNode }) {
+  const { user, permissions } = useAuth();
+  const normalized = (v: unknown) => String(v ?? "").toLowerCase().replace(/[\s_-]/g, "");
+  const portalRows = [...(user?.portalAccess ?? [])] as any[];
+  const hasPortal = portalRows.some(p => normalized(p.portalName).includes(kind) && normalized(p.roleName).includes(kind));
+  const role = normalized(user?.roleName || user?.role);
+  const allowed = hasPortal || role.includes(kind);
+  return allowed ? <>{children}</> : <Navigate to="/ai-chat" replace />;
+}
+
 function RankerPortalGuard() {
   const auth = useRankerAuth();
   return (
@@ -298,6 +309,8 @@ export function AppRoutes() {
         <Route path="/ai-chat" element={<AiChatPage />} />
         <Route path="/chat/*" element={<ChatSystem />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/otp/backoffice" element={<OtpRouteGuard kind="backoffice"><OtpApprovalPage kind="backoffice" /></OtpRouteGuard>} />
+        <Route path="/otp/manager" element={<OtpRouteGuard kind="manager"><OtpApprovalPage kind="manager" /></OtpRouteGuard>} />
         {/* ---------- Ticketing Portal ---------- */}
         {/* <Route path="/ticketing/dashboard" element={<TicketingDashboardPage />} /> */}
         <Route

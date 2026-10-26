@@ -76,8 +76,9 @@ export function useChatSend({
   setUploading,
   uniqueUsersByIdentity,
 }: ChatSendOptions) {
-  const handleSend = async () => {
-    const text = inputValue.trim();
+  const handleSend = async (messageOverride?: string) => {
+    const hasMessageOverride = typeof messageOverride === "string";
+    const text = (hasMessageOverride ? messageOverride : inputValue).trim();
     const filesToSend = pendingFiles;
     if ((!text && filesToSend.length === 0) || !selectedChat || sendClickLockRef.current) return;
     // React state updates are asynchronous; use a short synchronous guard to
@@ -250,7 +251,7 @@ export function useChatSend({
       // Clear the composer as soon as the upload/message request succeeds.
       // Message and sidebar reconciliation can happen in the background and
       // should not make the sender wait before seeing the updated composer.
-      setInputValue("");
+      if (!hasMessageOverride) setInputValue("");
       setPendingFiles([]);
       setReplyToMessage(null);
       setEditingMessage(null);

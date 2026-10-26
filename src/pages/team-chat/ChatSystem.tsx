@@ -370,6 +370,24 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     uniqueUsersByIdentity,
   });
 
+  const handleOTPRequest = async (request: {
+    type: string;
+    amount: number;
+    notes: string;
+  }) => {
+    const requestTypes: Record<string, string> = {
+      "qpay-removal": "QPay removal",
+      refund: "Refund",
+      "payment-type": "Payment type change",
+    };
+    const requestType = requestTypes[request.type] || request.type;
+    const requesterName =
+      currentUser?.name || currentUser?.displayName || currentUser?.fullName || "A team member";
+    await handleSend(
+      `🔐 OTP Request\n👤 Requested by: ${requesterName}\n📋 Type: ${requestType}\n💰 Amount: $${request.amount.toFixed(2)}\n📝 Reason: ${request.notes}`,
+    );
+  };
+
   const handleDeleteMessages = useChatDeleteMessages({
     currentUserId,
     messagesByChat,
@@ -428,6 +446,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         handleCopyMessage,
         handleCreateGroup,
         handleDeleteMessages,
+        handleOTPRequest,
         handleEditMessage,
         handleEndActiveCall,
         handleEnterToSendChange,

@@ -80,6 +80,9 @@ const topItems: Item[] = [
   { title: "Team Chat", url: "/chat", icon: MessagesSquare },
 ];
 
+const otpBackofficeGroup: Group = { title: "Backoffice", icon: ShieldCheck, items: [{ title: "OTP Approvals", url: "/otp/backoffice", icon: CheckSquare }] };
+const otpManagerGroup: Group = { title: "Manager", icon: UserCheck, items: [{ title: "OTP Approvals", url: "/otp/manager", icon: CheckSquare }] };
+
 const PORTAL_ORDER = [
   "commission",
   "leasing",
@@ -617,6 +620,18 @@ export function AppSidebar() {
     })
     .filter((g: Group | undefined): g is Group => Boolean(g && g.items.length > 0));
 
+  const portalRoles = (user.portalAccess ?? []) as any[];
+  const hasOtpPortalRole = (kind: "backoffice" | "manager") => portalRoles.some((p) => {
+    const portal = String(p.portalName ?? "").toLowerCase().replace(/[\s_-]/g, "");
+    const role = String(p.roleName ?? "").toLowerCase().replace(/[\s_-]/g, "");
+    return portal.includes(kind) && (role.includes(kind) || role === "admin");
+  });
+  const roleText = `${user.roleName ?? ""} ${user.role ?? ""}`.toLowerCase().replace(/[\s_-]/g, "");
+  const otpGroups = [
+    hasOtpPortalRole("backoffice") || roleText.includes("backoffice") ? otpBackofficeGroup : null,
+    hasOtpPortalRole("manager") || ["manager", "marketmanager", "statemanager", "districtmanager", "storemanager"].includes(roleText) ? otpManagerGroup : null,
+  ].filter((g): g is Group => Boolean(g));
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="relative overflow-hidden border-b border-sidebar-border">
@@ -699,6 +714,15 @@ export function AppSidebar() {
         </SidebarGroup>
 
         {/* Portals Group */}
+        {otpGroups.length > 0 && (
+          <SidebarGroup>
+            {!collapsed && <SidebarGroupLabel>OTP Approvals</SidebarGroupLabel>}
+            <SidebarGroupContent>
+              {otpGroups.map((g) => <CollapsibleGroup key={g.title} group={g} collapsed={collapsed} isActive={isActive} active={groupActive(g)} open={isGroupOpen(g)} onToggle={() => toggleGroup(g)} />)}
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
         {dynamicPortalGroups.length > 0 && (
           <SidebarGroup>
             {!collapsed && <SidebarGroupLabel>Portals</SidebarGroupLabel>}
