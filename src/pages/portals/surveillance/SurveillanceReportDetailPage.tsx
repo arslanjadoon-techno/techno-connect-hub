@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { DataTable, type Column } from "@/components/data-table";
@@ -27,10 +27,6 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  INITIAL_SURVEILLANCE_REPORTS,
-  INITIAL_SURVEILLANCE_REQUESTS,
-} from "./surveillance-data";
 import {
   surveillanceService,
   getSurveillanceRole,
@@ -230,20 +226,36 @@ export default function SurveillanceReportDetailPage() {
   const userRole = useMemo(() => getSurveillanceRole(user), [user]);
   const userCanApprove = canApproveSurveillance(userRole);
 
-  const [reportList, setReportList] = useState<SurveillanceReport[]>(INITIAL_SURVEILLANCE_REPORTS);
-  const [requestsList, setRequestsList] = useState<SurveillanceRequest[]>(INITIAL_SURVEILLANCE_REQUESTS);
+  const [report, setReport] = useState<SurveillanceReport | null>(null);
+  const [linkedRequest, setLinkedRequest] = useState<SurveillanceRequest | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const report = useMemo(() => {
-    return (
-      reportList.find((r) => r.id === id || r.requestId === id) ||
-      reportList[0]
-    );
-  }, [reportList, id]);
-
-  const linkedRequest = useMemo(() => {
-    if (!report) return null;
-    return requestsList.find((r) => r.id === report.requestId || r.linkedReportId === report.id);
-  }, [requestsList, report]);
+  useEffect(() => {
+    if (!id) return;
+    let active = true;
+    setLoading(true);
+    surveillanceService
+      .getReport(id)
+      .then(async (rep) => {
+        if (!active) return;
+        setReport(rep);
+        try {
+          const req = await surveillanceService.getRequest(rep.requestId);
+          if (active) setLinkedRequest(req);
+        } catch {
+          // The linked request is only used for a few display fields below -
+          // the report itself still renders fine without it.
+        }
+      })
+      .catch((error) => {
+        console.error("Error loading surveillance report:", error);
+        toast.error("Failed to load the surveillance report");
+      })
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
   // Row attachment viewer modal state
   const [selectedRowAttachments, setSelectedRowAttachments] = useState<{
@@ -373,136 +385,68 @@ export default function SurveillanceReportDetailPage() {
     toast.success(`Exported ${allRows.length} audit rows to CSV.`);
   };
 
+  const [reviewing, setReviewing] = useState(false);
+
   const handleApprove = async () => {
     if (!report) return;
-    const reviewerName = user?.fullName || "Regional Management Authority";
-    const now = new Date().toISOString();
-
+    setReviewing(true);
     try {
-      await surveillanceService.reviewReport(report.id, {
+      const updated = await surveillanceService.reviewReport(report.id, {
         action: "approve",
         rating: managerRating > 0 ? managerRating : undefined,
       });
-    } catch {
-      // Fallback to local state update when previewing without live backend endpoint
-    }
-
-    const updated: SurveillanceReport = {
-      ...report,
-      status: "Approved",
-      reviewedBy: reviewerName,
-      reviewedAt: now,
-      managerRating: managerRating > 0 ? managerRating : report.managerRating,
-    };
-
-    setReportList((prev) => prev.map((r) => (r.id === report.id ? updated : r)));
-
-    const targetRep = INITIAL_SURVEILLANCE_REPORTS.find((r) => r.id === report.id);
-    if (targetRep) {
-      targetRep.status = "Approved";
-      targetRep.reviewedBy = reviewerName;
-      targetRep.reviewedAt = now;
-      if (managerRating > 0) targetRep.managerRating = managerRating;
-    }
-
-    if (linkedRequest) {
-      setRequestsList((prev) =>
-        prev.map((req) =>
-          req.id === linkedRequest.id
-            ? {
-                ...req,
-                status: "Approved",
-                reportStatus: "Approved",
-                reportApprovedBy: reviewerName,
-                reportApprovedAt: now,
-                managerRating: managerRating > 0 ? managerRating : req.managerRating,
-              }
-            : req,
-        ),
-      );
-
-      const targetReq = INITIAL_SURVEILLANCE_REQUESTS.find((r) => r.id === linkedRequest.id);
-      if (targetReq) {
-        targetReq.status = "Approved";
-        targetReq.reportStatus = "Approved";
-        targetReq.reportApprovedBy = reviewerName;
-        targetReq.reportApprovedAt = now;
-        if (managerRating > 0) targetReq.managerRating = managerRating;
+      setReport(updated);
+      if (linkedRequest) {
+        setLinkedRequest({
+          ...linkedRequest,
+          status: "Approved",
+          reportStatus: "Approved",
+          reportApprovedBy: updated.reviewedBy,
+          reportApprovedAt: updated.reviewedAt,
+          managerRating: updated.managerRating,
+        });
       }
+      toast.success(`Surveillance report ${report.id} approved successfully.`);
+    } catch (error) {
+      toast.error(`Failed to approve report: ${(error as Error).message}`);
+    } finally {
+      setReviewing(false);
     }
-
-    toast.success(`Surveillance report ${report.id} approved successfully.`);
   };
 
   const executeDecline = async (reason: string) => {
     if (!report) return;
-    const reviewerName = user?.fullName || "Regional Management Authority";
-    const now = new Date().toISOString();
-
+    setReviewing(true);
     try {
-      await surveillanceService.reviewReport(report.id, {
+      const updated = await surveillanceService.reviewReport(report.id, {
         action: "reject",
         comments: reason,
         rating: managerRating > 0 ? managerRating : undefined,
       });
-    } catch {
-      // Fallback to local state update when previewing without live backend endpoint
-    }
-
-    const updated: SurveillanceReport = {
-      ...report,
-      status: "Rejected",
-      reviewedBy: reviewerName,
-      reviewedAt: now,
-      managerComments: reason,
-      managerRating: managerRating > 0 ? managerRating : undefined,
-    };
-
-    setReportList((prev) => prev.map((r) => (r.id === report.id ? updated : r)));
-
-    const targetRep = INITIAL_SURVEILLANCE_REPORTS.find((r) => r.id === report.id);
-    if (targetRep) {
-      targetRep.status = "Rejected";
-      targetRep.reviewedBy = reviewerName;
-      targetRep.reviewedAt = now;
-      targetRep.managerComments = reason;
-      if (managerRating > 0) targetRep.managerRating = managerRating;
-    }
-
-    if (linkedRequest) {
-      setRequestsList((prev) =>
-        prev.map((req) =>
-          req.id === linkedRequest.id
-            ? {
-                ...req,
-                status: "Rejected",
-                reportStatus: "Rejected",
-                reportApprovedBy: reviewerName,
-                reportApprovedAt: now,
-                rejectionReason: reason,
-                managerComments: reason,
-                managerRating: managerRating > 0 ? managerRating : undefined,
-              }
-            : req,
-        ),
-      );
-
-      const targetReq = INITIAL_SURVEILLANCE_REQUESTS.find((r) => r.id === linkedRequest.id);
-      if (targetReq) {
-        targetReq.status = "Rejected";
-        targetReq.reportStatus = "Rejected";
-        targetReq.reportApprovedBy = reviewerName;
-        targetReq.reportApprovedAt = now;
-        targetReq.rejectionReason = reason;
-        targetReq.managerComments = reason;
-        if (managerRating > 0) {
-          targetReq.managerRating = managerRating;
-        }
+      setReport(updated);
+      if (linkedRequest) {
+        setLinkedRequest({
+          ...linkedRequest,
+          status: "Rejected",
+          reportStatus: "Rejected",
+          reportApprovedBy: updated.reviewedBy,
+          reportApprovedAt: updated.reviewedAt,
+          rejectionReason: reason,
+          managerComments: reason,
+          managerRating: updated.managerRating,
+        });
       }
+      toast.success(`Surveillance report ${report.id} has been declined.`);
+    } catch (error) {
+      toast.error(`Failed to decline report: ${(error as Error).message}`);
+    } finally {
+      setReviewing(false);
     }
-
-    toast.success(`Surveillance report ${report.id} has been declined.`);
   };
+
+  if (loading) {
+    return <div className="p-8 text-center text-sm text-muted-foreground">Loading report...</div>;
+  }
 
   if (!report) {
     return (
@@ -638,6 +582,7 @@ export default function SurveillanceReportDetailPage() {
               <div className="flex items-center justify-end gap-3 pt-2">
                 <Button
                   variant="destructive"
+                  disabled={reviewing}
                   onClick={() => {
                     setDeclineReason("");
                     setDeclineModalOpen(true);
@@ -649,10 +594,11 @@ export default function SurveillanceReportDetailPage() {
                 </Button>
                 <Button
                   onClick={handleApprove}
+                  disabled={reviewing}
                   className="bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 text-xs font-medium"
                 >
                   <Check className="h-4 w-4 mr-1.5" />
-                  Approve Report
+                  {reviewing ? "Approving..." : "Approve Report"}
                 </Button>
               </div>
             </div>
@@ -737,6 +683,7 @@ export default function SurveillanceReportDetailPage() {
             </Button>
             <Button
               variant="destructive"
+              disabled={reviewing}
               onClick={() => {
                 if (!declineReason.trim()) {
                   toast.error("Please enter a reason for declining the report.");

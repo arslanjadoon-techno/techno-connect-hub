@@ -58,10 +58,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  INITIAL_SURVEILLANCE_REQUESTS,
-  INITIAL_SURVEILLANCE_REPORTS,
-} from "./surveillance-data";
-import {
   surveillanceService,
   isSurveillanceUserRole,
   getSurveillanceRole,
@@ -388,8 +384,9 @@ export default function SurveillanceReportsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [requests, setRequests] = useState<SurveillanceRequest[]>(INITIAL_SURVEILLANCE_REQUESTS);
-  const [reports, setReports] = useState<SurveillanceReport[]>(INITIAL_SURVEILLANCE_REPORTS);
+  const [requests, setRequests] = useState<SurveillanceRequest[]>([]);
+  const [reports, setReports] = useState<SurveillanceReport[]>([]);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
   // Drill-down state: null = main table, non-null = Report Detail view
   const [selectedDetail, setSelectedDetail] = useState<SurveillanceRequest | null>(null);
@@ -417,12 +414,34 @@ export default function SurveillanceReportsPage() {
     };
   }, [requests]);
 
-  // Automatically restore active MMKV draft session after an unexpected refresh or power loss
+  // Load requests + reports from the backend on mount.
   useEffect(() => {
+    let active = true;
+    Promise.all([surveillanceService.getRequests(), surveillanceService.getReports()])
+      .then(([reqData, repData]) => {
+        if (!active) return;
+        setRequests(reqData);
+        setReports(repData);
+      })
+      .catch((error) => {
+        console.error("Error loading surveillance data:", error);
+        toast.error("Failed to load surveillance reports");
+      })
+      .finally(() => active && setDataLoaded(true));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Automatically restore active MMKV draft session after an unexpected refresh or
+  // power loss - waits for the real request list to finish loading first, since the
+  // draft only makes sense against a request that still exists server-side.
+  useEffect(() => {
+    if (!dataLoaded) return;
     const activeSession = surveillanceService.getActiveDraftSession();
     if (!activeSession?.isEditing || !activeSession.requestId) return;
 
-    const targetReq = INITIAL_SURVEILLANCE_REQUESTS.find(
+    const targetReq = requests.find(
       (r) => r.id === activeSession.requestId && r.status === "Report Requested",
     );
     if (!targetReq) {
@@ -450,7 +469,8 @@ export default function SurveillanceReportsPage() {
     setDirtyRowIds({});
     setExpandedRowIds(expanded);
     setIsEditingReport(true);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataLoaded]);
 
   // Strictly restrict Surveillance Reports page to "user" role
   if (!isSurveillanceUserRole(user)) {
@@ -683,14 +703,6 @@ export default function SurveillanceReportsPage() {
     setConfirmSubmitOpen(false);
     setIsSubmitting(true);
 
-    const existingReport = reports.find(
-      (rep) => rep.id === reqItem.linkedReportId || rep.requestId === reqItem.id,
-    );
-    const reportId =
-      existingReport?.id ||
-      reqItem.linkedReportId ||
-      `SRV-REP-${Math.floor(204 + reports.length)}`;
-
     const primaryRow = editableRows[0];
     const yesOrNo = (val: string): "Yes" | "No" =>
       val.trim().toUpperCase() === "YES" ? "Yes" : "No";
@@ -761,41 +773,19 @@ export default function SurveillanceReportsPage() {
       attachments: combinedAttachments.length > 0 ? combinedAttachments : undefined,
     };
 
+    let savedReport: SurveillanceReport;
     try {
-      await surveillanceService.submitReport(payload);
-    } catch {
-      // Fallback to local state persistence when running without live backend endpoint
-    }
-
-    const now = new Date().toISOString();
-    const auditorName = user?.fullName || "Surveillance Auditor";
-    const auditorEmail = user?.email || "auditor@techno.com";
-    const auditorPhone = user?.phone || "+1 (214) 555-0821";
-
-    const savedReport: SurveillanceReport = {
-      id: reportId,
-      investigatorName: auditorName,
-      investigatorId: String(user?.id || "u-1"),
-      investigatorEmail: auditorEmail,
-      investigatorPhone: auditorPhone,
-      investigatorRole: "Surveillance Auditor",
-      investigatorDepartment: user?.departmentName || "Surveillance & Loss Prevention",
-      submittedAt: now,
-      status: "Report Received",
-      ...payload,
-    };
-
-    const existingIdx = INITIAL_SURVEILLANCE_REPORTS.findIndex((r) => r.id === reportId);
-    if (existingIdx >= 0) {
-      INITIAL_SURVEILLANCE_REPORTS[existingIdx] = savedReport;
-    } else {
-      INITIAL_SURVEILLANCE_REPORTS.unshift(savedReport);
+      savedReport = await surveillanceService.submitReport(payload);
+    } catch (error) {
+      toast.error(`Failed to submit report: ${(error as Error).message}`);
+      setIsSubmitting(false);
+      return;
     }
 
     setReports((prev) => {
-      const exists = prev.some((r) => r.id === reportId);
+      const exists = prev.some((r) => r.id === savedReport.id);
       return exists
-        ? prev.map((r) => (r.id === reportId ? savedReport : r))
+        ? prev.map((r) => (r.id === savedReport.id ? savedReport : r))
         : [savedReport, ...prev];
     });
 
@@ -803,22 +793,17 @@ export default function SurveillanceReportsPage() {
       ...reqItem,
       status: "Report Received",
       reportStatus: "Pending Review",
-      linkedReportId: reportId,
-      preparedBy: auditorName,
-      preparedById: String(user?.id || "u-1"),
-      preparedByEmail: auditorEmail,
-      preparedByPhone: auditorPhone,
-      preparedByRole: "Surveillance Auditor",
-      preparedByDepartment: user?.departmentName || "Surveillance & Loss Prevention",
-      preparedAt: now,
+      linkedReportId: savedReport.id,
+      preparedBy: savedReport.investigatorName,
+      preparedById: savedReport.investigatorId,
+      preparedByEmail: savedReport.investigatorEmail,
+      preparedByPhone: savedReport.investigatorPhone,
+      preparedByRole: savedReport.investigatorRole,
+      preparedByDepartment: savedReport.investigatorDepartment,
+      preparedAt: savedReport.submittedAt,
       rejectionReason: undefined,
       managerComments: undefined,
     };
-
-    const sharedReq = INITIAL_SURVEILLANCE_REQUESTS.find((r) => r.id === reqItem.id);
-    if (sharedReq) {
-      Object.assign(sharedReq, updatedReq);
-    }
 
     // Clear MMKV draft storage for this request once final submission succeeds
     surveillanceService.clearRequestDraft(reqItem.id);
@@ -904,10 +889,7 @@ export default function SurveillanceReportsPage() {
 
   // VIEW 3: EDITABLE SURVEILLANCE AUDIT REPORT FORM (Opened when clicking "Submit Report" inside Report Details)
   if (selectedDetail && isEditingReport) {
-    const activeItem =
-      requests.find((r) => r.id === selectedDetail.id) ||
-      INITIAL_SURVEILLANCE_REQUESTS.find((r) => r.id === selectedDetail.id) ||
-      selectedDetail;
+    const activeItem = requests.find((r) => r.id === selectedDetail.id) || selectedDetail;
 
     const defaultDate =
       activeItem.incidentDate?.split(" - ")[0]?.trim() ||
@@ -1661,10 +1643,7 @@ export default function SurveillanceReportsPage() {
 
   // VIEW 2: REPORT DETAILS PAGE (Identical structure to ReportRequestsPage detail view)
   if (selectedDetail) {
-    const item =
-      requests.find((r) => r.id === selectedDetail.id) ||
-      INITIAL_SURVEILLANCE_REQUESTS.find((r) => r.id === selectedDetail.id) ||
-      selectedDetail;
+    const item = requests.find((r) => r.id === selectedDetail.id) || selectedDetail;
 
     const targetReportId =
       item.linkedReportId ||

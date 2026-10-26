@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { DataTable, type Column } from "@/components/data-table";
@@ -33,6 +33,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Plus,
   CheckCircle2,
@@ -54,12 +63,14 @@ import {
   AlertCircle,
   Calendar,
   Clock,
+  Search,
+  ChevronsUpDown,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  AVAILABLE_STORES,
-  INITIAL_SURVEILLANCE_REQUESTS,
-} from "./surveillance-data";
+import { surveillanceService } from "@/services/portals/surveillance";
+import { storesService } from "@/services/user-manager";
+import type { Store } from "@/lib/api/client";
 import {
   getSurveillanceRole,
   canApproveSurveillance,
@@ -100,9 +111,6 @@ const STATUS_CONFIG: Record<
   },
 };
 
-// Extract unique markets
-const MARKETS = Array.from(new Set(AVAILABLE_STORES.map((s) => s.market)));
-
 export default function ReportRequestsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -113,7 +121,23 @@ export default function ReportRequestsPage() {
     return canRequestSurveillance(detectedRole) ? detectedRole : "admin";
   });
 
-  const [requests, setRequests] = useState<SurveillanceRequest[]>(INITIAL_SURVEILLANCE_REQUESTS);
+  const [requests, setRequests] = useState<SurveillanceRequest[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    surveillanceService
+      .getRequests()
+      .then((data) => active && setRequests(data))
+      .catch((error) => {
+        console.error("Error loading surveillance requests:", error);
+        toast.error("Failed to load surveillance requests");
+      })
+      .finally(() => active && setRequestsLoading(false));
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Active drill-down detail view state (null = list view)
   const [selectedDetail, setSelectedDetail] = useState<SurveillanceRequest | null>(null);
@@ -123,18 +147,42 @@ export default function ReportRequestsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
 
+  // Real stores pulled from UserManagement -> stores (same source/call as the
+  // Leasing portal's store pickers), not the old hardcoded dummy list.
+  const [stores, setStores] = useState<Store[]>([]);
+  const [storesLoading, setStoresLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    storesService
+      .getAll({ size: 2000 })
+      .then((res) => active && setStores(res.data || []))
+      .catch((error) => {
+        console.error("Error loading stores:", error);
+        toast.error("Failed to load stores");
+      })
+      .finally(() => active && setStoresLoading(false));
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const MARKETS = useMemo(
+    () => Array.from(new Set(stores.map((s) => s.market?.name).filter(Boolean) as string[])).sort(),
+    [stores],
+  );
+
   // Create Request Modal state - strictly conforming to requested fields:
   // 1. Market dropdown
-  // 2. Store dropdown (filtered by selected market)
+  // 2. Store picker (filtered by selected market, searchable by typing a name)
   // 3. Date interval (single day or multiple days)
   // 4. Priority (default "low")
   // 5. Investigation Reason / Incident Summary
   // 6. Additional Context / Special Instructions (optional, no red star)
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [selectedMarket, setSelectedMarket] = useState(MARKETS[0]);
-  const [selectedStoreId, setSelectedStoreId] = useState(
-    AVAILABLE_STORES.find((s) => s.market === MARKETS[0])?.id || AVAILABLE_STORES[0].id,
-  );
+  const [selectedMarket, setSelectedMarket] = useState("");
+  const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null);
+  const [storePickerOpen, setStorePickerOpen] = useState(false);
   const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [priority, setPriority] = useState<SurveillancePriority>("low");
@@ -143,26 +191,29 @@ export default function ReportRequestsPage() {
 
   // Stores filtered by currently selected market in modal
   const storesForMarket = useMemo(() => {
-    return AVAILABLE_STORES.filter((s) => s.market === selectedMarket);
-  }, [selectedMarket]);
+    return stores.filter((s) => s.market?.name === selectedMarket);
+  }, [stores, selectedMarket]);
+
+  const selectedStore = useMemo(
+    () => stores.find((s) => s.id === selectedStoreId) || null,
+    [stores, selectedStoreId],
+  );
 
   // Market change handler in modal
   const handleMarketChange = (newMarket: string) => {
     setSelectedMarket(newMarket);
-    const storesInNewMarket = AVAILABLE_STORES.filter((s) => s.market === newMarket);
-    if (storesInNewMarket.length > 0) {
-      setSelectedStoreId(storesInNewMarket[0].id);
-    }
+    const storesInNewMarket = stores.filter((s) => s.market?.name === newMarket);
+    setSelectedStoreId(storesInNewMarket[0]?.id ?? null);
   };
 
   // Handlers for creating request
   const handleOpenCreate = () => {
     setTitle("");
     setNotes("");
-    const defaultMarket = MARKETS[0];
+    const defaultMarket = MARKETS[0] ?? "";
     setSelectedMarket(defaultMarket);
-    const firstStore = AVAILABLE_STORES.find((s) => s.market === defaultMarket) || AVAILABLE_STORES[0];
-    setSelectedStoreId(firstStore.id);
+    const firstStore = stores.find((s) => s.market?.name === defaultMarket) || stores[0];
+    setSelectedStoreId(firstStore?.id ?? null);
     const today = new Date().toISOString().split("T")[0];
     setStartDate(today);
     setEndDate(today);
@@ -170,7 +221,9 @@ export default function ReportRequestsPage() {
     setCreateModalOpen(true);
   };
 
-  const handleCreateRequest = () => {
+  const [submittingRequest, setSubmittingRequest] = useState(false);
+
+  const handleCreateRequest = async () => {
     if (!selectedMarket) {
       toast.error("Please select a market.");
       return;
@@ -188,47 +241,49 @@ export default function ReportRequestsPage() {
       return;
     }
 
-    const store = AVAILABLE_STORES.find((s) => s.id === selectedStoreId) || AVAILABLE_STORES[0];
-    const newId = `SRV-REQ-${Math.floor(106 + requests.length)}`;
-
-    const requesterRoleLabel =
-      activeRole === "admin"
-        ? "Admin"
-        : activeRole === "state_manager"
-          ? "State Manager"
-          : activeRole === "market_manager"
-            ? "Market Manager"
-            : "District Manager";
-
+    const store = stores.find((s) => s.id === selectedStoreId);
+    if (!store) {
+      toast.error("Please select a store location.");
+      return;
+    }
     const formattedDateRange = endDate && endDate !== startDate ? `${startDate} - ${endDate}` : startDate;
 
-    const newRequest: SurveillanceRequest = {
-      id: newId,
-      storeId: store.id,
-      storeName: store.name,
-      storeNumber: store.number,
-      marketName: store.market,
-      districtName: store.district,
-      incidentDate: formattedDateRange,
-      shift: "Surveillance Review",
-      investigationType: "Store Audit & Surveillance",
-      priority,
-      title: title.trim(),
-      requestedBy: user?.fullName || "Current User",
-      requestedById: user?.id || "u-1",
-      requesterRole: requesterRoleLabel,
-      requesterEmail: user?.email || "user@techno.com",
-      requesterPhone: user?.phone || "+1 (555) 012-3456",
-      requesterDepartment: user?.department?.name || "Operations",
-      areasToReview: ["POS Registers", "Sales Floor", "Backroom / Cash Safe"],
-      notes: notes.trim() || undefined,
-      status: "Report Requested",
-      createdAt: new Date().toISOString(),
-    };
+    setSubmittingRequest(true);
+    try {
+      // Requester identity (requestedBy/requesterRole/etc.) is filled in
+      // server-side from the authenticated caller's token - never sent here.
+      const result = await surveillanceService.createRequest({
+        storeId: String(store.id),
+        storeName: store.name,
+        storeNumber: store.number ?? undefined,
+        marketName: store.market?.name ?? "",
+        districtName: store.district?.name ?? "",
+        incidentDate: formattedDateRange,
+        shift: "Surveillance Review",
+        investigationType: "Store Audit & Surveillance",
+        priority,
+        title: title.trim(),
+        areasToReview: ["POS Registers", "Sales Floor", "Backroom / Cash Safe"],
+        notes: notes.trim() || undefined,
+      });
 
-    setRequests((prev) => [newRequest, ...prev]);
-    toast.success("Surveillance report request submitted successfully!");
-    setCreateModalOpen(false);
+      // 1.2 Duplicate Check - server found an existing request for the same
+      // store + date and didn't insert a new one.
+      if (result.isDuplicate) {
+        toast.error(
+          `A surveillance request for this store and date already exists (requested by ${result.requestedBy}). Release or close it before submitting a new one.`,
+        );
+        return;
+      }
+
+      setRequests((prev) => [result, ...prev]);
+      toast.success("Surveillance report request submitted successfully!");
+      setCreateModalOpen(false);
+    } catch (error) {
+      toast.error(`Failed to submit request: ${(error as Error).message}`);
+    } finally {
+      setSubmittingRequest(false);
+    }
   };
 
   // Filtered requests
@@ -332,10 +387,7 @@ export default function ReportRequestsPage() {
 
   // If a detail row is selected, render the dedicated Detail Page
   if (selectedDetail) {
-    const item =
-      requests.find((r) => r.id === selectedDetail.id) ||
-      INITIAL_SURVEILLANCE_REQUESTS.find((r) => r.id === selectedDetail.id) ||
-      selectedDetail;
+    const item = requests.find((r) => r.id === selectedDetail.id) || selectedDetail;
 
     const isPending = item.status === "Report Requested";
     const reportExists = Boolean(
@@ -346,7 +398,7 @@ export default function ReportRequestsPage() {
       item.status === "Rejected",
     );
 
-    const targetReportId = item.linkedReportId || (item.id === "SRV-REQ-101" ? "SRV-REP-202" : "SRV-REP-201");
+    const targetReportId = item.linkedReportId;
 
     return (
       <div className="space-y-6 animate-fade-in">
@@ -371,7 +423,7 @@ export default function ReportRequestsPage() {
 
           <div className="flex flex-wrap items-center gap-2">
             {/* View Report Button -> Only when status is NOT 'Report Requested' and report exists */}
-            {item.status !== "Report Requested" && reportExists && (
+            {item.status !== "Report Requested" && reportExists && targetReportId && (
               <Button
                 onClick={() => navigate(`/surveillance/reports/${targetReportId}`)}
                 className="gap-2 bg-primary text-primary-foreground shadow-xs font-medium text-xs h-9"
@@ -768,6 +820,7 @@ export default function ReportRequestsPage() {
         rowKey={(r) => r.id}
         searchPlaceholder="Search by Store, Market, Reason, or Requester..."
         onRowClick={(r) => setSelectedDetail(r)}
+        loading={requestsLoading}
       />
 
       {/* CREATE REQUEST DIALOG - STRICTLY USER-REQUESTED FIELDS ONLY */}
@@ -786,9 +839,9 @@ export default function ReportRequestsPage() {
               <Label className="text-xs font-semibold">
                 Market <span className="text-destructive">*</span>
               </Label>
-              <Select value={selectedMarket} onValueChange={handleMarketChange}>
+              <Select value={selectedMarket} onValueChange={handleMarketChange} disabled={storesLoading}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select market" />
+                  <SelectValue placeholder={storesLoading ? "Loading markets..." : "Select market"} />
                 </SelectTrigger>
                 <SelectContent>
                   {MARKETS.map((m) => (
@@ -800,23 +853,57 @@ export default function ReportRequestsPage() {
               </Select>
             </div>
 
-            {/* 2. Store Name List Dropdown (Filtered by Selected Market) */}
+            {/* 2. Store Picker (filtered by selected market, searchable by typing a name) */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">
                 Store <span className="text-destructive">*</span>
               </Label>
-              <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select store" />
-                </SelectTrigger>
-                <SelectContent>
-                  {storesForMarket.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={storePickerOpen} onOpenChange={setStorePickerOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    disabled={storesLoading}
+                    className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background px-3 text-xs text-foreground hover:bg-accent disabled:opacity-60"
+                  >
+                    <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left truncate">
+                      {storesLoading
+                        ? "Loading stores..."
+                        : selectedStore
+                          ? `${selectedStore.name}${selectedStore.number ? ` (#${selectedStore.number})` : ""}`
+                          : "Select or type a store name..."}
+                    </span>
+                    {storesLoading ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                    ) : (
+                      <ChevronsUpDown className="h-3.5 w-3.5 opacity-50 shrink-0" />
+                    )}
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Type a store name..." />
+                    <CommandList>
+                      <CommandEmpty>No stores found in this market.</CommandEmpty>
+                      <CommandGroup>
+                        {storesForMarket.map((s) => (
+                          <CommandItem
+                            key={s.id}
+                            value={`${s.name} ${s.number ?? ""}`}
+                            onSelect={() => {
+                              setSelectedStoreId(s.id);
+                              setStorePickerOpen(false);
+                            }}
+                          >
+                            {s.name}
+                            {s.number ? ` (#${s.number})` : ""}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* 3. Date Interval (Single day or multiple days) */}
@@ -900,7 +987,9 @@ export default function ReportRequestsPage() {
             <Button variant="outline" onClick={() => setCreateModalOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateRequest}>Submit Request</Button>
+            <Button onClick={handleCreateRequest} disabled={submittingRequest}>
+              {submittingRequest ? "Submitting..." : "Submit Request"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -150,57 +150,70 @@ export class SurveillanceService {
   /**
    * Fetch all surveillance report requests.
    */
-  async getRequests() {
-    return http.get<SurveillanceRequest[]>("/api/surveillance/requests");
+  async getRequests(): Promise<SurveillanceRequest[]> {
+    const res = await http.get<SurveillanceRequest[]>("/api/surveillance/requests");
+    return res.data;
   }
 
   /**
    * Get single request by ID.
    */
-  async getRequest(id: string | number) {
-    return http.get<SurveillanceRequest>(`/api/surveillance/requests/${id}`);
+  async getRequest(id: string | number): Promise<SurveillanceRequest> {
+    const res = await http.get<SurveillanceRequest>(`/api/surveillance/requests/${id}`);
+    return res.data;
   }
 
   /**
    * Create a new surveillance report request (by Admin, State Manager, Market Manager, District Manager).
+   * When the server finds a duplicate (1.2 Duplicate Check - same store +
+   * incident date already requested), it returns the EXISTING request with
+   * isDuplicate: true instead of inserting a new one.
    */
-  async createRequest(payload: CreateSurveillanceRequestPayload) {
-    return http.post<SurveillanceRequest>("/api/surveillance/requests", payload);
+  async createRequest(
+    payload: CreateSurveillanceRequestPayload,
+  ): Promise<SurveillanceRequest & { isDuplicate?: boolean; duplicateOfRequestId?: string; duplicateRequestedBy?: string }> {
+    const res = await http.post<SurveillanceRequest>("/api/surveillance/requests", payload);
+    return res.data as SurveillanceRequest & { isDuplicate?: boolean; duplicateOfRequestId?: string; duplicateRequestedBy?: string };
   }
 
   /**
    * Approve a request (Admin, State Manager, Market Manager only).
    */
-  async approveRequest(id: string | number, notes?: string) {
-    return http.post<SurveillanceRequest>(`/api/surveillance/requests/${id}/approve`, { notes });
+  async approveRequest(id: string | number, notes?: string): Promise<SurveillanceRequest> {
+    const res = await http.post<SurveillanceRequest>(`/api/surveillance/requests/${id}/approve`, { notes });
+    return res.data;
   }
 
   /**
    * Reject a request (Admin, State Manager, Market Manager only).
    */
-  async rejectRequest(id: string | number, reason: string) {
-    return http.post<SurveillanceRequest>(`/api/surveillance/requests/${id}/reject`, { reason });
+  async rejectRequest(id: string | number, reason: string): Promise<SurveillanceRequest> {
+    const res = await http.post<SurveillanceRequest>(`/api/surveillance/requests/${id}/reject`, { reason });
+    return res.data;
   }
 
   /**
    * Fetch all submitted surveillance reports.
    */
-  async getReports() {
-    return http.get<SurveillanceReport[]>("/api/surveillance/reports");
+  async getReports(): Promise<SurveillanceReport[]> {
+    const res = await http.get<SurveillanceReport[]>("/api/surveillance/reports");
+    return res.data;
   }
 
   /**
    * Get single surveillance report by ID.
    */
-  async getReport(id: string | number) {
-    return http.get<SurveillanceReport>(`/api/surveillance/reports/${id}`);
+  async getReport(id: string | number): Promise<SurveillanceReport> {
+    const res = await http.get<SurveillanceReport>(`/api/surveillance/reports/${id}`);
+    return res.data;
   }
 
   /**
    * Submit the finalized surveillance report (including all audit rows) to the backend API.
    */
-  async submitReport(payload: CreateSurveillanceReportPayload) {
-    return http.post<SurveillanceReport>("/api/surveillance/reports", payload);
+  async submitReport(payload: CreateSurveillanceReportPayload): Promise<SurveillanceReport> {
+    const res = await http.post<SurveillanceReport>("/api/surveillance/reports", payload);
+    return res.data;
   }
 
   /**
@@ -213,8 +226,9 @@ export class SurveillanceService {
       comments?: string;
       rating?: number;
     },
-  ) {
-    return http.post<SurveillanceReport>(`/api/surveillance/reports/${id}/review`, payload);
+  ): Promise<SurveillanceReport> {
+    const res = await http.post<SurveillanceReport>(`/api/surveillance/reports/${id}/review`, payload);
+    return res.data;
   }
 }
 
