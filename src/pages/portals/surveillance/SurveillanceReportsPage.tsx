@@ -55,6 +55,7 @@ import {
   Send,
   Save,
   CheckCircle2,
+  Star,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -1645,13 +1646,12 @@ export default function SurveillanceReportsPage() {
   if (selectedDetail) {
     const item = requests.find((r) => r.id === selectedDetail.id) || selectedDetail;
 
-    const targetReportId =
-      item.linkedReportId ||
-      (item.id === "SRV-REQ-101"
-        ? "SRV-REP-202"
-        : item.id === "SRV-REQ-105"
-          ? "SRV-REP-203"
-          : "SRV-REP-201");
+    const linkedReport = reports.find(
+      (rep) => rep.id === item.linkedReportId || rep.requestId === item.id,
+    );
+    const targetReportId = item.linkedReportId || linkedReport?.id;
+    const givenRating = item.managerRating ?? linkedReport?.managerRating;
+    const ratingReviewer = item.reportApprovedBy || linkedReport?.reviewedBy;
 
     return (
       <div className="space-y-6 animate-fade-in">
@@ -1860,6 +1860,49 @@ export default function SurveillanceReportsPage() {
           </Card>
         </div>
 
+        {/* Read-Only Report Rating Card (Displayed when a rating has been given) */}
+        {Boolean(givenRating && givenRating > 0) && (
+          <Card className="p-4 border-amber-200/90 bg-amber-50/40 dark:bg-amber-950/20 dark:border-amber-900/50">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Star className="h-4 w-4 fill-amber-400 text-amber-400 shrink-0" />
+                  <span>Report Rating</span>
+                  <Badge
+                    variant="outline"
+                    className="border-amber-300 bg-amber-100/70 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 text-[10px] font-medium"
+                  >
+                    View Only
+                  </Badge>
+                </div>
+                {ratingReviewer && (
+                  <p className="text-xs text-muted-foreground">
+                    Rated by <strong className="font-semibold text-foreground">{ratingReviewer}</strong>
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5 select-none pointer-events-none">
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      className={`h-4 w-4 ${
+                        s <= (givenRating || 0)
+                          ? "fill-amber-400 text-amber-400"
+                          : "text-muted-foreground/30"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="ml-1 text-xs font-semibold text-foreground">
+                  {givenRating} / 5
+                </span>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Rejection Reason Section (Displayed when rejected) */}
         {(item.status === "Rejected" ||
           item.reportStatus === "Rejected" ||
@@ -1974,10 +2017,10 @@ export default function SurveillanceReportsPage() {
           </div>
         </Card>
 
-        {/* Card 2: Submitted (Purple tone) */}
+        {/* Card 2: Total Submitted (Purple tone) */}
         <Card className="p-4 border-purple-300/80 bg-purple-50/50 dark:bg-purple-950/20 dark:border-purple-900/50">
           <div className="text-xs text-purple-800 dark:text-purple-300 font-medium uppercase tracking-wider">
-            Submitted
+            Total Submitted
           </div>
           <div className="mt-1 text-2xl font-bold font-display text-purple-950 dark:text-purple-100">
             {metrics.submitted}

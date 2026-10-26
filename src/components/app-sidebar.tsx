@@ -183,7 +183,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     title: "Surveillance",
     icon: Video,
     items: [
-      { title: "Reports", url: "/surveillance/requests", icon: ClipboardCheck },
+      { title: "Request Reports", url: "/surveillance/requests", icon: ClipboardCheck },
       { title: "Surveillance Reports", url: "/surveillance/reports", icon: Video },
     ],
   },
@@ -625,7 +625,7 @@ export function AppSidebar() {
     }
 
     // Surveillance Portal:
-    // - "Reports" (/surveillance/requests) is for Admin, State Manager, Market Manager, District Manager.
+    // - "Request Reports" (/surveillance/requests) is for Admin, State Manager, Market Manager, District Manager.
     // - "Surveillance Reports" (/surveillance/reports) is strictly ONLY visible to the "user" role.
     if (key === "surveillance") {
       const roleStr = (getPortalRole("surveillance") || user.roleName || user.role || "")

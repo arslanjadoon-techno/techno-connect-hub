@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { DataTable, type Column } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,7 @@ import {
   Star,
   Lock,
   CheckCircle2,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -176,21 +178,24 @@ function StarRating({
   disabled?: boolean;
 }) {
   const [hoverVal, setHoverVal] = useState<number | null>(null);
-  const displayVal = hoverVal ?? value;
+  const displayVal = disabled ? value : (hoverVal ?? value);
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className={`flex items-center gap-1.5 ${disabled ? "select-none" : ""}`}>
       <div className="flex items-center gap-1">
         {[1, 2, 3, 4, 5].map((star) => (
           <button
             key={star}
             type="button"
             disabled={disabled}
-            onClick={() => onChange && onChange(star === value ? 0 : star)}
+            tabIndex={disabled ? -1 : 0}
+            onClick={() => !disabled && onChange && onChange(star === value ? 0 : star)}
             onMouseEnter={() => !disabled && setHoverVal(star)}
             onMouseLeave={() => !disabled && setHoverVal(null)}
             className={`p-0.5 transition-transform ${
-              disabled ? "cursor-default" : "cursor-pointer hover:scale-110"
+              disabled
+                ? "pointer-events-none cursor-default"
+                : "cursor-pointer hover:scale-110"
             }`}
           >
             <Star
@@ -239,9 +244,15 @@ export default function SurveillanceReportDetailPage() {
       .then(async (rep) => {
         if (!active) return;
         setReport(rep);
+        setManagerRating(rep.managerRating || 0);
         try {
           const req = await surveillanceService.getRequest(rep.requestId);
-          if (active) setLinkedRequest(req);
+          if (active) {
+            setLinkedRequest(req);
+            if (!rep.managerRating && req.managerRating) {
+              setManagerRating(req.managerRating);
+            }
+          }
         } catch {
           // The linked request is only used for a few display fields below -
           // the report itself still renders fine without it.
@@ -499,87 +510,145 @@ export default function SurveillanceReportDetailPage() {
         searchPlaceholder="Search audit records..."
       />
 
-      {/* Manager Review, Decline Reason & Optional 5-Star Submitter Rating */}
-      {(userCanApprove || Boolean(report.reviewedBy) || userRole === "district_manager") && (
-        <Card className="p-5 border-border/80 space-y-4">
-          <div className="flex items-center justify-between border-b pb-2">
-            <div className="flex items-center gap-2 font-semibold text-foreground text-sm">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-              Manager Review & Submitter Rating
-            </div>
-            {!userCanApprove && (
-              <span className="inline-flex items-center text-xs text-amber-700 dark:text-amber-400 font-medium">
-                <Lock className="h-3.5 w-3.5 mr-1" />{" "}
-                {userRole === "district_manager" ? "View Only (District Manager)" : "Read Only"}
-              </span>
-            )}
-          </div>
+      {/* Manager Review, Finalized Status & Optional 5-Star Submitter Rating */}
+      {(() => {
+        const isApproved =
+          report.status === "Approved" ||
+          linkedRequest?.status === "Approved" ||
+          linkedRequest?.reportStatus === "Approved";
+        const isRejected =
+          report.status === "Rejected" ||
+          linkedRequest?.status === "Rejected" ||
+          linkedRequest?.reportStatus === "Rejected";
+        const isAlreadyReviewed = isApproved || isRejected;
+        const savedRating = report.managerRating ?? linkedRequest?.managerRating ?? 0;
+        const isRatingLocked = savedRating > 0 || isAlreadyReviewed;
+        const reviewerDisplayName =
+          report.reviewedBy || linkedRequest?.reportApprovedBy || linkedRequest?.approvedBy;
+        const reviewedAtDisplay =
+          report.reviewedAt || linkedRequest?.reportApprovedAt || linkedRequest?.approvedAt;
+        const reviewComments = report.managerComments || linkedRequest?.rejectionReason || linkedRequest?.managerComments;
 
-          {report.reviewedBy ? (
-            <div className="space-y-3">
-              <div className="p-3.5 rounded-lg border bg-muted/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-xs">
-                <div>
-                  <span className="text-muted-foreground block text-[11px]">Reviewed & Decided By:</span>
-                  <span className="font-semibold text-foreground text-sm">{report.reviewedBy}</span>
-                  <span className="text-muted-foreground text-[11px] block mt-0.5">
-                    on {report.reviewedAt ? new Date(report.reviewedAt).toLocaleString() : "-"}
-                  </span>
-                </div>
+        const shouldShowReviewCard =
+          userCanApprove ||
+          isAlreadyReviewed ||
+          Boolean(reviewerDisplayName) ||
+          savedRating > 0 ||
+          userRole === "district_manager";
 
-                {report.managerRating && (
-                  <div>
-                    <span className="text-muted-foreground block text-[11px]">Submitter Rating:</span>
-                    <div className="flex items-center gap-0.5 mt-1">
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <Star
-                          key={s}
-                          className={`h-4 w-4 ${
-                            s <= (report.managerRating || 0)
-                              ? "fill-amber-400 text-amber-400"
-                              : "text-muted-foreground/30"
-                          }`}
-                        />
-                      ))}
-                      <span className="text-xs font-semibold ml-1.5 text-foreground">
-                        {report.managerRating} / 5
-                      </span>
-                    </div>
-                  </div>
-                )}
+        if (!shouldShowReviewCard) return null;
+
+        return (
+          <Card className="p-5 border-border/80 space-y-4">
+            <div className="flex items-center justify-between border-b pb-2">
+              <div className="flex items-center gap-2 font-semibold text-foreground text-sm">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                Manager Review & Submitter Rating
               </div>
-
-              {report.managerComments && (
-                <div className="p-3.5 rounded-lg border bg-card text-xs">
-                  <span className="text-[11px] font-semibold text-muted-foreground block mb-1">
-                    {report.status === "Rejected" ? "Decline Reason:" : "Manager Remarks:"}
-                  </span>
-                  <p className="text-foreground leading-relaxed whitespace-pre-wrap">
-                    {report.managerComments}
-                  </p>
-                </div>
+              {(!userCanApprove || isAlreadyReviewed) && (
+                <span className="inline-flex items-center text-xs text-amber-700 dark:text-amber-400 font-medium">
+                  <Lock className="h-3.5 w-3.5 mr-1" />{" "}
+                  {isAlreadyReviewed
+                    ? "Decision Finalized"
+                    : userRole === "district_manager"
+                      ? "View Only (District Manager)"
+                      : "Read Only"}
+                </span>
               )}
             </div>
-          ) : (
-            !userCanApprove && (
+
+            {/* Finalized Status Banner (Replaces Approve / Decline buttons once Approved or Rejected) */}
+            {isAlreadyReviewed && (
+              <div
+                className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-lg border p-3.5 text-xs ${
+                  isApproved
+                    ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/50 dark:bg-emerald-950/25"
+                    : "border-rose-200 bg-rose-50/60 dark:border-rose-900/50 dark:bg-rose-950/25"
+                }`}
+              >
+                <div className="flex items-start sm:items-center gap-2.5">
+                  {isApproved ? (
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5 sm:mt-0" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5 sm:mt-0" />
+                  )}
+                  <div>
+                    <p className="font-semibold text-foreground text-xs sm:text-sm">
+                      {isApproved
+                        ? "This report has already been approved."
+                        : "This report has already been rejected."}
+                    </p>
+                    <p className="text-muted-foreground text-[11px] mt-0.5">
+                      {reviewerDisplayName
+                        ? `Reviewed by ${reviewerDisplayName}${
+                            reviewedAtDisplay
+                              ? ` on ${new Date(reviewedAtDisplay).toLocaleString()}`
+                              : ""
+                          }. `
+                        : ""}
+                      Once a decision is recorded, this report cannot be approved or rejected again.
+                    </p>
+                  </div>
+                </div>
+
+                <Badge
+                  variant="outline"
+                  className={`shrink-0 text-xs font-semibold ${
+                    isApproved
+                      ? "border-emerald-300 bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                      : "border-rose-300 bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300"
+                  }`}
+                >
+                  {isApproved ? "Approved" : "Rejected"}
+                </Badge>
+              </div>
+            )}
+
+            {/* Reviewer Remarks / Decline Reason */}
+            {reviewComments && (
+              <div className="p-3.5 rounded-lg border bg-card text-xs">
+                <span className="text-[11px] font-semibold text-muted-foreground block mb-1">
+                  {isRejected ? "Decline Reason:" : "Manager Remarks:"}
+                </span>
+                <p className="text-foreground leading-relaxed whitespace-pre-wrap">
+                  {reviewComments}
+                </p>
+              </div>
+            )}
+
+            {/* Pending state message for non-approvers */}
+            {!isAlreadyReviewed && !userCanApprove && (
               <p className="text-xs text-muted-foreground">
                 This report is currently awaiting management review.
               </p>
-            )
-          )}
+            )}
 
-          {userCanApprove && (
-            <div className="space-y-4 pt-2">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">
-                  Rate Submitter's Investigation (Optional 5-Star Rating)
-                </Label>
+            {/* Submitter Rating (Interactive only before rating is submitted and while report is pending review) */}
+            {(userCanApprove || isAlreadyReviewed || savedRating > 0) && (
+              <div className="space-y-1.5 pt-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Label className="text-xs font-semibold">
+                    {isRatingLocked
+                      ? "Submitter Rating"
+                      : "Rate Submitter's Investigation (Optional 5-Star Rating)"}
+                  </Label>
+                  {savedRating > 0 && (
+                    <span className="text-[11px] text-muted-foreground">
+                      • Rating has already been submitted and cannot be modified.
+                    </span>
+                  )}
+                </div>
                 <StarRating
-                  value={managerRating}
+                  value={savedRating > 0 ? savedRating : managerRating}
                   onChange={(v) => setManagerRating(v)}
+                  disabled={isRatingLocked || !userCanApprove}
                 />
               </div>
+            )}
 
-              <div className="flex items-center justify-end gap-3 pt-2">
+            {/* Approve & Decline Action Buttons (Strictly hidden once Approved or Rejected) */}
+            {userCanApprove && !isAlreadyReviewed && (
+              <div className="flex items-center justify-end gap-3 pt-2 border-t">
                 <Button
                   variant="destructive"
                   disabled={reviewing}
@@ -601,10 +670,10 @@ export default function SurveillanceReportDetailPage() {
                   {reviewing ? "Approving..." : "Approve Report"}
                 </Button>
               </div>
-            </div>
-          )}
-        </Card>
-      )}
+            )}
+          </Card>
+        );
+      })()}
 
       {/* Row Attachments Viewer Dialog */}
       <Dialog

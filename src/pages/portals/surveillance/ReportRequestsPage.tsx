@@ -76,6 +76,7 @@ import {
   canApproveSurveillance,
   canRequestSurveillance,
   type SurveillanceRequest,
+  type SurveillanceReport,
   type SurveillancePriority,
   type SurveillanceRole,
   type SurveillanceRequestStatus,
@@ -122,6 +123,7 @@ export default function ReportRequestsPage() {
   });
 
   const [requests, setRequests] = useState<SurveillanceRequest[]>([]);
+  const [reports, setReports] = useState<SurveillanceReport[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(true);
 
   useEffect(() => {
@@ -134,6 +136,14 @@ export default function ReportRequestsPage() {
         toast.error("Failed to load surveillance requests");
       })
       .finally(() => active && setRequestsLoading(false));
+
+    surveillanceService
+      .getReports()
+      .then((repData) => active && setReports(repData))
+      .catch(() => {
+        // Optional secondary lookup for report ratings
+      });
+
     return () => {
       active = false;
     };
@@ -398,7 +408,12 @@ export default function ReportRequestsPage() {
       item.status === "Rejected",
     );
 
-    const targetReportId = item.linkedReportId;
+    const linkedReport = reports.find(
+      (rep) => rep.id === item.linkedReportId || rep.requestId === item.id,
+    );
+    const targetReportId = item.linkedReportId || linkedReport?.id;
+    const givenRating = item.managerRating ?? linkedReport?.managerRating;
+    const ratingReviewer = item.reportApprovedBy || linkedReport?.reviewedBy;
 
     return (
       <div className="space-y-6 animate-fade-in">
@@ -412,7 +427,7 @@ export default function ReportRequestsPage() {
               className="h-8 gap-1.5 px-2.5 text-xs font-medium"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Back to Reports
+              Back to Request Reports
             </Button>
             <div className="flex items-center gap-2">
               <h1 className="font-display text-xl font-bold tracking-tight text-foreground">
@@ -606,6 +621,49 @@ export default function ReportRequestsPage() {
           </Card>
         </div>
 
+        {/* Read-Only Report Rating Card (Displayed when a rating has been given) */}
+        {Boolean(givenRating && givenRating > 0) && (
+          <Card className="p-4 border-amber-200/90 bg-amber-50/40 dark:bg-amber-950/20 dark:border-amber-900/50">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Star className="h-4 w-4 fill-amber-400 text-amber-400 shrink-0" />
+                  <span>Report Rating</span>
+                  <Badge
+                    variant="outline"
+                    className="border-amber-300 bg-amber-100/70 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 text-[10px] font-medium"
+                  >
+                    View Only
+                  </Badge>
+                </div>
+                {ratingReviewer && (
+                  <p className="text-xs text-muted-foreground">
+                    Rated by <strong className="font-semibold text-foreground">{ratingReviewer}</strong>
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5 select-none pointer-events-none">
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      className={`h-4 w-4 ${
+                        s <= (givenRating || 0)
+                          ? "fill-amber-400 text-amber-400"
+                          : "text-muted-foreground/30"
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="ml-1 text-xs font-semibold text-foreground">
+                  {givenRating} / 5
+                </span>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Rejection / Declined Reason Section (Displayed when the report or request is rejected) */}
         {(item.status === "Rejected" ||
           item.reportStatus === "Rejected" ||
@@ -685,7 +743,7 @@ export default function ReportRequestsPage() {
     );
   }
 
-  // DEFAULT VIEW: "Reports" List Table View
+  // DEFAULT VIEW: "Request Reports" List Table View
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -693,7 +751,7 @@ export default function ReportRequestsPage() {
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="font-display text-2xl font-semibold tracking-tight">
-              Reports
+              Request Reports
             </h1>
             <Badge variant="outline" className="border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">
               Surveillance
@@ -712,7 +770,7 @@ export default function ReportRequestsPage() {
         </div>
       </div>
 
-      {/* KPI Cards: 4 cards with distinct colors — Total Requests, Received, Pending, and Approved */}
+      {/* KPI Cards: 4 cards with distinct colors — Total Requests, Total Received, Pending, and Approved */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {/* Card 1: Total Requests (Blue tone) */}
         <Card className="p-4 border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900/50">
@@ -724,10 +782,10 @@ export default function ReportRequestsPage() {
           </div>
         </Card>
 
-        {/* Card 2: Received (Report Received, Approved, and Rejected) (Purple tone) */}
+        {/* Card 2: Total Received (Report Received, Approved, and Rejected) (Purple tone) */}
         <Card className="p-4 border-purple-300/80 bg-purple-50/50 dark:bg-purple-950/20 dark:border-purple-900/50">
           <div className="text-xs text-purple-800 dark:text-purple-300 font-medium uppercase tracking-wider">
-            Received
+            Total Received
           </div>
           <div className="mt-1 text-2xl font-bold font-display text-purple-950 dark:text-purple-100">
             {metrics.received}
