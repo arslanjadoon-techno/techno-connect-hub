@@ -32,6 +32,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Plus,
   Eye,
   Store as StoreIcon,
@@ -1812,19 +1818,34 @@ export default function SurveillanceReportsPage() {
                             placeholder="Market"
                           />
                         </div>
-                        <div className="space-y-1">
+                        <div className="space-y-1 sm:col-span-2 md:col-span-2">
                           <Label className="text-[11px] font-semibold">
                             Store Name <span className="text-destructive">*</span>
                           </Label>
-                          <Input
-                            type="text"
-                            required
-                            readOnly
-                            tabIndex={-1}
-                            value={row.storeName || activeItem.storeName || ""}
-                            className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
-                            placeholder="Store Name"
-                          />
+                          <TooltipProvider delayDuration={150}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Input
+                                  type="text"
+                                  required
+                                  readOnly
+                                  tabIndex={-1}
+                                  value={row.storeName || activeItem.storeName || ""}
+                                  className="bg-muted/30 text-foreground truncate cursor-default focus-visible:ring-0 hover:border-primary/50 hover:bg-muted/50 transition-colors"
+                                  placeholder="Store Name"
+                                />
+                              </TooltipTrigger>
+                              {(row.storeName || activeItem.storeName) && (
+                                <TooltipContent
+                                  side="top"
+                                  align="start"
+                                  className="max-w-md break-words text-xs font-medium"
+                                >
+                                  {row.storeName || activeItem.storeName}
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Invoice No</Label>
