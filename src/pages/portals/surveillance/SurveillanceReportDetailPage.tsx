@@ -137,7 +137,7 @@ interface AuditDataField {
 const AUDIT_DATA_FIELDS: AuditDataField[] = [
   { key: "date", label: "Date" },
   { key: "storeName", label: "Store Name" },
-  { key: "invoice", label: "Invoice" },
+  { key: "invoice", label: "Invoice No" },
   { key: "cashTime", label: "Cash Time" },
   { key: "time", label: "Entrance Time" },
   { key: "bdiTime", label: "BDI TIME" },
@@ -307,9 +307,28 @@ export default function SurveillanceReportDetailPage() {
     row: SurveillanceAuditRow,
     key: AuditDataField["key"],
   ): string => {
+    if (key === "transType") {
+      if (!row.transType || !row.transType.trim()) return "-";
+      const parts = row.transType
+        .split(/\s*\/\s*/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const mapped = parts.map((p) => {
+        if (p === "Custom" || p === "Other") {
+          const det = row.otherDetails?.transType?.trim();
+          return det ? `Custom (${det})` : "Custom";
+        }
+        return p;
+      });
+      return mapped.join(" / ") || "-";
+    }
     if (key === "clientType") {
       if (row.clientType && row.clientType.trim()) {
         const ct = row.clientType.trim();
+        if (ct === "Custom" || ct === "Other") {
+          const det = row.otherDetails?.clientType?.trim();
+          return det ? `Custom (${det})` : "Custom";
+        }
         if (ct === "Billable") return "Buyer";
         if (ct === "Non Billable") return "Non-Buyer";
         return formatCellValue(ct);
@@ -319,16 +338,23 @@ export default function SurveillanceReportDetailPage() {
       return "-";
     }
     if (key === "paymentType") {
-      if (row.paymentType && row.paymentType.trim()) return formatCellValue(row.paymentType);
+      if (row.paymentType && row.paymentType.trim()) {
+        const pt = row.paymentType.trim();
+        if (pt === "Custom" || pt === "Other") {
+          const det = row.otherDetails?.paymentType?.trim();
+          return det ? `Custom (${det})` : "Custom";
+        }
+        return formatCellValue(pt);
+      }
       if (row.card && row.card.trim() && row.cash && row.cash.trim()) return "Mix Payment";
       if (row.card && row.card.trim()) return "Card";
       if (row.cash && row.cash.trim()) return "Cash";
       return "-";
     }
     const rawVal = row[key];
-    if (rawVal === "Other") {
+    if (rawVal === "Custom" || rawVal === "Other") {
       const detail = row.otherDetails?.[key]?.trim();
-      return detail ? `Other (${detail})` : "Other";
+      return detail ? `Custom (${detail})` : "Custom";
     }
     return formatCellValue(rawVal);
   };

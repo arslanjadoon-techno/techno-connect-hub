@@ -152,10 +152,10 @@ export interface SurveillanceReport {
   bdiTime: string;
   salesRep: string;
   transType: string;
-  clientType: "Buyer" | "Non-Buyer" | "Billable" | "Non Billable";
+  clientType: "Buyer" | "Non-Buyer" | "Billable" | "Non Billable" | string;
   invoiceAmount: string;
   totalTaken: string;
-  paymentMode: "Cash" | "Card" | "Split";
+  paymentMode: "Cash" | "Card" | "Split" | string;
   difference: string;
   receipt: "Yes" | "No" | string;
   splitPayments: "Yes" | "No" | string;
@@ -225,10 +225,10 @@ export interface CreateSurveillanceReportPayload {
   bdiTime: string;
   salesRep: string;
   transType: string;
-  clientType: "Buyer" | "Non-Buyer" | "Billable" | "Non Billable";
+  clientType: "Buyer" | "Non-Buyer" | "Billable" | "Non Billable" | string;
   invoiceAmount: string;
   totalTaken: string;
-  paymentMode: "Cash" | "Card" | "Split";
+  paymentMode: "Cash" | "Card" | "Split" | string;
   difference: string;
   receipt: "Yes" | "No" | string;
   splitPayments: "Yes" | "No" | string;
