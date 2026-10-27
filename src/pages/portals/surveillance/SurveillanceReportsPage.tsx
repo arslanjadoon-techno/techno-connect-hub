@@ -136,7 +136,6 @@ const PAYMENT_TYPE_OPTIONS = [
   { value: "Card", label: "Card" },
   { value: "Cash", label: "Cash" },
   { value: "Mix Payment", label: "Mix Payment" },
-  { value: "Custom", label: "Custom" },
 ];
 
 const PITCH_QUALITY_OPTIONS = [
@@ -151,7 +150,6 @@ const PITCH_QUALITY_OPTIONS = [
 type CustomDetailFieldKey =
   | "transType"
   | "clientType"
-  | "paymentType"
   | "pitchQuality"
   | "receipt"
   | "fraudTransactions"
@@ -171,6 +169,69 @@ type CustomDetailFieldKey =
   | "smartPayMentioned"
   | "aalBillSame"
   | "offline";
+
+type AuditRowDetailProp = `${CustomDetailFieldKey}Details`;
+
+const CUSTOM_DETAIL_PROP_MAP: Record<CustomDetailFieldKey, AuditRowDetailProp> = {
+  transType: "transTypeDetails",
+  clientType: "clientTypeDetails",
+  pitchQuality: "pitchQualityDetails",
+  receipt: "receiptDetails",
+  fraudTransactions: "fraudTransactionsDetails",
+  missOpportunity: "missOpportunityDetails",
+  paymentFraud: "paymentFraudDetails",
+  aalSwap: "aalSwapDetails",
+  mim: "mimDetails",
+  onlineRejectedPayment: "onlineRejectedPaymentDetails",
+  pitchNb: "pitchNbDetails",
+  showingPhone: "showingPhoneDetails",
+  accOffered: "accOfferedDetails",
+  maximize: "maximizeDetails",
+  flipping: "flippingDetails",
+  bundleAccGiven: "bundleAccGivenDetails",
+  portIn: "portInDetails",
+  nonUp: "nonUpDetails",
+  smartPayMentioned: "smartPayMentionedDetails",
+  aalBillSame: "aalBillSameDetails",
+  offline: "offlineDetails",
+};
+
+const CUSTOM_DETAIL_KEYS = Object.keys(CUSTOM_DETAIL_PROP_MAP) as CustomDetailFieldKey[];
+
+function hasCustomInTransType(raw?: string): boolean {
+  return (raw || "")
+    .split(/\s*\/\s*/)
+    .map((s) => s.trim())
+    .some((s) => s === "Custom" || s === "Other");
+}
+
+function getRowCustomDetail(
+  row: SurveillanceAuditRow,
+  fieldKey: CustomDetailFieldKey,
+): string {
+  const detailProp = CUSTOM_DETAIL_PROP_MAP[fieldKey];
+  const directVal = row[detailProp];
+  if (typeof directVal === "string") return directVal;
+  return row.otherDetails?.[fieldKey] || "";
+}
+
+function hydrateAuditRowDetails(
+  row: SurveillanceAuditRow,
+  reportFallback?: SurveillanceReport,
+): SurveillanceAuditRow {
+  const next: SurveillanceAuditRow = { ...row };
+  for (const key of CUSTOM_DETAIL_KEYS) {
+    const prop = CUSTOM_DETAIL_PROP_MAP[key];
+    const existing =
+      typeof row[prop] === "string"
+        ? row[prop]
+        : (row.otherDetails?.[key] ??
+          (reportFallback ? (reportFallback[prop] as string | undefined) : undefined) ??
+          "");
+    next[prop] = existing;
+  }
+  return next;
+}
 
 function normalizeCustomOption(raw: string | undefined): string {
   const trimmed = (raw || "").trim();
@@ -608,11 +669,72 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+const MONTH_SHORT_NAMES = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+function formatSurveillanceDate(raw?: string): string {
+  const str = (raw || "").split(" - ")[0]?.trim() || "";
+  if (!str) {
+    const now = new Date();
+    const dd = String(now.getDate()).padStart(2, "0");
+    const mmm = MONTH_SHORT_NAMES[now.getMonth()];
+    const yyyy = now.getFullYear();
+    return `${dd} ${mmm}, ${yyyy}`;
+  }
+
+  const alreadyFormatted = str.match(/^(\d{1,2})\s+([A-Za-z]{3}),?\s+(\d{4})$/);
+  if (alreadyFormatted) {
+    const dd = alreadyFormatted[1].padStart(2, "0");
+    const mmm =
+      alreadyFormatted[2].charAt(0).toUpperCase() +
+      alreadyFormatted[2].slice(1, 3).toLowerCase();
+    const yyyy = alreadyFormatted[3];
+    return `${dd} ${mmm}, ${yyyy}`;
+  }
+
+  const ymdMatch = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (ymdMatch) {
+    const yyyy = Number(ymdMatch[1]);
+    const monthIdx = Number(ymdMatch[2]) - 1;
+    const dd = String(Number(ymdMatch[3])).padStart(2, "0");
+    if (monthIdx >= 0 && monthIdx < 12) {
+      return `${dd} ${MONTH_SHORT_NAMES[monthIdx]}, ${yyyy}`;
+    }
+  }
+
+  const parsed = new Date(str);
+  if (!Number.isNaN(parsed.getTime())) {
+    const dd = String(parsed.getDate()).padStart(2, "0");
+    const mmm = MONTH_SHORT_NAMES[parsed.getMonth()];
+    const yyyy = parsed.getFullYear();
+    return `${dd} ${mmm}, ${yyyy}`;
+  }
+
+  return str;
+}
+
 // All dropdowns (Yes/No/-, Sales Rep, Client Type, Payment Type, Pitch Quality) default to "" ("-")
-function createEmptyAuditRow(storeName: string, defaultDate?: string): SurveillanceAuditRow {
+function createEmptyAuditRow(
+  storeName: string,
+  marketName: string,
+  defaultDate?: string,
+): SurveillanceAuditRow {
   return {
     id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    date: defaultDate || new Date().toISOString().split("T")[0],
+    date: formatSurveillanceDate(defaultDate),
+    marketName: marketName || "",
     storeName: storeName || "",
     invoice: "",
     cashTime: "",
@@ -620,7 +742,9 @@ function createEmptyAuditRow(storeName: string, defaultDate?: string): Surveilla
     bdiTime: "",
     salesRep: "",
     transType: "",
+    transTypeDetails: "",
     clientType: "",
+    clientTypeDetails: "",
     nb: "",
     b: "",
     invoiceAmount: "",
@@ -630,37 +754,55 @@ function createEmptyAuditRow(storeName: string, defaultDate?: string): Surveilla
     card: "",
     difference: "$0.00",
     receipt: "",
+    receiptDetails: "",
     splitPayments: "",
     fraudTransactions: "",
+    fraudTransactionsDetails: "",
     refundInvoice: "",
     missOpportunity: "",
+    missOpportunityDetails: "",
     paymentFraud: "",
+    paymentFraudDetails: "",
     aalSwap: "",
+    aalSwapDetails: "",
     mim: "",
+    mimDetails: "",
     notes: "",
     pitchNb: "",
-    pitchQuality: "",
+    pitchNbDetails: "",
     pitchNotes: "",
+    pitchQuality: "",
+    pitchQualityDetails: "",
     showingPhone: "",
+    showingPhoneDetails: "",
     accOffered: "",
+    accOfferedDetails: "",
     maximize: "",
+    maximizeDetails: "",
     flipping: "",
+    flippingDetails: "",
     bundleNb: "",
     bundleStartB: "",
     bundleEndB: "",
     bundleAccGiven: "",
+    bundleAccGivenDetails: "",
     portIn: "",
+    portInDetails: "",
     nonUp: "",
+    nonUpDetails: "",
     smartPayMentioned: "",
+    smartPayMentionedDetails: "",
     aalBillSame: "",
+    aalBillSameDetails: "",
     onlineRejectedPayment: "",
+    onlineRejectedPaymentDetails: "",
     nameOfRepLeaving: "",
     timeLeft: "",
     timeReturned: "",
     backRoomTimeIn: "",
     backRoomTimeOut: "",
     offline: "",
-    otherDetails: {},
+    offlineDetails: "",
     attachments: [],
   };
 }
@@ -746,12 +888,20 @@ export default function SurveillanceReportsPage() {
     const savedRecords = surveillanceService.getDraftRows(targetReq.id);
     if (savedRecords.length === 0) return;
 
-    const restoredRows = savedRecords.map((rec) => ({
-      ...rec.row,
-      clientType: normalizeClientType(rec.row.clientType, rec.row.b, rec.row.nb),
-      otherDetails: rec.row.otherDetails ? { ...rec.row.otherDetails } : {},
-      attachments: rec.row.attachments ? [...rec.row.attachments] : [],
-    }));
+    const restoredRows = savedRecords.map((rec) =>
+      hydrateAuditRowDetails({
+        ...rec.row,
+        date: formatSurveillanceDate(rec.row.date || targetReq.incidentDate),
+        marketName: rec.row.marketName?.trim() || targetReq.marketName || "",
+        storeName: rec.row.storeName?.trim() || targetReq.storeName || "",
+        clientType: normalizeClientType(rec.row.clientType, rec.row.b, rec.row.nb),
+        paymentType:
+          rec.row.paymentType === "Custom" || rec.row.paymentType === "Other"
+            ? ""
+            : rec.row.paymentType,
+        attachments: rec.row.attachments ? [...rec.row.attachments] : [],
+      }),
+    );
     const timestamps: Record<string, string> = {};
     const expanded: Record<string, boolean> = {};
     for (const rec of savedRecords) {
@@ -783,12 +933,20 @@ export default function SurveillanceReportsPage() {
     // 1. Check MMKV storage first for previously saved row-by-row draft entries
     const savedRecords = surveillanceService.getDraftRows(reqItem.id);
     if (savedRecords.length > 0) {
-      const restoredRows = savedRecords.map((rec) => ({
-        ...rec.row,
-        clientType: normalizeClientType(rec.row.clientType, rec.row.b, rec.row.nb),
-        otherDetails: rec.row.otherDetails ? { ...rec.row.otherDetails } : {},
-        attachments: rec.row.attachments ? [...rec.row.attachments] : [],
-      }));
+      const restoredRows = savedRecords.map((rec) =>
+        hydrateAuditRowDetails({
+          ...rec.row,
+          date: formatSurveillanceDate(rec.row.date || reqItem.incidentDate),
+          marketName: rec.row.marketName?.trim() || reqItem.marketName || "",
+          storeName: rec.row.storeName?.trim() || reqItem.storeName || "",
+          clientType: normalizeClientType(rec.row.clientType, rec.row.b, rec.row.nb),
+          paymentType:
+            rec.row.paymentType === "Custom" || rec.row.paymentType === "Other"
+              ? ""
+              : rec.row.paymentType,
+          attachments: rec.row.attachments ? [...rec.row.attachments] : [],
+        }),
+      );
       const timestamps: Record<string, string> = {};
       const expanded: Record<string, boolean> = {};
       for (const rec of savedRecords) {
@@ -813,34 +971,44 @@ export default function SurveillanceReportsPage() {
       (rep) => rep.id === reqItem.linkedReportId || rep.requestId === reqItem.id,
     );
 
-    const initialDate =
-      reqItem.incidentDate?.split(" - ")[0]?.trim() ||
-      new Date().toISOString().split("T")[0];
+    const initialDate = formatSurveillanceDate(reqItem.incidentDate);
 
     setSavedRowTimestamps({});
     setDirtyRowIds({});
 
     if (existingReport && existingReport.rows && existingReport.rows.length > 0) {
-      const cloned = existingReport.rows.map((r) => ({
-        ...r,
-        clientType: normalizeClientType(r.clientType, r.b, r.nb),
-        paymentType:
-          r.paymentType ||
-          (r.card?.trim() && r.cash?.trim()
-            ? "Mix Payment"
-            : r.card?.trim()
-              ? "Card"
-              : r.cash?.trim()
-                ? "Cash"
-                : ""),
-        difference: calculateDifferenceDisplay(r.invoiceAmount, r.totalTaken),
-        otherDetails: r.otherDetails ? { ...r.otherDetails } : {},
-        attachments: r.attachments ? [...r.attachments] : [],
-      }));
+      const cloned = existingReport.rows.map((r, idx) =>
+        hydrateAuditRowDetails(
+          {
+            ...r,
+            date: formatSurveillanceDate(r.date || initialDate),
+            marketName: r.marketName?.trim() || reqItem.marketName || "",
+            storeName: r.storeName?.trim() || reqItem.storeName || "",
+            clientType: normalizeClientType(r.clientType, r.b, r.nb),
+            paymentType:
+              r.paymentType && r.paymentType !== "Custom" && r.paymentType !== "Other"
+                ? r.paymentType
+                : r.card?.trim() && r.cash?.trim()
+                  ? "Mix Payment"
+                  : r.card?.trim()
+                    ? "Card"
+                    : r.cash?.trim()
+                      ? "Cash"
+                      : "",
+            difference: calculateDifferenceDisplay(r.invoiceAmount, r.totalTaken),
+            attachments: r.attachments ? [...r.attachments] : [],
+          },
+          idx === 0 ? existingReport : undefined,
+        ),
+      );
       setEditableRows(cloned);
       setExpandedRowIds({ [cloned[0].id]: true });
     } else {
-      const firstRow = createEmptyAuditRow(reqItem.storeName, initialDate);
+      const firstRow = createEmptyAuditRow(
+        reqItem.storeName,
+        reqItem.marketName,
+        initialDate,
+      );
       setEditableRows([firstRow]);
       setExpandedRowIds({ [firstRow.id]: true });
     }
@@ -892,19 +1060,21 @@ export default function SurveillanceReportsPage() {
         }
 
         // Clear custom detail text if a dropdown is changed away from "Custom"
-        if (updated.otherDetails && typeof field === "string" && field in updated.otherDetails) {
+        if (typeof field === "string" && field in CUSTOM_DETAIL_PROP_MAP) {
+          const customKey = field as CustomDetailFieldKey;
           const isStillCustom =
-            field === "transType"
-              ? String(value || "")
-                  .split(/\s*\/\s*/)
-                  .map((s) => s.trim())
-                  .some((s) => s === "Custom" || s === "Other")
+            customKey === "transType"
+              ? hasCustomInTransType(String(value || ""))
               : value === "Custom" || value === "Other";
 
           if (!isStillCustom) {
-            const nextDetails = { ...updated.otherDetails };
-            delete nextDetails[field];
-            updated.otherDetails = nextDetails;
+            const detailProp = CUSTOM_DETAIL_PROP_MAP[customKey];
+            updated[detailProp] = "";
+            if (updated.otherDetails && customKey in updated.otherDetails) {
+              const nextDetails = { ...updated.otherDetails };
+              delete nextDetails[customKey];
+              updated.otherDetails = nextDetails;
+            }
           }
         }
 
@@ -955,12 +1125,14 @@ export default function SurveillanceReportsPage() {
     fieldKey: CustomDetailFieldKey,
     detailText: string,
   ) => {
+    const detailProp = CUSTOM_DETAIL_PROP_MAP[fieldKey];
     setDirtyRowIds((prev) => ({ ...prev, [rowId]: true }));
     setEditableRows((prev) =>
       prev.map((row) => {
         if (row.id !== rowId) return row;
         return {
           ...row,
+          [detailProp]: detailText,
           otherDetails: {
             ...(row.otherDetails || {}),
             [fieldKey]: detailText,
@@ -971,8 +1143,12 @@ export default function SurveillanceReportsPage() {
   };
 
   // Adds a fresh audit row with all time fields reset to default ('-')
-  const handleAddAuditRow = (storeName: string, defaultDate?: string) => {
-    const nextRow = createEmptyAuditRow(storeName, defaultDate);
+  const handleAddAuditRow = (
+    storeName: string,
+    marketName: string,
+    defaultDate?: string,
+  ) => {
+    const nextRow = createEmptyAuditRow(storeName, marketName, defaultDate);
     setEditableRows((prev) => [...prev, nextRow]);
     setExpandedRowIds((prev) => ({ ...prev, [nextRow.id]: true }));
   };
@@ -1050,12 +1226,17 @@ export default function SurveillanceReportsPage() {
       const rowNum = i + 1;
       if (!r.date || !r.date.trim()) {
         setExpandedRowIds((prev) => ({ ...prev, [r.id]: true }));
-        toast.error(`Please select a Date for Row #${rowNum} before submitting.`);
+        toast.error(`Surveillance Date is required for Row #${rowNum}.`);
+        return false;
+      }
+      if (!r.marketName || !r.marketName.trim()) {
+        setExpandedRowIds((prev) => ({ ...prev, [r.id]: true }));
+        toast.error(`Market is required for Row #${rowNum}.`);
         return false;
       }
       if (!r.storeName || !r.storeName.trim()) {
         setExpandedRowIds((prev) => ({ ...prev, [r.id]: true }));
-        toast.error(`Please enter a Store Name for Row #${rowNum} before submitting.`);
+        toast.error(`Store Name is required for Row #${rowNum}.`);
         return false;
       }
       if (!r.salesRep || !r.salesRep.trim()) {
@@ -1085,57 +1266,149 @@ export default function SurveillanceReportsPage() {
     setIsSubmitting(true);
 
     const primaryRow = editableRows[0];
-    const resolveYesNoOrCustom = (val: string, fieldKey: CustomDetailFieldKey): string => {
+
+    const resolveYesNoValue = (val: string | undefined): string => {
       const trimmed = (val || "").trim();
-      if (trimmed === "Custom" || trimmed === "Other") {
-        const detail = primaryRow.otherDetails?.[fieldKey]?.trim();
-        return detail ? `Custom: ${detail}` : "Custom";
-      }
+      if (trimmed === "Custom" || trimmed === "Other") return "Custom";
       return trimmed.toUpperCase() === "YES" ? "Yes" : "No";
     };
 
-    const resolveSingleCustom = (
-      val: string | undefined,
+    const resolveCustomDetailValue = (
+      row: SurveillanceAuditRow,
       fieldKey: CustomDetailFieldKey,
-      fallback: string,
+      rawSelection: string | undefined,
     ): string => {
-      const trimmed = (val || "").trim();
-      if (trimmed === "Custom" || trimmed === "Other") {
-        const detail = primaryRow.otherDetails?.[fieldKey]?.trim();
-        return detail ? `Custom: ${detail}` : "Custom";
-      }
-      return trimmed || fallback;
+      const isCustom =
+        fieldKey === "transType"
+          ? hasCustomInTransType(rawSelection)
+          : (rawSelection || "").trim() === "Custom" ||
+            (rawSelection || "").trim() === "Other";
+      return isCustom ? getRowCustomDetail(row, fieldKey).trim() : "";
     };
 
-    const resolveTransTypeSummary = (row: SurveillanceAuditRow): string => {
-      const parts = (row.transType || "")
+    const normalizeTransTypeString = (raw: string | undefined): string => {
+      return (raw || "")
         .split(/\s*\/\s*/)
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const mapped = parts.map((p) => {
-        if (p === "Custom" || p === "Other") {
-          const det = row.otherDetails?.transType?.trim();
-          return det ? `Custom (${det})` : "Custom";
-        }
-        return p;
-      });
-      return mapped.join(" / ") || "Audit Entry";
+        .map((s) => (s.trim() === "Other" ? "Custom" : s.trim()))
+        .filter(Boolean)
+        .join(" / ");
+    };
+
+    const serializeAuditRow = (r: SurveillanceAuditRow): SurveillanceAuditRow => {
+      const normalizedClientType = normalizeClientType(r.clientType, r.b, r.nb);
+      const normalizedPaymentType =
+        r.paymentType === "Custom" || r.paymentType === "Other" ? "" : r.paymentType || "";
+      const normOpt = (v?: string) => normalizeCustomOption(v);
+
+      return {
+        id: r.id,
+        date: formatSurveillanceDate(r.date || reqItem.incidentDate),
+        marketName: (r.marketName || reqItem.marketName || "").trim(),
+        storeName: (r.storeName || reqItem.storeName || "").trim(),
+        invoice: r.invoice,
+        cashTime: r.cashTime,
+        time: r.time,
+        bdiTime: r.bdiTime,
+        salesRep: r.salesRep.trim(),
+        transType: normalizeTransTypeString(r.transType),
+        transTypeDetails: resolveCustomDetailValue(r, "transType", r.transType),
+        clientType: normalizedClientType,
+        clientTypeDetails: resolveCustomDetailValue(r, "clientType", normalizedClientType),
+        nb: r.nb,
+        b: r.b,
+        invoiceAmount: r.invoiceAmount,
+        totalTaken: r.totalTaken,
+        paymentType: normalizedPaymentType,
+        cash: r.cash,
+        card: r.card,
+        difference: calculateDifferenceDisplay(r.invoiceAmount, r.totalTaken),
+        refundInvoice: r.refundInvoice,
+        receipt: normOpt(r.receipt),
+        receiptDetails: resolveCustomDetailValue(r, "receipt", r.receipt),
+        splitPayments: normalizedPaymentType === "Mix Payment" ? "YES" : "NO",
+        fraudTransactions: normOpt(r.fraudTransactions),
+        fraudTransactionsDetails: resolveCustomDetailValue(
+          r,
+          "fraudTransactions",
+          r.fraudTransactions,
+        ),
+        missOpportunity: normOpt(r.missOpportunity),
+        missOpportunityDetails: resolveCustomDetailValue(
+          r,
+          "missOpportunity",
+          r.missOpportunity,
+        ),
+        paymentFraud: normOpt(r.paymentFraud),
+        paymentFraudDetails: resolveCustomDetailValue(r, "paymentFraud", r.paymentFraud),
+        aalSwap: normOpt(r.aalSwap),
+        aalSwapDetails: resolveCustomDetailValue(r, "aalSwap", r.aalSwap),
+        mim: normOpt(r.mim),
+        mimDetails: resolveCustomDetailValue(r, "mim", r.mim),
+        onlineRejectedPayment: normOpt(r.onlineRejectedPayment),
+        onlineRejectedPaymentDetails: resolveCustomDetailValue(
+          r,
+          "onlineRejectedPayment",
+          r.onlineRejectedPayment,
+        ),
+        notes: r.notes,
+        pitchNb: normOpt(r.pitchNb),
+        pitchNbDetails: resolveCustomDetailValue(r, "pitchNb", r.pitchNb),
+        pitchNotes: r.pitchNotes,
+        pitchQuality: normOpt(r.pitchQuality),
+        pitchQualityDetails: resolveCustomDetailValue(r, "pitchQuality", r.pitchQuality),
+        showingPhone: normOpt(r.showingPhone),
+        showingPhoneDetails: resolveCustomDetailValue(r, "showingPhone", r.showingPhone),
+        accOffered: normOpt(r.accOffered),
+        accOfferedDetails: resolveCustomDetailValue(r, "accOffered", r.accOffered),
+        maximize: normOpt(r.maximize),
+        maximizeDetails: resolveCustomDetailValue(r, "maximize", r.maximize),
+        flipping: normOpt(r.flipping),
+        flippingDetails: resolveCustomDetailValue(r, "flipping", r.flipping),
+        bundleNb: r.bundleNb,
+        bundleStartB: r.bundleStartB,
+        bundleEndB: r.bundleEndB,
+        bundleAccGiven: normOpt(r.bundleAccGiven),
+        bundleAccGivenDetails: resolveCustomDetailValue(
+          r,
+          "bundleAccGiven",
+          r.bundleAccGiven,
+        ),
+        portIn: normOpt(r.portIn),
+        portInDetails: resolveCustomDetailValue(r, "portIn", r.portIn),
+        nonUp: normOpt(r.nonUp),
+        nonUpDetails: resolveCustomDetailValue(r, "nonUp", r.nonUp),
+        smartPayMentioned: normOpt(r.smartPayMentioned),
+        smartPayMentionedDetails: resolveCustomDetailValue(
+          r,
+          "smartPayMentioned",
+          r.smartPayMentioned,
+        ),
+        aalBillSame: normOpt(r.aalBillSame),
+        aalBillSameDetails: resolveCustomDetailValue(r, "aalBillSame", r.aalBillSame),
+        nameOfRepLeaving: r.nameOfRepLeaving,
+        timeLeft: r.timeLeft,
+        timeReturned: r.timeReturned,
+        backRoomTimeIn: r.backRoomTimeIn,
+        backRoomTimeOut: r.backRoomTimeOut,
+        offline: normOpt(r.offline),
+        offlineDetails: resolveCustomDetailValue(r, "offline", r.offline),
+        attachments: r.attachments && r.attachments.length > 0 ? r.attachments : undefined,
+      };
     };
 
     const combinedAttachments = editableRows.flatMap((r) => r.attachments || []);
+    const primaryClientType = normalizeClientType(
+      primaryRow.clientType,
+      primaryRow.b,
+      primaryRow.nb,
+    );
 
     const payload = {
       requestId: reqItem.id,
-      rows: editableRows.map((r) => ({
-        ...r,
-        otherDetails:
-          r.otherDetails && Object.keys(r.otherDetails).length > 0
-            ? r.otherDetails
-            : undefined,
-        attachments: r.attachments && r.attachments.length > 0 ? r.attachments : undefined,
-      })),
-      date: primaryRow.date.trim(),
-      storeName: primaryRow.storeName.trim(),
+      rows: editableRows.map(serializeAuditRow),
+      date: formatSurveillanceDate(primaryRow.date || reqItem.incidentDate),
+      marketName: (primaryRow.marketName || reqItem.marketName || "").trim(),
+      storeName: (primaryRow.storeName || reqItem.storeName || "").trim(),
       invoiceNo:
         editableRows.length > 1
           ? `${primaryRow.invoice || "Audit"} (${editableRows.length} Rows)`
@@ -1147,58 +1420,125 @@ export default function SurveillanceReportsPage() {
       transType:
         editableRows.length > 1
           ? `Shift Audit (${editableRows.length} Entries)`
-          : resolveTransTypeSummary(primaryRow),
+          : normalizeTransTypeString(primaryRow.transType) || "Audit Entry",
+      transTypeDetails: resolveCustomDetailValue(
+        primaryRow,
+        "transType",
+        primaryRow.transType,
+      ),
       clientType:
-        primaryRow.clientType === "Custom" || primaryRow.clientType === "Other"
-          ? resolveSingleCustom(primaryRow.clientType, "clientType", "Custom")
-          : primaryRow.clientType === "Non-Buyer" || primaryRow.clientType === "Non Billable"
+        primaryClientType === "Custom"
+          ? "Custom"
+          : primaryClientType === "Non-Buyer"
             ? "Non-Buyer"
             : "Buyer",
+      clientTypeDetails: resolveCustomDetailValue(
+        primaryRow,
+        "clientType",
+        primaryClientType,
+      ),
       invoiceAmount: primaryRow.invoiceAmount || "$0.00",
       totalTaken: primaryRow.totalTaken || "$0.00",
       paymentMode:
-        primaryRow.paymentType === "Custom" || primaryRow.paymentType === "Other"
-          ? resolveSingleCustom(primaryRow.paymentType, "paymentType", "Custom")
-          : primaryRow.paymentType === "Mix Payment"
-            ? "Split"
-            : primaryRow.paymentType === "Cash"
-              ? "Cash"
-              : "Card",
+        primaryRow.paymentType === "Mix Payment"
+          ? "Split"
+          : primaryRow.paymentType === "Cash"
+            ? "Cash"
+            : "Card",
       difference: calculateDifferenceDisplay(primaryRow.invoiceAmount, primaryRow.totalTaken),
-      receipt: resolveYesNoOrCustom(primaryRow.receipt, "receipt"),
-      splitPayments: primaryRow.paymentType === "Mix Payment" ? "Yes" : "No",
-      fraudTransactions: resolveYesNoOrCustom(primaryRow.fraudTransactions, "fraudTransactions"),
       refundInvoice: primaryRow.refundInvoice?.trim() || "No",
-      missOpportunity: resolveYesNoOrCustom(primaryRow.missOpportunity, "missOpportunity"),
-      paymentFraud: resolveYesNoOrCustom(primaryRow.paymentFraud, "paymentFraud"),
-      aalSwap: resolveYesNoOrCustom(primaryRow.aalSwap, "aalSwap"),
-      mim: resolveYesNoOrCustom(primaryRow.mim, "mim"),
+      receipt: resolveYesNoValue(primaryRow.receipt),
+      receiptDetails: resolveCustomDetailValue(primaryRow, "receipt", primaryRow.receipt),
+      splitPayments: primaryRow.paymentType === "Mix Payment" ? "Yes" : "No",
+      fraudTransactions: resolveYesNoValue(primaryRow.fraudTransactions),
+      fraudTransactionsDetails: resolveCustomDetailValue(
+        primaryRow,
+        "fraudTransactions",
+        primaryRow.fraudTransactions,
+      ),
+      missOpportunity: resolveYesNoValue(primaryRow.missOpportunity),
+      missOpportunityDetails: resolveCustomDetailValue(
+        primaryRow,
+        "missOpportunity",
+        primaryRow.missOpportunity,
+      ),
+      paymentFraud: resolveYesNoValue(primaryRow.paymentFraud),
+      paymentFraudDetails: resolveCustomDetailValue(
+        primaryRow,
+        "paymentFraud",
+        primaryRow.paymentFraud,
+      ),
+      aalSwap: resolveYesNoValue(primaryRow.aalSwap),
+      aalSwapDetails: resolveCustomDetailValue(primaryRow, "aalSwap", primaryRow.aalSwap),
+      mim: resolveYesNoValue(primaryRow.mim),
+      mimDetails: resolveCustomDetailValue(primaryRow, "mim", primaryRow.mim),
+      onlineRejectedPayment: resolveYesNoValue(primaryRow.onlineRejectedPayment),
+      onlineRejectedPaymentDetails: resolveCustomDetailValue(
+        primaryRow,
+        "onlineRejectedPayment",
+        primaryRow.onlineRejectedPayment,
+      ),
       notes: primaryRow.notes,
-      pitchNb: resolveYesNoOrCustom(primaryRow.pitchNb, "pitchNb"),
-      pitchQuality: resolveSingleCustom(primaryRow.pitchQuality, "pitchQuality", "Not Observed"),
+      pitchNb: resolveYesNoValue(primaryRow.pitchNb),
+      pitchNbDetails: resolveCustomDetailValue(primaryRow, "pitchNb", primaryRow.pitchNb),
       pitchNotes: primaryRow.pitchNotes,
-      showingPhone: resolveYesNoOrCustom(primaryRow.showingPhone, "showingPhone"),
-      accOffered: resolveYesNoOrCustom(primaryRow.accOffered, "accOffered"),
-      maximize: resolveYesNoOrCustom(primaryRow.maximize, "maximize"),
-      flipping: resolveYesNoOrCustom(primaryRow.flipping, "flipping"),
+      pitchQuality:
+        primaryRow.pitchQuality === "Custom" || primaryRow.pitchQuality === "Other"
+          ? "Custom"
+          : primaryRow.pitchQuality?.trim() || "Not Observed",
+      pitchQualityDetails: resolveCustomDetailValue(
+        primaryRow,
+        "pitchQuality",
+        primaryRow.pitchQuality,
+      ),
+      showingPhone: resolveYesNoValue(primaryRow.showingPhone),
+      showingPhoneDetails: resolveCustomDetailValue(
+        primaryRow,
+        "showingPhone",
+        primaryRow.showingPhone,
+      ),
+      accOffered: resolveYesNoValue(primaryRow.accOffered),
+      accOfferedDetails: resolveCustomDetailValue(
+        primaryRow,
+        "accOffered",
+        primaryRow.accOffered,
+      ),
+      maximize: resolveYesNoValue(primaryRow.maximize),
+      maximizeDetails: resolveCustomDetailValue(primaryRow, "maximize", primaryRow.maximize),
+      flipping: resolveYesNoValue(primaryRow.flipping),
+      flippingDetails: resolveCustomDetailValue(primaryRow, "flipping", primaryRow.flipping),
       bundleNb: primaryRow.bundleNb,
       bundleStartB: primaryRow.bundleStartB,
       bundleEndB: primaryRow.bundleEndB,
-      bundleAccGiven: resolveYesNoOrCustom(primaryRow.bundleAccGiven, "bundleAccGiven"),
-      portIn: resolveYesNoOrCustom(primaryRow.portIn, "portIn"),
-      nonUp: resolveYesNoOrCustom(primaryRow.nonUp, "nonUp"),
-      smartPayMentioned: resolveYesNoOrCustom(primaryRow.smartPayMentioned, "smartPayMentioned"),
-      aalBillSame: resolveYesNoOrCustom(primaryRow.aalBillSame, "aalBillSame"),
-      onlineRejectedPayment: resolveYesNoOrCustom(
-        primaryRow.onlineRejectedPayment,
-        "onlineRejectedPayment",
+      bundleAccGiven: resolveYesNoValue(primaryRow.bundleAccGiven),
+      bundleAccGivenDetails: resolveCustomDetailValue(
+        primaryRow,
+        "bundleAccGiven",
+        primaryRow.bundleAccGiven,
+      ),
+      portIn: resolveYesNoValue(primaryRow.portIn),
+      portInDetails: resolveCustomDetailValue(primaryRow, "portIn", primaryRow.portIn),
+      nonUp: resolveYesNoValue(primaryRow.nonUp),
+      nonUpDetails: resolveCustomDetailValue(primaryRow, "nonUp", primaryRow.nonUp),
+      smartPayMentioned: resolveYesNoValue(primaryRow.smartPayMentioned),
+      smartPayMentionedDetails: resolveCustomDetailValue(
+        primaryRow,
+        "smartPayMentioned",
+        primaryRow.smartPayMentioned,
+      ),
+      aalBillSame: resolveYesNoValue(primaryRow.aalBillSame),
+      aalBillSameDetails: resolveCustomDetailValue(
+        primaryRow,
+        "aalBillSame",
+        primaryRow.aalBillSame,
       ),
       nameOfRepLeaving: primaryRow.nameOfRepLeaving,
       timeLeft: primaryRow.timeLeft,
       timeReturned: primaryRow.timeReturned,
       backRoomTimeIn: primaryRow.backRoomTimeIn,
       backRoomTimeOut: primaryRow.backRoomTimeOut,
-      offline: resolveYesNoOrCustom(primaryRow.offline, "offline"),
+      offline: resolveYesNoValue(primaryRow.offline),
+      offlineDetails: resolveCustomDetailValue(primaryRow, "offline", primaryRow.offline),
       attachments: combinedAttachments.length > 0 ? combinedAttachments : undefined,
     };
 
@@ -1320,9 +1660,7 @@ export default function SurveillanceReportsPage() {
   if (selectedDetail && isEditingReport) {
     const activeItem = requests.find((r) => r.id === selectedDetail.id) || selectedDetail;
 
-    const defaultDate =
-      activeItem.incidentDate?.split(" - ")[0]?.trim() ||
-      new Date().toISOString().split("T")[0];
+    const defaultDate = formatSurveillanceDate(activeItem.incidentDate);
 
     return (
       <div className="space-y-6 pb-12 animate-fade-in">
@@ -1353,7 +1691,9 @@ export default function SurveillanceReportsPage() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => handleAddAuditRow(activeItem.storeName, defaultDate)}
+              onClick={() =>
+                handleAddAuditRow(activeItem.storeName, activeItem.marketName, defaultDate)
+              }
               className="h-9 gap-1.5 text-xs font-medium"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -1446,13 +1786,30 @@ export default function SurveillanceReportsPage() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">
-                            Date <span className="text-destructive">*</span>
+                            Surveillance Date <span className="text-destructive">*</span>
                           </Label>
                           <Input
-                            type="date"
+                            type="text"
                             required
-                            value={row.date}
-                            onChange={(e) => handleUpdateRowField(row.id, "date", e.target.value)}
+                            readOnly
+                            tabIndex={-1}
+                            value={formatSurveillanceDate(row.date || defaultDate)}
+                            className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
+                            placeholder="e.g. 10 Oct, 2026"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px] font-semibold">
+                            Market <span className="text-destructive">*</span>
+                          </Label>
+                          <Input
+                            type="text"
+                            required
+                            readOnly
+                            tabIndex={-1}
+                            value={row.marketName || activeItem.marketName || ""}
+                            className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
+                            placeholder="Market"
                           />
                         </div>
                         <div className="space-y-1">
@@ -1460,11 +1817,12 @@ export default function SurveillanceReportsPage() {
                             Store Name <span className="text-destructive">*</span>
                           </Label>
                           <Input
+                            type="text"
                             required
-                            value={row.storeName}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "storeName", e.target.value)
-                            }
+                            readOnly
+                            tabIndex={-1}
+                            value={row.storeName || activeItem.storeName || ""}
+                            className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
                             placeholder="Store Name"
                           />
                         </div>
@@ -1536,16 +1894,13 @@ export default function SurveillanceReportsPage() {
                           />
                         </div>
 
-                        {row.transType
-                          .split(/\s*\/\s*/)
-                          .map((s) => s.trim())
-                          .some((s) => s === "Custom" || s === "Other") && (
+                        {hasCustomInTransType(row.transType) && (
                           <div className="space-y-1 sm:col-span-2">
                             <Label className="text-[11px] font-semibold">
                               Transaction Type Details
                             </Label>
                             <Input
-                              value={row.otherDetails?.transType || ""}
+                              value={getRowCustomDetail(row, "transType")}
                               onChange={(e) =>
                                 handleUpdateOtherDetail(row.id, "transType", e.target.value)
                               }
@@ -1558,7 +1913,7 @@ export default function SurveillanceReportsPage() {
                           label="Client Type"
                           options={CLIENT_TYPE_OPTIONS}
                           value={normalizeClientType(row.clientType, row.b, row.nb)}
-                          detailValue={row.otherDetails?.clientType}
+                          detailValue={getRowCustomDetail(row, "clientType")}
                           onValueChange={(val) =>
                             handleUpdateRowField(row.id, "clientType", val)
                           }
@@ -1599,19 +1954,30 @@ export default function SurveillanceReportsPage() {
                           />
                         </div>
 
-                        <SelectWithCustomField
-                          label="Payment Type"
-                          options={PAYMENT_TYPE_OPTIONS}
-                          value={row.paymentType}
-                          detailValue={row.otherDetails?.paymentType}
-                          onValueChange={(val) =>
-                            handleUpdateRowField(row.id, "paymentType", val)
-                          }
-                          onDetailChange={(det) =>
-                            handleUpdateOtherDetail(row.id, "paymentType", det)
-                          }
-                          detailSpanClass="sm:col-span-2"
-                        />
+                        <div className="space-y-1">
+                          <Label className="text-[11px] font-semibold">Payment Type</Label>
+                          <Select
+                            value={toSelectVal(
+                              row.paymentType === "Custom" || row.paymentType === "Other"
+                                ? ""
+                                : row.paymentType,
+                            )}
+                            onValueChange={(v) =>
+                              handleUpdateRowField(row.id, "paymentType", fromSelectVal(v))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {PAYMENT_TYPE_OPTIONS.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                  {opt.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
 
                         {row.paymentType === "Mix Payment" && (
                           <>
@@ -1653,7 +2019,7 @@ export default function SurveillanceReportsPage() {
                           label="Receipt"
                           options={YES_NO_OPTIONS}
                           value={row.receipt}
-                          detailValue={row.otherDetails?.receipt}
+                          detailValue={getRowCustomDetail(row, "receipt")}
                           onValueChange={(val) => handleUpdateRowField(row.id, "receipt", val)}
                           onDetailChange={(det) =>
                             handleUpdateOtherDetail(row.id, "receipt", det)
@@ -1686,7 +2052,7 @@ export default function SurveillanceReportsPage() {
                             label={field.label}
                             options={YES_NO_OPTIONS}
                             value={row[field.key]}
-                            detailValue={row.otherDetails?.[field.key]}
+                            detailValue={getRowCustomDetail(row, field.key)}
                             onValueChange={(val) =>
                               handleUpdateRowField(row.id, field.key, val)
                             }
@@ -1721,7 +2087,7 @@ export default function SurveillanceReportsPage() {
                           label="Pitch NB"
                           options={YES_NO_OPTIONS}
                           value={row.pitchNb}
-                          detailValue={row.otherDetails?.pitchNb}
+                          detailValue={getRowCustomDetail(row, "pitchNb")}
                           onValueChange={(val) => handleUpdateRowField(row.id, "pitchNb", val)}
                           onDetailChange={(det) =>
                             handleUpdateOtherDetail(row.id, "pitchNb", det)
@@ -1732,7 +2098,7 @@ export default function SurveillanceReportsPage() {
                           label="Pitch Quality"
                           options={PITCH_QUALITY_OPTIONS}
                           value={row.pitchQuality}
-                          detailValue={row.otherDetails?.pitchQuality}
+                          detailValue={getRowCustomDetail(row, "pitchQuality")}
                           onValueChange={(val) =>
                             handleUpdateRowField(row.id, "pitchQuality", val)
                           }
@@ -1755,7 +2121,7 @@ export default function SurveillanceReportsPage() {
                             label={field.label}
                             options={YES_NO_OPTIONS}
                             value={row[field.key]}
-                            detailValue={row.otherDetails?.[field.key]}
+                            detailValue={getRowCustomDetail(row, field.key)}
                             onValueChange={(val) =>
                               handleUpdateRowField(row.id, field.key, val)
                             }
@@ -1811,7 +2177,7 @@ export default function SurveillanceReportsPage() {
                             label={field.label}
                             options={YES_NO_OPTIONS}
                             value={row[field.key]}
-                            detailValue={row.otherDetails?.[field.key]}
+                            detailValue={getRowCustomDetail(row, field.key)}
                             onValueChange={(val) =>
                               handleUpdateRowField(row.id, field.key, val)
                             }
@@ -1889,7 +2255,7 @@ export default function SurveillanceReportsPage() {
                           label="Offline"
                           options={YES_NO_OPTIONS}
                           value={row.offline}
-                          detailValue={row.otherDetails?.offline}
+                          detailValue={getRowCustomDetail(row, "offline")}
                           onValueChange={(val) => handleUpdateRowField(row.id, "offline", val)}
                           onDetailChange={(det) =>
                             handleUpdateOtherDetail(row.id, "offline", det)
@@ -2000,7 +2366,9 @@ export default function SurveillanceReportsPage() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => handleAddAuditRow(activeItem.storeName, defaultDate)}
+            onClick={() =>
+              handleAddAuditRow(activeItem.storeName, activeItem.marketName, defaultDate)
+            }
             className="gap-1.5 text-xs font-medium"
           >
             <Plus className="h-4 w-4" />
@@ -2091,7 +2459,7 @@ export default function SurveillanceReportsPage() {
                 className="gap-2 bg-primary text-primary-foreground shadow-xs font-medium text-xs h-9"
               >
                 <FileText className="h-4 w-4" />
-                Submit Report
+                Proceed to Submit
               </Button>
             ) : (
               <Button
@@ -2264,7 +2632,7 @@ export default function SurveillanceReportsPage() {
             ) : (
               <div className="py-4 text-center text-xs text-muted-foreground space-y-1">
                 <p className="font-medium text-foreground">No Surveillance Report Submitted Yet</p>
-                <p>Click "Submit Report" above to fill out and submit the surveillance audit report.</p>
+                <p>Click "Proceed to Submit" above to fill out and submit the surveillance audit report.</p>
               </div>
             )}
           </Card>

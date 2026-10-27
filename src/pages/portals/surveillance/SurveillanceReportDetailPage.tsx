@@ -52,16 +52,63 @@ function formatCellValue(val: unknown): string {
   return str;
 }
 
-function buildFallbackRowFromReport(report: SurveillanceReport): SurveillanceAuditRow {
-  const isBuyer = report.clientType === "Buyer" || report.clientType === "Billable";
+function formatSurveillanceDateCell(raw?: string): string {
+  const str = (raw || "").split(" - ")[0]?.trim() || "";
+  if (!str) return "-";
+  const months = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+  ];
+  const already = str.match(/^(\d{1,2})\s+([A-Za-z]{3}),?\s+(\d{4})$/);
+  if (already) {
+    const dd = already[1].padStart(2, "0");
+    const mmm = already[2].charAt(0).toUpperCase() + already[2].slice(1, 3).toLowerCase();
+    return `${dd} ${mmm}, ${already[3]}`;
+  }
+  const ymd = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (ymd) {
+    const mIdx = Number(ymd[2]) - 1;
+    if (mIdx >= 0 && mIdx < 12) {
+      return `${String(Number(ymd[3])).padStart(2, "0")} ${months[mIdx]}, ${ymd[1]}`;
+    }
+  }
+  const parsed = new Date(str);
+  if (!Number.isNaN(parsed.getTime())) {
+    return `${String(parsed.getDate()).padStart(2, "0")} ${months[parsed.getMonth()]}, ${parsed.getFullYear()}`;
+  }
+  return str;
+}
+
+function buildFallbackRowFromReport(
+  report: SurveillanceReport,
+  fallbackMarket?: string,
+): SurveillanceAuditRow {
+  const ctTrimmed = (report.clientType || "").trim();
+  const isCustomClient =
+    ctTrimmed.toLowerCase() === "custom" || ctTrimmed.toLowerCase() === "other";
+  const isBuyer = ctTrimmed === "Buyer" || ctTrimmed === "Billable";
   const isCash = report.paymentMode === "Cash";
   const isCard = report.paymentMode === "Card";
-  const yesNo = (v?: string) =>
-    v && v.toLowerCase() === "yes" ? "YES" : v && v.toLowerCase() === "no" ? "NO" : v || "";
+  const yesNoOrCustom = (v?: string) => {
+    if (!v) return "";
+    const low = v.trim().toLowerCase();
+    if (low === "custom" || low === "other") return "Custom";
+    if (low === "yes") return "YES";
+    if (low === "no") return "NO";
+    return v.trim();
+  };
+  const pqTrimmed = (report.pitchQuality || "").trim();
+  const normalizedPitchQuality =
+    !pqTrimmed || pqTrimmed === "Not Observed"
+      ? ""
+      : pqTrimmed.toLowerCase() === "custom" || pqTrimmed.toLowerCase() === "other"
+        ? "Custom"
+        : pqTrimmed.toUpperCase();
 
   return {
     id: `${report.id}-row-1`,
     date: report.date,
+    marketName: report.marketName || fallbackMarket || "",
     storeName: report.storeName,
     invoice: report.invoiceNo,
     cashTime: report.cashTime,
@@ -69,8 +116,10 @@ function buildFallbackRowFromReport(report: SurveillanceReport): SurveillanceAud
     bdiTime: report.bdiTime,
     salesRep: report.salesRep,
     transType: report.transType,
-    clientType: isBuyer ? "Buyer" : "Non-Buyer",
-    nb: isBuyer ? "" : "NB",
+    transTypeDetails: report.transTypeDetails || "",
+    clientType: isCustomClient ? "Custom" : isBuyer ? "Buyer" : "Non-Buyer",
+    clientTypeDetails: report.clientTypeDetails || "",
+    nb: isCustomClient || isBuyer ? "" : "NB",
     b: isBuyer ? "B" : "",
     invoiceAmount: report.invoiceAmount,
     totalTaken: report.totalTaken,
@@ -85,34 +134,52 @@ function buildFallbackRowFromReport(report: SurveillanceReport): SurveillanceAud
     cash: isCash ? report.totalTaken : "",
     card: isCard ? report.totalTaken : "",
     difference: report.difference || "$0.00",
-    receipt: yesNo(report.receipt),
-    splitPayments: yesNo(report.splitPayments),
-    fraudTransactions: yesNo(report.fraudTransactions),
+    receipt: yesNoOrCustom(report.receipt),
+    receiptDetails: report.receiptDetails || "",
+    splitPayments: yesNoOrCustom(report.splitPayments),
+    fraudTransactions: yesNoOrCustom(report.fraudTransactions),
+    fraudTransactionsDetails: report.fraudTransactionsDetails || "",
     refundInvoice:
       report.refundInvoice && report.refundInvoice.toLowerCase() !== "no"
         ? report.refundInvoice
         : "",
-    missOpportunity: yesNo(report.missOpportunity),
-    paymentFraud: yesNo(report.paymentFraud),
-    aalSwap: yesNo(report.aalSwap),
-    mim: yesNo(String(report.mim)),
+    missOpportunity: yesNoOrCustom(report.missOpportunity),
+    missOpportunityDetails: report.missOpportunityDetails || "",
+    paymentFraud: yesNoOrCustom(report.paymentFraud),
+    paymentFraudDetails: report.paymentFraudDetails || "",
+    aalSwap: yesNoOrCustom(report.aalSwap),
+    aalSwapDetails: report.aalSwapDetails || "",
+    mim: yesNoOrCustom(String(report.mim)),
+    mimDetails: report.mimDetails || "",
     notes: report.notes || "",
-    pitchNb: yesNo(report.pitchNb),
-    pitchQuality: report.pitchQuality === "Not Observed" ? "" : report.pitchQuality.toUpperCase(),
+    pitchNb: yesNoOrCustom(report.pitchNb),
+    pitchNbDetails: report.pitchNbDetails || "",
+    pitchQuality: normalizedPitchQuality,
+    pitchQualityDetails: report.pitchQualityDetails || "",
     pitchNotes: report.pitchNotes || "",
-    showingPhone: yesNo(report.showingPhone),
-    accOffered: yesNo(report.accOffered),
-    maximize: yesNo(report.maximize),
-    flipping: yesNo(report.flipping),
+    showingPhone: yesNoOrCustom(report.showingPhone),
+    showingPhoneDetails: report.showingPhoneDetails || "",
+    accOffered: yesNoOrCustom(report.accOffered),
+    accOfferedDetails: report.accOfferedDetails || "",
+    maximize: yesNoOrCustom(report.maximize),
+    maximizeDetails: report.maximizeDetails || "",
+    flipping: yesNoOrCustom(report.flipping),
+    flippingDetails: report.flippingDetails || "",
     bundleNb: report.bundleNb && report.bundleNb !== "None" ? report.bundleNb : "",
     bundleStartB: report.bundleStartB && report.bundleStartB !== "—" ? report.bundleStartB : "",
     bundleEndB: report.bundleEndB && report.bundleEndB !== "—" ? report.bundleEndB : "",
-    bundleAccGiven: yesNo(report.bundleAccGiven),
-    portIn: yesNo(report.portIn),
-    nonUp: yesNo(report.nonUp),
-    smartPayMentioned: yesNo(report.smartPayMentioned),
-    aalBillSame: yesNo(report.aalBillSame),
-    onlineRejectedPayment: yesNo(report.onlineRejectedPayment),
+    bundleAccGiven: yesNoOrCustom(report.bundleAccGiven),
+    bundleAccGivenDetails: report.bundleAccGivenDetails || "",
+    portIn: yesNoOrCustom(report.portIn),
+    portInDetails: report.portInDetails || "",
+    nonUp: yesNoOrCustom(report.nonUp),
+    nonUpDetails: report.nonUpDetails || "",
+    smartPayMentioned: yesNoOrCustom(report.smartPayMentioned),
+    smartPayMentionedDetails: report.smartPayMentionedDetails || "",
+    aalBillSame: yesNoOrCustom(report.aalBillSame),
+    aalBillSameDetails: report.aalBillSameDetails || "",
+    onlineRejectedPayment: yesNoOrCustom(report.onlineRejectedPayment),
+    onlineRejectedPaymentDetails: report.onlineRejectedPaymentDetails || "",
     nameOfRepLeaving:
       report.nameOfRepLeaving && report.nameOfRepLeaving !== "None" ? report.nameOfRepLeaving : "",
     timeLeft: report.timeLeft && report.timeLeft !== "—" ? report.timeLeft : "",
@@ -121,21 +188,76 @@ function buildFallbackRowFromReport(report: SurveillanceReport): SurveillanceAud
       report.backRoomTimeIn && report.backRoomTimeIn !== "—" ? report.backRoomTimeIn : "",
     backRoomTimeOut:
       report.backRoomTimeOut && report.backRoomTimeOut !== "—" ? report.backRoomTimeOut : "",
-    offline: yesNo(report.offline),
+    offline: yesNoOrCustom(report.offline),
+    offlineDetails: report.offlineDetails || "",
     attachments: report.attachments,
   };
 }
 
+type CustomCapableKey =
+  | "transType"
+  | "clientType"
+  | "receipt"
+  | "fraudTransactions"
+  | "missOpportunity"
+  | "paymentFraud"
+  | "aalSwap"
+  | "mim"
+  | "onlineRejectedPayment"
+  | "pitchNb"
+  | "pitchQuality"
+  | "showingPhone"
+  | "accOffered"
+  | "maximize"
+  | "flipping"
+  | "bundleAccGiven"
+  | "portIn"
+  | "nonUp"
+  | "smartPayMentioned"
+  | "aalBillSame"
+  | "offline";
+
+const CUSTOM_CAPABLE_KEYS = new Set<string>([
+  "transType",
+  "clientType",
+  "receipt",
+  "fraudTransactions",
+  "missOpportunity",
+  "paymentFraud",
+  "aalSwap",
+  "mim",
+  "onlineRejectedPayment",
+  "pitchNb",
+  "pitchQuality",
+  "showingPhone",
+  "accOffered",
+  "maximize",
+  "flipping",
+  "bundleAccGiven",
+  "portIn",
+  "nonUp",
+  "smartPayMentioned",
+  "aalBillSame",
+  "offline",
+]);
+
+type BaseAuditRowKey = Exclude<
+  keyof SurveillanceAuditRow,
+  | "id"
+  | "attachments"
+  | "rowHighlight"
+  | "otherDetails"
+  | `${CustomCapableKey}Details`
+>;
+
 interface AuditDataField {
-  key: Exclude<
-    keyof SurveillanceAuditRow,
-    "id" | "attachments" | "rowHighlight" | "otherDetails"
-  >;
+  key: BaseAuditRowKey;
   label: string;
 }
 
 const AUDIT_DATA_FIELDS: AuditDataField[] = [
-  { key: "date", label: "Date" },
+  { key: "date", label: "Surveillance Date" },
+  { key: "marketName", label: "Market" },
   { key: "storeName", label: "Store Name" },
   { key: "invoice", label: "Invoice No" },
   { key: "cashTime", label: "Cash Time" },
@@ -181,6 +303,47 @@ const AUDIT_DATA_FIELDS: AuditDataField[] = [
   { key: "backRoomTimeOut", label: "Back Room Time - Out" },
   { key: "offline", label: "Offline" },
 ];
+
+function isCustomToken(val: unknown): boolean {
+  const s = String(val ?? "").trim().toLowerCase();
+  return (
+    s === "custom" ||
+    s === "other" ||
+    s.startsWith("custom:") ||
+    s.startsWith("custom (")
+  );
+}
+
+function isFieldCustomInRow(row: SurveillanceAuditRow, key: BaseAuditRowKey): boolean {
+  if (!CUSTOM_CAPABLE_KEYS.has(key)) return false;
+  if (key === "transType") {
+    return (row.transType || "")
+      .split(/\s*\/\s*/)
+      .some((part) => isCustomToken(part));
+  }
+  return isCustomToken(row[key]);
+}
+
+function extractLegacyInlineDetail(raw: unknown): string {
+  const str = String(raw ?? "").trim();
+  const colonMatch = str.match(/^custom:\s*(.+)$/i);
+  if (colonMatch) return colonMatch[1].trim();
+  const parenMatch = str.match(/^custom\s*\((.+)\)$/i);
+  if (parenMatch) return parenMatch[1].trim();
+  return "";
+}
+
+function getRowFieldDetail(row: SurveillanceAuditRow, key: BaseAuditRowKey): string {
+  if (!CUSTOM_CAPABLE_KEYS.has(key)) return "";
+  const detailProp = `${key}Details` as keyof SurveillanceAuditRow;
+  const direct = row[detailProp];
+  if (typeof direct === "string" && direct.trim()) {
+    return direct.trim();
+  }
+  const fromMap = row.otherDetails?.[key]?.trim();
+  if (fromMap) return fromMap;
+  return extractLegacyInlineDetail(row[key]);
+}
 
 function StarRating({
   value,
@@ -297,37 +460,56 @@ export default function SurveillanceReportDetailPage() {
   // Multi-row audit dataset
   const allRows: SurveillanceAuditRow[] = useMemo(() => {
     if (!report) return [];
+    const fallbackMarket = report.marketName || linkedRequest?.marketName || "";
     if (report.rows && report.rows.length > 0) {
-      return report.rows;
+      return report.rows.map((r, idx) => {
+        const merged: SurveillanceAuditRow = {
+          ...r,
+          marketName: r.marketName || fallbackMarket,
+        };
+        if (idx === 0) {
+          for (const key of CUSTOM_CAPABLE_KEYS) {
+            const detailProp = `${key}Details` as keyof SurveillanceAuditRow;
+            const repDetail = report[detailProp as keyof SurveillanceReport];
+            if (merged[detailProp] === undefined && typeof repDetail === "string") {
+              (merged as Record<string, unknown>)[detailProp] = repDetail;
+            }
+          }
+        }
+        return merged;
+      });
     }
-    return [buildFallbackRowFromReport(report)];
-  }, [report]);
+    return [buildFallbackRowFromReport(report, fallbackMarket)];
+  }, [report, linkedRequest]);
 
   const resolveFieldDisplay = (
     row: SurveillanceAuditRow,
-    key: AuditDataField["key"],
+    key: BaseAuditRowKey,
   ): string => {
+    if (key === "date") {
+      return formatSurveillanceDateCell(row.date);
+    }
     if (key === "transType") {
       if (!row.transType || !row.transType.trim()) return "-";
       const parts = row.transType
         .split(/\s*\/\s*/)
         .map((s) => s.trim())
         .filter(Boolean);
-      const mapped = parts.map((p) => {
-        if (p === "Custom" || p === "Other") {
-          const det = row.otherDetails?.transType?.trim();
-          return det ? `Custom (${det})` : "Custom";
-        }
-        return p;
-      });
-      return mapped.join(" / ") || "-";
+      const mapped = parts
+        .map((p) => {
+          if (isCustomToken(p)) {
+            return getRowFieldDetail(row, "transType") || extractLegacyInlineDetail(p);
+          }
+          return p;
+        })
+        .filter(Boolean);
+      return mapped.length > 0 ? mapped.join(" / ") : "-";
     }
     if (key === "clientType") {
       if (row.clientType && row.clientType.trim()) {
         const ct = row.clientType.trim();
-        if (ct === "Custom" || ct === "Other") {
-          const det = row.otherDetails?.clientType?.trim();
-          return det ? `Custom (${det})` : "Custom";
+        if (isCustomToken(ct)) {
+          return formatCellValue(getRowFieldDetail(row, "clientType"));
         }
         if (ct === "Billable") return "Buyer";
         if (ct === "Non Billable") return "Non-Buyer";
@@ -340,10 +522,7 @@ export default function SurveillanceReportDetailPage() {
     if (key === "paymentType") {
       if (row.paymentType && row.paymentType.trim()) {
         const pt = row.paymentType.trim();
-        if (pt === "Custom" || pt === "Other") {
-          const det = row.otherDetails?.paymentType?.trim();
-          return det ? `Custom (${det})` : "Custom";
-        }
+        if (isCustomToken(pt)) return "-";
         return formatCellValue(pt);
       }
       if (row.card && row.card.trim() && row.cash && row.cash.trim()) return "Mix Payment";
@@ -351,26 +530,38 @@ export default function SurveillanceReportDetailPage() {
       if (row.cash && row.cash.trim()) return "Cash";
       return "-";
     }
-    const rawVal = row[key];
-    if (rawVal === "Custom" || rawVal === "Other") {
-      const detail = row.otherDetails?.[key]?.trim();
-      return detail ? `Custom (${detail})` : "Custom";
+    if (isFieldCustomInRow(row, key)) {
+      return formatCellValue(getRowFieldDetail(row, key));
     }
-    return formatCellValue(rawVal);
+    return formatCellValue(row[key]);
   };
+
+  // Dynamically swap any column where "Custom" was selected with its "<Field> Details" column
+  const activeAuditFields = useMemo(() => {
+    return AUDIT_DATA_FIELDS.map((field) => {
+      const hasCustom = allRows.some((r) => isFieldCustomInRow(r, field.key));
+      const cleanBaseLabel = field.label.replace(/\?+$/, "").trim();
+      return {
+        baseKey: field.key,
+        colKey: hasCustom ? `${field.key}Details` : field.key,
+        header: hasCustom ? `${cleanBaseLabel} Details` : field.label,
+        hasCustom,
+      };
+    });
+  }, [allRows]);
 
   // Consistent DataTable columns with uniform text color, "-" for missing values, and Attachments last column
   const columns: Column<SurveillanceAuditRow>[] = useMemo(() => {
-    const dataCols: Column<SurveillanceAuditRow>[] = AUDIT_DATA_FIELDS.map((field) => ({
-      key: field.key,
-      header: field.label,
+    const dataCols: Column<SurveillanceAuditRow>[] = activeAuditFields.map((col) => ({
+      key: col.colKey,
+      header: col.header,
       className:
-        field.key === "notes" || field.key === "pitchNotes"
-          ? "min-w-[220px] max-w-[300px] whitespace-normal text-foreground"
+        col.baseKey === "notes" || col.baseKey === "pitchNotes" || col.hasCustom
+          ? "min-w-[180px] max-w-[300px] whitespace-normal text-foreground"
           : "whitespace-nowrap text-foreground",
-      searchValue: (row) => resolveFieldDisplay(row, field.key),
+      searchValue: (row) => resolveFieldDisplay(row, col.baseKey),
       accessor: (row) => (
-        <span className="text-foreground">{resolveFieldDisplay(row, field.key)}</span>
+        <span className="text-foreground">{resolveFieldDisplay(row, col.baseKey)}</span>
       ),
     }));
 
@@ -411,18 +602,18 @@ export default function SurveillanceReportDetailPage() {
     };
 
     return [...dataCols, attachmentCol];
-  }, []);
+  }, [activeAuditFields]);
 
   const handleExportCsv = () => {
     if (!report) return;
     const headers = [
-      ...AUDIT_DATA_FIELDS.map((c) => `"${c.label.replace(/"/g, '""')}"`),
+      ...activeAuditFields.map((c) => `"${c.header.replace(/"/g, '""')}"`),
       '"Attachments"',
     ].join(",");
 
     const csvLines = allRows.map((row) => {
-      const cells = AUDIT_DATA_FIELDS.map((c) => {
-        const val = resolveFieldDisplay(row, c.key);
+      const cells = activeAuditFields.map((c) => {
+        const val = resolveFieldDisplay(row, c.baseKey);
         return `"${val.replace(/"/g, '""')}"`;
       });
       const attCell =
