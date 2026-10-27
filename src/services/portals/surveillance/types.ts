@@ -70,7 +70,7 @@ export interface SurveillanceAuditRow {
   bdiTime: string;
   salesRep: string;
   transType: string;
-  clientType?: string; // "Billable" | "Non Billable" | ""
+  clientType?: string; // "Buyer" | "Non-Buyer" | ""
   nb: string; // "NB" or ""
   b: string; // "B" or ""
   invoiceAmount: string;
@@ -79,7 +79,7 @@ export interface SurveillanceAuditRow {
   cash: string;
   card: string;
   difference: string;
-  receipt: string; // "YES", "NO", or ""
+  receipt: string; // "YES", "NO", "Other", or ""
   splitPayments: string;
   fraudTransactions: string;
   refundInvoice: string;
@@ -110,6 +110,7 @@ export interface SurveillanceAuditRow {
   backRoomTimeIn: string;
   backRoomTimeOut: string;
   offline: string;
+  otherDetails?: Record<string, string>;
   attachments?: SurveillanceAttachment[];
   rowHighlight?: "opening" | "amber" | "green" | "violation";
 }
@@ -151,42 +152,42 @@ export interface SurveillanceReport {
   bdiTime: string;
   salesRep: string;
   transType: string;
-  clientType: "Billable" | "Non Billable";
+  clientType: "Buyer" | "Non-Buyer" | "Billable" | "Non Billable";
   invoiceAmount: string;
   totalTaken: string;
   paymentMode: "Cash" | "Card" | "Split";
   difference: string;
-  receipt: "Yes" | "No";
-  splitPayments: "Yes" | "No";
-  fraudTransactions: "Yes" | "No";
+  receipt: "Yes" | "No" | string;
+  splitPayments: "Yes" | "No" | string;
+  fraudTransactions: "Yes" | "No" | string;
   refundInvoice: "Yes" | "No" | string;
-  missOpportunity: "Yes" | "No";
-  paymentFraud: "Yes" | "No";
-  aalSwap: "Yes" | "No";
+  missOpportunity: "Yes" | "No" | string;
+  paymentFraud: "Yes" | "No" | string;
+  aalSwap: "Yes" | "No" | string;
   mim: "Yes" | "No" | string;
   notes: string;
   pitchNb: string;
   pitchQuality: "Good" | "Fair" | "Poor" | "Not Observed" | "AVG" | string;
   pitchNotes: string;
-  showingPhone: "Yes" | "No";
-  accOffered: "Yes" | "No";
-  maximize: "Yes" | "No";
-  flipping: "Yes" | "No";
+  showingPhone: "Yes" | "No" | string;
+  accOffered: "Yes" | "No" | string;
+  maximize: "Yes" | "No" | string;
+  flipping: "Yes" | "No" | string;
   bundleNb: string;
   bundleStartB: string;
   bundleEndB: string;
-  bundleAccGiven: "Yes" | "No";
-  portIn: "Yes" | "No";
-  nonUp: "Yes" | "No";
-  smartPayMentioned: "Yes" | "No";
-  aalBillSame: "Yes" | "No";
-  onlineRejectedPayment: "Yes" | "No";
+  bundleAccGiven: "Yes" | "No" | string;
+  portIn: "Yes" | "No" | string;
+  nonUp: "Yes" | "No" | string;
+  smartPayMentioned: "Yes" | "No" | string;
+  aalBillSame: "Yes" | "No" | string;
+  onlineRejectedPayment: "Yes" | "No" | string;
   nameOfRepLeaving: string;
   timeLeft: string;
   timeReturned: string;
   backRoomTimeIn: string;
   backRoomTimeOut: string;
-  offline: "Yes" | "No";
+  offline: "Yes" | "No" | string;
 
   // Optional video observations & attachments
   attachments?: SurveillanceAttachment[];
@@ -224,42 +225,42 @@ export interface CreateSurveillanceReportPayload {
   bdiTime: string;
   salesRep: string;
   transType: string;
-  clientType: "Billable" | "Non Billable";
+  clientType: "Buyer" | "Non-Buyer" | "Billable" | "Non Billable";
   invoiceAmount: string;
   totalTaken: string;
   paymentMode: "Cash" | "Card" | "Split";
   difference: string;
-  receipt: "Yes" | "No";
-  splitPayments: "Yes" | "No";
-  fraudTransactions: "Yes" | "No";
+  receipt: "Yes" | "No" | string;
+  splitPayments: "Yes" | "No" | string;
+  fraudTransactions: "Yes" | "No" | string;
   refundInvoice: "Yes" | "No" | string;
-  missOpportunity: "Yes" | "No";
-  paymentFraud: "Yes" | "No";
-  aalSwap: "Yes" | "No";
+  missOpportunity: "Yes" | "No" | string;
+  paymentFraud: "Yes" | "No" | string;
+  aalSwap: "Yes" | "No" | string;
   mim: "Yes" | "No" | string;
   notes: string;
   pitchNb: string;
   pitchQuality: "Good" | "Fair" | "Poor" | "Not Observed" | "AVG" | string;
   pitchNotes: string;
-  showingPhone: "Yes" | "No";
-  accOffered: "Yes" | "No";
-  maximize: "Yes" | "No";
-  flipping: "Yes" | "No";
+  showingPhone: "Yes" | "No" | string;
+  accOffered: "Yes" | "No" | string;
+  maximize: "Yes" | "No" | string;
+  flipping: "Yes" | "No" | string;
   bundleNb: string;
   bundleStartB: string;
   bundleEndB: string;
-  bundleAccGiven: "Yes" | "No";
-  portIn: "Yes" | "No";
-  nonUp: "Yes" | "No";
-  smartPayMentioned: "Yes" | "No";
-  aalBillSame: "Yes" | "No";
-  onlineRejectedPayment: "Yes" | "No";
+  bundleAccGiven: "Yes" | "No" | string;
+  portIn: "Yes" | "No" | string;
+  nonUp: "Yes" | "No" | string;
+  smartPayMentioned: "Yes" | "No" | string;
+  aalBillSame: "Yes" | "No" | string;
+  onlineRejectedPayment: "Yes" | "No" | string;
   nameOfRepLeaving: string;
   timeLeft: string;
   timeReturned: string;
   backRoomTimeIn: string;
   backRoomTimeOut: string;
-  offline: "Yes" | "No";
+  offline: "Yes" | "No" | string;
   attachments?: SurveillanceAttachment[];
 }
 

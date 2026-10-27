@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -120,7 +121,201 @@ const YES_NO_OPTIONS = [
   { value: "__empty__", label: "-" },
   { value: "YES", label: "YES" },
   { value: "NO", label: "NO" },
+  { value: "Other", label: "Other" },
 ];
+
+type YesNoFieldKey =
+  | "receipt"
+  | "fraudTransactions"
+  | "missOpportunity"
+  | "paymentFraud"
+  | "aalSwap"
+  | "mim"
+  | "onlineRejectedPayment"
+  | "pitchNb"
+  | "showingPhone"
+  | "accOffered"
+  | "maximize"
+  | "flipping"
+  | "bundleAccGiven"
+  | "portIn"
+  | "nonUp"
+  | "smartPayMentioned"
+  | "aalBillSame"
+  | "offline";
+
+function normalizeClientType(raw: string | undefined, b?: string, nb?: string): string {
+  const trimmed = (raw || "").trim();
+  if (trimmed === "Buyer" || trimmed === "Billable") return "Buyer";
+  if (trimmed === "Non-Buyer" || trimmed === "Non Billable") return "Non-Buyer";
+  if (b?.trim().toUpperCase() === "B") return "Buyer";
+  if (nb?.trim().toUpperCase() === "NB") return "Non-Buyer";
+  return "";
+}
+
+function TransactionTypeMultiSelect({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: string[];
+  onChange: (nextVal: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const selectedList = useMemo(
+    () =>
+      (value || "")
+        .split(/\s*\/\s*/)
+        .map((s) => s.trim())
+        .filter(Boolean),
+    [value],
+  );
+
+  const allChoices = useMemo(() => {
+    const extras = selectedList.filter((item) => !options.includes(item));
+    return [...extras, ...options];
+  }, [options, selectedList]);
+
+  const toggleOption = (opt: string) => {
+    const exists = selectedList.includes(opt);
+    const next = exists
+      ? selectedList.filter((item) => item !== opt)
+      : [...selectedList, opt];
+    onChange(next.join(" / "));
+  };
+
+  const displayString = selectedList.join(" / ");
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          title={displayString || "-"}
+          className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-xs transition-colors hover:bg-accent/40 focus:outline-none focus:ring-1 focus:ring-ring"
+        >
+          <span
+            className={`truncate text-left ${
+              displayString ? "text-foreground" : "text-muted-foreground"
+            }`}
+          >
+            {displayString || "-"}
+          </span>
+          {displayString ? (
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.stopPropagation();
+                  onChange("");
+                }
+              }}
+              className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground shrink-0"
+              title="Clear selection"
+            >
+              <X className="h-3 w-3" />
+            </span>
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-50" />
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-[--radix-popover-trigger-width] min-w-[220px] p-1.5"
+      >
+        <div className="max-h-64 overflow-y-auto space-y-0.5">
+          <button
+            type="button"
+            onClick={() => {
+              onChange("");
+              setOpen(false);
+            }}
+            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <span>- (Clear Selection)</span>
+          </button>
+          {allChoices.map((opt) => {
+            const checked = selectedList.includes(opt);
+            return (
+              <label
+                key={opt}
+                className="flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs text-foreground hover:bg-accent"
+              >
+                <Checkbox
+                  checked={checked}
+                  onCheckedChange={() => toggleOption(opt)}
+                />
+                <span className="flex-1 truncate">{opt}</span>
+              </label>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function YesNoOtherField({
+  label,
+  value,
+  detailValue,
+  onValueChange,
+  onDetailChange,
+  detailSpanClass = "col-span-2",
+}: {
+  label: string;
+  value: string | undefined;
+  detailValue: string | undefined;
+  onValueChange: (val: string) => void;
+  onDetailChange: (detail: string) => void;
+  detailSpanClass?: string;
+}) {
+  const cleanLabel = label.replace(/\?+$/, "").trim();
+  const detailLabel = `${cleanLabel} Details`;
+  const selectVal = !value || !value.trim() ? "__empty__" : value;
+  const isOther = value === "Other";
+
+  return (
+    <>
+      <div className="space-y-1">
+        <Label className="text-[11px] font-semibold">{label}</Label>
+        <Select
+          value={selectVal}
+          onValueChange={(v) => onValueChange(v === "__empty__" ? "" : v)}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {YES_NO_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      {isOther && (
+        <div className={`space-y-1 ${detailSpanClass}`}>
+          <Label className="text-[11px] font-semibold">{detailLabel}</Label>
+          <Input
+            value={detailValue || ""}
+            onChange={(e) => onDetailChange(e.target.value)}
+            placeholder={`Enter ${detailLabel.toLowerCase()}...`}
+          />
+        </div>
+      )}
+    </>
+  );
+}
 
 function parseCurrencyNumber(raw: string | undefined): { valid: boolean; value: number } {
   if (!raw || !raw.trim()) return { valid: false, value: 0 };
@@ -405,6 +600,7 @@ function createEmptyAuditRow(storeName: string, defaultDate?: string): Surveilla
     backRoomTimeIn: "",
     backRoomTimeOut: "",
     offline: "",
+    otherDetails: {},
     attachments: [],
   };
 }
@@ -492,6 +688,8 @@ export default function SurveillanceReportsPage() {
 
     const restoredRows = savedRecords.map((rec) => ({
       ...rec.row,
+      clientType: normalizeClientType(rec.row.clientType, rec.row.b, rec.row.nb),
+      otherDetails: rec.row.otherDetails ? { ...rec.row.otherDetails } : {},
       attachments: rec.row.attachments ? [...rec.row.attachments] : [],
     }));
     const timestamps: Record<string, string> = {};
@@ -527,6 +725,8 @@ export default function SurveillanceReportsPage() {
     if (savedRecords.length > 0) {
       const restoredRows = savedRecords.map((rec) => ({
         ...rec.row,
+        clientType: normalizeClientType(rec.row.clientType, rec.row.b, rec.row.nb),
+        otherDetails: rec.row.otherDetails ? { ...rec.row.otherDetails } : {},
         attachments: rec.row.attachments ? [...rec.row.attachments] : [],
       }));
       const timestamps: Record<string, string> = {};
@@ -563,13 +763,7 @@ export default function SurveillanceReportsPage() {
     if (existingReport && existingReport.rows && existingReport.rows.length > 0) {
       const cloned = existingReport.rows.map((r) => ({
         ...r,
-        clientType:
-          r.clientType ||
-          (r.b?.trim().toUpperCase() === "B"
-            ? "Billable"
-            : r.nb?.trim().toUpperCase() === "NB"
-              ? "Non Billable"
-              : ""),
+        clientType: normalizeClientType(r.clientType, r.b, r.nb),
         paymentType:
           r.paymentType ||
           (r.card?.trim() && r.cash?.trim()
@@ -580,6 +774,7 @@ export default function SurveillanceReportsPage() {
                 ? "Cash"
                 : ""),
         difference: calculateDifferenceDisplay(r.invoiceAmount, r.totalTaken),
+        otherDetails: r.otherDetails ? { ...r.otherDetails } : {},
         attachments: r.attachments ? [...r.attachments] : [],
       }));
       setEditableRows(cloned);
@@ -629,11 +824,23 @@ export default function SurveillanceReportsPage() {
 
         const updated: SurveillanceAuditRow = { ...row, [field]: value };
 
-        // Keep nb / b synchronized with merged Client Type dropdown
+        // Keep nb / b synchronized with Client Type dropdown
         if (field === "clientType") {
           const ct = String(value || "");
-          updated.b = ct === "Billable" ? "B" : "";
-          updated.nb = ct === "Non Billable" ? "NB" : "";
+          updated.b = ct === "Buyer" || ct === "Billable" ? "B" : "";
+          updated.nb = ct === "Non-Buyer" || ct === "Non Billable" ? "NB" : "";
+        }
+
+        // Clear custom Other detail text if a Yes/No/Other dropdown is changed away from "Other"
+        if (
+          updated.otherDetails &&
+          typeof field === "string" &&
+          field in updated.otherDetails &&
+          value !== "Other"
+        ) {
+          const nextDetails = { ...updated.otherDetails };
+          delete nextDetails[field];
+          updated.otherDetails = nextDetails;
         }
 
         // Keep card / cash synchronized with Payment Type dropdown
@@ -674,6 +881,26 @@ export default function SurveillanceReportsPage() {
         }
 
         return updated;
+      }),
+    );
+  };
+
+  const handleUpdateOtherDetail = (
+    rowId: string,
+    fieldKey: YesNoFieldKey,
+    detailText: string,
+  ) => {
+    setDirtyRowIds((prev) => ({ ...prev, [rowId]: true }));
+    setEditableRows((prev) =>
+      prev.map((row) => {
+        if (row.id !== rowId) return row;
+        return {
+          ...row,
+          otherDetails: {
+            ...(row.otherDetails || {}),
+            [fieldKey]: detailText,
+          },
+        };
       }),
     );
   };
@@ -778,8 +1005,14 @@ export default function SurveillanceReportsPage() {
     setIsSubmitting(true);
 
     const primaryRow = editableRows[0];
-    const yesOrNo = (val: string): "Yes" | "No" =>
-      val.trim().toUpperCase() === "YES" ? "Yes" : "No";
+    const resolveYesNoOrOther = (val: string, fieldKey: YesNoFieldKey): string => {
+      const trimmed = (val || "").trim();
+      if (trimmed === "Other") {
+        const detail = primaryRow.otherDetails?.[fieldKey]?.trim();
+        return detail ? `Other: ${detail}` : "Other";
+      }
+      return trimmed.toUpperCase() === "YES" ? "Yes" : "No";
+    };
 
     const combinedAttachments = editableRows.flatMap((r) => r.attachments || []);
 
@@ -787,6 +1020,10 @@ export default function SurveillanceReportsPage() {
       requestId: reqItem.id,
       rows: editableRows.map((r) => ({
         ...r,
+        otherDetails:
+          r.otherDetails && Object.keys(r.otherDetails).length > 0
+            ? r.otherDetails
+            : undefined,
         attachments: r.attachments && r.attachments.length > 0 ? r.attachments : undefined,
       })),
       date: primaryRow.date || new Date().toISOString().split("T")[0],
@@ -803,9 +1040,10 @@ export default function SurveillanceReportsPage() {
         editableRows.length > 1
           ? `Shift Audit (${editableRows.length} Entries)`
           : primaryRow.transType || "Audit Entry",
-      clientType: (primaryRow.clientType === "Non Billable" ? "Non Billable" : "Billable") as
-        | "Billable"
-        | "Non Billable",
+      clientType: (primaryRow.clientType === "Non-Buyer" ||
+      primaryRow.clientType === "Non Billable"
+        ? "Non-Buyer"
+        : "Buyer") as "Buyer" | "Non-Buyer",
       invoiceAmount: primaryRow.invoiceAmount || "$0.00",
       totalTaken: primaryRow.totalTaken || "$0.00",
       paymentMode: (primaryRow.paymentType === "Mix Payment"
@@ -814,38 +1052,40 @@ export default function SurveillanceReportsPage() {
           ? "Cash"
           : "Card") as "Cash" | "Card" | "Split",
       difference: calculateDifferenceDisplay(primaryRow.invoiceAmount, primaryRow.totalTaken),
-      receipt: yesOrNo(primaryRow.receipt),
-      splitPayments:
-        primaryRow.paymentType === "Mix Payment" ? "Yes" : yesOrNo(primaryRow.splitPayments),
-      fraudTransactions: yesOrNo(primaryRow.fraudTransactions),
+      receipt: resolveYesNoOrOther(primaryRow.receipt, "receipt"),
+      splitPayments: primaryRow.paymentType === "Mix Payment" ? "Yes" : "No",
+      fraudTransactions: resolveYesNoOrOther(primaryRow.fraudTransactions, "fraudTransactions"),
       refundInvoice: primaryRow.refundInvoice?.trim() || "No",
-      missOpportunity: yesOrNo(primaryRow.missOpportunity),
-      paymentFraud: yesOrNo(primaryRow.paymentFraud),
-      aalSwap: yesOrNo(primaryRow.aalSwap),
-      mim: yesOrNo(primaryRow.mim),
+      missOpportunity: resolveYesNoOrOther(primaryRow.missOpportunity, "missOpportunity"),
+      paymentFraud: resolveYesNoOrOther(primaryRow.paymentFraud, "paymentFraud"),
+      aalSwap: resolveYesNoOrOther(primaryRow.aalSwap, "aalSwap"),
+      mim: resolveYesNoOrOther(primaryRow.mim, "mim"),
       notes: primaryRow.notes,
-      pitchNb: primaryRow.pitchNb,
+      pitchNb: resolveYesNoOrOther(primaryRow.pitchNb, "pitchNb"),
       pitchQuality: primaryRow.pitchQuality || "Not Observed",
       pitchNotes: primaryRow.pitchNotes,
-      showingPhone: yesOrNo(primaryRow.showingPhone),
-      accOffered: yesOrNo(primaryRow.accOffered),
-      maximize: yesOrNo(primaryRow.maximize),
-      flipping: yesOrNo(primaryRow.flipping),
+      showingPhone: resolveYesNoOrOther(primaryRow.showingPhone, "showingPhone"),
+      accOffered: resolveYesNoOrOther(primaryRow.accOffered, "accOffered"),
+      maximize: resolveYesNoOrOther(primaryRow.maximize, "maximize"),
+      flipping: resolveYesNoOrOther(primaryRow.flipping, "flipping"),
       bundleNb: primaryRow.bundleNb,
       bundleStartB: primaryRow.bundleStartB,
       bundleEndB: primaryRow.bundleEndB,
-      bundleAccGiven: yesOrNo(primaryRow.bundleAccGiven),
-      portIn: yesOrNo(primaryRow.portIn),
-      nonUp: yesOrNo(primaryRow.nonUp),
-      smartPayMentioned: yesOrNo(primaryRow.smartPayMentioned),
-      aalBillSame: yesOrNo(primaryRow.aalBillSame),
-      onlineRejectedPayment: yesOrNo(primaryRow.onlineRejectedPayment),
+      bundleAccGiven: resolveYesNoOrOther(primaryRow.bundleAccGiven, "bundleAccGiven"),
+      portIn: resolveYesNoOrOther(primaryRow.portIn, "portIn"),
+      nonUp: resolveYesNoOrOther(primaryRow.nonUp, "nonUp"),
+      smartPayMentioned: resolveYesNoOrOther(primaryRow.smartPayMentioned, "smartPayMentioned"),
+      aalBillSame: resolveYesNoOrOther(primaryRow.aalBillSame, "aalBillSame"),
+      onlineRejectedPayment: resolveYesNoOrOther(
+        primaryRow.onlineRejectedPayment,
+        "onlineRejectedPayment",
+      ),
       nameOfRepLeaving: primaryRow.nameOfRepLeaving,
       timeLeft: primaryRow.timeLeft,
       timeReturned: primaryRow.timeReturned,
       backRoomTimeIn: primaryRow.backRoomTimeIn,
       backRoomTimeOut: primaryRow.backRoomTimeOut,
-      offline: yesOrNo(primaryRow.offline),
+      offline: resolveYesNoOrOther(primaryRow.offline, "offline"),
       attachments: combinedAttachments.length > 0 ? combinedAttachments : undefined,
     };
 
@@ -1020,10 +1260,6 @@ export default function SurveillanceReportsPage() {
               row.salesRep && !SALES_REP_NAMES.includes(row.salesRep)
                 ? [row.salesRep, ...SALES_REP_NAMES]
                 : SALES_REP_NAMES;
-            const transTypeChoices =
-              row.transType && !TRANSACTION_TYPE_OPTIONS.includes(row.transType)
-                ? [row.transType, ...TRANSACTION_TYPE_OPTIONS]
-                : TRANSACTION_TYPE_OPTIONS;
             const computedDifference = calculateDifferenceDisplay(
               row.invoiceAmount,
               row.totalTaken,
@@ -1170,30 +1406,21 @@ export default function SurveillanceReportsPage() {
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Transaction Type</Label>
-                          <Select
-                            value={toSelectVal(row.transType)}
-                            onValueChange={(v) =>
-                              handleUpdateRowField(row.id, "transType", fromSelectVal(v))
+                          <TransactionTypeMultiSelect
+                            value={row.transType}
+                            options={TRANSACTION_TYPE_OPTIONS}
+                            onChange={(nextVal) =>
+                              handleUpdateRowField(row.id, "transType", nextVal)
                             }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__empty__">-</SelectItem>
-                              {transTypeChoices.map((opt) => (
-                                <SelectItem key={opt} value={opt}>
-                                  {opt}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          />
                         </div>
 
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Client Type</Label>
                           <Select
-                            value={toSelectVal(row.clientType)}
+                            value={toSelectVal(
+                              normalizeClientType(row.clientType, row.b, row.nb),
+                            )}
                             onValueChange={(v) =>
                               handleUpdateRowField(row.id, "clientType", fromSelectVal(v))
                             }
@@ -1203,8 +1430,8 @@ export default function SurveillanceReportsPage() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="__empty__">-</SelectItem>
-                              <SelectItem value="Billable">Billable</SelectItem>
-                              <SelectItem value="Non Billable">Non Billable</SelectItem>
+                              <SelectItem value="Buyer">Buyer</SelectItem>
+                              <SelectItem value="Non-Buyer">Non-Buyer</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -1234,8 +1461,8 @@ export default function SurveillanceReportsPage() {
                           <Input
                             value={computedDifference}
                             readOnly
-                            disabled
-                            className="bg-muted/50 font-semibold text-foreground cursor-not-allowed opacity-100"
+                            tabIndex={-1}
+                            className="bg-muted/30 font-semibold text-foreground cursor-default select-none focus-visible:ring-0"
                             placeholder="$0.00"
                           />
                         </div>
@@ -1296,47 +1523,16 @@ export default function SurveillanceReportsPage() {
                           />
                         </div>
 
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Receipt</Label>
-                          <Select
-                            value={toSelectVal(row.receipt)}
-                            onValueChange={(v) =>
-                              handleUpdateRowField(row.id, "receipt", fromSelectVal(v))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {YES_NO_OPTIONS.map((opt) => (
-                                <SelectItem key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Split Payments</Label>
-                          <Select
-                            value={toSelectVal(row.splitPayments)}
-                            onValueChange={(v) =>
-                              handleUpdateRowField(row.id, "splitPayments", fromSelectVal(v))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {YES_NO_OPTIONS.map((opt) => (
-                                <SelectItem key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        <YesNoOtherField
+                          label="Receipt"
+                          value={row.receipt}
+                          detailValue={row.otherDetails?.receipt}
+                          onValueChange={(val) => handleUpdateRowField(row.id, "receipt", val)}
+                          onDetailChange={(det) =>
+                            handleUpdateOtherDetail(row.id, "receipt", det)
+                          }
+                          detailSpanClass="col-span-1 sm:col-span-2"
+                        />
                       </div>
                     </div>
 
@@ -1358,26 +1554,19 @@ export default function SurveillanceReportsPage() {
                             { key: "onlineRejectedPayment", label: "Online/Rejected Payment" },
                           ] as const
                         ).map((field) => (
-                          <div key={field.key} className="space-y-1">
-                            <Label className="text-[11px] font-semibold">{field.label}</Label>
-                            <Select
-                              value={toSelectVal(row[field.key])}
-                              onValueChange={(v) =>
-                                handleUpdateRowField(row.id, field.key, fromSelectVal(v))
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {YES_NO_OPTIONS.map((opt) => (
-                                  <SelectItem key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                          <YesNoOtherField
+                            key={field.key}
+                            label={field.label}
+                            value={row[field.key]}
+                            detailValue={row.otherDetails?.[field.key]}
+                            onValueChange={(val) =>
+                              handleUpdateRowField(row.id, field.key, val)
+                            }
+                            onDetailChange={(det) =>
+                              handleUpdateOtherDetail(row.id, field.key, det)
+                            }
+                            detailSpanClass="col-span-2"
+                          />
                         ))}
                       </div>
 
@@ -1400,26 +1589,16 @@ export default function SurveillanceReportsPage() {
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Pitch NB</Label>
-                          <Select
-                            value={toSelectVal(row.pitchNb)}
-                            onValueChange={(v) =>
-                              handleUpdateRowField(row.id, "pitchNb", fromSelectVal(v))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {YES_NO_OPTIONS.map((opt) => (
-                                <SelectItem key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        <YesNoOtherField
+                          label="Pitch NB"
+                          value={row.pitchNb}
+                          detailValue={row.otherDetails?.pitchNb}
+                          onValueChange={(val) => handleUpdateRowField(row.id, "pitchNb", val)}
+                          onDetailChange={(det) =>
+                            handleUpdateOtherDetail(row.id, "pitchNb", det)
+                          }
+                          detailSpanClass="col-span-2"
+                        />
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Pitch Quality</Label>
                           <Select
@@ -1449,26 +1628,19 @@ export default function SurveillanceReportsPage() {
                             { key: "flipping", label: "Flipping" },
                           ] as const
                         ).map((field) => (
-                          <div key={field.key} className="space-y-1">
-                            <Label className="text-[11px] font-semibold">{field.label}</Label>
-                            <Select
-                              value={toSelectVal(row[field.key])}
-                              onValueChange={(v) =>
-                                handleUpdateRowField(row.id, field.key, fromSelectVal(v))
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {YES_NO_OPTIONS.map((opt) => (
-                                  <SelectItem key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                          <YesNoOtherField
+                            key={field.key}
+                            label={field.label}
+                            value={row[field.key]}
+                            detailValue={row.otherDetails?.[field.key]}
+                            onValueChange={(val) =>
+                              handleUpdateRowField(row.id, field.key, val)
+                            }
+                            onDetailChange={(det) =>
+                              handleUpdateOtherDetail(row.id, field.key, det)
+                            }
+                            detailSpanClass="col-span-2"
+                          />
                         ))}
 
                         <div className="space-y-1">
@@ -1511,26 +1683,19 @@ export default function SurveillanceReportsPage() {
                             { key: "aalBillSame", label: "AAL Bill Same" },
                           ] as const
                         ).map((field) => (
-                          <div key={field.key} className="space-y-1">
-                            <Label className="text-[11px] font-semibold">{field.label}</Label>
-                            <Select
-                              value={toSelectVal(row[field.key])}
-                              onValueChange={(v) =>
-                                handleUpdateRowField(row.id, field.key, fromSelectVal(v))
-                              }
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {YES_NO_OPTIONS.map((opt) => (
-                                  <SelectItem key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
+                          <YesNoOtherField
+                            key={field.key}
+                            label={field.label}
+                            value={row[field.key]}
+                            detailValue={row.otherDetails?.[field.key]}
+                            onValueChange={(val) =>
+                              handleUpdateRowField(row.id, field.key, val)
+                            }
+                            onDetailChange={(det) =>
+                              handleUpdateOtherDetail(row.id, field.key, det)
+                            }
+                            detailSpanClass="col-span-2"
+                          />
                         ))}
                       </div>
 
@@ -1596,26 +1761,16 @@ export default function SurveillanceReportsPage() {
                             }
                           />
                         </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Offline</Label>
-                          <Select
-                            value={toSelectVal(row.offline)}
-                            onValueChange={(v) =>
-                              handleUpdateRowField(row.id, "offline", fromSelectVal(v))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {YES_NO_OPTIONS.map((opt) => (
-                                <SelectItem key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
+                        <YesNoOtherField
+                          label="Offline"
+                          value={row.offline}
+                          detailValue={row.otherDetails?.offline}
+                          onValueChange={(val) => handleUpdateRowField(row.id, "offline", val)}
+                          onDetailChange={(det) =>
+                            handleUpdateOtherDetail(row.id, "offline", det)
+                          }
+                          detailSpanClass="col-span-2 sm:col-span-3"
+                        />
                       </div>
                     </div>
 

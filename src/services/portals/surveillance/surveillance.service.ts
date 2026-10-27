@@ -42,6 +42,7 @@ export class SurveillanceService {
       requestId,
       row: {
         ...row,
+        otherDetails: row.otherDetails ? { ...row.otherDetails } : undefined,
         attachments: row.attachments ? [...row.attachments] : undefined,
       },
       rowOrder,

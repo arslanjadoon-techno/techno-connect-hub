@@ -53,7 +53,7 @@ function formatCellValue(val: unknown): string {
 }
 
 function buildFallbackRowFromReport(report: SurveillanceReport): SurveillanceAuditRow {
-  const isBillable = report.clientType === "Billable";
+  const isBuyer = report.clientType === "Buyer" || report.clientType === "Billable";
   const isCash = report.paymentMode === "Cash";
   const isCard = report.paymentMode === "Card";
   const yesNo = (v?: string) =>
@@ -69,9 +69,9 @@ function buildFallbackRowFromReport(report: SurveillanceReport): SurveillanceAud
     bdiTime: report.bdiTime,
     salesRep: report.salesRep,
     transType: report.transType,
-    clientType: report.clientType,
-    nb: isBillable ? "" : "NB",
-    b: isBillable ? "B" : "",
+    clientType: isBuyer ? "Buyer" : "Non-Buyer",
+    nb: isBuyer ? "" : "NB",
+    b: isBuyer ? "B" : "",
     invoiceAmount: report.invoiceAmount,
     totalTaken: report.totalTaken,
     paymentType:
@@ -87,32 +87,32 @@ function buildFallbackRowFromReport(report: SurveillanceReport): SurveillanceAud
     difference: report.difference || "$0.00",
     receipt: yesNo(report.receipt),
     splitPayments: yesNo(report.splitPayments),
-    fraudTransactions: yesNo(report.fraudTransactions) === "YES" ? "YES" : "",
+    fraudTransactions: yesNo(report.fraudTransactions),
     refundInvoice:
       report.refundInvoice && report.refundInvoice.toLowerCase() !== "no"
         ? report.refundInvoice
         : "",
-    missOpportunity: yesNo(report.missOpportunity) === "YES" ? "YES" : "",
-    paymentFraud: yesNo(report.paymentFraud) === "YES" ? "YES" : "",
-    aalSwap: yesNo(report.aalSwap) === "YES" ? "YES" : "",
-    mim: yesNo(String(report.mim)) === "YES" ? "YES" : "",
+    missOpportunity: yesNo(report.missOpportunity),
+    paymentFraud: yesNo(report.paymentFraud),
+    aalSwap: yesNo(report.aalSwap),
+    mim: yesNo(String(report.mim)),
     notes: report.notes || "",
-    pitchNb: yesNo(report.pitchNb) === "YES" ? "YES" : report.pitchNb || "",
+    pitchNb: yesNo(report.pitchNb),
     pitchQuality: report.pitchQuality === "Not Observed" ? "" : report.pitchQuality.toUpperCase(),
     pitchNotes: report.pitchNotes || "",
-    showingPhone: yesNo(report.showingPhone) === "YES" ? "YES" : "",
-    accOffered: yesNo(report.accOffered) === "YES" ? "YES" : "",
-    maximize: yesNo(report.maximize) === "YES" ? "YES" : "",
-    flipping: yesNo(report.flipping) === "YES" ? "YES" : "",
+    showingPhone: yesNo(report.showingPhone),
+    accOffered: yesNo(report.accOffered),
+    maximize: yesNo(report.maximize),
+    flipping: yesNo(report.flipping),
     bundleNb: report.bundleNb && report.bundleNb !== "None" ? report.bundleNb : "",
     bundleStartB: report.bundleStartB && report.bundleStartB !== "—" ? report.bundleStartB : "",
     bundleEndB: report.bundleEndB && report.bundleEndB !== "—" ? report.bundleEndB : "",
-    bundleAccGiven: yesNo(report.bundleAccGiven) === "YES" ? "YES" : "",
-    portIn: yesNo(report.portIn) === "YES" ? "YES" : "",
-    nonUp: yesNo(report.nonUp) === "YES" ? "YES" : "",
-    smartPayMentioned: yesNo(report.smartPayMentioned) === "YES" ? "YES" : "",
-    aalBillSame: yesNo(report.aalBillSame) === "YES" ? "YES" : "",
-    onlineRejectedPayment: yesNo(report.onlineRejectedPayment) === "YES" ? "YES" : "",
+    bundleAccGiven: yesNo(report.bundleAccGiven),
+    portIn: yesNo(report.portIn),
+    nonUp: yesNo(report.nonUp),
+    smartPayMentioned: yesNo(report.smartPayMentioned),
+    aalBillSame: yesNo(report.aalBillSame),
+    onlineRejectedPayment: yesNo(report.onlineRejectedPayment),
     nameOfRepLeaving:
       report.nameOfRepLeaving && report.nameOfRepLeaving !== "None" ? report.nameOfRepLeaving : "",
     timeLeft: report.timeLeft && report.timeLeft !== "—" ? report.timeLeft : "",
@@ -121,13 +121,16 @@ function buildFallbackRowFromReport(report: SurveillanceReport): SurveillanceAud
       report.backRoomTimeIn && report.backRoomTimeIn !== "—" ? report.backRoomTimeIn : "",
     backRoomTimeOut:
       report.backRoomTimeOut && report.backRoomTimeOut !== "—" ? report.backRoomTimeOut : "",
-    offline: yesNo(report.offline) === "YES" ? "YES" : "",
+    offline: yesNo(report.offline),
     attachments: report.attachments,
   };
 }
 
 interface AuditDataField {
-  key: Exclude<keyof SurveillanceAuditRow, "id" | "attachments" | "rowHighlight">;
+  key: Exclude<
+    keyof SurveillanceAuditRow,
+    "id" | "attachments" | "rowHighlight" | "otherDetails"
+  >;
   label: string;
 }
 
@@ -149,7 +152,6 @@ const AUDIT_DATA_FIELDS: AuditDataField[] = [
   { key: "card", label: "Card Payment" },
   { key: "refundInvoice", label: "Refund Invoice" },
   { key: "receipt", label: "Receipt" },
-  { key: "splitPayments", label: "Split Payments" },
   { key: "fraudTransactions", label: "Fraud Transactions" },
   { key: "missOpportunity", label: "Miss Opportunity" },
   { key: "paymentFraud", label: "Payment fraud" },
@@ -306,9 +308,14 @@ export default function SurveillanceReportDetailPage() {
     key: AuditDataField["key"],
   ): string => {
     if (key === "clientType") {
-      if (row.clientType && row.clientType.trim()) return formatCellValue(row.clientType);
-      if (row.b?.trim().toUpperCase() === "B") return "Billable";
-      if (row.nb?.trim().toUpperCase() === "NB") return "Non Billable";
+      if (row.clientType && row.clientType.trim()) {
+        const ct = row.clientType.trim();
+        if (ct === "Billable") return "Buyer";
+        if (ct === "Non Billable") return "Non-Buyer";
+        return formatCellValue(ct);
+      }
+      if (row.b?.trim().toUpperCase() === "B") return "Buyer";
+      if (row.nb?.trim().toUpperCase() === "NB") return "Non-Buyer";
       return "-";
     }
     if (key === "paymentType") {
@@ -318,7 +325,12 @@ export default function SurveillanceReportDetailPage() {
       if (row.cash && row.cash.trim()) return "Cash";
       return "-";
     }
-    return formatCellValue(row[key]);
+    const rawVal = row[key];
+    if (rawVal === "Other") {
+      const detail = row.otherDetails?.[key]?.trim();
+      return detail ? `Other (${detail})` : "Other";
+    }
+    return formatCellValue(rawVal);
   };
 
   // Consistent DataTable columns with uniform text color, "-" for missing values, and Attachments last column
