@@ -8,11 +8,27 @@ import type {
   ActiveSurveillanceDraftSession,
   CreateSurveillanceRequestPayload,
   CreateSurveillanceReportPayload,
+  SurveillanceAssignableAgent,
+  SurveillanceValidationItem,
+  ValidateAndAssignPayload,
+  RejectValidationPayload,
 } from "./types";
+import {
+  DUMMY_SURVEILLANCE_AGENTS,
+  INITIAL_VALIDATION_REQUESTS,
+} from "@/pages/portals/surveillance/surveillance-data";
 
 const surveillanceDraftMMKV = new MMKV({
   id: "surveillance-audit-drafts",
 });
+
+// In-memory store for UI review of the Validate and Assign page until backend endpoints are ready
+let validationQueueStore: SurveillanceValidationItem[] = INITIAL_VALIDATION_REQUESTS.map(
+  (item) => ({ ...item }),
+);
+let assignableAgentsStore: SurveillanceAssignableAgent[] = DUMMY_SURVEILLANCE_AGENTS.map(
+  (agent) => ({ ...agent }),
+);
 
 const ACTIVE_SESSION_KEY = "active-session";
 
@@ -231,6 +247,141 @@ export class SurveillanceService {
     const res = await http.post<SurveillanceReport>(`/api/surveillance/reports/${id}/review`, payload);
     return res.data;
   }
+
+  /**
+   * Fetch incoming surveillance requests for the Admin Validate and Assign queue.
+   * Currently served from dummy review data until backend APIs are ready.
+   */
+  async getValidationQueue(): Promise<SurveillanceValidationItem[]> {
+    return validationQueueStore.map((item) => ({ ...item }));
+  }
+
+  /**
+   * Fetch surveillance agents/users eligible to be assigned validated requests.
+   * Currently served from dummy review data until backend APIs are ready.
+   */
+  async getAssignableAgents(): Promise<SurveillanceAssignableAgent[]> {
+    return assignableAgentsStore.map((agent) => ({ ...agent }));
+  }
+
+  /**
+   * Validate an incoming surveillance request and assign (or reassign) it to an agent.
+   * Currently mutates dummy review state until backend APIs are ready.
+   */
+  async validateAndAssignRequest(
+    payload: ValidateAndAssignPayload,
+  ): Promise<SurveillanceValidationItem> {
+    const targetIndex = validationQueueStore.findIndex(
+      (item) => item.id === payload.requestId,
+    );
+    if (targetIndex === -1) {
+      throw new Error("Surveillance request not found.");
+    }
+
+    const agent = assignableAgentsStore.find((a) => a.id === payload.agentId);
+    if (!agent) {
+      throw new Error("Selected surveillance agent not found.");
+    }
+
+    const existing = validationQueueStore[targetIndex];
+    const previousAgentId =
+      existing.validationStatus === "Assigned" ? existing.assignedAgentId : undefined;
+
+    if (previousAgentId && previousAgentId !== agent.id) {
+      assignableAgentsStore = assignableAgentsStore.map((a) =>
+        a.id === previousAgentId
+          ? { ...a, activeAssignments: Math.max(0, a.activeAssignments - 1) }
+          : a,
+      );
+    }
+
+    if (previousAgentId !== agent.id) {
+      assignableAgentsStore = assignableAgentsStore.map((a) =>
+        a.id === agent.id
+          ? { ...a, activeAssignments: a.activeAssignments + 1 }
+          : a,
+      );
+    }
+
+    const updated: SurveillanceValidationItem = {
+      ...existing,
+      priority: payload.priority,
+      validationStatus: "Assigned",
+      assignedAgentId: agent.id,
+      assignedAgentName: agent.fullName,
+      assignedAgentEmail: agent.email,
+      assignedAgentPhone: agent.phone,
+      assignedAgentRole: agent.role,
+      assignedBy: payload.assignedBy,
+      assignedAt: new Date().toISOString(),
+      adminInstructions: payload.adminInstructions?.trim() || undefined,
+      rejectedBy: undefined,
+      rejectedAt: undefined,
+      rejectionReason: undefined,
+    };
+
+    validationQueueStore[targetIndex] = updated;
+    return { ...updated };
+  }
+
+  /**
+   * Reject or cancel an incoming surveillance request so it remains hidden from all agents.
+   * Currently mutates dummy review state until backend APIs are ready.
+   */
+  async rejectValidationRequest(
+    payload: RejectValidationPayload,
+  ): Promise<SurveillanceValidationItem> {
+    const targetIndex = validationQueueStore.findIndex(
+      (item) => item.id === payload.requestId,
+    );
+    if (targetIndex === -1) {
+      throw new Error("Surveillance request not found.");
+    }
+
+    const existing = validationQueueStore[targetIndex];
+    if (existing.validationStatus === "Assigned" && existing.assignedAgentId) {
+      assignableAgentsStore = assignableAgentsStore.map((a) =>
+        a.id === existing.assignedAgentId
+          ? { ...a, activeAssignments: Math.max(0, a.activeAssignments - 1) }
+          : a,
+      );
+    }
+
+    const updated: SurveillanceValidationItem = {
+      ...existing,
+      validationStatus: "Rejected",
+      assignedAgentId: undefined,
+      assignedAgentName: undefined,
+      assignedAgentEmail: undefined,
+      assignedAgentPhone: undefined,
+      assignedAgentRole: undefined,
+      assignedBy: undefined,
+      assignedAt: undefined,
+      adminInstructions: undefined,
+      rejectedBy: payload.rejectedBy,
+      rejectedAt: new Date().toISOString(),
+      rejectionReason: payload.reason.trim(),
+    };
+
+    validationQueueStore[targetIndex] = updated;
+    return { ...updated };
+  }
+
+  /**
+   * Reset dummy review state back to initial sample items for team UI testing.
+   */
+  async resetValidationQueueDemo(): Promise<{
+    requests: SurveillanceValidationItem[];
+    agents: SurveillanceAssignableAgent[];
+  }> {
+    validationQueueStore = INITIAL_VALIDATION_REQUESTS.map((item) => ({ ...item }));
+    assignableAgentsStore = DUMMY_SURVEILLANCE_AGENTS.map((agent) => ({ ...agent }));
+    return {
+      requests: validationQueueStore.map((item) => ({ ...item })),
+      agents: assignableAgentsStore.map((agent) => ({ ...agent })),
+    };
+  }
 }
 
 export const surveillanceService = new SurveillanceService();
+

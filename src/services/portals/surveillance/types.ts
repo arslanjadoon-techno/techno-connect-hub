@@ -400,3 +400,73 @@ export function canApproveSurveillance(role: SurveillanceRole): boolean {
   // Only admin, state manager, market manager can approve
   return role === "admin" || role === "state_manager" || role === "market_manager";
 }
+
+/** Check whether user has the Admin role in the Surveillance portal */
+export function isSurveillanceAdmin(user: any): boolean {
+  return getSurveillanceRole(user) === "admin";
+}
+
+export type SurveillanceValidationStatus =
+  | "Pending Validation"
+  | "Assigned"
+  | "Rejected";
+
+export interface SurveillanceAssignableAgent {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  role: string;
+  department: string;
+  activeAssignments: number;
+}
+
+export interface SurveillanceValidationItem {
+  id: string;
+  storeId: string;
+  storeName: string;
+  storeNumber?: string;
+  marketName: string;
+  districtName: string;
+  surveillanceDate: string; // ISO YYYY-MM-DD
+  priority: SurveillancePriority;
+  title: string;
+  notes?: string;
+  requestedBy: string;
+  requesterRole: string;
+  requesterEmail: string;
+  requesterPhone: string;
+  requesterDepartment: string;
+  createdAt: string;
+  validationStatus: SurveillanceValidationStatus;
+
+  // Populated when validated and assigned to an agent
+  assignedAgentId?: string;
+  assignedAgentName?: string;
+  assignedAgentEmail?: string;
+  assignedAgentPhone?: string;
+  assignedAgentRole?: string;
+  assignedBy?: string;
+  assignedAt?: string;
+  adminInstructions?: string;
+
+  // Populated when rejected / cancelled by admin (hidden from agents)
+  rejectedBy?: string;
+  rejectedAt?: string;
+  rejectionReason?: string;
+}
+
+export interface ValidateAndAssignPayload {
+  requestId: string;
+  agentId: string;
+  priority: SurveillancePriority;
+  adminInstructions?: string;
+  assignedBy: string;
+}
+
+export interface RejectValidationPayload {
+  requestId: string;
+  reason: string;
+  rejectedBy: string;
+}
+

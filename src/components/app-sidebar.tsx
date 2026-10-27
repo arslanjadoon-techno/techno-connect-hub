@@ -184,6 +184,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     icon: Video,
     items: [
       { title: "Request Reports", url: "/surveillance/requests", icon: ClipboardCheck },
+      { title: "Validate and Assign", url: "/surveillance/validate-and-assign", icon: UserCheck },
       { title: "Surveillance Reports", url: "/surveillance/reports", icon: Video },
     ],
   },
@@ -626,6 +627,7 @@ export function AppSidebar() {
 
     // Surveillance Portal:
     // - "Request Reports" (/surveillance/requests) is for Admin, State Manager, Market Manager, District Manager.
+    // - "Validate and Assign" (/surveillance/validate-and-assign) is strictly ONLY visible to the Admin role.
     // - "Surveillance Reports" (/surveillance/reports) is strictly ONLY visible to the "user" role.
     if (key === "surveillance") {
       const roleStr = (getPortalRole("surveillance") || user.roleName || user.role || "")
@@ -633,6 +635,7 @@ export function AppSidebar() {
         .replace(/[\s_-]/g, "");
 
       const isStrictUser = roleStr === "user";
+      const isAdminRole = !isStrictUser && roleStr.includes("admin");
       const isEligibleManager =
         !isStrictUser &&
         (roleStr.includes("admin") ||
@@ -648,6 +651,7 @@ export function AppSidebar() {
       return {
         ...master,
         items: master.items.filter((i) => {
+          if (i.url === "/surveillance/validate-and-assign") return isAdminRole;
           if (i.url === "/surveillance/reports") return isStrictUser;
           if (i.url === "/surveillance/requests") return isEligibleManager;
           return true;

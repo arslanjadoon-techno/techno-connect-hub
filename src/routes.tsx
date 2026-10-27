@@ -71,11 +71,13 @@ import ApproveLeavePage from "@/pages/portals/leave-management/ApproveLeave";
 
 // ---------- Surveillance Portal ---------- //
 import ReportRequestsPage from "@/pages/portals/surveillance/ReportRequestsPage";
+import ValidateAndAssignPage from "@/pages/portals/surveillance/ValidateAndAssignPage";
 import SurveillanceReportsPage from "@/pages/portals/surveillance/SurveillanceReportsPage";
 import SurveillanceReportDetailPage from "@/pages/portals/surveillance/SurveillanceReportDetailPage";
 import {
   getSurveillanceRole,
   canRequestSurveillance,
+  isSurveillanceAdmin,
   isSurveillanceUserRole,
 } from "@/services/portals/surveillance/types";
 
@@ -202,6 +204,26 @@ function SurveillanceUserOnly({ children }: { children: ReactNode }) {
     return (
       <Navigate
         to={canRequestSurveillance(role) ? "/surveillance/requests" : "/ai-chat"}
+        replace
+      />
+    );
+  }
+  return <>{children}</>;
+}
+
+function SurveillanceAdminOnly({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  if (!isSurveillanceAdmin(user)) {
+    const role = getSurveillanceRole(user);
+    return (
+      <Navigate
+        to={
+          isSurveillanceUserRole(user)
+            ? "/surveillance/reports"
+            : canRequestSurveillance(role)
+              ? "/surveillance/requests"
+              : "/ai-chat"
+        }
         replace
       />
     );
@@ -731,6 +753,16 @@ export function AppRoutes() {
               <SurveillanceRequestsOnly>
                 <ReportRequestsPage />
               </SurveillanceRequestsOnly>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/surveillance/validate-and-assign"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceAdminOnly>
+                <ValidateAndAssignPage />
+              </SurveillanceAdminOnly>
             </PortalRouteGuard>
           }
         />
