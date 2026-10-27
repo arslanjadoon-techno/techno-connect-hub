@@ -102,11 +102,48 @@ const STATUS_CONFIG: Record<
 
 const SALES_REP_NAMES = ["Abdul Razzak", "Dakshay Raval", "Marcus Young"];
 
+const TRANSACTION_TYPE_OPTIONS = [
+  "ACC",
+  "ACT Pay",
+  "Bill Payment",
+  "Client",
+  "FEA",
+  "LOA",
+  "Refunded ACC",
+  "REVVL Tab",
+  "Store Closed",
+  "Store Opened",
+  "2 Magenta in Metro",
+];
+
 const YES_NO_OPTIONS = [
   { value: "__empty__", label: "-" },
   { value: "YES", label: "YES" },
   { value: "NO", label: "NO" },
 ];
+
+function parseCurrencyNumber(raw: string | undefined): { valid: boolean; value: number } {
+  if (!raw || !raw.trim()) return { valid: false, value: 0 };
+  const trimmed = raw.trim();
+  const isParenNegative = /^\(.*\)$/.test(trimmed);
+  const cleaned = trimmed.replace(/[^0-9.-]/g, "");
+  if (!cleaned || cleaned === "-" || cleaned === "." || cleaned === "-.") {
+    return { valid: false, value: 0 };
+  }
+  const num = parseFloat(cleaned);
+  if (Number.isNaN(num)) return { valid: false, value: 0 };
+  return { valid: true, value: isParenNegative ? -Math.abs(num) : num };
+}
+
+function calculateDifferenceDisplay(invoiceAmountRaw: string, totalTakenRaw: string): string {
+  const inv = parseCurrencyNumber(invoiceAmountRaw);
+  const taken = parseCurrencyNumber(totalTakenRaw);
+  if (!inv.valid && !taken.valid) return "$0.00";
+  const diff = (taken.valid ? taken.value : 0) - (inv.valid ? inv.value : 0);
+  if (Math.abs(diff) < 0.005) return "$0.00";
+  if (diff < 0) return `-$${Math.abs(diff).toFixed(2)}`;
+  return `$${diff.toFixed(2)}`;
+}
 
 const HOURS_12 = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 const MINUTES_60 = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
@@ -336,7 +373,7 @@ function createEmptyAuditRow(storeName: string, defaultDate?: string): Surveilla
     paymentType: "",
     cash: "",
     card: "",
-    difference: "",
+    difference: "$0.00",
     receipt: "",
     splitPayments: "",
     fraudTransactions: "",
@@ -535,7 +572,14 @@ export default function SurveillanceReportsPage() {
               : ""),
         paymentType:
           r.paymentType ||
-          (r.card?.trim() ? "Card" : r.cash?.trim() ? "Cash" : ""),
+          (r.card?.trim() && r.cash?.trim()
+            ? "Mix Payment"
+            : r.card?.trim()
+              ? "Card"
+              : r.cash?.trim()
+                ? "Cash"
+                : ""),
+        difference: calculateDifferenceDisplay(r.invoiceAmount, r.totalTaken),
         attachments: r.attachments ? [...r.attachments] : [],
       }));
       setEditableRows(cloned);
@@ -592,12 +636,41 @@ export default function SurveillanceReportsPage() {
           updated.nb = ct === "Non Billable" ? "NB" : "";
         }
 
-        // Keep card / cash synchronized with merged Payment Type dropdown
-        if (field === "paymentType" || field === "totalTaken") {
-          const pt = field === "paymentType" ? String(value || "") : updated.paymentType || "";
-          const amt = field === "totalTaken" ? String(value || "") : updated.totalTaken || "";
-          updated.card = pt === "Card" ? amt.trim() || "Card" : "";
-          updated.cash = pt === "Cash" ? amt.trim() || "Cash" : "";
+        // Keep card / cash synchronized with Payment Type dropdown
+        if (field === "paymentType") {
+          const pt = String(value || "");
+          const amt = (updated.totalTaken || "").trim();
+          if (pt === "Card") {
+            updated.card = amt || "Card";
+            updated.cash = "";
+          } else if (pt === "Cash") {
+            updated.cash = amt || "Cash";
+            updated.card = "";
+          } else if (pt === "Mix Payment") {
+            if (updated.card === "Card") updated.card = "";
+            if (updated.cash === "Cash") updated.cash = "";
+          } else {
+            updated.card = "";
+            updated.cash = "";
+          }
+        } else if (field === "totalTaken") {
+          const pt = updated.paymentType || "";
+          const amt = String(value || "").trim();
+          if (pt === "Card") {
+            updated.card = amt || "Card";
+            updated.cash = "";
+          } else if (pt === "Cash") {
+            updated.cash = amt || "Cash";
+            updated.card = "";
+          }
+        }
+
+        // Auto-calculate Difference whenever Invoice Amount or Total Taken changes
+        if (field === "invoiceAmount" || field === "totalTaken") {
+          updated.difference = calculateDifferenceDisplay(
+            updated.invoiceAmount,
+            updated.totalTaken,
+          );
         }
 
         return updated;
@@ -735,15 +808,17 @@ export default function SurveillanceReportsPage() {
         | "Non Billable",
       invoiceAmount: primaryRow.invoiceAmount || "$0.00",
       totalTaken: primaryRow.totalTaken || "$0.00",
-      paymentMode: (primaryRow.paymentType === "Cash" ? "Cash" : "Card") as
-        | "Cash"
-        | "Card"
-        | "Split",
-      difference: primaryRow.difference || "$0.00",
+      paymentMode: (primaryRow.paymentType === "Mix Payment"
+        ? "Split"
+        : primaryRow.paymentType === "Cash"
+          ? "Cash"
+          : "Card") as "Cash" | "Card" | "Split",
+      difference: calculateDifferenceDisplay(primaryRow.invoiceAmount, primaryRow.totalTaken),
       receipt: yesOrNo(primaryRow.receipt),
-      splitPayments: yesOrNo(primaryRow.splitPayments),
+      splitPayments:
+        primaryRow.paymentType === "Mix Payment" ? "Yes" : yesOrNo(primaryRow.splitPayments),
       fraudTransactions: yesOrNo(primaryRow.fraudTransactions),
-      refundInvoice: yesOrNo(primaryRow.refundInvoice),
+      refundInvoice: primaryRow.refundInvoice?.trim() || "No",
       missOpportunity: yesOrNo(primaryRow.missOpportunity),
       paymentFraud: yesOrNo(primaryRow.paymentFraud),
       aalSwap: yesOrNo(primaryRow.aalSwap),
@@ -945,6 +1020,14 @@ export default function SurveillanceReportsPage() {
               row.salesRep && !SALES_REP_NAMES.includes(row.salesRep)
                 ? [row.salesRep, ...SALES_REP_NAMES]
                 : SALES_REP_NAMES;
+            const transTypeChoices =
+              row.transType && !TRANSACTION_TYPE_OPTIONS.includes(row.transType)
+                ? [row.transType, ...TRANSACTION_TYPE_OPTIONS]
+                : TRANSACTION_TYPE_OPTIONS;
+            const computedDifference = calculateDifferenceDisplay(
+              row.invoiceAmount,
+              row.totalTaken,
+            );
 
             return (
               <Card key={row.id} className="border-border/80 overflow-hidden shadow-xs">
@@ -963,7 +1046,7 @@ export default function SurveillanceReportsPage() {
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {row.invoice.trim() ? `• Invoice: ${row.invoice}` : ""}
-                      {row.time.trim() ? ` • Time: ${row.time}` : ""}
+                      {row.time.trim() ? ` • Entrance Time: ${row.time}` : ""}
                     </span>
                     {isRowSavedClean && (
                       <Badge
@@ -1072,7 +1155,7 @@ export default function SurveillanceReportsPage() {
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Time</Label>
+                          <Label className="text-[11px] font-semibold">Entrance Time</Label>
                           <AmPmTimePicker
                             value={row.time}
                             onChange={(val) => handleUpdateRowField(row.id, "time", val)}
@@ -1086,14 +1169,25 @@ export default function SurveillanceReportsPage() {
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Trans/Type</Label>
-                          <Input
-                            value={row.transType}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "transType", e.target.value)
+                          <Label className="text-[11px] font-semibold">Transaction Type</Label>
+                          <Select
+                            value={toSelectVal(row.transType)}
+                            onValueChange={(v) =>
+                              handleUpdateRowField(row.id, "transType", fromSelectVal(v))
                             }
-                            placeholder="Bill Payment / Client"
-                          />
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="__empty__">-</SelectItem>
+                              {transTypeChoices.map((opt) => (
+                                <SelectItem key={opt} value={opt}>
+                                  {opt}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
 
                         <div className="space-y-1">
@@ -1135,6 +1229,16 @@ export default function SurveillanceReportsPage() {
                             placeholder="$0.00"
                           />
                         </div>
+                        <div className="space-y-1">
+                          <Label className="text-[11px] font-semibold">Difference</Label>
+                          <Input
+                            value={computedDifference}
+                            readOnly
+                            disabled
+                            className="bg-muted/50 font-semibold text-foreground cursor-not-allowed opacity-100"
+                            placeholder="$0.00"
+                          />
+                        </div>
 
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Payment Type</Label>
@@ -1151,20 +1255,47 @@ export default function SurveillanceReportsPage() {
                               <SelectItem value="__empty__">-</SelectItem>
                               <SelectItem value="Card">Card</SelectItem>
                               <SelectItem value="Cash">Cash</SelectItem>
+                              <SelectItem value="Mix Payment">Mix Payment</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
 
+                        {row.paymentType === "Mix Payment" && (
+                          <>
+                            <div className="space-y-1">
+                              <Label className="text-[11px] font-semibold">Cash Payment</Label>
+                              <Input
+                                value={row.cash}
+                                onChange={(e) =>
+                                  handleUpdateRowField(row.id, "cash", e.target.value)
+                                }
+                                placeholder="$0.00"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-[11px] font-semibold">Card Payment</Label>
+                              <Input
+                                value={row.card}
+                                onChange={(e) =>
+                                  handleUpdateRowField(row.id, "card", e.target.value)
+                                }
+                                placeholder="$0.00"
+                              />
+                            </div>
+                          </>
+                        )}
+
                         <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Difference</Label>
+                          <Label className="text-[11px] font-semibold">Refund Invoice</Label>
                           <Input
-                            value={row.difference}
+                            value={row.refundInvoice}
                             onChange={(e) =>
-                              handleUpdateRowField(row.id, "difference", e.target.value)
+                              handleUpdateRowField(row.id, "refundInvoice", e.target.value)
                             }
-                            placeholder="$0.00"
+                            placeholder="Enter refund invoice..."
                           />
                         </div>
+
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Receipt</Label>
                           <Select
@@ -1220,7 +1351,6 @@ export default function SurveillanceReportsPage() {
                         {(
                           [
                             { key: "fraudTransactions", label: "Fraud Transactions" },
-                            { key: "refundInvoice", label: "Refund Invoice" },
                             { key: "missOpportunity", label: "Miss Opportunity" },
                             { key: "paymentFraud", label: "Payment fraud" },
                             { key: "aalSwap", label: "AAL Swap" },

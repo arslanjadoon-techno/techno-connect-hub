@@ -185,7 +185,7 @@ export default function ReportRequestsPage() {
   // Create Request Modal state - strictly conforming to requested fields:
   // 1. Market dropdown
   // 2. Store picker (filtered by selected market, searchable by typing a name)
-  // 3. Date interval (single day or multiple days)
+  // 3. Date (single required date)
   // 4. Priority (default "low")
   // 5. Investigation Reason / Incident Summary
   // 6. Additional Context / Special Instructions (optional, no red star)
@@ -194,7 +194,6 @@ export default function ReportRequestsPage() {
   const [selectedStoreId, setSelectedStoreId] = useState<number | null>(null);
   const [storePickerOpen, setStorePickerOpen] = useState(false);
   const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [priority, setPriority] = useState<SurveillancePriority>("low");
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
@@ -226,7 +225,6 @@ export default function ReportRequestsPage() {
     setSelectedStoreId(firstStore?.id ?? null);
     const today = new Date().toISOString().split("T")[0];
     setStartDate(today);
-    setEndDate(today);
     setPriority("low");
     setCreateModalOpen(true);
   };
@@ -243,7 +241,7 @@ export default function ReportRequestsPage() {
       return;
     }
     if (!startDate) {
-      toast.error("Please select a start date.");
+      toast.error("Please select a date.");
       return;
     }
     if (!title.trim()) {
@@ -256,7 +254,6 @@ export default function ReportRequestsPage() {
       toast.error("Please select a store location.");
       return;
     }
-    const formattedDateRange = endDate && endDate !== startDate ? `${startDate} - ${endDate}` : startDate;
 
     setSubmittingRequest(true);
     try {
@@ -268,7 +265,7 @@ export default function ReportRequestsPage() {
         storeNumber: store.number ?? undefined,
         marketName: store.market?.name ?? "",
         districtName: store.district?.name ?? "",
-        incidentDate: formattedDateRange,
+        incidentDate: startDate,
         shift: "Surveillance Review",
         investigationType: "Store Audit & Surveillance",
         priority,
@@ -964,38 +961,17 @@ export default function ReportRequestsPage() {
               </Popover>
             </div>
 
-            {/* 3. Date Interval (Single day or multiple days) */}
+            {/* 3. Date (Single required date) */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">
                 Date <span className="text-destructive">*</span>
               </Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <span className="text-[11px] text-muted-foreground block">Start Date</span>
-                  <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => {
-                      setStartDate(e.target.value);
-                      if (!endDate || e.target.value > endDate) {
-                        setEndDate(e.target.value);
-                      }
-                    }}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <span className="text-[11px] text-muted-foreground block">End Date</span>
-                  <Input
-                    type="date"
-                    value={endDate}
-                    min={startDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
-                </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Pick the same start and end date for a single day, or different dates for an interval range.
-              </p>
+              <Input
+                type="date"
+                required
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
             </div>
 
             {/* 4. Priority */}

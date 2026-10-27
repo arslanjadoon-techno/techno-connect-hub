@@ -74,14 +74,24 @@ function buildFallbackRowFromReport(report: SurveillanceReport): SurveillanceAud
     b: isBillable ? "B" : "",
     invoiceAmount: report.invoiceAmount,
     totalTaken: report.totalTaken,
-    paymentType: report.paymentMode === "Cash" ? "Cash" : report.paymentMode === "Card" ? "Card" : "",
+    paymentType:
+      report.paymentMode === "Split"
+        ? "Mix Payment"
+        : report.paymentMode === "Cash"
+          ? "Cash"
+          : report.paymentMode === "Card"
+            ? "Card"
+            : "",
     cash: isCash ? report.totalTaken : "",
     card: isCard ? report.totalTaken : "",
     difference: report.difference || "$0.00",
     receipt: yesNo(report.receipt),
     splitPayments: yesNo(report.splitPayments),
     fraudTransactions: yesNo(report.fraudTransactions) === "YES" ? "YES" : "",
-    refundInvoice: yesNo(report.refundInvoice) === "YES" ? "YES" : "",
+    refundInvoice:
+      report.refundInvoice && report.refundInvoice.toLowerCase() !== "no"
+        ? report.refundInvoice
+        : "",
     missOpportunity: yesNo(report.missOpportunity) === "YES" ? "YES" : "",
     paymentFraud: yesNo(report.paymentFraud) === "YES" ? "YES" : "",
     aalSwap: yesNo(report.aalSwap) === "YES" ? "YES" : "",
@@ -126,19 +136,21 @@ const AUDIT_DATA_FIELDS: AuditDataField[] = [
   { key: "storeName", label: "Store Name" },
   { key: "invoice", label: "Invoice" },
   { key: "cashTime", label: "Cash Time" },
-  { key: "time", label: "Time" },
+  { key: "time", label: "Entrance Time" },
   { key: "bdiTime", label: "BDI TIME" },
   { key: "salesRep", label: "Sales Rep" },
-  { key: "transType", label: "Trans/Type" },
+  { key: "transType", label: "Transaction Type" },
   { key: "clientType", label: "Client Type" },
   { key: "invoiceAmount", label: "Invoice Amount" },
   { key: "totalTaken", label: "Total Taken" },
-  { key: "paymentType", label: "Payment Type" },
   { key: "difference", label: "Difference" },
+  { key: "paymentType", label: "Payment Type" },
+  { key: "cash", label: "Cash Payment" },
+  { key: "card", label: "Card Payment" },
+  { key: "refundInvoice", label: "Refund Invoice" },
   { key: "receipt", label: "Receipt" },
   { key: "splitPayments", label: "Split Payments" },
   { key: "fraudTransactions", label: "Fraud Transactions" },
-  { key: "refundInvoice", label: "Refund Invoice" },
   { key: "missOpportunity", label: "Miss Opportunity" },
   { key: "paymentFraud", label: "Payment fraud" },
   { key: "aalSwap", label: "AAL Swap" },
@@ -301,7 +313,7 @@ export default function SurveillanceReportDetailPage() {
     }
     if (key === "paymentType") {
       if (row.paymentType && row.paymentType.trim()) return formatCellValue(row.paymentType);
-      if (row.card && row.card.trim() && row.cash && row.cash.trim()) return "Card / Cash";
+      if (row.card && row.card.trim() && row.cash && row.cash.trim()) return "Mix Payment";
       if (row.card && row.card.trim()) return "Card";
       if (row.cash && row.cash.trim()) return "Cash";
       return "-";

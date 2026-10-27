@@ -75,7 +75,7 @@ export interface SurveillanceAuditRow {
   b: string; // "B" or ""
   invoiceAmount: string;
   totalTaken: string;
-  paymentType?: string; // "Card" | "Cash" | ""
+  paymentType?: string; // "Card" | "Cash" | "Mix Payment" | ""
   cash: string;
   card: string;
   difference: string;
@@ -159,7 +159,7 @@ export interface SurveillanceReport {
   receipt: "Yes" | "No";
   splitPayments: "Yes" | "No";
   fraudTransactions: "Yes" | "No";
-  refundInvoice: "Yes" | "No";
+  refundInvoice: "Yes" | "No" | string;
   missOpportunity: "Yes" | "No";
   paymentFraud: "Yes" | "No";
   aalSwap: "Yes" | "No";
@@ -232,7 +232,7 @@ export interface CreateSurveillanceReportPayload {
   receipt: "Yes" | "No";
   splitPayments: "Yes" | "No";
   fraudTransactions: "Yes" | "No";
-  refundInvoice: "Yes" | "No";
+  refundInvoice: "Yes" | "No" | string;
   missOpportunity: "Yes" | "No";
   paymentFraud: "Yes" | "No";
   aalSwap: "Yes" | "No";
