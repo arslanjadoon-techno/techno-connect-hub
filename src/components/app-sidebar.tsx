@@ -73,6 +73,12 @@ import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { LEASING_PAGE_PERMISSION_KEYS } from "@/lib/leasing-permissions";
 import SidebarRail from "@/pages/team-chat/sidebar/SidebarRail";
+import {
+  getSurveillanceRole,
+  canRequestSurveillance,
+  canValidateSurveillance,
+  canAccessSurveillanceReports,
+} from "@/services/portals/surveillance/types";
 
 type SubItem = { title: string; url: string; icon?: any };
 type Item = { title: string; url: string; icon: any; children?: SubItem[] };
@@ -625,37 +631,43 @@ export function AppSidebar() {
       };
     }
 
-    // Surveillance Portal:
-    // - "Request Reports" (/surveillance/requests) is for Admin, State Manager, Market Manager, District Manager.
-    // - "Validate and Assign" (/surveillance/validate-and-assign) is strictly ONLY visible to the Admin role.
-    // - "Surveillance Reports" (/surveillance/reports) is strictly ONLY visible to the "user" role.
+    // Surveillance Portal Role-Wise Categorization:
+    // - Admin: Request Reports + Validate and Assign + Surveillance Reports (all 3 pages)
+    // - State Manager / Market Manager: Request Reports + Validate and Assign (first 2 pages)
+    // - District Manager: Request Reports only
+    // - User: Surveillance Reports only
+    // - Any other role assigned to Surveillance portal: fallback Portal Access page (/surveillance/no-access)
     if (key === "surveillance") {
-      const roleStr = (getPortalRole("surveillance") || user.roleName || user.role || "")
-        .toLowerCase()
-        .replace(/[\s_-]/g, "");
+      const survRole = getSurveillanceRole(user);
+      const filteredItems = master.items.filter((i) => {
+        if (i.url === "/surveillance/requests") {
+          return canRequestSurveillance(survRole);
+        }
+        if (i.url === "/surveillance/validate-and-assign") {
+          return canValidateSurveillance(survRole);
+        }
+        if (i.url === "/surveillance/reports") {
+          return canAccessSurveillanceReports(survRole);
+        }
+        return false;
+      });
 
-      const isStrictUser = roleStr === "user";
-      const isAdminRole = !isStrictUser && roleStr.includes("admin");
-      const isEligibleManager =
-        !isStrictUser &&
-        (roleStr.includes("admin") ||
-          roleStr.includes("statemanager") ||
-          roleStr.includes("marketmanager") ||
-          roleStr.includes("districtmanager") ||
-          roleStr.includes("manager") ||
-          roleStr.includes("state") ||
-          roleStr.includes("market") ||
-          roleStr.includes("district") ||
-          roleStr.includes("supervisor"));
+      if (filteredItems.length === 0) {
+        return {
+          ...master,
+          items: [
+            {
+              title: "Portal Access",
+              url: "/surveillance/no-access",
+              icon: ShieldCheck,
+            },
+          ],
+        };
+      }
 
       return {
         ...master,
-        items: master.items.filter((i) => {
-          if (i.url === "/surveillance/validate-and-assign") return isAdminRole;
-          if (i.url === "/surveillance/reports") return isStrictUser;
-          if (i.url === "/surveillance/requests") return isEligibleManager;
-          return true;
-        }),
+        items: filteredItems,
       };
     }
 

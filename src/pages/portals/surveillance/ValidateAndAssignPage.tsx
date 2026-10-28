@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { DataTable, type Column } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
@@ -39,27 +39,31 @@ import {
   Building2,
   Calendar,
   Check,
+  CheckCircle2,
   ChevronsUpDown,
   Clock,
+  Eye,
   EyeOff,
+  Lock,
   Mail,
   MapPin,
   MessageSquare,
   Phone,
   Search,
   ShieldCheck,
+  Star,
   Store as StoreIcon,
   User as UserIcon,
   UserPlus,
+  X,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { surveillanceService } from "@/services/portals/surveillance";
 import {
-  canRequestSurveillance,
+  canValidateSurveillance,
+  getSurveillanceDefaultRoute,
   getSurveillanceRole,
-  isSurveillanceAdmin,
-  isSurveillanceUserRole,
   type SurveillanceAssignableAgent,
   type SurveillancePriority,
   type SurveillanceValidationItem,
@@ -83,13 +87,81 @@ const VALIDATION_STATUS_CONFIG: Record<
   },
   Assigned: {
     label: "Assigned",
+    tone: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-400",
+  },
+  "Report Submitted": {
+    label: "Report Submitted",
+    tone: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400",
+  },
+  Approved: {
+    label: "Approved",
     tone: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400",
+  },
+  "Report Rejected": {
+    label: "Report Rejected",
+    tone: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400",
   },
   Rejected: {
     label: "Rejected",
     tone: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400",
   },
 };
+
+function StarRating({
+  value,
+  onChange,
+  disabled = false,
+}: {
+  value: number;
+  onChange?: (v: number) => void;
+  disabled?: boolean;
+}) {
+  const [hoverVal, setHoverVal] = useState<number | null>(null);
+  const displayVal = disabled ? value : (hoverVal ?? value);
+
+  return (
+    <div className={`flex items-center gap-1.5 ${disabled ? "select-none" : ""}`}>
+      <div className="flex items-center gap-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <button
+            key={star}
+            type="button"
+            disabled={disabled}
+            tabIndex={disabled ? -1 : 0}
+            onClick={() => !disabled && onChange && onChange(star === value ? 0 : star)}
+            onMouseEnter={() => !disabled && setHoverVal(star)}
+            onMouseLeave={() => !disabled && setHoverVal(null)}
+            className={`p-0.5 transition-transform ${
+              disabled
+                ? "pointer-events-none cursor-default"
+                : "cursor-pointer hover:scale-110"
+            }`}
+          >
+            <Star
+              className={`h-5 w-5 ${
+                star <= displayVal
+                  ? "fill-amber-400 text-amber-400"
+                  : "text-muted-foreground/30"
+              }`}
+            />
+          </button>
+        ))}
+      </div>
+      <span className="text-xs text-muted-foreground font-medium ml-1">
+        {displayVal > 0 ? `${displayVal} of 5 Stars` : "(No rating)"}
+      </span>
+      {!disabled && value > 0 && (
+        <button
+          type="button"
+          onClick={() => onChange && onChange(0)}
+          className="text-[11px] text-muted-foreground hover:text-foreground underline ml-2"
+        >
+          Clear
+        </button>
+      )}
+    </div>
+  );
+}
 
 function formatPriorityLabel(priority: SurveillancePriority): string {
   if (!priority) return "—";
@@ -162,8 +234,12 @@ function formatDateTimeDisplay(isoString?: string): string {
 
 export default function ValidateAndAssignPage() {
   const { user } = useAuth();
-  const isAdmin = useMemo(() => isSurveillanceAdmin(user), [user]);
-  const fallbackRole = useMemo(() => getSurveillanceRole(user), [user]);
+  const navigate = useNavigate();
+  const userRole = useMemo(() => getSurveillanceRole(user), [user]);
+  const canAccessValidatePage = useMemo(
+    () => canValidateSurveillance(userRole),
+    [userRole],
+  );
 
   const [requests, setRequests] = useState<SurveillanceValidationItem[]>([]);
   const [agents, setAgents] = useState<SurveillanceAssignableAgent[]>([]);
@@ -192,6 +268,12 @@ export default function ValidateAndAssignPage() {
     useState<SurveillanceValidationItem | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string>("");
   const [submittingReject, setSubmittingReject] = useState(false);
+
+  // Manager Review & Submitter Rating states (for returned/submitted reports)
+  const [managerRating, setManagerRating] = useState<number>(0);
+  const [reviewingReport, setReviewingReport] = useState(false);
+  const [declineReportModalOpen, setDeclineReportModalOpen] = useState(false);
+  const [declineReportReason, setDeclineReportReason] = useState("");
 
   const loadQueueData = useCallback(async () => {
     setLoading(true);
@@ -226,10 +308,20 @@ export default function ValidateAndAssignPage() {
     return {
       total: requests.length,
       pending: requests.filter(
-        (r) => r.validationStatus === "Pending Validation",
+        (r) =>
+          r.validationStatus === "Pending Validation" ||
+          r.validationStatus === "Report Submitted",
       ).length,
-      assigned: requests.filter((r) => r.validationStatus === "Assigned").length,
-      rejected: requests.filter((r) => r.validationStatus === "Rejected").length,
+      assigned: requests.filter(
+        (r) =>
+          r.validationStatus === "Assigned" ||
+          r.validationStatus === "Approved",
+      ).length,
+      rejected: requests.filter(
+        (r) =>
+          r.validationStatus === "Rejected" ||
+          r.validationStatus === "Report Rejected",
+      ).length,
     };
   }, [requests]);
 
@@ -270,6 +362,14 @@ export default function ValidateAndAssignPage() {
         : null,
     [requests, selectedDetailId],
   );
+
+  useEffect(() => {
+    if (selectedDetail) {
+      setManagerRating(selectedDetail.managerRating ?? 0);
+    } else {
+      setManagerRating(0);
+    }
+  }, [selectedDetail]);
 
   const selectedDetailAssignedAgent = useMemo(() => {
     if (!selectedDetail?.assignedAgentId) return null;
@@ -355,6 +455,60 @@ export default function ValidateAndAssignPage() {
     }
   };
 
+  const handleApproveSubmittedReport = async () => {
+    if (!selectedDetail) return;
+    setReviewingReport(true);
+    try {
+      const reviewerName = user?.fullName || "Validator";
+      const updated = await surveillanceService.reviewSubmittedReport({
+        requestId: selectedDetail.id,
+        action: "approve",
+        reviewedBy: reviewerName,
+        rating: managerRating > 0 ? managerRating : undefined,
+      });
+      setRequests((prev) =>
+        prev.map((r) => (r.id === updated.id ? updated : r)),
+      );
+      toast.success(
+        "Surveillance report approved and published to Request Reports with Report Received status.",
+      );
+    } catch (error) {
+      toast.error(`Failed to approve report: ${(error as Error).message}`);
+    } finally {
+      setReviewingReport(false);
+    }
+  };
+
+  const handleDeclineSubmittedReport = async () => {
+    if (!selectedDetail) return;
+    if (!declineReportReason.trim()) {
+      toast.error("Please enter a reason for declining the report.");
+      return;
+    }
+
+    setReviewingReport(true);
+    try {
+      const reviewerName = user?.fullName || "Validator";
+      const updated = await surveillanceService.reviewSubmittedReport({
+        requestId: selectedDetail.id,
+        action: "reject",
+        reviewedBy: reviewerName,
+        rating: managerRating > 0 ? managerRating : undefined,
+        comments: declineReportReason.trim(),
+      });
+      setRequests((prev) =>
+        prev.map((r) => (r.id === updated.id ? updated : r)),
+      );
+      setDeclineReportModalOpen(false);
+      setDeclineReportReason("");
+      toast.success("Submitted surveillance report has been declined.");
+    } catch (error) {
+      toast.error(`Failed to decline report: ${(error as Error).message}`);
+    } finally {
+      setReviewingReport(false);
+    }
+  };
+
   const hasActiveFilters =
     marketFilter !== "all" ||
     statusFilter !== "all" ||
@@ -434,7 +588,7 @@ export default function ValidateAndAssignPage() {
           r.assignedAgentName ||
           (r.validationStatus === "Rejected" ? "Hidden" : "Unassigned"),
         accessor: (r) => {
-          if (r.validationStatus === "Assigned" && r.assignedAgentName) {
+          if (r.assignedAgentName) {
             return (
               <span className="text-sm font-medium text-foreground whitespace-nowrap">
                 {r.assignedAgentName}
@@ -476,20 +630,9 @@ export default function ValidateAndAssignPage() {
     [],
   );
 
-  // Strict Admin-only safeguard
-  if (!isAdmin) {
-    return (
-      <Navigate
-        to={
-          isSurveillanceUserRole(user)
-            ? "/surveillance/reports"
-            : canRequestSurveillance(fallbackRole)
-              ? "/surveillance/requests"
-              : "/ai-chat"
-        }
-        replace
-      />
-    );
+  // Safeguard: Allow Admin, State Manager, and Market Manager
+  if (!canAccessValidatePage) {
+    return <Navigate to={getSurveillanceDefaultRoute(user)} replace />;
   }
 
   return (
@@ -519,25 +662,42 @@ export default function ValidateAndAssignPage() {
               </div>
             </div>
 
-            {selectedDetail.validationStatus === "Pending Validation" && (
-              <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              {selectedDetail.linkedReportId && (
                 <Button
                   variant="outline"
-                  onClick={() => openRejectModal(selectedDetail)}
-                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-background border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40 whitespace-nowrap shrink-0"
+                  onClick={() =>
+                    navigate(
+                      `/surveillance/reports/${selectedDetail.linkedReportId}`,
+                    )
+                  }
+                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-background border-border shadow-xs whitespace-nowrap shrink-0"
                 >
-                  <XCircle className="h-4 w-4" />
-                  Reject Request
+                  <Eye className="h-4 w-4 text-primary" />
+                  View Submitted Report
                 </Button>
-                <Button
-                  onClick={() => openAssignModal(selectedDetail)}
-                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
-                >
-                  <UserPlus className="h-4 w-4" />
-                  Validate & Assign
-                </Button>
-              </div>
-            )}
+              )}
+
+              {selectedDetail.validationStatus === "Pending Validation" && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => openRejectModal(selectedDetail)}
+                    className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-background border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40 whitespace-nowrap shrink-0"
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Reject Request
+                  </Button>
+                  <Button
+                    onClick={() => openAssignModal(selectedDetail)}
+                    className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Validate & Assign
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Store Header + 6 Distinctly Colored Summary Cards */}
@@ -592,11 +752,18 @@ export default function ValidateAndAssignPage() {
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white border border-amber-100 shadow-2xs dark:bg-amber-950 dark:border-amber-900 shrink-0">
                   <span
                     className={`h-2.5 w-2.5 rounded-full ${
-                      selectedDetail.validationStatus === "Assigned"
+                      selectedDetail.validationStatus === "Approved"
                         ? "bg-emerald-500"
-                        : selectedDetail.validationStatus === "Rejected"
-                          ? "bg-rose-500"
-                          : "bg-amber-500"
+                        : selectedDetail.validationStatus === "Assigned"
+                          ? "bg-indigo-500"
+                          : selectedDetail.validationStatus ===
+                              "Report Submitted"
+                            ? "bg-sky-500"
+                            : selectedDetail.validationStatus === "Rejected" ||
+                                selectedDetail.validationStatus ===
+                                  "Report Rejected"
+                              ? "bg-rose-500"
+                              : "bg-amber-500"
                     }`}
                   />
                 </div>
@@ -606,11 +773,18 @@ export default function ValidateAndAssignPage() {
                   </div>
                   <div
                     className={`text-sm font-bold mt-0.5 ${
-                      selectedDetail.validationStatus === "Assigned"
+                      selectedDetail.validationStatus === "Approved"
                         ? "text-emerald-700 dark:text-emerald-300"
-                        : selectedDetail.validationStatus === "Rejected"
-                          ? "text-rose-700 dark:text-rose-300"
-                          : "text-amber-900 dark:text-amber-100"
+                        : selectedDetail.validationStatus === "Assigned"
+                          ? "text-indigo-700 dark:text-indigo-300"
+                          : selectedDetail.validationStatus ===
+                              "Report Submitted"
+                            ? "text-sky-700 dark:text-sky-300"
+                            : selectedDetail.validationStatus === "Rejected" ||
+                                selectedDetail.validationStatus ===
+                                  "Report Rejected"
+                              ? "text-rose-700 dark:text-rose-300"
+                              : "text-amber-900 dark:text-amber-100"
                     }`}
                   >
                     {
@@ -661,10 +835,7 @@ export default function ValidateAndAssignPage() {
                     Assigned to
                   </div>
                   <div className="text-sm font-bold text-emerald-950 dark:text-emerald-100 truncate mt-0.5">
-                    {selectedDetail.validationStatus === "Assigned" &&
-                    selectedDetail.assignedAgentName
-                      ? selectedDetail.assignedAgentName
-                      : "—"}
+                    {selectedDetail.assignedAgentName || "—"}
                   </div>
                 </div>
               </div>
@@ -813,8 +984,7 @@ export default function ValidateAndAssignPage() {
 
                 {/* Avatar + Agent Name / Placeholder + Status Pill */}
                 <div className="flex items-center gap-3.5 border-b border-emerald-200/60 dark:border-emerald-900/50 pb-4">
-                  {selectedDetail.validationStatus === "Assigned" &&
-                  selectedDetail.assignedAgentName ? (
+                  {selectedDetail.assignedAgentName ? (
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white font-display text-sm font-bold shadow-xs shrink-0">
                       {getInitials(selectedDetail.assignedAgentName)}
                     </div>
@@ -826,14 +996,10 @@ export default function ValidateAndAssignPage() {
 
                   <div className="min-w-0 space-y-1">
                     <div className="text-base font-bold text-foreground truncate">
-                      {selectedDetail.validationStatus === "Assigned" &&
-                      selectedDetail.assignedAgentName
-                        ? selectedDetail.assignedAgentName
-                        : "—"}
+                      {selectedDetail.assignedAgentName || "—"}
                     </div>
 
-                    {selectedDetail.validationStatus === "Assigned" &&
-                    selectedDetail.assignedAgentName ? (
+                    {selectedDetail.assignedAgentName ? (
                       <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100/90 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
                         {selectedDetail.assignedAgentRole ||
@@ -843,12 +1009,12 @@ export default function ValidateAndAssignPage() {
                     ) : selectedDetail.validationStatus === "Rejected" ? (
                       <span className="inline-flex items-center gap-1.5 rounded-md bg-rose-100/90 px-2.5 py-0.5 text-[11px] font-semibold text-rose-800 dark:bg-rose-900/60 dark:text-rose-200">
                         <span className="h-1.5 w-1.5 rounded-full bg-rose-600" />
-                        Rejected by admin
+                        Rejected during validation
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-100/90 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
                         <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                        Awaiting admin validation
+                        Awaiting validation
                       </span>
                     )}
                   </div>
@@ -865,10 +1031,7 @@ export default function ValidateAndAssignPage() {
                         Email
                       </div>
                       <div className="font-medium text-foreground break-all">
-                        {selectedDetail.validationStatus === "Assigned" &&
-                        selectedDetail.assignedAgentEmail
-                          ? selectedDetail.assignedAgentEmail
-                          : "—"}
+                        {selectedDetail.assignedAgentEmail || "—"}
                       </div>
                     </div>
                   </div>
@@ -882,7 +1045,7 @@ export default function ValidateAndAssignPage() {
                         Phone
                       </div>
                       <div className="font-medium text-foreground tabular-nums">
-                        {selectedDetail.validationStatus === "Assigned"
+                        {selectedDetail.assignedAgentName
                           ? selectedDetail.assignedAgentPhone ||
                             selectedDetailAssignedAgent?.phone ||
                             "—"
@@ -900,7 +1063,7 @@ export default function ValidateAndAssignPage() {
                         Department
                       </div>
                       <div className="font-medium text-foreground">
-                        {selectedDetail.validationStatus === "Assigned"
+                        {selectedDetail.assignedAgentName
                           ? selectedDetailAssignedAgent?.department ||
                             "Surveillance & Loss Prevention"
                           : "—"}
@@ -917,8 +1080,7 @@ export default function ValidateAndAssignPage() {
                         Assigned at
                       </div>
                       <div className="font-medium text-foreground tabular-nums">
-                        {selectedDetail.validationStatus === "Assigned" &&
-                        selectedDetail.assignedAt
+                        {selectedDetail.assignedAt
                           ? formatDateTimeDisplay(selectedDetail.assignedAt)
                           : "—"}
                       </div>
@@ -928,13 +1090,19 @@ export default function ValidateAndAssignPage() {
               </div>
 
               {/* Visibility Status Callout Footer */}
-              {selectedDetail.validationStatus === "Assigned" ? (
+              {selectedDetail.assignedAgentName ? (
                 <div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-100/60 p-3.5 text-xs text-emerald-900 dark:border-emerald-800/60 dark:bg-emerald-950/50 dark:text-emerald-200">
                   <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                   <span>
                     Validated by{" "}
-                    <strong>{selectedDetail.assignedBy || "Admin"}</strong>.
-                    Visible to assigned agent for audit report preparation.
+                    <strong>{selectedDetail.assignedBy || "Validator"}</strong>.
+                    {selectedDetail.validationStatus === "Report Submitted"
+                      ? " Report prepared and returned by agent for review."
+                      : selectedDetail.validationStatus === "Approved"
+                        ? " Report approved and published to Request Reports."
+                        : selectedDetail.validationStatus === "Report Rejected"
+                          ? " Submitted report was declined during review."
+                          : " Visible to assigned agent for audit report preparation."}
                   </span>
                 </div>
               ) : selectedDetail.validationStatus === "Rejected" ? (
@@ -942,7 +1110,7 @@ export default function ValidateAndAssignPage() {
                   <EyeOff className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                   <span>
                     Rejected by{" "}
-                    <strong>{selectedDetail.rejectedBy || "Admin"}</strong>.
+                    <strong>{selectedDetail.rejectedBy || "Validator"}</strong>.
                     Hidden from all surveillance users and agents.
                   </span>
                 </div>
@@ -950,13 +1118,174 @@ export default function ValidateAndAssignPage() {
                 <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/90 p-3.5 text-xs text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
                   <EyeOff className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                   <span>
-                    Held in the admin review queue. Not visible to any agent
-                    until validated and assigned.
+                    Held in the validation review queue. Not visible to any
+                    agent until validated and assigned.
                   </span>
                 </div>
               )}
             </Card>
           </div>
+
+          {/* Manager Review & Submitter Rating Section (Shown when the assigned agent has submitted the report back) */}
+          {(selectedDetail.validationStatus === "Report Submitted" ||
+            selectedDetail.validationStatus === "Approved" ||
+            selectedDetail.validationStatus === "Report Rejected" ||
+            Boolean(selectedDetail.linkedReportId)) &&
+            (() => {
+              const isApproved =
+                selectedDetail.validationStatus === "Approved" ||
+                selectedDetail.reportStatus === "Approved";
+              const isReportRejected =
+                selectedDetail.validationStatus === "Report Rejected" ||
+                selectedDetail.reportStatus === "Rejected";
+              const isAlreadyReviewed = isApproved || isReportRejected;
+              const savedRating = selectedDetail.managerRating ?? 0;
+              const isRatingLocked = savedRating > 0 || isAlreadyReviewed;
+
+              return (
+                <Card className="p-6 rounded-2xl border-border/80 shadow-xs space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+                    <div className="flex items-center gap-2 font-semibold text-foreground text-sm">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      <span>Manager Review & Submitter Rating</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {selectedDetail.linkedReportId && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            navigate(
+                              `/surveillance/reports/${selectedDetail.linkedReportId}`,
+                            )
+                          }
+                          className="h-8 gap-1.5 text-xs font-medium"
+                        >
+                          <Eye className="h-3.5 w-3.5 text-primary" />
+                          View Audit Report
+                        </Button>
+                      )}
+                      {isAlreadyReviewed && (
+                        <span className="inline-flex items-center text-xs text-amber-700 dark:text-amber-400 font-medium">
+                          <Lock className="h-3.5 w-3.5 mr-1" /> Decision
+                          Finalized
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Finalized Review Banner */}
+                  {isAlreadyReviewed && (
+                    <div
+                      className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl border p-3.5 text-xs ${
+                        isApproved
+                          ? "border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/50 dark:bg-emerald-950/25"
+                          : "border-rose-200 bg-rose-50/60 dark:border-rose-900/50 dark:bg-rose-950/25"
+                      }`}
+                    >
+                      <div className="flex items-start sm:items-center gap-2.5">
+                        {isApproved ? (
+                          <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5 sm:mt-0" />
+                        ) : (
+                          <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5 sm:mt-0" />
+                        )}
+                        <div>
+                          <p className="font-semibold text-foreground text-xs sm:text-sm">
+                            {isApproved
+                              ? "This report has been approved and published to Request Reports (Report Received)."
+                              : "This submitted report has been declined."}
+                          </p>
+                          <p className="text-muted-foreground text-[11px] mt-0.5">
+                            {selectedDetail.reportReviewedBy
+                              ? `Reviewed by ${selectedDetail.reportReviewedBy}${
+                                  selectedDetail.reportReviewedAt
+                                    ? ` on ${formatDateTimeDisplay(selectedDetail.reportReviewedAt)}`
+                                    : ""
+                                }. `
+                              : ""}
+                            Once a decision is recorded, this report cannot be
+                            approved or declined again.
+                          </p>
+                        </div>
+                      </div>
+
+                      <Badge
+                        variant="outline"
+                        className={`shrink-0 text-xs font-semibold ${
+                          isApproved
+                            ? "border-emerald-300 bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300"
+                            : "border-rose-300 bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300"
+                        }`}
+                      >
+                        {isApproved ? "Report Received" : "Declined"}
+                      </Badge>
+                    </div>
+                  )}
+
+                  {/* Reviewer Remarks / Decline Reason */}
+                  {selectedDetail.managerComments && (
+                    <div className="p-3.5 rounded-xl border bg-muted/20 text-xs">
+                      <span className="text-[11px] font-semibold text-muted-foreground block mb-1">
+                        {isReportRejected
+                          ? "Decline Reason:"
+                          : "Reviewer Remarks:"}
+                      </span>
+                      <p className="text-foreground leading-relaxed whitespace-pre-wrap">
+                        {selectedDetail.managerComments}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 5-Star Submitter Rating */}
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Label className="text-xs font-semibold">
+                        {isRatingLocked
+                          ? "Submitter Rating"
+                          : "Rate Submitter's Investigation (Optional 5-Star Rating)"}
+                      </Label>
+                      {savedRating > 0 && (
+                        <span className="text-[11px] text-muted-foreground">
+                          • Rating has been recorded and locked.
+                        </span>
+                      )}
+                    </div>
+                    <StarRating
+                      value={savedRating > 0 ? savedRating : managerRating}
+                      onChange={(v) => setManagerRating(v)}
+                      disabled={isRatingLocked}
+                    />
+                  </div>
+
+                  {/* Approve & Decline Action Buttons (Only while pending review) */}
+                  {!isAlreadyReviewed && (
+                    <div className="flex items-center justify-end gap-3 pt-3 border-t">
+                      <Button
+                        variant="destructive"
+                        disabled={reviewingReport}
+                        onClick={() => {
+                          setDeclineReportReason("");
+                          setDeclineReportModalOpen(true);
+                        }}
+                        className="py-2 px-4 text-xs font-medium"
+                      >
+                        <X className="h-4 w-4 mr-1.5" />
+                        Decline Report
+                      </Button>
+                      <Button
+                        onClick={handleApproveSubmittedReport}
+                        disabled={reviewingReport}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 text-xs font-medium"
+                      >
+                        <Check className="h-4 w-4 mr-1.5" />
+                        {reviewingReport ? "Approving..." : "Approve Report"}
+                      </Button>
+                    </div>
+                  )}
+                </Card>
+              );
+            })()}
         </div>
       ) : (
         /* MAIN QUEUE LIST VIEW */
@@ -1029,7 +1358,7 @@ export default function ValidateAndAssignPage() {
             </Select>
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 w-[180px]">
+              <SelectTrigger className="h-9 w-[185px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -1038,6 +1367,11 @@ export default function ValidateAndAssignPage() {
                   Pending Validation
                 </SelectItem>
                 <SelectItem value="Assigned">Assigned</SelectItem>
+                <SelectItem value="Report Submitted">
+                  Report Submitted
+                </SelectItem>
+                <SelectItem value="Approved">Approved</SelectItem>
+                <SelectItem value="Report Rejected">Report Rejected</SelectItem>
                 <SelectItem value="Rejected">Rejected</SelectItem>
               </SelectContent>
             </Select>
@@ -1403,6 +1737,51 @@ export default function ValidateAndAssignPage() {
               disabled={submittingReject}
             >
               {submittingReject ? "Cancelling..." : "Reject & Cancel Request"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DECLINE SUBMITTED REPORT MODAL (Manager Review & Submitter Rating) */}
+      <Dialog
+        open={declineReportModalOpen}
+        onOpenChange={setDeclineReportModalOpen}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Decline Surveillance Report</DialogTitle>
+            <DialogDescription>
+              Please enter the decline reason. A valid reason is required to
+              decline this submitted surveillance report.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 py-2">
+            <Label className="text-xs font-semibold">
+              Decline Reason <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              value={declineReportReason}
+              onChange={(e) => setDeclineReportReason(e.target.value)}
+              placeholder="State why this report is declined or requires reinvestigation..."
+              rows={4}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeclineReportModalOpen(false)}
+              disabled={reviewingReport}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={reviewingReport}
+              onClick={handleDeclineSubmittedReport}
+            >
+              {reviewingReport ? "Declining..." : "Confirm Decline"}
             </Button>
           </DialogFooter>
         </DialogContent>

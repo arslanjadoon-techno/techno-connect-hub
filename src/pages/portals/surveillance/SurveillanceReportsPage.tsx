@@ -67,9 +67,9 @@ import {
 import { toast } from "sonner";
 import {
   surveillanceService,
-  isSurveillanceUserRole,
+  canAccessSurveillanceReports,
   getSurveillanceRole,
-  canRequestSurveillance,
+  getSurveillanceDefaultRoute,
   type SurveillanceReport,
   type SurveillanceRequest,
   type SurveillanceAttachment,
@@ -924,15 +924,10 @@ export default function SurveillanceReportsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataLoaded]);
 
-  // Strictly restrict Surveillance Reports page to "user" role
-  if (!isSurveillanceUserRole(user)) {
-    const role = getSurveillanceRole(user);
-    return (
-      <Navigate
-        to={canRequestSurveillance(role) ? "/surveillance/requests" : "/ai-chat"}
-        replace
-      />
-    );
+  // Restrict Surveillance Reports page to "admin" and "user" roles
+  const userRole = getSurveillanceRole(user);
+  if (!canAccessSurveillanceReports(userRole)) {
+    return <Navigate to={getSurveillanceDefaultRoute(user)} replace />;
   }
 
   const handleOpenEditableForm = (reqItem: SurveillanceRequest) => {

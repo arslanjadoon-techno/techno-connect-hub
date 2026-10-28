@@ -117,9 +117,11 @@ export default function ReportRequestsPage() {
   const { user } = useAuth();
   const detectedRole = useMemo(() => getSurveillanceRole(user), [user]);
 
-  // Active role selector for testing between Admin / State Mgr / Market Mgr (can approve) and District Mgr (view only)
-  const [activeRole, setActiveRole] = useState<SurveillanceRole>(() => {
-    return canRequestSurveillance(detectedRole) ? detectedRole : "admin";
+  // Active role state for authorized requester roles
+  const [activeRole] = useState<SurveillanceRole>(() => {
+    return detectedRole !== "other" && canRequestSurveillance(detectedRole)
+      ? detectedRole
+      : "admin";
   });
 
   const [requests, setRequests] = useState<SurveillanceRequest[]>([]);

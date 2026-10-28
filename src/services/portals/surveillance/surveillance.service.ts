@@ -12,9 +12,11 @@ import type {
   SurveillanceValidationItem,
   ValidateAndAssignPayload,
   RejectValidationPayload,
+  ReviewSubmittedReportPayload,
 } from "./types";
 import {
   DUMMY_SURVEILLANCE_AGENTS,
+  INITIAL_SURVEILLANCE_REPORTS,
   INITIAL_VALIDATION_REQUESTS,
 } from "@/pages/portals/surveillance/surveillance-data";
 
@@ -28,6 +30,9 @@ let validationQueueStore: SurveillanceValidationItem[] = INITIAL_VALIDATION_REQU
 );
 let assignableAgentsStore: SurveillanceAssignableAgent[] = DUMMY_SURVEILLANCE_AGENTS.map(
   (agent) => ({ ...agent }),
+);
+let dummyReportsStore: SurveillanceReport[] = INITIAL_SURVEILLANCE_REPORTS.map(
+  (rep) => ({ ...rep }),
 );
 
 const ACTIVE_SESSION_KEY = "active-session";
@@ -166,10 +171,89 @@ export class SurveillanceService {
 
   /**
    * Fetch all surveillance report requests.
+   * Also reflects any report reviews completed via the Validate and Assign workflow.
    */
   async getRequests(): Promise<SurveillanceRequest[]> {
     const res = await http.get<SurveillanceRequest[]>("/api/surveillance/requests");
-    return res.data;
+    const serverRequests = Array.isArray(res.data) ? res.data : [];
+
+    // Merge validated/accepted reports so accepted items appear on Request Reports with "Report Received" status
+    const mergedMap = new Map<string, SurveillanceRequest>();
+    for (const req of serverRequests) {
+      mergedMap.set(req.id, { ...req });
+    }
+
+    for (const vItem of validationQueueStore) {
+      if (vItem.validationStatus === "Approved") {
+        const existing = mergedMap.get(vItem.id);
+        if (existing) {
+          mergedMap.set(vItem.id, {
+            ...existing,
+            status: "Report Received",
+            reportStatus: "Approved",
+            linkedReportId: vItem.linkedReportId || existing.linkedReportId,
+            preparedBy: vItem.assignedAgentName || existing.preparedBy,
+            preparedByEmail: vItem.assignedAgentEmail || existing.preparedByEmail,
+            preparedByPhone: vItem.assignedAgentPhone || existing.preparedByPhone,
+            preparedByRole: vItem.assignedAgentRole || existing.preparedByRole,
+            preparedAt: vItem.reportSubmittedAt || existing.preparedAt,
+            reportApprovedBy: vItem.reportReviewedBy || existing.reportApprovedBy,
+            reportApprovedAt: vItem.reportReviewedAt || existing.reportApprovedAt,
+            managerRating: vItem.managerRating ?? existing.managerRating,
+            managerComments: vItem.managerComments ?? existing.managerComments,
+          });
+        } else {
+          mergedMap.set(vItem.id, {
+            id: vItem.id,
+            storeId: vItem.storeId,
+            storeName: vItem.storeName,
+            storeNumber: vItem.storeNumber,
+            marketName: vItem.marketName,
+            districtName: vItem.districtName,
+            incidentDate: vItem.surveillanceDate,
+            shift: "Surveillance Review",
+            investigationType: "Store Audit & Surveillance",
+            priority: vItem.priority,
+            title: vItem.title,
+            requestedBy: vItem.requestedBy,
+            requestedById: "",
+            requesterRole: vItem.requesterRole,
+            requesterEmail: vItem.requesterEmail,
+            requesterPhone: vItem.requesterPhone,
+            requesterDepartment: vItem.requesterDepartment,
+            areasToReview: [],
+            notes: vItem.notes,
+            status: "Report Received",
+            createdAt: vItem.createdAt,
+            linkedReportId: vItem.linkedReportId,
+            preparedBy: vItem.assignedAgentName,
+            preparedByEmail: vItem.assignedAgentEmail,
+            preparedByPhone: vItem.assignedAgentPhone,
+            preparedByRole: vItem.assignedAgentRole,
+            preparedAt: vItem.reportSubmittedAt,
+            reportStatus: "Approved",
+            reportApprovedBy: vItem.reportReviewedBy,
+            reportApprovedAt: vItem.reportReviewedAt,
+            managerRating: vItem.managerRating,
+            managerComments: vItem.managerComments,
+          });
+        }
+      } else if (vItem.validationStatus === "Report Rejected" && mergedMap.has(vItem.id)) {
+        const existing = mergedMap.get(vItem.id)!;
+        mergedMap.set(vItem.id, {
+          ...existing,
+          status: "Rejected",
+          reportStatus: "Rejected",
+          reportApprovedBy: vItem.reportReviewedBy || existing.reportApprovedBy,
+          reportApprovedAt: vItem.reportReviewedAt || existing.reportReviewedAt,
+          rejectionReason: vItem.managerComments || existing.rejectionReason,
+          managerComments: vItem.managerComments || existing.managerComments,
+          managerRating: vItem.managerRating ?? existing.managerRating,
+        });
+      }
+    }
+
+    return Array.from(mergedMap.values());
   }
 
   /**
@@ -218,11 +302,20 @@ export class SurveillanceService {
   }
 
   /**
-   * Get single surveillance report by ID.
+   * Get single surveillance report by ID (falls back to dummy sample report if backend API does not hold the UI-demo ID).
    */
   async getReport(id: string | number): Promise<SurveillanceReport> {
-    const res = await http.get<SurveillanceReport>(`/api/surveillance/reports/${id}`);
-    return res.data;
+    try {
+      const res = await http.get<SurveillanceReport>(`/api/surveillance/reports/${id}`);
+      if (res.data) return res.data;
+    } catch (err) {
+      const fallback = dummyReportsStore.find((r) => r.id === String(id));
+      if (fallback) return { ...fallback };
+      throw err;
+    }
+    const fallback = dummyReportsStore.find((r) => r.id === String(id));
+    if (fallback) return { ...fallback };
+    throw new Error("Surveillance report not found.");
   }
 
   /**
@@ -368,6 +461,65 @@ export class SurveillanceService {
   }
 
   /**
+   * Review a submitted surveillance report from the Validate and Assign page
+   * (Manager Review & Submitter Rating section).
+   * When approved, the report is finalized and surfaces on Request Reports with "Report Received" status.
+   */
+  async reviewSubmittedReport(
+    payload: ReviewSubmittedReportPayload,
+  ): Promise<SurveillanceValidationItem> {
+    const targetIndex = validationQueueStore.findIndex(
+      (item) => item.id === payload.requestId,
+    );
+    if (targetIndex === -1) {
+      throw new Error("Surveillance validation record not found.");
+    }
+
+    const existing = validationQueueStore[targetIndex];
+    const reviewedAt = new Date().toISOString();
+    const isApprove = payload.action === "approve";
+
+    if (existing.linkedReportId) {
+      // Attempt backend review sync if real report exists on server, while safely updating local demo store
+      try {
+        await http.post(`/api/surveillance/reports/${existing.linkedReportId}/review`, {
+          action: payload.action,
+          comments: payload.comments,
+          rating: payload.rating,
+        });
+      } catch {
+        // Ignore if UI demo item is not yet persisted on the backend
+      }
+
+      dummyReportsStore = dummyReportsStore.map((rep) =>
+        rep.id === existing.linkedReportId
+          ? {
+              ...rep,
+              status: isApprove ? "Approved" : "Rejected",
+              managerRating: payload.rating ?? rep.managerRating,
+              managerComments: payload.comments ?? rep.managerComments,
+              reviewedBy: payload.reviewedBy,
+              reviewedAt,
+            }
+          : rep,
+      );
+    }
+
+    const updated: SurveillanceValidationItem = {
+      ...existing,
+      validationStatus: isApprove ? "Approved" : "Report Rejected",
+      reportStatus: isApprove ? "Approved" : "Rejected",
+      reportReviewedBy: payload.reviewedBy,
+      reportReviewedAt: reviewedAt,
+      managerRating: payload.rating,
+      managerComments: payload.comments?.trim() || undefined,
+    };
+
+    validationQueueStore[targetIndex] = updated;
+    return { ...updated };
+  }
+
+  /**
    * Reset dummy review state back to initial sample items for team UI testing.
    */
   async resetValidationQueueDemo(): Promise<{
@@ -376,6 +528,7 @@ export class SurveillanceService {
   }> {
     validationQueueStore = INITIAL_VALIDATION_REQUESTS.map((item) => ({ ...item }));
     assignableAgentsStore = DUMMY_SURVEILLANCE_AGENTS.map((agent) => ({ ...agent }));
+    dummyReportsStore = INITIAL_SURVEILLANCE_REPORTS.map((rep) => ({ ...rep }));
     return {
       requests: validationQueueStore.map((item) => ({ ...item })),
       agents: assignableAgentsStore.map((agent) => ({ ...agent })),
