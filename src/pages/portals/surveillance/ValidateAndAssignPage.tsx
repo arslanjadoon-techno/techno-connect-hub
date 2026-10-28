@@ -50,7 +50,6 @@ import {
   ShieldCheck,
   Store as StoreIcon,
   User as UserIcon,
-  UserCheck,
   UserPlus,
   XCircle,
 } from "lucide-react";
@@ -278,14 +277,16 @@ export default function ValidateAndAssignPage() {
   }, [agents, selectedDetail]);
 
   const openAssignModal = useCallback((item: SurveillanceValidationItem) => {
+    if (item.validationStatus !== "Pending Validation") return;
     setTargetAssignItem(item);
-    setSelectedAgentId(item.assignedAgentId || "");
+    setSelectedAgentId("");
     setAssignModalOpen(true);
   }, []);
 
   const openRejectModal = useCallback((item: SurveillanceValidationItem) => {
+    if (item.validationStatus !== "Pending Validation") return;
     setTargetRejectItem(item);
-    setRejectionReason(item.rejectionReason || "");
+    setRejectionReason("");
     setRejectModalOpen(true);
   }, []);
 
@@ -518,57 +519,25 @@ export default function ValidateAndAssignPage() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2.5">
-              {selectedDetail.validationStatus === "Pending Validation" && (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => openRejectModal(selectedDetail)}
-                    className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-background border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40 whitespace-nowrap shrink-0"
-                  >
-                    <XCircle className="h-4 w-4" />
-                    Reject Request
-                  </Button>
-                  <Button
-                    onClick={() => openAssignModal(selectedDetail)}
-                    className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    Validate & Assign
-                  </Button>
-                </>
-              )}
-
-              {selectedDetail.validationStatus === "Assigned" && (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => openRejectModal(selectedDetail)}
-                    className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-background border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40 whitespace-nowrap shrink-0"
-                  >
-                    <XCircle className="h-4 w-4" />
-                    Cancel Assignment
-                  </Button>
-                  <Button
-                    onClick={() => openAssignModal(selectedDetail)}
-                    className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
-                  >
-                    <UserCheck className="h-4 w-4" />
-                    Reassign Agent
-                  </Button>
-                </>
-              )}
-
-              {selectedDetail.validationStatus === "Rejected" && (
+            {selectedDetail.validationStatus === "Pending Validation" && (
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Button
+                  variant="outline"
+                  onClick={() => openRejectModal(selectedDetail)}
+                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-background border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40 whitespace-nowrap shrink-0"
+                >
+                  <XCircle className="h-4 w-4" />
+                  Reject Request
+                </Button>
                 <Button
                   onClick={() => openAssignModal(selectedDetail)}
                   className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
                 >
                   <UserPlus className="h-4 w-4" />
-                  Revalidate & Assign Agent
+                  Validate & Assign
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Store Header + 6 Distinctly Colored Summary Cards */}
@@ -1127,11 +1096,7 @@ export default function ValidateAndAssignPage() {
       <Dialog open={assignModalOpen} onOpenChange={setAssignModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {targetAssignItem?.validationStatus === "Assigned"
-                ? "Reassign Surveillance Agent"
-                : "Validate & Assign Surveillance Request"}
-            </DialogTitle>
+            <DialogTitle>Validate & Assign Surveillance Request</DialogTitle>
             <DialogDescription>
               Review the requested surveillance parameters and assign this
               request to an agent for audit preparation.
@@ -1307,11 +1272,7 @@ export default function ValidateAndAssignPage() {
               onClick={handleConfirmAssign}
               disabled={submittingAssign || !selectedAgentId}
             >
-              {submittingAssign
-                ? "Assigning..."
-                : targetAssignItem?.validationStatus === "Assigned"
-                  ? "Save Assignment"
-                  : "Validate & Assign"}
+              {submittingAssign ? "Assigning..." : "Validate & Assign"}
             </Button>
           </DialogFooter>
         </DialogContent>
