@@ -31,6 +31,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { FilterReset } from "@/components/filter-reset";
 import {
   ArrowLeft,
   Building,
@@ -39,7 +40,6 @@ import {
   EyeOff,
   Mail,
   Phone,
-  RotateCcw,
   Search,
   ShieldCheck,
   Store as StoreIcon,
@@ -277,7 +277,7 @@ export default function ValidateAndAssignPage() {
       setAgents(refreshedAgents);
       setAssignModalOpen(false);
       toast.success(
-        `Request ${updated.id} validated and assigned to ${updated.assignedAgentName}.`,
+        `Request validated and assigned to ${updated.assignedAgentName}.`,
       );
     } catch (error) {
       toast.error(`Assignment failed: ${(error as Error).message}`);
@@ -309,7 +309,7 @@ export default function ValidateAndAssignPage() {
       setAgents(refreshedAgents);
       setRejectModalOpen(false);
       toast.success(
-        `Request ${updated.id} rejected and hidden from surveillance agents.`,
+        "Surveillance request rejected and hidden from surveillance agents.",
       );
     } catch (error) {
       toast.error(`Action failed: ${(error as Error).message}`);
@@ -318,35 +318,14 @@ export default function ValidateAndAssignPage() {
     }
   };
 
-  const handleResetDemo = async () => {
-    try {
-      const { requests: resetRequests, agents: resetAgents } =
-        await surveillanceService.resetValidationQueueDemo();
-      setRequests(resetRequests);
-      setAgents(resetAgents);
-      setSelectedDetailId(null);
-      setStatusFilter("all");
-      setMarketFilter("all");
-      setPriorityFilter("all");
-      setAgentFilter("all");
-      toast.success("Sample validation queue has been reset for review.");
-    } catch {
-      toast.error("Unable to reset sample queue.");
-    }
-  };
+  const hasActiveFilters =
+    marketFilter !== "all" ||
+    statusFilter !== "all" ||
+    priorityFilter !== "all" ||
+    agentFilter !== "all";
 
   const columns: Column<SurveillanceValidationItem>[] = useMemo(
     () => [
-      {
-        key: "id",
-        header: "Request ID",
-        searchValue: (r) => r.id,
-        accessor: (r) => (
-          <span className="font-mono text-xs font-medium text-foreground tabular-nums whitespace-nowrap">
-            {r.id}
-          </span>
-        ),
-      },
       {
         key: "surveillanceDate",
         header: "Surveillance Date",
@@ -383,7 +362,7 @@ export default function ValidateAndAssignPage() {
         header: "Investigation Reason",
         searchValue: (r) => `${r.title} ${r.notes || ""}`,
         accessor: (r) => (
-          <span className="text-sm text-foreground line-clamp-1 max-w-[260px]">
+          <span className="text-sm text-foreground line-clamp-1 max-w-[280px]">
             {r.title}
           </span>
         ),
@@ -456,75 +435,8 @@ export default function ValidateAndAssignPage() {
           );
         },
       },
-      {
-        key: "actions",
-        header: "Actions",
-        accessor: (r) => (
-          <div
-            className="flex items-center gap-1.5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {r.validationStatus === "Pending Validation" && (
-              <>
-                <Button
-                  size="sm"
-                  onClick={() => openAssignModal(r)}
-                  className="h-7 px-2.5 text-xs gap-1 whitespace-nowrap shrink-0"
-                >
-                  <UserPlus className="h-3.5 w-3.5" />
-                  Assign
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => openRejectModal(r)}
-                  className="h-7 px-2.5 text-xs gap-1 border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40 whitespace-nowrap shrink-0"
-                >
-                  <XCircle className="h-3.5 w-3.5" />
-                  Reject
-                </Button>
-              </>
-            )}
-
-            {r.validationStatus === "Assigned" && (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => openAssignModal(r)}
-                  className="h-7 px-2.5 text-xs gap-1 whitespace-nowrap shrink-0"
-                >
-                  <UserCheck className="h-3.5 w-3.5" />
-                  Reassign
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => openRejectModal(r)}
-                  className="h-7 px-2.5 text-xs gap-1 border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40 whitespace-nowrap shrink-0"
-                >
-                  <XCircle className="h-3.5 w-3.5" />
-                  Cancel
-                </Button>
-              </>
-            )}
-
-            {r.validationStatus === "Rejected" && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => openAssignModal(r)}
-                className="h-7 px-2.5 text-xs gap-1 whitespace-nowrap shrink-0"
-              >
-                <UserPlus className="h-3.5 w-3.5" />
-                Validate & Assign
-              </Button>
-            )}
-          </div>
-        ),
-      },
     ],
-    [openAssignModal, openRejectModal],
+    [],
   );
 
   // Strict Admin-only safeguard
@@ -561,7 +473,7 @@ export default function ValidateAndAssignPage() {
                 Back to Validate and Assign
               </Button>
               <h1 className="font-display text-xl font-bold tracking-tight text-foreground">
-                Review Request ({selectedDetail.id})
+                Request Details
               </h1>
             </div>
 
@@ -904,34 +816,15 @@ export default function ValidateAndAssignPage() {
         /* MAIN QUEUE LIST VIEW */
         <>
           {/* Header */}
-          <div className="flex flex-col gap-4 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h1 className="font-display text-2xl font-semibold tracking-tight">
-                  Validate and Assign
-                </h1>
-                <span className="text-xs font-medium text-muted-foreground">
-                  · Admin Review Queue
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Review incoming surveillance requests, assign valid requests to
-                agents for report preparation, or reject invalid requests so
-                they remain hidden from agents.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleResetDemo}
-                className="h-9 gap-1.5 text-xs whitespace-nowrap shrink-0"
-              >
-                <RotateCcw className="h-3.5 w-3.5" />
-                Reset Sample Data
-              </Button>
-            </div>
+          <div className="border-b pb-4">
+            <h1 className="font-display text-2xl font-semibold tracking-tight">
+              Validate and Assign
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Review incoming surveillance requests, assign valid requests to
+              agents for report preparation, or reject invalid requests so they
+              remain hidden from agents. Click any row to review details.
+            </p>
           </div>
 
           {/* 4 KPI Summary Cards */}
@@ -973,113 +866,80 @@ export default function ValidateAndAssignPage() {
             </Card>
           </div>
 
-          {/* Interactive Filter Toolbar */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            {/* Segmented Status Filter Controls */}
-            <div className="flex flex-wrap items-center gap-1 p-1 bg-muted/60 rounded-lg border border-border/60">
-              {(
-                [
-                  { value: "all", label: `All (${metrics.total})` },
-                  {
-                    value: "Pending Validation",
-                    label: `Pending Validation (${metrics.pending})`,
-                  },
-                  {
-                    value: "Assigned",
-                    label: `Assigned (${metrics.assigned})`,
-                  },
-                  {
-                    value: "Rejected",
-                    label: `Rejected (${metrics.rejected})`,
-                  },
-                ] as const
-              ).map((tab) => (
-                <button
-                  key={tab.value}
-                  type="button"
-                  onClick={() => setStatusFilter(tab.value)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 tabular-nums ${
-                    statusFilter === tab.value
-                      ? "bg-background text-foreground shadow-xs"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+          {/* Left-Aligned Filter Toolbar with Reset Button */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Select value={marketFilter} onValueChange={setMarketFilter}>
+              <SelectTrigger className="h-9 w-[170px]">
+                <SelectValue placeholder="Market" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Markets</SelectItem>
+                {markets.map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-            {/* Dropdown Filters */}
-            <div className="flex flex-wrap items-center gap-2">
-              <Select value={marketFilter} onValueChange={setMarketFilter}>
-                <SelectTrigger className="h-9 w-[165px]">
-                  <SelectValue placeholder="Market" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Markets</SelectItem>
-                  {markets.map((m) => (
-                    <SelectItem key={m} value={m}>
-                      {m}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-9 w-[180px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="Pending Validation">
+                  Pending Validation
+                </SelectItem>
+                <SelectItem value="Assigned">Assigned</SelectItem>
+                <SelectItem value="Rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
 
-              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="h-9 w-[145px]">
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priorities</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger className="h-9 w-[150px]">
+                <SelectValue placeholder="Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Priorities</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="low">Low</SelectItem>
+              </SelectContent>
+            </Select>
 
-              <Select value={agentFilter} onValueChange={setAgentFilter}>
-                <SelectTrigger className="h-9 w-[185px]">
-                  <SelectValue placeholder="Assigned Agent" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Agents</SelectItem>
-                  <SelectItem value="unassigned">Unassigned Only</SelectItem>
-                  {agents.map((agent) => (
-                    <SelectItem key={agent.id} value={agent.id}>
-                      {agent.fullName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <Select value={agentFilter} onValueChange={setAgentFilter}>
+              <SelectTrigger className="h-9 w-[185px]">
+                <SelectValue placeholder="Assigned Agent" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Agents</SelectItem>
+                <SelectItem value="unassigned">Unassigned Only</SelectItem>
+                {agents.map((agent) => (
+                  <SelectItem key={agent.id} value={agent.id}>
+                    {agent.fullName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-              {(statusFilter !== "all" ||
-                marketFilter !== "all" ||
-                priorityFilter !== "all" ||
-                agentFilter !== "all") && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setStatusFilter("all");
-                    setMarketFilter("all");
-                    setPriorityFilter("all");
-                    setAgentFilter("all");
-                  }}
-                  className="h-9 px-2.5 text-xs text-muted-foreground hover:text-foreground gap-1 border border-dashed whitespace-nowrap shrink-0"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  Reset Filters
-                </Button>
-              )}
-            </div>
+            <FilterReset
+              active={hasActiveFilters}
+              onReset={() => {
+                setMarketFilter("all");
+                setStatusFilter("all");
+                setPriorityFilter("all");
+                setAgentFilter("all");
+              }}
+            />
           </div>
 
-          {/* Queue DataTable */}
+          {/* Clickable Queue DataTable */}
           <DataTable
             rows={filteredRequests}
             columns={columns}
             rowKey={(r) => r.id}
-            searchPlaceholder="Search by Request ID, Store, Market, Reason, Requester, or Agent..."
+            searchPlaceholder="Search by Store, Market, Reason, Requester, or Agent..."
             onRowClick={(r) => setSelectedDetailId(r.id)}
             loading={loading}
           />
