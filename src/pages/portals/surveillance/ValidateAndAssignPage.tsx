@@ -81,7 +81,7 @@ const VALIDATION_STATUS_CONFIG: Record<
     tone: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400",
   },
   Rejected: {
-    label: "Rejected / Cancelled",
+    label: "Rejected",
     tone: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400",
   },
 };
@@ -413,8 +413,8 @@ export default function ValidateAndAssignPage() {
             );
           }
           return (
-            <span className="text-xs text-muted-foreground whitespace-nowrap">
-              Not Assigned
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              -
             </span>
           );
         },
@@ -486,14 +486,14 @@ export default function ValidateAndAssignPage() {
                     className="h-9 gap-1.5 text-xs font-medium border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40 whitespace-nowrap shrink-0"
                   >
                     <XCircle className="h-4 w-4" />
-                    Reject / Cancel Request
+                    Reject Request
                   </Button>
                   <Button
                     onClick={() => openAssignModal(selectedDetail)}
                     className="h-9 gap-1.5 text-xs font-medium whitespace-nowrap shrink-0"
                   >
                     <UserPlus className="h-4 w-4" />
-                    Validate & Assign Agent
+                    Validate & Assign
                   </Button>
                 </>
               )}
@@ -730,16 +730,6 @@ export default function ValidateAndAssignPage() {
                     This request is currently held in the admin review queue and
                     is not visible to any agent until validated and assigned.
                   </p>
-                  <div className="pt-1 flex items-center justify-center gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => openAssignModal(selectedDetail)}
-                      className="h-8 gap-1.5 text-xs"
-                    >
-                      <UserPlus className="h-3.5 w-3.5" />
-                      Assign to Agent
-                    </Button>
-                  </div>
                 </div>
               )}
             </Card>
