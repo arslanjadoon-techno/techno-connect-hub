@@ -17,13 +17,12 @@ import {
 } from "@/components/ui/dialog";
 import {
   ArrowLeft,
-  Check,
   CheckCircle2,
   Download,
   FileText,
   Image as ImageIcon,
   Paperclip,
-  X,
+  Star,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -35,7 +34,7 @@ import {
   type SurveillanceAuditRow,
   type SurveillanceAttachment,
 } from "@/services/portals/surveillance";
-import { getStaticReportById, getStaticRequestById, reviewStaticReport } from "./surveillance-data";
+import { getStaticReportById, getStaticRequestById } from "./surveillance-data";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -363,6 +362,36 @@ function getRowFieldDetail(row: SurveillanceAuditRow, key: BaseAuditRowKey): str
   return extractLegacyInlineDetail(row[key]);
 }
 
+function StarRating({ value }: { value: number }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
+        {[1, 2, 3, 4, 5].map((star) => {
+          const isFilled = star <= value;
+          return (
+            <Star
+              key={star}
+              className={`h-4 w-4 ${
+                isFilled ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30"
+              }`}
+            />
+          );
+        })}
+      </div>
+      <span className="ml-1 text-xs font-semibold text-foreground tabular-nums">
+        {value > 0 ? `${value} / 5` : "Not rated"}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Dedicated Read-Only Report Detail Page opened from Surveillance Reports > Surveillance Report Detail > View Report.
+ * Features:
+ * - Read-only Audit Data Table.
+ * - Non-editable "Manager Review & Feedback" section (Star rating + Manager comments).
+ * - NO Accept or Decline / Reject buttons.
+ */
 export default function SurveillanceReportDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -371,11 +400,6 @@ export default function SurveillanceReportDetailPage() {
   const [report, setReport] = useState<SurveillanceReport | null>(null);
   const [linkedRequest, setLinkedRequest] = useState<SurveillanceRequest | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // Decline Report modal & action state
-  const [declineModalOpen, setDeclineModalOpen] = useState(false);
-  const [declineReason, setDeclineReason] = useState<string>("");
-  const [submittingReview, setSubmittingReview] = useState(false);
 
   const userRole = getSurveillanceRole(user);
   const canReviewReport = canApproveSurveillance(userRole);
@@ -393,61 +417,6 @@ export default function SurveillanceReportDetailPage() {
     }
     setLoading(false);
   }, [id]);
-
-  const isReportFinalized = report?.status === "Approved" || report?.status === "Rejected";
-
-  const canTakeReviewAction = Boolean(report) && canReviewReport && !isReportFinalized;
-
-  const handleMarkAsCompleted = () => {
-    if (!report) return;
-
-    setSubmittingReview(true);
-    try {
-      const updated = reviewStaticReport(report.id, {
-        action: "approve",
-        reviewedBy: user?.fullName || "System Admin",
-      });
-      setReport(updated);
-      setLinkedRequest(getStaticRequestById(updated.requestId));
-      toast.success(
-        "Surveillance audit report marked as Completed and is now visible on the requester dashboard.",
-      );
-    } catch (error) {
-      toast.error(`Failed to mark report as completed: ${(error as Error).message}`);
-    } finally {
-      setSubmittingReview(false);
-    }
-  };
-
-  const handleOpenDeclineModal = () => {
-    setDeclineReason("");
-    setDeclineModalOpen(true);
-  };
-
-  const handleConfirmDeclineReport = () => {
-    if (!report) return;
-    if (!declineReason.trim()) {
-      toast.error("Please provide a reason for declining this report.");
-      return;
-    }
-
-    setSubmittingReview(true);
-    try {
-      const updated = reviewStaticReport(report.id, {
-        action: "reject",
-        comments: declineReason.trim(),
-        reviewedBy: user?.fullName || "System Admin",
-      });
-      setReport(updated);
-      setLinkedRequest(getStaticRequestById(updated.requestId));
-      setDeclineModalOpen(false);
-      toast.success("Surveillance audit report has been rejected.");
-    } catch (error) {
-      toast.error(`Failed to decline report: ${(error as Error).message}`);
-    } finally {
-      setSubmittingReview(false);
-    }
-  };
 
   // Row attachment viewer modal state
   const [selectedRowAttachments, setSelectedRowAttachments] = useState<{
@@ -532,7 +501,6 @@ export default function SurveillanceReportDetailPage() {
     return formatCellValue(row[key]);
   };
 
-  // Dynamically swap any column where "Custom" was selected with its "<Field> Details" column
   const activeAuditFields = useMemo(() => {
     return AUDIT_DATA_FIELDS.map((field) => {
       const hasCustom = allRows.some((r) => isFieldCustomInRow(r, field.key));
@@ -546,7 +514,6 @@ export default function SurveillanceReportDetailPage() {
     });
   }, [allRows]);
 
-  // Consistent DataTable columns with uniform text color, "-" for missing values, and Attachments last column
   const columns: Column<SurveillanceAuditRow>[] = useMemo(() => {
     const dataCols: Column<SurveillanceAuditRow>[] = activeAuditFields.map((col) => ({
       key: col.colKey,
@@ -664,6 +631,9 @@ export default function SurveillanceReportDetailPage() {
     );
   }
 
+  const managerRating = report.managerRating || linkedRequest?.managerRating || 0;
+  const managerComments = (report.managerComments || linkedRequest?.managerComments || "").trim();
+
   return (
     <div className="space-y-6 pb-12 animate-fade-in">
       {/* Top Header */}
@@ -713,7 +683,7 @@ export default function SurveillanceReportDetailPage() {
         </div>
       </div>
 
-      {/* Consistent Application DataTable with Top-Right Search Bar */}
+      {/* Audit Data Table */}
       <DataTable
         rows={allRows}
         columns={columns}
@@ -722,99 +692,55 @@ export default function SurveillanceReportDetailPage() {
         searchPlaceholder="Search audit records..."
       />
 
-      {/* Rejection Reason Banner (shown when report has been declined / rejected) */}
-      {report.status === "Rejected" && (
+      {/* Non-editable Manager Review & Feedback Section */}
+      {(managerRating > 0 || managerComments || report.reviewedBy) && (
+        <Card className="p-6 rounded-2xl border-border/80 shadow-xs space-y-4">
+          <div className="border-b pb-3 space-y-1">
+            <h2 className="font-display text-base font-bold text-foreground">
+              Manager Review &amp; Feedback
+            </h2>
+            {report.reviewedBy && (
+              <p className="text-xs text-muted-foreground">
+                Reviewed by{" "}
+                <strong className="font-semibold text-foreground">{report.reviewedBy}</strong>
+                {report.reviewedAt ? ` on ${formatReviewDateTime(report.reviewedAt)}` : ""}
+              </p>
+            )}
+          </div>
+
+          {managerRating > 0 && (
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-foreground">Rating</Label>
+              <StarRating value={managerRating} />
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-foreground">Manager Comments / Feedback</Label>
+            <Textarea
+              readOnly
+              rows={3}
+              value={managerComments || "No feedback provided."}
+              className="text-xs bg-muted/40 text-foreground cursor-default focus-visible:ring-0 resize-none"
+            />
+          </div>
+        </Card>
+      )}
+
+      {/* Rejection Reason Banner (shown if report was declined / rejected) */}
+      {report.status === "Rejected" && !managerComments && (
         <Card className="p-5 rounded-2xl border-rose-200/90 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/60 space-y-2.5 shadow-xs">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-rose-900 dark:text-rose-200 font-semibold text-sm">
               <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
               <span>Rejection Reason</span>
             </div>
-            {report.reviewedBy && (
-              <span className="text-xs text-muted-foreground">
-                Rejected by{" "}
-                <strong className="font-semibold text-foreground">{report.reviewedBy}</strong>
-                {report.reviewedAt ? ` on ${formatReviewDateTime(report.reviewedAt)}` : ""}
-              </span>
-            )}
           </div>
           <div className="p-3.5 rounded-xl border border-rose-200/80 bg-background text-foreground text-xs leading-relaxed whitespace-pre-wrap">
             {report.managerComments || "Report was declined during review."}
           </div>
         </Card>
       )}
-
-      {/* Bottom Action Buttons (Decline Report & Mark as Completed) */}
-      {canTakeReviewAction && (
-        <div className="flex flex-wrap items-center justify-end gap-2.5 border-t pt-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleOpenDeclineModal}
-            disabled={submittingReview}
-            className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-900/60 dark:text-rose-400"
-          >
-            <X className="h-3.5 w-3.5" />
-            Decline Report
-          </Button>
-          <Button
-            type="button"
-            onClick={handleMarkAsCompleted}
-            disabled={submittingReview}
-            className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-          >
-            <Check className="h-3.5 w-3.5" />
-            Mark as Completed
-          </Button>
-        </div>
-      )}
-
-      {/* Decline Report Reason Dialog */}
-      <Dialog open={declineModalOpen} onOpenChange={setDeclineModalOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Decline Surveillance Report</DialogTitle>
-            <DialogDescription>
-              Provide the reason for declining this surveillance audit report. The report status
-              will be updated to Rejected with this reason.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-2 py-1">
-            <Label htmlFor="decline-report-reason" className="text-xs font-semibold">
-              Reason for Declining <span className="text-destructive">*</span>
-            </Label>
-            <Textarea
-              id="decline-report-reason"
-              required
-              rows={4}
-              value={declineReason}
-              onChange={(e) => setDeclineReason(e.target.value)}
-              placeholder="Enter the reason for declining this report..."
-              className="text-xs resize-none"
-            />
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDeclineModalOpen(false)}
-              disabled={submittingReview}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleConfirmDeclineReport}
-              disabled={submittingReview || !declineReason.trim()}
-            >
-              {submittingReview ? "Declining..." : "Decline Report"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Row Attachments Viewer Dialog */}
       <Dialog

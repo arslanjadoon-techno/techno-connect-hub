@@ -497,7 +497,9 @@ export default function ValidateAndAssignPage() {
 
               {Boolean(selectedDetail.linkedReportId) && (
                 <Button
-                  onClick={() => navigate(`/surveillance/reports/${selectedDetail.linkedReportId}`)}
+                  onClick={() =>
+                    navigate(`/surveillance/validate-and-assign/review/${selectedDetail.linkedReportId}`)
+                  }
                   className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
                 >
                   <Eye className="h-4 w-4" />

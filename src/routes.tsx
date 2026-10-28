@@ -75,6 +75,7 @@ import ValidateAndAssignPage from "@/pages/portals/surveillance/ValidateAndAssig
 import SurveillanceAgentsPage from "@/pages/portals/surveillance/SurveillanceAgentsPage";
 import SurveillanceReportsPage from "@/pages/portals/surveillance/SurveillanceReportsPage";
 import SurveillanceReportDetailPage from "@/pages/portals/surveillance/SurveillanceReportDetailPage";
+import SurveillanceReportReviewPage from "@/pages/portals/surveillance/SurveillanceReportReviewPage";
 import SurveillanceNoAccessPage from "@/pages/portals/surveillance/SurveillanceNoAccessPage";
 import {
   getSurveillanceRole,
@@ -753,6 +754,16 @@ export function AppRoutes() {
             <PortalRouteGuard portalKey="surveillance">
               <SurveillanceValidateOnly>
                 <SurveillanceAgentsPage />
+              </SurveillanceValidateOnly>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/surveillance/validate-and-assign/review/:id"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceValidateOnly>
+                <SurveillanceReportReviewPage />
               </SurveillanceValidateOnly>
             </PortalRouteGuard>
           }
