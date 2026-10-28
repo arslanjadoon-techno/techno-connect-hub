@@ -531,7 +531,7 @@ function AmPmTimePicker({
             {value && value.trim() ? (
               <span className="font-medium text-foreground">{value}</span>
             ) : (
-              <span className="text-muted-foreground">-</span>
+              <span className="text-muted-foreground font-mono font-medium">--:--</span>
             )}
           </span>
           {value && value.trim() ? (
@@ -964,9 +964,13 @@ export default function SurveillanceReportsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
 
-  // Top header fields (Store Open Time & Primary Sales Rep)
-  const [headerStoreOpenTime, setHeaderStoreOpenTime] = useState<string>("09:00 AM");
+  // Top header fields (Store Open / Store Close Settings)
+  const [headerStoreOpenTime, setHeaderStoreOpenTime] = useState<string>("");
   const [headerSalesRep, setHeaderSalesRep] = useState<string>(
+    SALES_REP_NAMES[0] || "Abdul Razzak",
+  );
+  const [headerStoreCloseTime, setHeaderStoreCloseTime] = useState<string>("");
+  const [headerStoreCloseSalesRep, setHeaderStoreCloseSalesRep] = useState<string>(
     SALES_REP_NAMES[0] || "Abdul Razzak",
   );
 
@@ -1097,13 +1101,19 @@ export default function SurveillanceReportsPage() {
     setDirtyRowIds({});
 
     if (existingReport) {
-      setHeaderStoreOpenTime(existingReport.cashTime || existingReport.time || "09:00 AM");
+      setHeaderStoreOpenTime(existingReport.cashTime || existingReport.time || "");
       setHeaderSalesRep(
         existingReport.salesRep?.split(",")[0]?.trim() || SALES_REP_NAMES[0] || "Abdul Razzak",
       );
+      setHeaderStoreCloseTime(existingReport.timeReturned || "");
+      setHeaderStoreCloseSalesRep(
+        existingReport.nameOfRepLeaving?.trim() || SALES_REP_NAMES[0] || "Abdul Razzak",
+      );
     } else {
-      setHeaderStoreOpenTime("09:00 AM");
+      setHeaderStoreOpenTime("");
       setHeaderSalesRep(SALES_REP_NAMES[0] || "Abdul Razzak");
+      setHeaderStoreCloseTime("");
+      setHeaderStoreCloseSalesRep(SALES_REP_NAMES[0] || "Abdul Razzak");
     }
 
     if (existingReport && existingReport.rows && existingReport.rows.length > 0) {
@@ -1141,9 +1151,9 @@ export default function SurveillanceReportsPage() {
       setEditableRows([fallbackRow]);
       setExpandedRowIds({ [fallbackRow.id]: true });
     } else {
-      const firstRow = createEmptyAuditRow(reqItem.storeName, reqItem.marketName, initialDate);
-      setEditableRows([firstRow]);
-      setExpandedRowIds({ [firstRow.id]: true });
+      // By default start with 0 open rows
+      setEditableRows([]);
+      setExpandedRowIds({});
     }
 
     saveStaticActiveDraftSession(reqItem.id, true);
@@ -1188,25 +1198,6 @@ export default function SurveillanceReportsPage() {
           updated.nb = ct === "Non-Buyer" || ct === "Non Billable" ? "NB" : "";
         }
 
-        // Clear custom detail text if a dropdown is changed away from "Custom"
-        if (typeof field === "string" && field in CUSTOM_DETAIL_PROP_MAP) {
-          const customKey = field as CustomDetailFieldKey;
-          const isStillCustom =
-            customKey === "transType"
-              ? hasCustomInTransType(String(value || ""))
-              : value === "Custom" || value === "Other";
-
-          if (!isStillCustom) {
-            const detailProp = CUSTOM_DETAIL_PROP_MAP[customKey];
-            updated[detailProp] = "";
-            if (updated.otherDetails && customKey in updated.otherDetails) {
-              const nextDetails = { ...updated.otherDetails };
-              delete nextDetails[customKey];
-              updated.otherDetails = nextDetails;
-            }
-          }
-        }
-
         // Keep card / cash synchronized with Payment Type dropdown
         if (field === "paymentType") {
           const pt = String(value || "");
@@ -1249,29 +1240,7 @@ export default function SurveillanceReportsPage() {
     );
   };
 
-  const handleUpdateOtherDetail = (
-    rowId: string,
-    fieldKey: CustomDetailFieldKey,
-    detailText: string,
-  ) => {
-    const detailProp = CUSTOM_DETAIL_PROP_MAP[fieldKey];
-    setDirtyRowIds((prev) => ({ ...prev, [rowId]: true }));
-    setEditableRows((prev) =>
-      prev.map((row) => {
-        if (row.id !== rowId) return row;
-        return {
-          ...row,
-          [detailProp]: detailText,
-          otherDetails: {
-            ...(row.otherDetails || {}),
-            [fieldKey]: detailText,
-          },
-        };
-      }),
-    );
-  };
-
-  // Adds a fresh audit row with all time fields reset to default ('-')
+  // Adds a fresh audit row
   const handleAddAuditRow = (storeName: string, marketName: string, defaultDate?: string) => {
     const nextRow = createEmptyAuditRow(storeName, marketName, defaultDate);
     setEditableRows((prev) => [...prev, nextRow]);
@@ -1279,10 +1248,6 @@ export default function SurveillanceReportsPage() {
   };
 
   const handleRemoveAuditRow = (requestId: string, rowId: string) => {
-    if (editableRows.length <= 1) {
-      toast.error("At least one audit entry row is required to submit a report.");
-      return;
-    }
     removeStaticDraftRow(requestId, rowId);
     setEditableRows((prev) => prev.filter((r) => r.id !== rowId));
     setSavedRowTimestamps((prev) => {
@@ -1786,24 +1751,9 @@ export default function SurveillanceReportsPage() {
               </h1>
             </div>
           </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() =>
-                handleAddAuditRow(activeItem.storeName, activeItem.marketName, defaultDate)
-              }
-              className="h-9 gap-1.5 text-xs font-medium"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add Row ({editableRows.length})
-            </Button>
-          </div>
         </div>
 
-        {/* Top Badges for Auto-populated Metadata */}
+        {/* 1. Top Badges for Auto-populated Metadata */}
         <div className="flex flex-wrap items-center gap-2 pt-1">
           <Badge
             variant="secondary"
@@ -1828,8 +1778,12 @@ export default function SurveillanceReportsPage() {
           </Badge>
         </div>
 
-        {/* Report Header Settings Card (Store Open Time & Primary Sales Rep) */}
-        <Card className="p-4 border-border/80 shadow-2xs bg-card space-y-2">
+        {/* 2. Store Opener Section */}
+        <Card className="p-4 border-border/80 shadow-2xs bg-card space-y-3">
+          <div className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2 border-b pb-2">
+            <Clock className="h-4 w-4 text-primary" />
+            Store Opener Section
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label className="text-xs font-semibold text-foreground">
@@ -1864,61 +1818,91 @@ export default function SurveillanceReportsPage() {
           </div>
         </Card>
 
-        {/* Editable Multi-Row Audit Form Cards */}
+        {/* 3. Add Audit Row Section & Cards */}
         <div className="space-y-4">
-          {editableRows.map((row, index) => {
-            const isExpanded = expandedRowIds[row.id] ?? true;
-            const rowSavedAt = savedRowTimestamps[row.id];
-            const isRowDirty = Boolean(dirtyRowIds[row.id]);
-            const isRowSavedClean = Boolean(rowSavedAt && !isRowDirty);
-            const computedDifference = calculateDifferenceDisplay(
-              row.invoiceAmount,
-              row.totalTaken,
-            );
+          <div className="flex items-center justify-between gap-3 bg-muted/20 border p-3 rounded-xl">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-foreground">
+                Audit Rows ({editableRows.length})
+              </h3>
+              <p className="text-[11px] text-muted-foreground">
+                Record transaction and sales pitch audit observations below.
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={() =>
+                handleAddAuditRow(activeItem.storeName, activeItem.marketName, defaultDate)
+              }
+              className="h-9 gap-1.5 text-xs font-semibold shadow-2xs"
+            >
+              <Plus className="h-4 w-4" />
+              Add Audit Row
+            </Button>
+          </div>
 
-            return (
-              <Card key={row.id} className="border-border/80 overflow-hidden shadow-xs">
-                {/* Row Header */}
-                <div className="flex items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => toggleRowExpanded(row.id)}
-                    className="flex flex-1 items-center gap-3 text-left"
-                  >
-                    <Badge variant="outline" className="font-mono text-xs font-semibold">
-                      Row #{index + 1}
-                    </Badge>
-                    <span className="text-sm font-semibold text-foreground">
-                      {headerSalesRep || "Audit Entry"}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {row.invoice.trim() ? `• Invoice No: ${row.invoice}` : ""}
-                      {row.time.trim() ? ` • Entrance Time: ${row.time}` : ""}
-                    </span>
-                    {isRowSavedClean && (
-                      <Badge
-                        variant="outline"
-                        className="border-emerald-200 bg-emerald-50 text-[11px] font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400"
-                      >
-                        Saved
-                      </Badge>
-                    )}
-                    {rowSavedAt && isRowDirty && (
-                      <Badge
-                        variant="outline"
-                        className="border-amber-200 bg-amber-50 text-[11px] font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-400"
-                      >
-                        Unsaved Changes
-                      </Badge>
-                    )}
-                    {isExpanded ? (
-                      <ChevronUp className="ml-auto h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground" />
-                    )}
-                  </button>
+          {editableRows.length === 0 ? (
+            <Card className="p-8 border-dashed border-border text-center space-y-2 bg-muted/10 rounded-2xl">
+              <p className="text-xs font-semibold text-foreground">
+                No audit rows added yet.
+              </p>
+              <p className="text-[11px] text-muted-foreground max-w-sm mx-auto">
+                Click the <span className="font-semibold text-foreground">"Add Audit Row"</span> button above to create a new surveillance audit entry.
+              </p>
+            </Card>
+          ) : (
+            editableRows.map((row, index) => {
+              const isExpanded = expandedRowIds[row.id] ?? true;
+              const rowSavedAt = savedRowTimestamps[row.id];
+              const isRowDirty = Boolean(dirtyRowIds[row.id]);
+              const isRowSavedClean = Boolean(rowSavedAt && !isRowDirty);
+              const computedDifference = calculateDifferenceDisplay(
+                row.invoiceAmount,
+                row.totalTaken,
+              );
 
-                  {editableRows.length > 1 && (
+              return (
+                <Card key={row.id} className="border-border/80 overflow-hidden shadow-xs">
+                  {/* Row Header */}
+                  <div className="flex items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleRowExpanded(row.id)}
+                      className="flex flex-1 items-center gap-3 text-left"
+                    >
+                      <Badge variant="outline" className="font-mono text-xs font-semibold">
+                        Row #{index + 1}
+                      </Badge>
+                      <span className="text-sm font-semibold text-foreground">
+                        {headerSalesRep || "Audit Entry"}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {row.invoice.trim() ? `• Invoice No: ${row.invoice}` : ""}
+                        {row.time.trim() ? ` • Entrance Time: ${row.time}` : ""}
+                      </span>
+                      {isRowSavedClean && (
+                        <Badge
+                          variant="outline"
+                          className="border-emerald-200 bg-emerald-50 text-[11px] font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400"
+                        >
+                          Saved
+                        </Badge>
+                      )}
+                      {rowSavedAt && isRowDirty && (
+                        <Badge
+                          variant="outline"
+                          className="border-amber-200 bg-amber-50 text-[11px] font-medium text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-400"
+                        >
+                          Unsaved Changes
+                        </Badge>
+                      )}
+                      {isExpanded ? (
+                        <ChevronUp className="ml-auto h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="ml-auto h-4 w-4 text-muted-foreground" />
+                      )}
+                    </button>
+
                     <Button
                       type="button"
                       variant="ghost"
@@ -1929,482 +1913,453 @@ export default function SurveillanceReportsPage() {
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
-                  )}
-                </div>
+                  </div>
 
-                {isExpanded && (
-                  <div className="p-4 space-y-5 text-xs">
-                    {/* 1. Transaction & Billing Details */}
-                    <div className="space-y-3 rounded-lg border p-3.5">
-                      <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
-                        <ShoppingBag className="h-4 w-4 text-primary" />
-                        1. Transaction & Billing Details
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Invoice No</Label>
-                          <Input
-                            value={row.invoice}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "invoice", e.target.value)
-                            }
-                            placeholder="e.g. INV-12345"
-                          />
+                  {isExpanded && (
+                    <div className="p-4 space-y-5 text-xs">
+                      {/* 1. Transaction & Billing Details */}
+                      <div className="space-y-3 rounded-lg border p-3.5">
+                        <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
+                          <ShoppingBag className="h-4 w-4 text-primary" />
+                          1. Transaction & Billing Details
                         </div>
 
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Cash Time</Label>
-                          <AmPmTimePicker
-                            value={row.cashTime}
-                            onChange={(val) => handleUpdateRowField(row.id, "cashTime", val)}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Entrance Time</Label>
-                          <AmPmTimePicker
-                            value={row.time}
-                            onChange={(val) => handleUpdateRowField(row.id, "time", val)}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">BDI TIME</Label>
-                          <AmPmTimePicker
-                            value={row.bdiTime}
-                            onChange={(val) => handleUpdateRowField(row.id, "bdiTime", val)}
-                          />
-                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold">Invoice No</Label>
+                            <Input
+                              value={row.invoice}
+                              onChange={(e) =>
+                                handleUpdateRowField(row.id, "invoice", e.target.value)
+                              }
+                              placeholder="e.g. INV-12345"
+                            />
+                          </div>
 
-                        <div className="space-y-1 sm:col-span-2">
-                          <Label className="text-[11px] font-semibold">
-                            Transaction Type <span className="text-destructive">*</span>
-                          </Label>
-                          <TransactionTypeMultiSelect
-                            value={row.transType}
-                            options={TRANSACTION_TYPE_OPTIONS}
-                            onChange={(nextVal) =>
-                              handleUpdateRowField(row.id, "transType", nextVal)
-                            }
-                          />
-                        </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold">Cash Time</Label>
+                            <AmPmTimePicker
+                              value={row.cashTime}
+                              onChange={(val) => handleUpdateRowField(row.id, "cashTime", val)}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold">Entrance Time</Label>
+                            <AmPmTimePicker
+                              value={row.time}
+                              onChange={(val) => handleUpdateRowField(row.id, "time", val)}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold">BDI TIME</Label>
+                            <AmPmTimePicker
+                              value={row.bdiTime}
+                              onChange={(val) => handleUpdateRowField(row.id, "bdiTime", val)}
+                            />
+                          </div>
 
-                        <StandardSelect
-                          label="Client Type"
-                          options={CLIENT_TYPE_OPTIONS}
-                          value={normalizeClientType(row.clientType, row.b, row.nb)}
-                          onValueChange={(val) => handleUpdateRowField(row.id, "clientType", val)}
-                        />
+                          <div className="space-y-1 sm:col-span-2">
+                            <Label className="text-[11px] font-semibold">
+                              Transaction Type <span className="text-destructive">*</span>
+                            </Label>
+                            <TransactionTypeMultiSelect
+                              value={row.transType}
+                              options={TRANSACTION_TYPE_OPTIONS}
+                              onChange={(nextVal) =>
+                                handleUpdateRowField(row.id, "transType", nextVal)
+                              }
+                            />
+                          </div>
 
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Invoice Amount</Label>
-                          <Input
-                            value={row.invoiceAmount}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "invoiceAmount", e.target.value)
-                            }
-                            placeholder="$0.00"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Total Taken</Label>
-                          <Input
-                            value={row.totalTaken}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "totalTaken", e.target.value)
-                            }
-                            placeholder="$0.00"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Difference</Label>
-                          <Input
-                            value={computedDifference}
-                            readOnly
-                            tabIndex={-1}
-                            className="bg-muted/30 font-semibold text-foreground cursor-default select-none focus-visible:ring-0"
-                            placeholder="$0.00"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Payment Type</Label>
-                          <Select
-                            value={toSelectVal(row.paymentType)}
-                            onValueChange={(v) =>
-                              handleUpdateRowField(row.id, "paymentType", fromSelectVal(v))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {PAYMENT_TYPE_OPTIONS.map((opt) => (
-                                <SelectItem key={opt.value} value={opt.value}>
-                                  {opt.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {row.paymentType === "Mix Payment" && (
-                          <>
-                            <div className="space-y-1">
-                              <Label className="text-[11px] font-semibold">Cash Payment</Label>
-                              <Input
-                                value={row.cash}
-                                onChange={(e) =>
-                                  handleUpdateRowField(row.id, "cash", e.target.value)
-                                }
-                                placeholder="$0.00"
-                              />
-                            </div>
-                            <div className="space-y-1">
-                              <Label className="text-[11px] font-semibold">Card Payment</Label>
-                              <Input
-                                value={row.card}
-                                onChange={(e) =>
-                                  handleUpdateRowField(row.id, "card", e.target.value)
-                                }
-                                placeholder="$0.00"
-                              />
-                            </div>
-                          </>
-                        )}
-
-                        <StandardSelect
-                          label="Receipt"
-                          options={YES_NO_OPTIONS}
-                          value={row.receipt}
-                          onValueChange={(val) => handleUpdateRowField(row.id, "receipt", val)}
-                        />
-                      </div>
-                    </div>
-
-                    {/* 2. Fraud & Compliance Verification */}
-                    <div className="space-y-3 rounded-lg border p-3.5">
-                      <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
-                        <ShieldAlert className="h-4 w-4 text-rose-600" />
-                        2. Fraud & Compliance Verification
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {(
-                          [
-                            { key: "fraudTransactions", label: "Fraud Transactions" },
-                            { key: "missOpportunity", label: "Miss Opportunity" },
-                            { key: "paymentFraud", label: "Payment fraud" },
-                            { key: "aalSwap", label: "AAL Swap" },
-                            { key: "mim", label: "MIM" },
-                            { key: "onlineRejectedPayment", label: "Online/Rejected Payment" },
-                          ] as const
-                        ).map((field) => (
                           <StandardSelect
-                            key={field.key}
-                            label={field.label}
-                            options={YES_NO_OPTIONS}
-                            value={row[field.key]}
-                            onValueChange={(val) => handleUpdateRowField(row.id, field.key, val)}
+                            label="Client Type"
+                            options={CLIENT_TYPE_OPTIONS}
+                            value={normalizeClientType(row.clientType, row.b, row.nb)}
+                            onValueChange={(val) => handleUpdateRowField(row.id, "clientType", val)}
                           />
-                        ))}
-                      </div>
 
-                      <div className="space-y-1 pt-1">
-                        <Label className="text-[11px] font-semibold">Notes</Label>
-                        <Textarea
-                          value={row.notes}
-                          onChange={(e) => handleUpdateRowField(row.id, "notes", e.target.value)}
-                          placeholder="Document transaction observations, cash handling, or compliance notes..."
-                          rows={2}
-                        />
-                      </div>
-                    </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold">Invoice Amount</Label>
+                            <Input
+                              value={row.invoiceAmount}
+                              onChange={(e) =>
+                                handleUpdateRowField(row.id, "invoiceAmount", e.target.value)
+                              }
+                              placeholder="$0.00"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold">Total Taken</Label>
+                            <Input
+                              value={row.totalTaken}
+                              onChange={(e) =>
+                                handleUpdateRowField(row.id, "totalTaken", e.target.value)
+                              }
+                              placeholder="$0.00"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold">Difference</Label>
+                            <Input
+                              value={computedDifference}
+                              readOnly
+                              tabIndex={-1}
+                              className="bg-muted/30 font-semibold text-foreground cursor-default select-none focus-visible:ring-0"
+                              placeholder="$0.00"
+                            />
+                          </div>
 
-                    {/* 3. Sales Pitch & Bundle Verification */}
-                    <div className="space-y-3 rounded-lg border p-3.5">
-                      <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
-                        <UserCheck className="h-4 w-4 text-emerald-600" />
-                        3. Sales Pitch & Bundle Verification
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <StandardSelect
-                          label="Pitch NB"
-                          options={YES_NO_OPTIONS}
-                          value={row.pitchNb}
-                          onValueChange={(val) => handleUpdateRowField(row.id, "pitchNb", val)}
-                        />
-                        <StandardSelect
-                          label="Pitch Quality"
-                          options={PITCH_QUALITY_OPTIONS}
-                          value={row.pitchQuality}
-                          onValueChange={(val) => handleUpdateRowField(row.id, "pitchQuality", val)}
-                        />
-
-                        {(
-                          [
-                            { key: "showingPhone", label: "Showing Phone?" },
-                            { key: "accOffered", label: "Acc Offered" },
-                            { key: "maximize", label: "Maximize" },
-                            { key: "flipping", label: "Flipping" },
-                          ] as const
-                        ).map((field) => (
-                          <StandardSelect
-                            key={field.key}
-                            label={field.label}
-                            options={YES_NO_OPTIONS}
-                            value={row[field.key]}
-                            onValueChange={(val) => handleUpdateRowField(row.id, field.key, val)}
-                          />
-                        ))}
-
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Bundle NB</Label>
-                          <Input
-                            value={row.bundleNb}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "bundleNb", e.target.value)
-                            }
-                            placeholder="e.g. Standard Bundle"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Bundle-Start B</Label>
-                          <Input
-                            value={row.bundleStartB}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "bundleStartB", e.target.value)
-                            }
-                            placeholder="e.g. Case"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Bundle-End B</Label>
-                          <Input
-                            value={row.bundleEndB}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "bundleEndB", e.target.value)
-                            }
-                            placeholder="e.g. Charger"
-                          />
-                        </div>
-
-                        {(
-                          [
-                            { key: "bundleAccGiven", label: "Bundle Acc Given" },
-                            { key: "portIn", label: "Port In" },
-                            { key: "nonUp", label: "Non-Up" },
-                            { key: "smartPayMentioned", label: "SmartPay Mentioned" },
-                            { key: "aalBillSame", label: "AAL Bill Same" },
-                          ] as const
-                        ).map((field) => (
-                          <StandardSelect
-                            key={field.key}
-                            label={field.label}
-                            options={YES_NO_OPTIONS}
-                            value={row[field.key]}
-                            onValueChange={(val) => handleUpdateRowField(row.id, field.key, val)}
-                          />
-                        ))}
-                      </div>
-
-                      <div className="space-y-1 pt-1">
-                        <Label className="text-[11px] font-semibold">Pitch Notes</Label>
-                        <Input
-                          value={row.pitchNotes}
-                          onChange={(e) =>
-                            handleUpdateRowField(row.id, "pitchNotes", e.target.value)
-                          }
-                          placeholder="Enter customer response, accessory pitch, and closing notes..."
-                        />
-                      </div>
-                    </div>
-
-                    {/* 4. Floor Presence & Rep Timings */}
-                    <div className="space-y-3 rounded-lg border p-3.5">
-                      <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
-                        <Clock className="h-4 w-4 text-primary" />
-                        4. Floor Presence & Rep Timings
-                      </div>
-
-                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Name of Rep Leaving</Label>
-                          <Input
-                            value={row.nameOfRepLeaving}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "nameOfRepLeaving", e.target.value)
-                            }
-                            placeholder="Rep Name"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Time Left</Label>
-                          <AmPmTimePicker
-                            value={row.timeLeft}
-                            onChange={(val) => handleUpdateRowField(row.id, "timeLeft", val)}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Time Returned</Label>
-                          <AmPmTimePicker
-                            value={row.timeReturned}
-                            onChange={(val) => handleUpdateRowField(row.id, "timeReturned", val)}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Back Room Time - In</Label>
-                          <AmPmTimePicker
-                            value={row.backRoomTimeIn}
-                            onChange={(val) => handleUpdateRowField(row.id, "backRoomTimeIn", val)}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Back Room Time - Out</Label>
-                          <AmPmTimePicker
-                            value={row.backRoomTimeOut}
-                            onChange={(val) => handleUpdateRowField(row.id, "backRoomTimeOut", val)}
-                          />
-                        </div>
-                        <StandardSelect
-                          label="Offline"
-                          options={YES_NO_OPTIONS}
-                          value={row.offline}
-                          onValueChange={(val) => handleUpdateRowField(row.id, "offline", val)}
-                        />
-                      </div>
-                    </div>
-
-                    {/* 5. Optional Row Attachments */}
-                    <div className="space-y-3 rounded-lg border p-3.5">
-                      <div className="flex items-center justify-between border-b pb-1.5">
-                        <div className="flex items-center gap-2 font-semibold text-foreground text-xs uppercase tracking-wide">
-                          <Paperclip className="h-4 w-4 text-primary" />
-                          5. Attachments (Optional)
-                        </div>
-                        <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border bg-card px-2.5 py-1 text-xs font-medium text-foreground hover:bg-accent transition-colors">
-                          <UploadCloud className="h-3.5 w-3.5 text-primary" />
-                          Attach Files
-                          <input
-                            type="file"
-                            multiple
-                            className="hidden"
-                            onChange={(e) => handleRowAttachmentUpload(row.id, e)}
-                          />
-                        </label>
-                      </div>
-
-                      {row.attachments && row.attachments.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          {row.attachments.map((att) => (
-                            <div
-                              key={att.id}
-                              className="flex items-center justify-between gap-2 rounded-md border bg-muted/20 px-3 py-2"
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold">Payment Type</Label>
+                            <Select
+                              value={toSelectVal(row.paymentType)}
+                              onValueChange={(v) =>
+                                handleUpdateRowField(row.id, "paymentType", fromSelectVal(v))
+                              }
                             >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
-                                <div className="min-w-0">
-                                  <div className="truncate font-medium text-foreground text-xs">
-                                    {att.name}
-                                  </div>
-                                  <div className="text-[10px] text-muted-foreground">
-                                    {formatFileSize(att.size)}
-                                  </div>
-                                </div>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {PAYMENT_TYPE_OPTIONS.map((opt) => (
+                                  <SelectItem key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {row.paymentType === "Mix Payment" && (
+                            <>
+                              <div className="space-y-1">
+                                <Label className="text-[11px] font-semibold">Cash Payment</Label>
+                                <Input
+                                  value={row.cash}
+                                  onChange={(e) =>
+                                    handleUpdateRowField(row.id, "cash", e.target.value)
+                                  }
+                                  placeholder="$0.00"
+                                />
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveRowAttachment(row.id, att.id)}
-                                className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                                title="Remove attachment"
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
+                              <div className="space-y-1">
+                                <Label className="text-[11px] font-semibold">Card Payment</Label>
+                                <Input
+                                  value={row.card}
+                                  onChange={(e) =>
+                                    handleUpdateRowField(row.id, "card", e.target.value)
+                                  }
+                                  placeholder="$0.00"
+                                />
+                              </div>
+                            </>
+                          )}
+
+                          <StandardSelect
+                            label="Receipt"
+                            options={YES_NO_OPTIONS}
+                            value={row.receipt}
+                            onValueChange={(val) => handleUpdateRowField(row.id, "receipt", val)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* 2. Fraud & Compliance Verification */}
+                      <div className="space-y-3 rounded-lg border p-3.5">
+                        <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
+                          <ShieldAlert className="h-4 w-4 text-rose-600" />
+                          2. Fraud & Compliance Verification
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          {(
+                            [
+                              { key: "fraudTransactions", label: "Fraud Transactions" },
+                              { key: "missOpportunity", label: "Miss Opportunity" },
+                              { key: "paymentFraud", label: "Payment fraud" },
+                              { key: "aalSwap", label: "AAL Swap" },
+                              { key: "mim", label: "MIM" },
+                              { key: "onlineRejectedPayment", label: "Online/Rejected Payment" },
+                            ] as const
+                          ).map((field) => (
+                            <StandardSelect
+                              key={field.key}
+                              label={field.label}
+                              options={YES_NO_OPTIONS}
+                              value={row[field.key]}
+                              onValueChange={(val) => handleUpdateRowField(row.id, field.key, val)}
+                            />
                           ))}
                         </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">
-                          No attachments added for this row.
-                        </p>
-                      )}
-                    </div>
 
-                    {/* Row-level MMKV Save Footer */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
-                      <div className="flex items-center gap-1.5 text-xs">
-                        {isRowSavedClean ? (
-                          <span className="inline-flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
-                            <CheckCircle2 className="h-3.5 w-3.5" />
-                            Saved locally at{" "}
-                            {new Date(rowSavedAt).toLocaleTimeString([], {
-                              hour: "numeric",
-                              minute: "2-digit",
-                            })}
-                          </span>
-                        ) : rowSavedAt && isRowDirty ? (
-                          <span className="font-medium text-amber-600 dark:text-amber-400">
-                            Unsaved changes in this row — click Save to update local draft.
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">
-                            Click Save to preserve this row locally against accidental navigation or
-                            power loss.
-                          </span>
-                        )}
+                        <div className="space-y-1 pt-1">
+                          <Label className="text-[11px] font-semibold">Notes</Label>
+                          <Textarea
+                            value={row.notes}
+                            onChange={(e) => handleUpdateRowField(row.id, "notes", e.target.value)}
+                            placeholder="Document transaction observations, cash handling, or compliance notes..."
+                            rows={2}
+                          />
+                        </div>
                       </div>
 
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant={isRowSavedClean ? "outline" : "default"}
-                        onClick={() => handleSaveAuditRow(activeItem.id, row, index)}
-                        className="h-8 gap-1.5 px-3.5 text-xs font-semibold"
-                      >
-                        <Save className="h-3.5 w-3.5" />
-                        {isRowSavedClean ? "Saved" : "Save"}
-                      </Button>
+                      {/* 3. Sales Pitch & Bundle Verification */}
+                      <div className="space-y-3 rounded-lg border p-3.5">
+                        <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
+                          <UserCheck className="h-4 w-4 text-emerald-600" />
+                          3. Sales Pitch & Bundle Verification
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <StandardSelect
+                            label="Pitch NB"
+                            options={YES_NO_OPTIONS}
+                            value={row.pitchNb}
+                            onValueChange={(val) => handleUpdateRowField(row.id, "pitchNb", val)}
+                          />
+                          <StandardSelect
+                            label="Pitch Quality"
+                            options={PITCH_QUALITY_OPTIONS}
+                            value={row.pitchQuality}
+                            onValueChange={(val) => handleUpdateRowField(row.id, "pitchQuality", val)}
+                          />
+
+                          {(
+                            [
+                              { key: "showingPhone", label: "Showing Phone?" },
+                              { key: "accOffered", label: "Acc Offered" },
+                              { key: "maximize", label: "Maximize" },
+                              { key: "flipping", label: "Flipping" },
+                            ] as const
+                          ).map((field) => (
+                            <StandardSelect
+                              key={field.key}
+                              label={field.label}
+                              options={YES_NO_OPTIONS}
+                              value={row[field.key]}
+                              onValueChange={(val) => handleUpdateRowField(row.id, field.key, val)}
+                            />
+                          ))}
+
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold">Bundle NB</Label>
+                            <Input
+                              value={row.bundleNb}
+                              onChange={(e) =>
+                                handleUpdateRowField(row.id, "bundleNb", e.target.value)
+                              }
+                              placeholder="e.g. Standard Bundle"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold">Bundle-Start B</Label>
+                            <Input
+                              value={row.bundleStartB}
+                              onChange={(e) =>
+                                handleUpdateRowField(row.id, "bundleStartB", e.target.value)
+                              }
+                              placeholder="e.g. Case"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold">Bundle-End B</Label>
+                            <Input
+                              value={row.bundleEndB}
+                              onChange={(e) =>
+                                handleUpdateRowField(row.id, "bundleEndB", e.target.value)
+                              }
+                              placeholder="e.g. Charger"
+                            />
+                          </div>
+
+                          {(
+                            [
+                              { key: "bundleAccGiven", label: "Bundle Acc Given" },
+                              { key: "portIn", label: "Port In" },
+                              { key: "nonUp", label: "Non-Up" },
+                              { key: "smartPayMentioned", label: "SmartPay Mentioned" },
+                              { key: "aalBillSame", label: "AAL Bill Same" },
+                            ] as const
+                          ).map((field) => (
+                            <StandardSelect
+                              key={field.key}
+                              label={field.label}
+                              options={YES_NO_OPTIONS}
+                              value={row[field.key]}
+                              onValueChange={(val) => handleUpdateRowField(row.id, field.key, val)}
+                            />
+                          ))}
+                        </div>
+
+                        <div className="space-y-1 pt-1">
+                          <Label className="text-[11px] font-semibold">Pitch Notes</Label>
+                          <Input
+                            value={row.pitchNotes}
+                            onChange={(e) =>
+                              handleUpdateRowField(row.id, "pitchNotes", e.target.value)
+                            }
+                            placeholder="Enter customer response, accessory pitch, and closing notes..."
+                          />
+                        </div>
+                      </div>
+
+                      {/* 4. Floor Presence & Rep Timings */}
+                      <div className="space-y-3 rounded-lg border p-3.5">
+                        <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
+                          <Clock className="h-4 w-4 text-primary" />
+                          4. Floor Presence & Rep Timings
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold">Name of Rep Leaving</Label>
+                            <Input
+                              value={row.nameOfRepLeaving}
+                              onChange={(e) =>
+                                handleUpdateRowField(row.id, "nameOfRepLeaving", e.target.value)
+                              }
+                              placeholder="Rep Name"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold">Time Left</Label>
+                            <AmPmTimePicker
+                              value={row.timeLeft}
+                              onChange={(val) => handleUpdateRowField(row.id, "timeLeft", val)}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold">Time Returned</Label>
+                            <AmPmTimePicker
+                              value={row.timeReturned}
+                              onChange={(val) => handleUpdateRowField(row.id, "timeReturned", val)}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold">Back Room Time - In</Label>
+                            <AmPmTimePicker
+                              value={row.backRoomTimeIn}
+                              onChange={(val) => handleUpdateRowField(row.id, "backRoomTimeIn", val)}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold">Back Room Time - Out</Label>
+                            <AmPmTimePicker
+                              value={row.backRoomTimeOut}
+                              onChange={(val) => handleUpdateRowField(row.id, "backRoomTimeOut", val)}
+                            />
+                          </div>
+                          <StandardSelect
+                            label="Offline"
+                            options={YES_NO_OPTIONS}
+                            value={row.offline}
+                            onValueChange={(val) => handleUpdateRowField(row.id, "offline", val)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Row-level MMKV Save Footer */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
+                        <div className="flex items-center gap-1.5 text-xs">
+                          {isRowSavedClean ? (
+                            <span className="inline-flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Saved locally at{" "}
+                              {new Date(rowSavedAt).toLocaleTimeString([], {
+                                hour: "numeric",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                          ) : rowSavedAt && isRowDirty ? (
+                            <span className="font-medium text-amber-600 dark:text-amber-400">
+                              Unsaved changes in this row — click Save to update local draft.
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">
+                              Click Save to preserve this row locally against accidental navigation or
+                              power loss.
+                            </span>
+                          )}
+                        </div>
+
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={isRowSavedClean ? "outline" : "default"}
+                          onClick={() => handleSaveAuditRow(activeItem.id, row, index)}
+                          className="h-8 gap-1.5 px-3.5 text-xs font-semibold"
+                        >
+                          <Save className="h-3.5 w-3.5" />
+                          {isRowSavedClean ? "Saved" : "Save"}
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </Card>
-            );
-          })}
+                  )}
+                </Card>
+              );
+            })
+          )}
         </div>
 
+        {/* 4. Store Closed Section */}
+        <Card className="p-4 border-border/80 shadow-2xs bg-card space-y-3">
+          <div className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2 border-b pb-2">
+            <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+            Store Closed Section
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-foreground">
+                Store Close Time
+              </Label>
+              <AmPmTimePicker
+                value={headerStoreCloseTime}
+                onChange={(val) => setHeaderStoreCloseTime(val)}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-foreground">
+                Sales Rep
+              </Label>
+              <Select
+                value={toSelectVal(headerStoreCloseSalesRep)}
+                onValueChange={(v) => setHeaderStoreCloseSalesRep(fromSelectVal(v))}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Select Sales Rep" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SALES_REP_NAMES.map((rep) => (
+                    <SelectItem key={rep} value={rep} className="text-xs">
+                      {rep}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </Card>
+
         {/* Bottom Action Footer */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+        <div className="flex flex-wrap items-center justify-end gap-3 border-t pt-4">
           <Button
             type="button"
             variant="outline"
-            onClick={() =>
-              handleAddAuditRow(activeItem.storeName, activeItem.marketName, defaultDate)
-            }
-            className="gap-1.5 text-xs font-medium"
+            onClick={handleCloseEditableForm}
+            className="text-xs"
           >
-            <Plus className="h-4 w-4" />
-            Add Another Audit Row
+            Cancel
           </Button>
-
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCloseEditableForm}
-              className="text-xs"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={isSubmitting}
-              onClick={handleRequestSubmitConfirmation}
-              className="gap-2 text-xs font-semibold"
-            >
-              <Send className="h-3.5 w-3.5" />
-              {isSubmitting ? "Submitting..." : "Submit Report"}
-            </Button>
-          </div>
+          <Button
+            type="button"
+            disabled={isSubmitting}
+            onClick={handleRequestSubmitConfirmation}
+            className="gap-2 text-xs font-semibold"
+          >
+            <Send className="h-3.5 w-3.5" />
+            {isSubmitting ? "Submitting..." : "Submit Report"}
+          </Button>
         </div>
 
         {/* Submit Report Confirmation Modal */}
