@@ -672,6 +672,20 @@ export default function SurveillanceReportDetailPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {report.status === "Rejected" && (
+            <Button
+              size="sm"
+              onClick={() =>
+                navigate("/surveillance/reports", {
+                  state: { resubmitRequestId: linkedRequest?.id || report.requestId },
+                })
+              }
+              className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-xs"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Resubmit
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

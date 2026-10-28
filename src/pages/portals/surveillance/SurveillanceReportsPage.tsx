@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { DataTable, type Column } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
@@ -896,9 +896,125 @@ function fromSelectVal(val: string): string {
   return val === "__empty__" ? "" : val;
 }
 
+function buildFallbackRowFromReport(
+  report: SurveillanceReport,
+  fallbackMarket?: string,
+): SurveillanceAuditRow {
+  const ctTrimmed = (report.clientType || "").trim();
+  const isCustomClient =
+    ctTrimmed.toLowerCase() === "custom" || ctTrimmed.toLowerCase() === "other";
+  const isBuyer = ctTrimmed === "Buyer" || ctTrimmed === "Billable";
+  const isCash = report.paymentMode === "Cash";
+  const isCard = report.paymentMode === "Card";
+  const yesNoOrCustom = (v?: string) => {
+    if (!v) return "";
+    const low = v.trim().toLowerCase();
+    if (low === "custom" || low === "other") return "Custom";
+    if (low === "yes") return "YES";
+    if (low === "no") return "NO";
+    return v.trim();
+  };
+  const pqTrimmed = (report.pitchQuality || "").trim();
+  const normalizedPitchQuality =
+    !pqTrimmed || pqTrimmed === "Not Observed"
+      ? ""
+      : pqTrimmed.toLowerCase() === "custom" || pqTrimmed.toLowerCase() === "other"
+        ? "Custom"
+        : pqTrimmed.toUpperCase();
+
+  return {
+    id: `${report.id}-row-1`,
+    date: report.date,
+    marketName: report.marketName || fallbackMarket || "",
+    storeName: report.storeName,
+    invoice: report.invoiceNo,
+    cashTime: report.cashTime,
+    time: report.time,
+    bdiTime: report.bdiTime,
+    salesRep: report.salesRep,
+    transType: report.transType,
+    transTypeDetails: report.transTypeDetails || "",
+    clientType: isCustomClient ? "Custom" : isBuyer ? "Buyer" : "Non-Buyer",
+    clientTypeDetails: report.clientTypeDetails || "",
+    nb: isCustomClient || isBuyer ? "" : "NB",
+    b: isBuyer ? "B" : "",
+    invoiceAmount: report.invoiceAmount,
+    totalTaken: report.totalTaken,
+    paymentType:
+      report.paymentMode === "Split"
+        ? "Mix Payment"
+        : report.paymentMode === "Cash"
+          ? "Cash"
+          : report.paymentMode === "Card"
+            ? "Card"
+            : "",
+    cash: isCash ? report.totalTaken : "",
+    card: isCard ? report.totalTaken : "",
+    difference: report.difference || "$0.00",
+    receipt: yesNoOrCustom(report.receipt),
+    receiptDetails: report.receiptDetails || "",
+    splitPayments: yesNoOrCustom(report.splitPayments),
+    fraudTransactions: yesNoOrCustom(report.fraudTransactions),
+    fraudTransactionsDetails: report.fraudTransactionsDetails || "",
+    refundInvoice:
+      report.refundInvoice && report.refundInvoice.toLowerCase() !== "no"
+        ? report.refundInvoice
+        : "",
+    missOpportunity: yesNoOrCustom(report.missOpportunity),
+    missOpportunityDetails: report.missOpportunityDetails || "",
+    paymentFraud: yesNoOrCustom(report.paymentFraud),
+    paymentFraudDetails: report.paymentFraudDetails || "",
+    aalSwap: yesNoOrCustom(report.aalSwap),
+    aalSwapDetails: report.aalSwapDetails || "",
+    mim: yesNoOrCustom(String(report.mim)),
+    mimDetails: report.mimDetails || "",
+    notes: report.notes || "",
+    pitchNb: yesNoOrCustom(report.pitchNb),
+    pitchNbDetails: report.pitchNbDetails || "",
+    pitchQuality: normalizedPitchQuality,
+    pitchQualityDetails: report.pitchQualityDetails || "",
+    pitchNotes: report.pitchNotes || "",
+    showingPhone: yesNoOrCustom(report.showingPhone),
+    showingPhoneDetails: report.showingPhoneDetails || "",
+    accOffered: yesNoOrCustom(report.accOffered),
+    accOfferedDetails: report.accOfferedDetails || "",
+    maximize: yesNoOrCustom(report.maximize),
+    maximizeDetails: report.maximizeDetails || "",
+    flipping: yesNoOrCustom(report.flipping),
+    flippingDetails: report.flippingDetails || "",
+    bundleNb: report.bundleNb && report.bundleNb !== "None" ? report.bundleNb : "",
+    bundleStartB: report.bundleStartB && report.bundleStartB !== "—" ? report.bundleStartB : "",
+    bundleEndB: report.bundleEndB && report.bundleEndB !== "—" ? report.bundleEndB : "",
+    bundleAccGiven: yesNoOrCustom(report.bundleAccGiven),
+    bundleAccGivenDetails: report.bundleAccGivenDetails || "",
+    portIn: yesNoOrCustom(report.portIn),
+    portInDetails: report.portInDetails || "",
+    nonUp: yesNoOrCustom(report.nonUp),
+    nonUpDetails: report.nonUpDetails || "",
+    smartPayMentioned: yesNoOrCustom(report.smartPayMentioned),
+    smartPayMentionedDetails: report.smartPayMentionedDetails || "",
+    aalBillSame: yesNoOrCustom(report.aalBillSame),
+    aalBillSameDetails: report.aalBillSameDetails || "",
+    onlineRejectedPayment: yesNoOrCustom(report.onlineRejectedPayment),
+    onlineRejectedPaymentDetails: report.onlineRejectedPaymentDetails || "",
+    nameOfRepLeaving:
+      report.nameOfRepLeaving && report.nameOfRepLeaving !== "None" ? report.nameOfRepLeaving : "",
+    timeLeft: report.timeLeft && report.timeLeft !== "—" ? report.timeLeft : "",
+    timeReturned: report.timeReturned && report.timeReturned !== "—" ? report.timeReturned : "",
+    backRoomTimeIn:
+      report.backRoomTimeIn && report.backRoomTimeIn !== "—" ? report.backRoomTimeIn : "",
+    backRoomTimeOut:
+      report.backRoomTimeOut && report.backRoomTimeOut !== "—" ? report.backRoomTimeOut : "",
+    offline: yesNoOrCustom(report.offline),
+    offlineDetails: report.offlineDetails || "",
+    attachments: report.attachments,
+  };
+}
+
 export default function SurveillanceReportsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [requests, setRequests] = useState<SurveillanceRequest[]>([]);
   const [reports, setReports] = useState<SurveillanceReport[]>([]);
@@ -933,6 +1049,20 @@ export default function SurveillanceReportsPage() {
     setReports(getStaticReports());
     setDataLoaded(true);
   }, []);
+
+  // Listen for resubmitRequestId passed from detail view navigation
+  useEffect(() => {
+    if (!dataLoaded) return;
+    const resubmitId = (location.state as { resubmitRequestId?: string } | null)?.resubmitRequestId;
+    if (resubmitId) {
+      const targetReq = requests.find((r) => r.id === resubmitId);
+      if (targetReq) {
+        setSelectedDetail(targetReq);
+        handleOpenEditableForm(targetReq);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dataLoaded, location.state]);
 
   // Automatically restore active MMKV draft session after an unexpected refresh
   useEffect(() => {
@@ -1055,6 +1185,13 @@ export default function SurveillanceReportsPage() {
       );
       setEditableRows(cloned);
       setExpandedRowIds({ [cloned[0].id]: true });
+    } else if (existingReport) {
+      const fallbackRow = hydrateAuditRowDetails(
+        buildFallbackRowFromReport(existingReport, reqItem.marketName),
+        existingReport,
+      );
+      setEditableRows([fallbackRow]);
+      setExpandedRowIds({ [fallbackRow.id]: true });
     } else {
       const firstRow = createEmptyAuditRow(reqItem.storeName, reqItem.marketName, initialDate);
       setEditableRows([firstRow]);
@@ -2480,6 +2617,14 @@ export default function SurveillanceReportsPage() {
               >
                 <FileText className="h-4 w-4" />
                 Proceed to Submit
+              </Button>
+            ) : item.status === "Rejected" || linkedReport?.status === "Rejected" ? (
+              <Button
+                onClick={() => handleOpenEditableForm(item)}
+                className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-xs whitespace-nowrap shrink-0"
+              >
+                <FileText className="h-4 w-4" />
+                Resubmit
               </Button>
             ) : (
               Boolean(targetReportId) && (

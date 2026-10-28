@@ -16,6 +16,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   ArrowLeft,
   Check,
   CheckCircle2,
@@ -381,6 +391,7 @@ export default function SurveillanceReportReviewPage() {
   // Decline Report modal & action state
   const [declineModalOpen, setDeclineModalOpen] = useState(false);
   const [declineReason, setDeclineReason] = useState<string>("");
+  const [completeModalOpen, setCompleteModalOpen] = useState(false);
   const [submittingReview, setSubmittingReview] = useState(false);
 
   const userRole = getSurveillanceRole(user);
@@ -403,7 +414,7 @@ export default function SurveillanceReportReviewPage() {
   const isReportFinalized = report?.status === "Approved" || report?.status === "Rejected";
   const canTakeReviewAction = Boolean(report) && canReviewReport && !isReportFinalized;
 
-  const handleMarkAsCompleted = () => {
+  const handleConfirmMarkAsCompleted = () => {
     if (!report) return;
 
     setSubmittingReview(true);
@@ -414,6 +425,7 @@ export default function SurveillanceReportReviewPage() {
       });
       setReport(updated);
       setLinkedRequest(getStaticRequestById(updated.requestId));
+      setCompleteModalOpen(false);
       toast.success(
         "Surveillance audit report marked as Completed and is now visible on the requester dashboard.",
       );
@@ -746,7 +758,7 @@ export default function SurveillanceReportReviewPage() {
           </Button>
           <Button
             type="button"
-            onClick={handleMarkAsCompleted}
+            onClick={() => setCompleteModalOpen(true)}
             disabled={submittingReview}
             className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
           >
@@ -849,6 +861,28 @@ export default function SurveillanceReportReviewPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Mark as Completed Confirmation Modal */}
+      <AlertDialog open={completeModalOpen} onOpenChange={setCompleteModalOpen}>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Report Completion</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to mark this surveillance audit report as Completed? Once completed, this report will be finalized and made visible on the requester dashboard.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={submittingReview}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmMarkAsCompleted}
+              disabled={submittingReview}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {submittingReview ? "Completing..." : "Confirm & Complete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
