@@ -1081,7 +1081,7 @@ export const DUMMY_SURVEILLANCE_AGENTS: SurveillanceAssignableAgent[] = [
     phone: "+1 (512) 555-0177",
     role: "Surveillance Lead Specialist",
     department: "Surveillance & Asset Protection",
-    activeAssignments: 2,
+    activeAssignments: 0,
   },
   {
     id: "agt-102",
@@ -1090,7 +1090,7 @@ export const DUMMY_SURVEILLANCE_AGENTS: SurveillanceAssignableAgent[] = [
     phone: "+1 (214) 555-0821",
     role: "Asset Protection Auditor",
     department: "Surveillance & Loss Prevention",
-    activeAssignments: 2,
+    activeAssignments: 1,
   },
   {
     id: "agt-103",
@@ -1117,7 +1117,7 @@ export const DUMMY_SURVEILLANCE_AGENTS: SurveillanceAssignableAgent[] = [
     phone: "+1 (972) 555-0319",
     role: "Senior Audit Specialist",
     department: "Surveillance & Loss Prevention",
-    activeAssignments: 3,
+    activeAssignments: 0,
   },
   {
     id: "agt-106",
@@ -1287,7 +1287,7 @@ export const INITIAL_VALIDATION_REQUESTS: SurveillanceValidationItem[] = [
     requesterPhone: "+1 (214) 555-0192",
     requesterDepartment: "Regional Store Operations",
     createdAt: "2026-10-18T22:15:00Z",
-    validationStatus: "Reports Received",
+    validationStatus: "Pending Verification",
     assignedAgentId: "agt-102",
     assignedAgentName: "Michael Sterling",
     assignedAgentEmail: "m.sterling@techno-communications.com",
@@ -1454,7 +1454,7 @@ let reportsStore: SurveillanceReport[] = INITIAL_SURVEILLANCE_REPORTS.map((rep) 
 let validationQueueStore: SurveillanceValidationItem[] = INITIAL_VALIDATION_REQUESTS.map(
   (item) => ({ ...item }),
 );
-let assignableAgentsStore: SurveillanceAssignableAgent[] = DUMMY_SURVEILLANCE_AGENTS.map(
+const assignableAgentsStore: SurveillanceAssignableAgent[] = DUMMY_SURVEILLANCE_AGENTS.map(
   (agent) => ({ ...agent }),
 );
 
@@ -1803,7 +1803,7 @@ export function submitStaticAuditReport(
     item.id === payload.requestId
       ? {
           ...item,
-          validationStatus: "Reports Received",
+          validationStatus: "Pending Verification",
           linkedReportId: reportId,
           reportSubmittedAt: submittedAt,
           reportStatus: "Pending Review",
@@ -1979,7 +1979,15 @@ export function getStaticValidationQueue(): SurveillanceValidationItem[] {
 }
 
 export function getStaticAssignableAgents(): SurveillanceAssignableAgent[] {
-  return assignableAgentsStore.map((agent) => ({ ...agent }));
+  return assignableAgentsStore.map((agent) => {
+    const activeAssignments = validationQueueStore.filter(
+      (item) => item.assignedAgentId === agent.id && item.validationStatus === "Assigned",
+    ).length;
+    return {
+      ...agent,
+      activeAssignments,
+    };
+  });
 }
 
 export function validateAndAssignStaticRequest(
@@ -1997,10 +2005,6 @@ export function validateAndAssignStaticRequest(
 
   const existing = validationQueueStore[targetIndex];
   const assignedAt = new Date().toISOString();
-
-  assignableAgentsStore = assignableAgentsStore.map((a) =>
-    a.id === agent.id ? { ...a, activeAssignments: a.activeAssignments + 1 } : a,
-  );
 
   const updated: SurveillanceValidationItem = {
     ...existing,

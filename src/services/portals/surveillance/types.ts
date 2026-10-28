@@ -422,7 +422,7 @@ export function getSurveillanceDefaultRoute(user: any): string {
 }
 
 export type SurveillanceValidationStatus =
-  "Unassigned" | "Assigned" | "Reports Received" | "Rejected" | "Completed";
+  "Unassigned" | "Assigned" | "Pending Verification" | "Rejected" | "Completed";
 
 export interface SurveillanceAssignableAgent {
   id: string;

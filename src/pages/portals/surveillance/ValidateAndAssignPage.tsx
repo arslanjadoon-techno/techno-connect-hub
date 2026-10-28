@@ -53,6 +53,7 @@ import {
   Store as StoreIcon,
   User as UserIcon,
   UserPlus,
+  Users,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -94,8 +95,8 @@ const VALIDATION_STATUS_CONFIG: Record<
     dotClass: "bg-sky-500",
     textClass: "text-sky-800 dark:text-sky-300",
   },
-  "Reports Received": {
-    label: "Reports Received",
+  "Pending Verification": {
+    label: "Pending Verification",
     tone: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-400",
     dotClass: "bg-violet-500",
     textClass: "text-violet-800 dark:text-violet-300",
@@ -229,11 +230,24 @@ export default function ValidateAndAssignPage() {
       total: requests.length,
       unassigned: requests.filter((r) => r.validationStatus === "Unassigned").length,
       assigned: requests.filter((r) => r.validationStatus === "Assigned").length,
-      reportsReceived: requests.filter((r) => r.validationStatus === "Reports Received").length,
+      pendingVerification: requests.filter((r) => r.validationStatus === "Pending Verification")
+        .length,
       rejected: requests.filter((r) => r.validationStatus === "Rejected").length,
       completed: requests.filter((r) => r.validationStatus === "Completed").length,
     };
   }, [requests]);
+
+  const agentMetrics = useMemo(() => {
+    const availableAgents = agents.filter((a) => a.activeAssignments === 0);
+    const assignedAgents = agents.filter((a) => a.activeAssignments > 0);
+    return {
+      total: agents.length,
+      available: availableAgents.length,
+      assigned: assignedAgents.length,
+      availableAgents,
+      assignedAgents,
+    };
+  }, [agents]);
 
   const filteredRequests = useMemo(() => {
     return requests.filter((r) => {
@@ -423,7 +437,7 @@ export default function ValidateAndAssignPage() {
       {
         key: "status",
         header: "Status",
-        searchValue: (r) => r.validationStatus,
+        searchValue: (r) => VALIDATION_STATUS_CONFIG[r.validationStatus].label,
         accessor: (r) => {
           const cfg = VALIDATION_STATUS_CONFIG[r.validationStatus];
           return (
@@ -499,7 +513,7 @@ export default function ValidateAndAssignPage() {
                   className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
                 >
                   <Eye className="h-4 w-4" />
-                  {selectedDetail.validationStatus === "Reports Received"
+                  {selectedDetail.validationStatus === "Pending Verification"
                     ? "Review Report"
                     : "View Report"}
                 </Button>
@@ -914,11 +928,11 @@ export default function ValidateAndAssignPage() {
                     visible to the admin and requester.
                   </span>
                 </div>
-              ) : selectedDetail.validationStatus === "Reports Received" ? (
+              ) : selectedDetail.validationStatus === "Pending Verification" ? (
                 <div className="flex items-start gap-2.5 rounded-xl border border-violet-200 bg-violet-50/90 p-3.5 text-xs text-violet-900 dark:border-violet-800/60 dark:bg-violet-950/40 dark:text-violet-200">
                   <Clock className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0 mt-0.5" />
                   <span>
-                    Surveillance report received from{" "}
+                    Pending verification — surveillance report received from{" "}
                     <strong>{selectedDetail.assignedAgentName || "Assigned Agent"}</strong>. Click{" "}
                     <strong>Review Report</strong> above to rate and complete or reject.
                   </span>
@@ -1032,23 +1046,23 @@ export default function ValidateAndAssignPage() {
               </div>
             </Card>
 
-            {/* 4. Reports Received */}
+            {/* 4. Pending Verification */}
             <Card
               role="button"
               tabIndex={0}
-              onClick={() => setStatusFilter("Reports Received")}
+              onClick={() => setStatusFilter("Pending Verification")}
               onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") setStatusFilter("Reports Received");
+                if (e.key === "Enter" || e.key === " ") setStatusFilter("Pending Verification");
               }}
               className={`p-4 cursor-pointer transition-all border-violet-300/80 bg-violet-50/50 hover:bg-violet-50/80 dark:bg-violet-950/20 dark:border-violet-900/50 ${
-                statusFilter === "Reports Received" ? "ring-2 ring-violet-500/70 shadow-xs" : ""
+                statusFilter === "Pending Verification" ? "ring-2 ring-violet-500/70 shadow-xs" : ""
               }`}
             >
               <div className="text-xs text-violet-800 dark:text-violet-300 font-medium">
-                Reports Received
+                Pending Verification
               </div>
               <div className="mt-1 text-2xl font-bold font-display text-violet-950 dark:text-violet-100 tabular-nums">
-                {metrics.reportsReceived}
+                {metrics.pendingVerification}
               </div>
             </Card>
 
@@ -1091,6 +1105,107 @@ export default function ValidateAndAssignPage() {
             </Card>
           </div>
 
+          {/* Agent Workforce & Availability Overview */}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {/* Total Agents Card */}
+            <Card className="p-4 border-slate-200 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-900/30">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                    Total Agents
+                  </div>
+                  <div className="mt-1 text-2xl font-bold font-display text-slate-950 dark:text-slate-100 tabular-nums">
+                    {agentMetrics.total}
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                    <span>{agentMetrics.available} available</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{agentMetrics.assigned} with active reports assigned</span>
+                  </div>
+                </div>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 px-3 text-xs font-medium bg-background shrink-0"
+                    >
+                      <Users className="h-3.5 w-3.5" />
+                      View Agents
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-3" align="end">
+                    <div className="space-y-2.5">
+                      <div className="border-b pb-2">
+                        <div className="text-xs font-semibold text-foreground">
+                          Surveillance Agent Availability
+                        </div>
+                        <div className="text-[11px] text-muted-foreground mt-0.5">
+                          {agentMetrics.available} of {agentMetrics.total} agents have no active
+                          reports assigned
+                        </div>
+                      </div>
+                      <div className="max-h-60 overflow-y-auto divide-y divide-border/60">
+                        {agents.map((agent) => {
+                          const isAvailable = agent.activeAssignments === 0;
+                          return (
+                            <div
+                              key={agent.id}
+                              className="flex items-center justify-between gap-2 py-2 first:pt-0 last:pb-0"
+                            >
+                              <div className="min-w-0">
+                                <div className="text-xs font-medium text-foreground truncate">
+                                  {agent.fullName}
+                                </div>
+                                <div className="text-[11px] text-muted-foreground truncate">
+                                  {agent.email}
+                                </div>
+                              </div>
+                              <span
+                                className={`text-[11px] font-semibold whitespace-nowrap tabular-nums shrink-0 ${
+                                  isAvailable
+                                    ? "text-teal-700 dark:text-teal-400"
+                                    : "text-sky-700 dark:text-sky-400"
+                                }`}
+                              >
+                                {isAvailable
+                                  ? "Available"
+                                  : `${agent.activeAssignments} ${
+                                      agent.activeAssignments === 1 ? "report" : "reports"
+                                    } assigned`}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </Card>
+
+            {/* Available Agents Card */}
+            <Card className="p-4 border-teal-200/90 bg-teal-50/50 dark:border-teal-900/50 dark:bg-teal-950/20">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <div className="text-xs font-medium text-teal-800 dark:text-teal-300">
+                  Available Agents
+                </div>
+                <span className="text-[11px] text-teal-700/80 dark:text-teal-300/80">
+                  No reports currently assigned — ready for assignment
+                </span>
+              </div>
+              <div className="mt-1 text-2xl font-bold font-display text-teal-950 dark:text-teal-100 tabular-nums">
+                {agentMetrics.available}
+              </div>
+              <div className="mt-1 text-xs text-teal-900/80 dark:text-teal-200/80 leading-relaxed">
+                {agentMetrics.availableAgents.length > 0
+                  ? agentMetrics.availableAgents.map((a) => a.fullName).join(" · ")
+                  : "All surveillance agents currently have active reports assigned."}
+              </div>
+            </Card>
+          </div>
+
           {/* Left-Aligned Filter Toolbar with Reset Button */}
           <div className="flex flex-wrap items-center gap-2">
             <Select value={marketFilter} onValueChange={setMarketFilter}>
@@ -1108,14 +1223,14 @@ export default function ValidateAndAssignPage() {
             </Select>
 
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 w-[185px]">
+              <SelectTrigger className="h-9 w-[195px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="Unassigned">Unassigned</SelectItem>
                 <SelectItem value="Assigned">Assigned</SelectItem>
-                <SelectItem value="Reports Received">Reports Received</SelectItem>
+                <SelectItem value="Pending Verification">Pending Verification</SelectItem>
                 <SelectItem value="Rejected">Rejected</SelectItem>
                 <SelectItem value="Completed">Completed</SelectItem>
               </SelectContent>
