@@ -426,8 +426,7 @@ export default function SurveillanceReportDetailPage() {
 
   // Manager Review & Submitter Rating state
   const [ratingScore, setRatingScore] = useState<number>(0);
-  const [declineModalOpen, setDeclineModalOpen] = useState(false);
-  const [declineReason, setDeclineReason] = useState("");
+  const [feedbackText, setFeedbackText] = useState<string>("");
   const [submittingReview, setSubmittingReview] = useState(false);
 
   const userRole = getSurveillanceRole(user);
@@ -440,6 +439,7 @@ export default function SurveillanceReportDetailPage() {
     if (rep) {
       setReport(rep);
       setRatingScore(rep.managerRating || 0);
+      setFeedbackText(rep.managerComments || "");
       setLinkedRequest(getStaticRequestById(rep.requestId));
     } else {
       setReport(null);
@@ -448,15 +448,20 @@ export default function SurveillanceReportDetailPage() {
     setLoading(false);
   }, [id]);
 
-  const isReportFinalized = report?.status === "Approved" || report?.status === "Rejected";
+  const isReportFinalized =
+    report?.status === "Approved" ||
+    report?.status === "Rejected" ||
+    Boolean(report?.managerRating) ||
+    Boolean(report?.managerComments?.trim());
 
-  const showManagerReviewSection =
-    Boolean(report) && (canReviewReport || isReportFinalized || Boolean(report?.managerRating));
+  const canEditReview = Boolean(report) && canReviewReport && !isReportFinalized;
+
+  const showManagerReviewSection = Boolean(report) && (canReviewReport || isReportFinalized);
 
   const handleApproveReport = () => {
     if (!report) return;
-    if (ratingScore <= 0) {
-      toast.error("Please select a star rating for the submitter before approving.");
+    if (ratingScore <= 0 && !feedbackText.trim()) {
+      toast.error("Please provide a star rating or feedback before submitting your review.");
       return;
     }
 
@@ -464,10 +469,13 @@ export default function SurveillanceReportDetailPage() {
     try {
       const updated = reviewStaticReport(report.id, {
         action: "approve",
-        rating: ratingScore,
+        rating: ratingScore > 0 ? ratingScore : undefined,
+        comments: feedbackText.trim() || undefined,
         reviewedBy: user?.fullName || "System Admin",
       });
       setReport(updated);
+      setRatingScore(updated.managerRating || 0);
+      setFeedbackText(updated.managerComments || "");
       setLinkedRequest(getStaticRequestById(updated.requestId));
       toast.success(
         "Surveillance audit report approved and marked as Completed. It is now visible to the requester.",
@@ -479,15 +487,10 @@ export default function SurveillanceReportDetailPage() {
     }
   };
 
-  const handleOpenDeclineModal = () => {
-    setDeclineReason("");
-    setDeclineModalOpen(true);
-  };
-
-  const handleConfirmDecline = () => {
+  const handleDeclineReport = () => {
     if (!report) return;
-    if (!declineReason.trim()) {
-      toast.error("Please provide a reason for declining the report.");
+    if (!feedbackText.trim()) {
+      toast.error("Please enter feedback explaining why this report is being declined.");
       return;
     }
 
@@ -495,13 +498,14 @@ export default function SurveillanceReportDetailPage() {
     try {
       const updated = reviewStaticReport(report.id, {
         action: "reject",
-        comments: declineReason.trim(),
+        comments: feedbackText.trim(),
         rating: ratingScore > 0 ? ratingScore : undefined,
         reviewedBy: user?.fullName || "System Admin",
       });
       setReport(updated);
+      setRatingScore(updated.managerRating || 0);
+      setFeedbackText(updated.managerComments || "");
       setLinkedRequest(getStaticRequestById(updated.requestId));
-      setDeclineModalOpen(false);
       toast.success("Surveillance audit report has been declined.");
     } catch (error) {
       toast.error(`Failed to decline report: ${(error as Error).message}`);
@@ -797,7 +801,7 @@ export default function SurveillanceReportDetailPage() {
                     variant="outline"
                     className="border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 text-xs font-semibold"
                   >
-                    Pending Review
+                    Report Received
                   </Badge>
                 )}
               </div>
@@ -807,135 +811,100 @@ export default function SurveillanceReportDetailPage() {
                 {report.investigatorRole ? ` (${report.investigatorRole})` : ""} on{" "}
                 {formatReviewDateTime(report.submittedAt)}
               </p>
+              {isReportFinalized && report.reviewedBy && (
+                <p className="text-xs text-muted-foreground">
+                  {report.status === "Rejected" ? "Declined by " : "Reviewed by "}
+                  <strong className="font-semibold text-foreground">{report.reviewedBy}</strong>
+                  {report.reviewedAt ? ` on ${formatReviewDateTime(report.reviewedAt)}` : ""}
+                </p>
+              )}
             </div>
 
             {isReportFinalized && (
-              <div className="inline-flex items-center gap-1.5 rounded-lg border bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+              <div className="inline-flex items-center gap-1.5 rounded-lg border bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground self-start sm:self-center">
                 <Lock className="h-3.5 w-3.5 shrink-0" />
                 Review Finalized
               </div>
             )}
           </div>
 
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-foreground">
-                Submitter Performance Rating {!isReportFinalized && canReviewReport ? "*" : ""}
-              </Label>
-              <StarRating
-                value={isReportFinalized ? report.managerRating || 0 : ratingScore}
-                onChange={setRatingScore}
-                readOnly={isReportFinalized || !canReviewReport}
-              />
-              {!isReportFinalized && canReviewReport && (
-                <p className="text-[11px] text-muted-foreground">
-                  Rate the accuracy and completeness of the submitted surveillance audit report.
-                </p>
-              )}
-            </div>
-
-            {!isReportFinalized && canReviewReport && (
-              <div className="flex flex-wrap items-center gap-2.5">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleOpenDeclineModal}
-                  disabled={submittingReview}
-                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-900/60 dark:text-rose-400"
-                >
-                  <X className="h-3.5 w-3.5" />
-                  Decline Report
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleApproveReport}
-                  disabled={submittingReview}
-                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-                >
-                  <Check className="h-3.5 w-3.5" />
-                  Approve Report
-                </Button>
-              </div>
+          {/* Submitter Star Rating */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-semibold text-foreground">Submitter Rating</Label>
+            <StarRating
+              value={isReportFinalized ? report.managerRating || 0 : ratingScore}
+              onChange={setRatingScore}
+              readOnly={!canEditReview}
+            />
+            {canEditReview && (
+              <p className="text-[11px] text-muted-foreground">
+                Rate the accuracy and completeness of the submitted surveillance audit report.
+              </p>
             )}
           </div>
 
-          {isReportFinalized && (
-            <div
-              className={`rounded-xl border p-4 text-xs space-y-2 ${
-                report.status === "Approved"
-                  ? "border-emerald-200/80 bg-emerald-50/50 dark:border-emerald-900/50 dark:bg-emerald-950/20"
-                  : "border-rose-200/80 bg-rose-50/50 dark:border-rose-900/50 dark:bg-rose-950/20"
-              }`}
+          {/* Long Feedback Textbox (Non-editable once submitted) */}
+          <div className="space-y-1.5">
+            <Label
+              htmlFor="manager-review-feedback"
+              className="text-xs font-semibold text-foreground"
             >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-semibold text-foreground">
-                  {report.status === "Approved"
-                    ? `Approved by ${report.reviewedBy || "Manager"}`
-                    : `Declined by ${report.reviewedBy || "Manager"}`}
-                </span>
-                {report.reviewedAt && (
-                  <span className="text-muted-foreground tabular-nums">
-                    {formatReviewDateTime(report.reviewedAt)}
-                  </span>
-                )}
-              </div>
-              {report.managerComments && (
-                <p className="text-foreground leading-relaxed whitespace-pre-wrap pt-1 border-t border-border/50">
-                  {report.managerComments}
-                </p>
-              )}
+              Feedback
+            </Label>
+            <Textarea
+              id="manager-review-feedback"
+              rows={4}
+              value={
+                isReportFinalized
+                  ? report.managerComments?.trim()
+                    ? report.managerComments
+                    : "-"
+                  : feedbackText
+              }
+              onChange={(e) => {
+                if (canEditReview) {
+                  setFeedbackText(e.target.value);
+                }
+              }}
+              readOnly={!canEditReview}
+              placeholder={
+                canEditReview
+                  ? "Write your review feedback or notes for this surveillance audit report..."
+                  : "No feedback provided."
+              }
+              className={`text-xs resize-none ${
+                !canEditReview
+                  ? "bg-muted/40 text-foreground cursor-default focus-visible:ring-0"
+                  : ""
+              }`}
+            />
+          </div>
+
+          {canEditReview && (
+            <div className="flex flex-wrap items-center justify-end gap-2.5 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleDeclineReport}
+                disabled={submittingReview}
+                className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-900/60 dark:text-rose-400"
+              >
+                <X className="h-3.5 w-3.5" />
+                Decline Report
+              </Button>
+              <Button
+                type="button"
+                onClick={handleApproveReport}
+                disabled={submittingReview}
+                className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+              >
+                <Check className="h-3.5 w-3.5" />
+                Approve Report
+              </Button>
             </div>
           )}
         </Card>
       )}
-
-      {/* Decline Surveillance Report Modal */}
-      <Dialog open={declineModalOpen} onOpenChange={setDeclineModalOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Decline Surveillance Report</DialogTitle>
-            <DialogDescription>
-              Provide a clear reason explaining why this surveillance audit report is being
-              declined.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-2 py-2">
-            <Label htmlFor="decline-report-reason" className="text-xs font-semibold">
-              Decline Reason <span className="text-rose-600">*</span>
-            </Label>
-            <Textarea
-              id="decline-report-reason"
-              value={declineReason}
-              onChange={(e) => setDeclineReason(e.target.value)}
-              placeholder="Explain missing timestamps, unclear camera angles, or discrepancies requiring correction..."
-              rows={4}
-              className="text-xs resize-none"
-            />
-          </div>
-
-          <DialogFooter className="gap-2 sm:gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setDeclineModalOpen(false)}
-              disabled={submittingReview}
-              className="text-xs"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleConfirmDecline}
-              disabled={submittingReview}
-              className="text-xs font-semibold"
-            >
-              {submittingReview ? "Declining..." : "Confirm Decline"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Row Attachments Viewer Dialog */}
       <Dialog

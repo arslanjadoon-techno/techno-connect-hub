@@ -170,13 +170,6 @@ export const INITIAL_REQUEST_REPORTS: SurveillanceRequest[] = [
     approvedBy: "System Admin",
     approvedAt: "2026-10-19T09:30:00Z",
     linkedReportId: "SRV-REP-202",
-    preparedBy: "Michael Sterling",
-    preparedById: "agt-102",
-    preparedByEmail: "m.sterling@techno-communications.com",
-    preparedByPhone: "+1 (214) 555-0821",
-    preparedByRole: "Asset Protection Auditor",
-    preparedByDepartment: "Surveillance & Loss Prevention",
-    preparedAt: "2026-10-20T14:10:00Z",
     reportStatus: "Pending Review",
   },
   {
@@ -268,12 +261,6 @@ export const INITIAL_REQUEST_REPORTS: SurveillanceRequest[] = [
     createdAt: "2026-10-24T10:30:00Z",
     approvedBy: "System Admin",
     approvedAt: "2026-10-24T11:15:00Z",
-    preparedBy: "Michael Sterling",
-    preparedById: "agt-102",
-    preparedByEmail: "m.sterling@techno-communications.com",
-    preparedByPhone: "+1 (214) 555-0821",
-    preparedByRole: "Asset Protection Auditor",
-    preparedByDepartment: "Surveillance & Loss Prevention",
   },
   {
     id: "SRV-REQ-106",
@@ -1808,12 +1795,6 @@ export function submitStaticAuditReport(
           status: "Pending",
           reportStatus: "Pending Review",
           linkedReportId: reportId,
-          preparedBy: investigatorName,
-          preparedByEmail: investigatorEmail,
-          preparedByPhone: investigatorPhone,
-          preparedByRole: investigatorRole,
-          preparedByDepartment: investigatorDepartment,
-          preparedAt: submittedAt,
         }
       : r,
   );
@@ -1901,12 +1882,20 @@ export function reviewStaticReport(
         ...req,
         status: isApprove ? "Completed" : "Pending",
         linkedReportId: reportId,
-        preparedBy: req.preparedBy || updatedReport.investigatorName,
-        preparedByEmail: req.preparedByEmail || updatedReport.investigatorEmail,
-        preparedByPhone: req.preparedByPhone || updatedReport.investigatorPhone,
-        preparedByRole: req.preparedByRole || updatedReport.investigatorRole,
-        preparedByDepartment: req.preparedByDepartment || updatedReport.investigatorDepartment,
-        preparedAt: req.preparedAt || updatedReport.submittedAt,
+        preparedBy: isApprove ? req.preparedBy || updatedReport.investigatorName : undefined,
+        preparedByEmail: isApprove
+          ? req.preparedByEmail || updatedReport.investigatorEmail
+          : undefined,
+        preparedByPhone: isApprove
+          ? req.preparedByPhone || updatedReport.investigatorPhone
+          : undefined,
+        preparedByRole: isApprove
+          ? req.preparedByRole || updatedReport.investigatorRole
+          : undefined,
+        preparedByDepartment: isApprove
+          ? req.preparedByDepartment || updatedReport.investigatorDepartment
+          : undefined,
+        preparedAt: isApprove ? req.preparedAt || updatedReport.submittedAt : undefined,
         reportStatus: isApprove ? "Approved" : "Rejected",
         reportApprovedBy: payload.reviewedBy,
         reportApprovedAt: reviewedAt,
@@ -2032,17 +2021,12 @@ export function validateAndAssignStaticRequest(
 
   validationQueueStore[targetIndex] = updated;
 
-  // Update Request Reports item with assigned agent details while keeping status "Pending"
+  // Keep Request Reports item in "Pending" status until the report is completed
   requestReportsStore = requestReportsStore.map((r) =>
     r.id === existing.id
       ? {
           ...r,
           status: r.status === "Completed" ? "Completed" : "Pending",
-          preparedBy: agent.fullName,
-          preparedByEmail: agent.email,
-          preparedByPhone: agent.phone,
-          preparedByRole: agent.role,
-          preparedByDepartment: agent.department,
         }
       : r,
   );

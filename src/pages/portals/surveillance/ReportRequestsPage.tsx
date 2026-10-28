@@ -363,8 +363,13 @@ export default function ReportRequestsPage() {
       {
         key: "preparedBy",
         header: "Prepared by",
-        searchValue: (r) => r.preparedBy || "-",
-        accessor: (r) => <span className="text-foreground text-sm">{r.preparedBy || "-"}</span>,
+        searchValue: (r) =>
+          normalizeRequestStatus(r.status) === "Completed" ? r.preparedBy || "-" : "-",
+        accessor: (r) => (
+          <span className="text-foreground text-sm">
+            {normalizeRequestStatus(r.status) === "Completed" ? r.preparedBy || "-" : "-"}
+          </span>
+        ),
       },
       {
         key: "status",
@@ -389,10 +394,12 @@ export default function ReportRequestsPage() {
     [requests, selectedDetailId],
   );
 
-  // REPORT DETAILS PAGE (Consistent UI format matching Request Details)
+  // REQUESTED REPORT DETAILS PAGE (Consistent UI format matching Request Details)
   if (selectedDetail) {
     const item = selectedDetail;
     const normalizedStatus = normalizeRequestStatus(item.status);
+    const isCompleted = normalizedStatus === "Completed";
+    const showPreparedBy = isCompleted && Boolean(item.preparedBy);
     const statusCfg = REQUEST_STATUS_CONFIG[normalizedStatus];
 
     const linkedReport = reports.find(
@@ -421,7 +428,7 @@ export default function ReportRequestsPage() {
                 Request Reports
               </p>
               <h1 className="font-display text-2xl font-bold tracking-tight text-foreground leading-tight">
-                Report Details
+                Requested Report Details
               </h1>
             </div>
           </div>
@@ -541,7 +548,7 @@ export default function ReportRequestsPage() {
                   Prepared by
                 </div>
                 <div className="text-sm font-bold text-emerald-950 dark:text-emerald-100 truncate mt-0.5">
-                  {item.preparedBy || "—"}
+                  {showPreparedBy ? item.preparedBy : "-"}
                 </div>
               </div>
             </div>
@@ -707,7 +714,7 @@ export default function ReportRequestsPage() {
               </div>
 
               <div className="flex items-center gap-3.5 border-b border-emerald-200/60 dark:border-emerald-900/50 pb-4">
-                {item.preparedBy ? (
+                {showPreparedBy ? (
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white font-display text-sm font-bold shadow-xs shrink-0">
                     {getInitials(item.preparedBy)}
                   </div>
@@ -719,18 +726,13 @@ export default function ReportRequestsPage() {
 
                 <div className="min-w-0 space-y-1">
                   <div className="text-base font-bold text-foreground truncate">
-                    {item.preparedBy || "—"}
+                    {showPreparedBy ? item.preparedBy : "-"}
                   </div>
 
-                  {item.preparedBy ? (
+                  {showPreparedBy && (
                     <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100/90 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
                       {item.preparedByRole || "Surveillance Auditor"}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-100/90 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
-                      <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                      Awaiting assignment
                     </span>
                   )}
                 </div>
@@ -744,7 +746,7 @@ export default function ReportRequestsPage() {
                   <div className="min-w-0">
                     <div className="text-[11px] text-muted-foreground">Email</div>
                     <div className="font-medium text-foreground break-all">
-                      {item.preparedByEmail || "—"}
+                      {showPreparedBy ? item.preparedByEmail || "-" : "-"}
                     </div>
                   </div>
                 </div>
@@ -756,7 +758,7 @@ export default function ReportRequestsPage() {
                   <div className="min-w-0">
                     <div className="text-[11px] text-muted-foreground">Phone</div>
                     <div className="font-medium text-foreground tabular-nums">
-                      {item.preparedByPhone || "—"}
+                      {showPreparedBy ? item.preparedByPhone || "-" : "-"}
                     </div>
                   </div>
                 </div>
@@ -768,9 +770,9 @@ export default function ReportRequestsPage() {
                   <div className="min-w-0">
                     <div className="text-[11px] text-muted-foreground">Department</div>
                     <div className="font-medium text-foreground">
-                      {item.preparedBy
+                      {showPreparedBy
                         ? item.preparedByDepartment || "Surveillance & Loss Prevention"
-                        : "—"}
+                        : "-"}
                     </div>
                   </div>
                 </div>
@@ -782,7 +784,9 @@ export default function ReportRequestsPage() {
                   <div className="min-w-0">
                     <div className="text-[11px] text-muted-foreground">Submitted at</div>
                     <div className="font-medium text-foreground tabular-nums">
-                      {item.preparedAt ? formatDateTimeDisplay(item.preparedAt) : "—"}
+                      {showPreparedBy && item.preparedAt
+                        ? formatDateTimeDisplay(item.preparedAt)
+                        : "-"}
                     </div>
                   </div>
                 </div>
