@@ -14,9 +14,8 @@ export default function SurveillanceNoAccessPage() {
             No Surveillance Views Available
           </h1>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            There is currently nothing to display for your assigned role in the
-            Surveillance portal. Please contact your system administrator to
-            request the appropriate role permissions.
+            There is currently nothing to display for your assigned role in the Surveillance portal.
+            Please contact your system administrator to request the appropriate role permissions.
           </p>
         </div>
 

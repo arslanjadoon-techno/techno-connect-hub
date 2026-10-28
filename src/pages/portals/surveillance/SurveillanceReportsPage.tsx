@@ -19,11 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -31,12 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Plus,
   Eye,
@@ -306,10 +297,7 @@ function hasCustomInTransType(raw?: string): boolean {
     .some((s) => s === "Custom" || s === "Other");
 }
 
-function getRowCustomDetail(
-  row: SurveillanceAuditRow,
-  fieldKey: CustomDetailFieldKey,
-): string {
+function getRowCustomDetail(row: SurveillanceAuditRow, fieldKey: CustomDetailFieldKey): string {
   const detailProp = CUSTOM_DETAIL_PROP_MAP[fieldKey];
   const directVal = row[detailProp];
   if (typeof directVal === "string") return directVal;
@@ -383,9 +371,7 @@ function TransactionTypeMultiSelect({
 
   const toggleOption = (opt: string) => {
     const exists = selectedList.includes(opt);
-    const next = exists
-      ? selectedList.filter((item) => item !== opt)
-      : [...selectedList, opt];
+    const next = exists ? selectedList.filter((item) => item !== opt) : [...selectedList, opt];
     onChange(next.join(" / "));
   };
 
@@ -452,10 +438,7 @@ function TransactionTypeMultiSelect({
                 key={opt}
                 className="flex items-center gap-2 rounded px-2 py-1.5 cursor-pointer text-xs text-foreground hover:bg-accent"
               >
-                <Checkbox
-                  checked={checked}
-                  onCheckedChange={() => toggleOption(opt)}
-                />
+                <Checkbox checked={checked} onCheckedChange={() => toggleOption(opt)} />
                 <span className="flex-1 truncate">{opt}</span>
               </label>
             );
@@ -509,10 +492,7 @@ function SelectWithCustomField({
           {label}
           {required && <span className="text-destructive"> *</span>}
         </Label>
-        <Select
-          value={selectVal}
-          onValueChange={(v) => onValueChange(v === "__empty__" ? "" : v)}
-        >
+        <Select value={selectVal} onValueChange={(v) => onValueChange(v === "__empty__" ? "" : v)}>
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
@@ -799,8 +779,7 @@ function formatSurveillanceDate(raw?: string): string {
   if (alreadyFormatted) {
     const dd = alreadyFormatted[1].padStart(2, "0");
     const mmm =
-      alreadyFormatted[2].charAt(0).toUpperCase() +
-      alreadyFormatted[2].slice(1, 3).toLowerCase();
+      alreadyFormatted[2].charAt(0).toUpperCase() + alreadyFormatted[2].slice(1, 3).toLowerCase();
     const yyyy = alreadyFormatted[3];
     return `${dd} ${mmm}, ${yyyy}`;
   }
@@ -941,10 +920,7 @@ export default function SurveillanceReportsPage() {
     return {
       total: requests.length,
       submitted: requests.filter(
-        (r) =>
-          r.status === "Report Received" ||
-          r.status === "Approved" ||
-          r.status === "Rejected",
+        (r) => r.status === "Report Received" || r.status === "Approved" || r.status === "Rejected",
       ).length,
       pending: requests.filter((r) => r.status === "Report Requested").length,
       approved: requests.filter((r) => r.status === "Approved").length,
@@ -1080,11 +1056,7 @@ export default function SurveillanceReportsPage() {
       setEditableRows(cloned);
       setExpandedRowIds({ [cloned[0].id]: true });
     } else {
-      const firstRow = createEmptyAuditRow(
-        reqItem.storeName,
-        reqItem.marketName,
-        initialDate,
-      );
+      const firstRow = createEmptyAuditRow(reqItem.storeName, reqItem.marketName, initialDate);
       setEditableRows([firstRow]);
       setExpandedRowIds({ [firstRow.id]: true });
     }
@@ -1098,11 +1070,7 @@ export default function SurveillanceReportsPage() {
     setIsEditingReport(false);
   };
 
-  const handleSaveAuditRow = (
-    requestId: string,
-    row: SurveillanceAuditRow,
-    rowIndex: number,
-  ) => {
+  const handleSaveAuditRow = (requestId: string, row: SurveillanceAuditRow, rowIndex: number) => {
     const savedRecord = saveStaticDraftRow(requestId, row, rowIndex);
     setSavedRowTimestamps((prev) => ({
       ...prev,
@@ -1219,11 +1187,7 @@ export default function SurveillanceReportsPage() {
   };
 
   // Adds a fresh audit row with all time fields reset to default ('-')
-  const handleAddAuditRow = (
-    storeName: string,
-    marketName: string,
-    defaultDate?: string,
-  ) => {
+  const handleAddAuditRow = (storeName: string, marketName: string, defaultDate?: string) => {
     const nextRow = createEmptyAuditRow(storeName, marketName, defaultDate);
     setEditableRows((prev) => [...prev, nextRow]);
     setExpandedRowIds((prev) => ({ ...prev, [nextRow.id]: true }));
@@ -1252,10 +1216,7 @@ export default function SurveillanceReportsPage() {
     setExpandedRowIds((prev) => ({ ...prev, [rowId]: !prev[rowId] }));
   };
 
-  const handleRowAttachmentUpload = (
-    rowId: string,
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
+  const handleRowAttachmentUpload = (rowId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
@@ -1269,9 +1230,7 @@ export default function SurveillanceReportsPage() {
     setDirtyRowIds((prev) => ({ ...prev, [rowId]: true }));
     setEditableRows((prev) =>
       prev.map((row) =>
-        row.id === rowId
-          ? { ...row, attachments: [...(row.attachments || []), ...uploaded] }
-          : row,
+        row.id === rowId ? { ...row, attachments: [...(row.attachments || []), ...uploaded] } : row,
       ),
     );
     e.target.value = "";
@@ -1357,8 +1316,7 @@ export default function SurveillanceReportsPage() {
       const isCustom =
         fieldKey === "transType"
           ? hasCustomInTransType(rawSelection)
-          : (rawSelection || "").trim() === "Custom" ||
-            (rawSelection || "").trim() === "Other";
+          : (rawSelection || "").trim() === "Custom" || (rawSelection || "").trim() === "Other";
       return isCustom ? getRowCustomDetail(row, fieldKey).trim() : "";
     };
 
@@ -1409,11 +1367,7 @@ export default function SurveillanceReportsPage() {
           r.fraudTransactions,
         ),
         missOpportunity: normOpt(r.missOpportunity),
-        missOpportunityDetails: resolveCustomDetailValue(
-          r,
-          "missOpportunity",
-          r.missOpportunity,
-        ),
+        missOpportunityDetails: resolveCustomDetailValue(r, "missOpportunity", r.missOpportunity),
         paymentFraud: normOpt(r.paymentFraud),
         paymentFraudDetails: resolveCustomDetailValue(r, "paymentFraud", r.paymentFraud),
         aalSwap: normOpt(r.aalSwap),
@@ -1444,11 +1398,7 @@ export default function SurveillanceReportsPage() {
         bundleStartB: r.bundleStartB,
         bundleEndB: r.bundleEndB,
         bundleAccGiven: normOpt(r.bundleAccGiven),
-        bundleAccGivenDetails: resolveCustomDetailValue(
-          r,
-          "bundleAccGiven",
-          r.bundleAccGiven,
-        ),
+        bundleAccGivenDetails: resolveCustomDetailValue(r, "bundleAccGiven", r.bundleAccGiven),
         portIn: normOpt(r.portIn),
         portInDetails: resolveCustomDetailValue(r, "portIn", r.portIn),
         nonUp: normOpt(r.nonUp),
@@ -1497,22 +1447,14 @@ export default function SurveillanceReportsPage() {
         editableRows.length > 1
           ? `Shift Audit (${editableRows.length} Entries)`
           : normalizeTransTypeString(primaryRow.transType) || "Audit Entry",
-      transTypeDetails: resolveCustomDetailValue(
-        primaryRow,
-        "transType",
-        primaryRow.transType,
-      ),
+      transTypeDetails: resolveCustomDetailValue(primaryRow, "transType", primaryRow.transType),
       clientType:
         primaryClientType === "Custom"
           ? "Custom"
           : primaryClientType === "Non-Buyer"
             ? "Non-Buyer"
             : "Buyer",
-      clientTypeDetails: resolveCustomDetailValue(
-        primaryRow,
-        "clientType",
-        primaryClientType,
-      ),
+      clientTypeDetails: resolveCustomDetailValue(primaryRow, "clientType", primaryClientType),
       invoiceAmount: primaryRow.invoiceAmount || "$0.00",
       totalTaken: primaryRow.totalTaken || "$0.00",
       paymentMode:
@@ -1574,11 +1516,7 @@ export default function SurveillanceReportsPage() {
         primaryRow.showingPhone,
       ),
       accOffered: resolveYesNoValue(primaryRow.accOffered),
-      accOfferedDetails: resolveCustomDetailValue(
-        primaryRow,
-        "accOffered",
-        primaryRow.accOffered,
-      ),
+      accOfferedDetails: resolveCustomDetailValue(primaryRow, "accOffered", primaryRow.accOffered),
       maximize: resolveYesNoValue(primaryRow.maximize),
       maximizeDetails: resolveCustomDetailValue(primaryRow, "maximize", primaryRow.maximize),
       flipping: resolveYesNoValue(primaryRow.flipping),
@@ -2010,9 +1948,7 @@ export default function SurveillanceReportsPage() {
                           options={CLIENT_TYPE_OPTIONS}
                           value={normalizeClientType(row.clientType, row.b, row.nb)}
                           detailValue={getRowCustomDetail(row, "clientType")}
-                          onValueChange={(val) =>
-                            handleUpdateRowField(row.id, "clientType", val)
-                          }
+                          onValueChange={(val) => handleUpdateRowField(row.id, "clientType", val)}
                           onDetailChange={(det) =>
                             handleUpdateOtherDetail(row.id, "clientType", det)
                           }
@@ -2117,9 +2053,7 @@ export default function SurveillanceReportsPage() {
                           value={row.receipt}
                           detailValue={getRowCustomDetail(row, "receipt")}
                           onValueChange={(val) => handleUpdateRowField(row.id, "receipt", val)}
-                          onDetailChange={(det) =>
-                            handleUpdateOtherDetail(row.id, "receipt", det)
-                          }
+                          onDetailChange={(det) => handleUpdateOtherDetail(row.id, "receipt", det)}
                           detailSpanClass="sm:col-span-2"
                         />
                       </div>
@@ -2149,9 +2083,7 @@ export default function SurveillanceReportsPage() {
                             options={YES_NO_OPTIONS}
                             value={row[field.key]}
                             detailValue={getRowCustomDetail(row, field.key)}
-                            onValueChange={(val) =>
-                              handleUpdateRowField(row.id, field.key, val)
-                            }
+                            onValueChange={(val) => handleUpdateRowField(row.id, field.key, val)}
                             onDetailChange={(det) =>
                               handleUpdateOtherDetail(row.id, field.key, det)
                             }
@@ -2185,9 +2117,7 @@ export default function SurveillanceReportsPage() {
                           value={row.pitchNb}
                           detailValue={getRowCustomDetail(row, "pitchNb")}
                           onValueChange={(val) => handleUpdateRowField(row.id, "pitchNb", val)}
-                          onDetailChange={(det) =>
-                            handleUpdateOtherDetail(row.id, "pitchNb", det)
-                          }
+                          onDetailChange={(det) => handleUpdateOtherDetail(row.id, "pitchNb", det)}
                           detailSpanClass="col-span-2"
                         />
                         <SelectWithCustomField
@@ -2195,9 +2125,7 @@ export default function SurveillanceReportsPage() {
                           options={PITCH_QUALITY_OPTIONS}
                           value={row.pitchQuality}
                           detailValue={getRowCustomDetail(row, "pitchQuality")}
-                          onValueChange={(val) =>
-                            handleUpdateRowField(row.id, "pitchQuality", val)
-                          }
+                          onValueChange={(val) => handleUpdateRowField(row.id, "pitchQuality", val)}
                           onDetailChange={(det) =>
                             handleUpdateOtherDetail(row.id, "pitchQuality", det)
                           }
@@ -2218,9 +2146,7 @@ export default function SurveillanceReportsPage() {
                             options={YES_NO_OPTIONS}
                             value={row[field.key]}
                             detailValue={getRowCustomDetail(row, field.key)}
-                            onValueChange={(val) =>
-                              handleUpdateRowField(row.id, field.key, val)
-                            }
+                            onValueChange={(val) => handleUpdateRowField(row.id, field.key, val)}
                             onDetailChange={(det) =>
                               handleUpdateOtherDetail(row.id, field.key, det)
                             }
@@ -2274,9 +2200,7 @@ export default function SurveillanceReportsPage() {
                             options={YES_NO_OPTIONS}
                             value={row[field.key]}
                             detailValue={getRowCustomDetail(row, field.key)}
-                            onValueChange={(val) =>
-                              handleUpdateRowField(row.id, field.key, val)
-                            }
+                            onValueChange={(val) => handleUpdateRowField(row.id, field.key, val)}
                             onDetailChange={(det) =>
                               handleUpdateOtherDetail(row.id, field.key, det)
                             }
@@ -2333,18 +2257,14 @@ export default function SurveillanceReportsPage() {
                           <Label className="text-[11px] font-semibold">Back Room Time - In</Label>
                           <AmPmTimePicker
                             value={row.backRoomTimeIn}
-                            onChange={(val) =>
-                              handleUpdateRowField(row.id, "backRoomTimeIn", val)
-                            }
+                            onChange={(val) => handleUpdateRowField(row.id, "backRoomTimeIn", val)}
                           />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Back Room Time - Out</Label>
                           <AmPmTimePicker
                             value={row.backRoomTimeOut}
-                            onChange={(val) =>
-                              handleUpdateRowField(row.id, "backRoomTimeOut", val)
-                            }
+                            onChange={(val) => handleUpdateRowField(row.id, "backRoomTimeOut", val)}
                           />
                         </div>
                         <SelectWithCustomField
@@ -2353,9 +2273,7 @@ export default function SurveillanceReportsPage() {
                           value={row.offline}
                           detailValue={getRowCustomDetail(row, "offline")}
                           onValueChange={(val) => handleUpdateRowField(row.id, "offline", val)}
-                          onDetailChange={(det) =>
-                            handleUpdateOtherDetail(row.id, "offline", det)
-                          }
+                          onDetailChange={(det) => handleUpdateOtherDetail(row.id, "offline", det)}
                           detailSpanClass="col-span-2 sm:col-span-3"
                         />
                       </div>
@@ -2434,7 +2352,8 @@ export default function SurveillanceReportsPage() {
                           </span>
                         ) : (
                           <span className="text-muted-foreground">
-                            Click Save to preserve this row locally against accidental navigation or power loss.
+                            Click Save to preserve this row locally against accidental navigation or
+                            power loss.
                           </span>
                         )}
                       </div>
@@ -2498,7 +2417,8 @@ export default function SurveillanceReportsPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Confirm Report Submission</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to submit this surveillance audit report? Once submitted, this report will be finalized for management review and cannot be modified later.
+                Are you sure you want to submit this surveillance audit report? Once submitted, this
+                report will be finalized for management review and cannot be modified later.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -2734,9 +2654,7 @@ export default function SurveillanceReportsPage() {
                 {ratingReviewer && (
                   <p className="text-xs text-muted-foreground">
                     Rated by{" "}
-                    <strong className="font-semibold text-foreground">
-                      {ratingReviewer}
-                    </strong>
+                    <strong className="font-semibold text-foreground">{ratingReviewer}</strong>
                   </p>
                 )}
               </div>
@@ -2799,10 +2717,7 @@ export default function SurveillanceReportsPage() {
                   </span>
                   {(item.reportApprovedAt || item.approvedAt) && (
                     <span>
-                      Date:{" "}
-                      {formatDateTimeDisplay(
-                        item.reportApprovedAt || item.approvedAt || "",
-                      )}
+                      Date: {formatDateTimeDisplay(item.reportApprovedAt || item.approvedAt || "")}
                     </span>
                   )}
                 </div>
@@ -2876,9 +2791,7 @@ export default function SurveillanceReportsPage() {
                     <Clock className="h-3.5 w-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[11px] text-muted-foreground">
-                      Request received at
-                    </div>
+                    <div className="text-[11px] text-muted-foreground">Request received at</div>
                     <div className="font-medium text-foreground tabular-nums">
                       {formatDateTimeDisplay(item.createdAt)}
                     </div>
@@ -2981,7 +2894,8 @@ export default function SurveillanceReportsPage() {
               <div className="flex items-start gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50/70 p-3.5 text-xs text-amber-900 leading-relaxed dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
                 <Clock className="h-4 w-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
                 <span>
-                  No surveillance audit report submitted yet. Click &quot;Proceed to Submit&quot; above to prepare and submit the report.
+                  No surveillance audit report submitted yet. Click &quot;Proceed to Submit&quot;
+                  above to prepare and submit the report.
                 </span>
               </div>
             )}
@@ -2989,9 +2903,7 @@ export default function SurveillanceReportsPage() {
             {item.preparedBy && item.status === "Approved" && (
               <div className="flex items-start gap-2.5 rounded-xl border border-emerald-200/80 bg-emerald-50/80 p-3.5 text-xs text-emerald-900 leading-relaxed dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200">
                 <CheckCircle2 className="h-4 w-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
-                <span>
-                  Surveillance audit report has been reviewed and approved by management.
-                </span>
+                <span>Surveillance audit report has been reviewed and approved by management.</span>
               </div>
             )}
           </Card>

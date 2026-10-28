@@ -34,7 +34,6 @@ import {
 } from "@/components/ui/command";
 import {
   Plus,
-  XCircle,
   Store as StoreIcon,
   RotateCcw,
   ArrowLeft,
@@ -68,12 +67,11 @@ import type {
   SurveillancePriority,
 } from "@/services/portals/surveillance/types";
 
-type RequestReportPageStatus = "Requested" | "Completed" | "Pending";
+type RequestReportPageStatus = "Pending" | "Completed";
 
 const PRIORITY_TONES: Record<SurveillancePriority, string> = {
   low: "bg-muted text-muted-foreground border-border",
-  medium:
-    "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400",
+  medium: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400",
   high: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
 };
 
@@ -81,11 +79,11 @@ const REQUEST_STATUS_CONFIG: Record<
   RequestReportPageStatus,
   { label: string; tone: string; dotClass: string; textClass: string }
 > = {
-  Requested: {
-    label: "Requested",
-    tone: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400",
-    dotClass: "bg-sky-500",
-    textClass: "text-sky-800 dark:text-sky-300",
+  Pending: {
+    label: "Pending",
+    tone: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
+    dotClass: "bg-amber-500",
+    textClass: "text-amber-900 dark:text-amber-100",
   },
   Completed: {
     label: "Completed",
@@ -93,18 +91,11 @@ const REQUEST_STATUS_CONFIG: Record<
     dotClass: "bg-emerald-500",
     textClass: "text-emerald-800 dark:text-emerald-300",
   },
-  Pending: {
-    label: "Pending",
-    tone: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
-    dotClass: "bg-amber-500",
-    textClass: "text-amber-900 dark:text-amber-100",
-  },
 };
 
 function normalizeRequestStatus(raw: string): RequestReportPageStatus {
   if (raw === "Completed" || raw === "Approved") return "Completed";
-  if (raw === "Pending" || raw === "Report Received") return "Pending";
-  return "Requested";
+  return "Pending";
 }
 
 function formatPriorityLabel(priority: SurveillancePriority): string {
@@ -200,10 +191,7 @@ export default function ReportRequestsPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
 
   const MARKETS = useMemo(
-    () =>
-      Array.from(
-        new Set(stores.map((s) => s.market).filter(Boolean)),
-      ).sort(),
+    () => Array.from(new Set(stores.map((s) => s.market).filter(Boolean))).sort(),
     [stores],
   );
 
@@ -212,9 +200,7 @@ export default function ReportRequestsPage() {
   const [selectedMarket, setSelectedMarket] = useState("");
   const [selectedStoreId, setSelectedStoreId] = useState<string>("");
   const [storePickerOpen, setStorePickerOpen] = useState(false);
-  const [startDate, setStartDate] = useState(
-    () => new Date().toISOString().split("T")[0],
-  );
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [priority, setPriority] = useState<SurveillancePriority>("low");
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
@@ -240,8 +226,7 @@ export default function ReportRequestsPage() {
     setNotes("");
     const defaultMarket = MARKETS[0] ?? "";
     setSelectedMarket(defaultMarket);
-    const firstStore =
-      stores.find((s) => s.market === defaultMarket) || stores[0];
+    const firstStore = stores.find((s) => s.market === defaultMarket) || stores[0];
     setSelectedStoreId(firstStore?.id ?? "");
     const today = new Date().toISOString().split("T")[0];
     setStartDate(today);
@@ -317,24 +302,22 @@ export default function ReportRequestsPage() {
     return requests.filter((r) => {
       const normalizedStatus = normalizeRequestStatus(r.status);
       if (marketFilter !== "all" && r.marketName !== marketFilter) return false;
-      if (statusFilter !== "all" && normalizedStatus !== statusFilter)
-        return false;
-      if (priorityFilter !== "all" && r.priority !== priorityFilter)
-        return false;
+      if (statusFilter !== "all" && normalizedStatus !== statusFilter) return false;
+      if (priorityFilter !== "all" && r.priority !== priorityFilter) return false;
       return true;
     });
   }, [requests, marketFilter, statusFilter, priorityFilter]);
 
-  // Strictly 3 KPI summary cards: Total Requests, Completed, and Pending
+  // Strictly 3 KPI summary cards: Total Requests (Pending + Completed), Pending, and Completed
   const metrics = useMemo(() => {
+    const pending = requests.filter((r) => normalizeRequestStatus(r.status) === "Pending").length;
+    const completed = requests.filter(
+      (r) => normalizeRequestStatus(r.status) === "Completed",
+    ).length;
     return {
-      total: requests.length,
-      completed: requests.filter(
-        (r) => normalizeRequestStatus(r.status) === "Completed",
-      ).length,
-      pending: requests.filter(
-        (r) => normalizeRequestStatus(r.status) === "Pending",
-      ).length,
+      total: pending + completed,
+      pending,
+      completed,
     };
   }, [requests]);
 
@@ -344,27 +327,19 @@ export default function ReportRequestsPage() {
         key: "store",
         header: "Store",
         searchValue: (r) => r.storeName,
-        accessor: (r) => (
-          <span className="font-medium text-foreground text-sm">
-            {r.storeName}
-          </span>
-        ),
+        accessor: (r) => <span className="font-medium text-foreground text-sm">{r.storeName}</span>,
       },
       {
         key: "market",
         header: "Market",
         searchValue: (r) => r.marketName,
-        accessor: (r) => (
-          <span className="text-foreground text-sm">{r.marketName}</span>
-        ),
+        accessor: (r) => <span className="text-foreground text-sm">{r.marketName}</span>,
       },
       {
         key: "investigation",
         header: "Investigation Reason",
         searchValue: (r) => r.title,
-        accessor: (r) => (
-          <span className="text-foreground text-sm line-clamp-1">{r.title}</span>
-        ),
+        accessor: (r) => <span className="text-foreground text-sm line-clamp-1">{r.title}</span>,
       },
       {
         key: "priority",
@@ -383,17 +358,13 @@ export default function ReportRequestsPage() {
         key: "requestedBy",
         header: "Requested By",
         searchValue: (r) => r.requestedBy,
-        accessor: (r) => (
-          <span className="text-foreground text-sm">{r.requestedBy}</span>
-        ),
+        accessor: (r) => <span className="text-foreground text-sm">{r.requestedBy}</span>,
       },
       {
         key: "preparedBy",
         header: "Prepared by",
         searchValue: (r) => r.preparedBy || "-",
-        accessor: (r) => (
-          <span className="text-foreground text-sm">{r.preparedBy || "-"}</span>
-        ),
+        accessor: (r) => <span className="text-foreground text-sm">{r.preparedBy || "-"}</span>,
       },
       {
         key: "status",
@@ -403,10 +374,7 @@ export default function ReportRequestsPage() {
           const normalized = normalizeRequestStatus(r.status);
           const cfg = REQUEST_STATUS_CONFIG[normalized];
           return (
-            <Badge
-              variant="outline"
-              className={`text-xs font-semibold ${cfg.tone}`}
-            >
+            <Badge variant="outline" className={`text-xs font-semibold ${cfg.tone}`}>
               {cfg.label}
             </Badge>
           );
@@ -417,10 +385,7 @@ export default function ReportRequestsPage() {
   );
 
   const selectedDetail = useMemo(
-    () =>
-      selectedDetailId
-        ? requests.find((r) => r.id === selectedDetailId) || null
-        : null,
+    () => (selectedDetailId ? requests.find((r) => r.id === selectedDetailId) || null : null),
     [requests, selectedDetailId],
   );
 
@@ -462,7 +427,7 @@ export default function ReportRequestsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            {normalizedStatus !== "Requested" && Boolean(targetReportId) && (
+            {normalizedStatus === "Completed" && Boolean(targetReportId) && (
               <Button
                 onClick={() => navigate(`/surveillance/reports/${targetReportId}`)}
                 className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
@@ -598,9 +563,7 @@ export default function ReportRequestsPage() {
             <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               REASON / INCIDENT SUMMARY
             </div>
-            <div className="text-base font-bold text-foreground">
-              {item.title}
-            </div>
+            <div className="text-base font-bold text-foreground">{item.title}</div>
           </div>
 
           <div className="space-y-2 pt-1">
@@ -617,8 +580,8 @@ export default function ReportRequestsPage() {
           </div>
         </Card>
 
-        {/* Read-Only Report Rating Banner (Displayed when a rating has been given) */}
-        {Boolean(givenRating && givenRating > 0) && (
+        {/* Read-Only Report Rating Banner (Displayed when Completed with a rating) */}
+        {normalizedStatus === "Completed" && Boolean(givenRating && givenRating > 0) && (
           <Card className="p-5 rounded-2xl border-amber-200/90 bg-amber-50/40 dark:bg-amber-950/20 dark:border-amber-900/50 shadow-xs">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="space-y-1">
@@ -635,9 +598,7 @@ export default function ReportRequestsPage() {
                 {ratingReviewer && (
                   <p className="text-xs text-muted-foreground">
                     Rated by{" "}
-                    <strong className="font-semibold text-foreground">
-                      {ratingReviewer}
-                    </strong>
+                    <strong className="font-semibold text-foreground">{ratingReviewer}</strong>
                   </p>
                 )}
               </div>
@@ -659,19 +620,6 @@ export default function ReportRequestsPage() {
                   {givenRating} / 5
                 </span>
               </div>
-            </div>
-          </Card>
-        )}
-
-        {/* Decline / Rejection Reason Banner (if report was declined during review) */}
-        {item.reportStatus === "Rejected" && Boolean(item.rejectionReason || item.managerComments) && (
-          <Card className="p-5 rounded-2xl border-rose-200/90 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/60 space-y-2.5 shadow-xs">
-            <div className="flex items-center gap-2 text-rose-900 dark:text-rose-200 font-semibold text-sm">
-              <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
-              <span>Report Decline Reason</span>
-            </div>
-            <div className="p-3.5 rounded-xl border border-rose-200/80 bg-background text-foreground text-xs leading-relaxed whitespace-pre-wrap">
-              {item.rejectionReason || item.managerComments}
             </div>
           </Card>
         )}
@@ -729,9 +677,7 @@ export default function ReportRequestsPage() {
                     <Building2 className="h-3.5 w-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[11px] text-muted-foreground">
-                      Department
-                    </div>
+                    <div className="text-[11px] text-muted-foreground">Department</div>
                     <div className="font-medium text-foreground">
                       {item.requesterDepartment || "—"}
                     </div>
@@ -743,9 +689,7 @@ export default function ReportRequestsPage() {
                     <Clock className="h-3.5 w-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[11px] text-muted-foreground">
-                      Request received at
-                    </div>
+                    <div className="text-[11px] text-muted-foreground">Request received at</div>
                     <div className="font-medium text-foreground tabular-nums">
                       {formatDateTimeDisplay(item.createdAt)}
                     </div>
@@ -822,13 +766,10 @@ export default function ReportRequestsPage() {
                     <Building2 className="h-3.5 w-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[11px] text-muted-foreground">
-                      Department
-                    </div>
+                    <div className="text-[11px] text-muted-foreground">Department</div>
                     <div className="font-medium text-foreground">
                       {item.preparedBy
-                        ? item.preparedByDepartment ||
-                          "Surveillance & Loss Prevention"
+                        ? item.preparedByDepartment || "Surveillance & Loss Prevention"
                         : "—"}
                     </div>
                   </div>
@@ -839,13 +780,9 @@ export default function ReportRequestsPage() {
                     <Clock className="h-3.5 w-3.5" />
                   </div>
                   <div className="min-w-0">
-                    <div className="text-[11px] text-muted-foreground">
-                      Submitted at
-                    </div>
+                    <div className="text-[11px] text-muted-foreground">Submitted at</div>
                     <div className="font-medium text-foreground tabular-nums">
-                      {item.preparedAt
-                        ? formatDateTimeDisplay(item.preparedAt)
-                        : "—"}
+                      {item.preparedAt ? formatDateTimeDisplay(item.preparedAt) : "—"}
                     </div>
                   </div>
                 </div>
@@ -860,20 +797,12 @@ export default function ReportRequestsPage() {
                   <strong>View Report</strong> above to inspect the full audit log.
                 </span>
               </div>
-            ) : normalizedStatus === "Pending" ? (
+            ) : (
               <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/90 p-3.5 text-xs text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
                 <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                 <span>
-                  {targetReportId
-                    ? "Audit report submitted and pending management review."
-                    : "Assigned to surveillance auditor — report preparation in progress."}
-                </span>
-              </div>
-            ) : (
-              <div className="flex items-start gap-2.5 rounded-xl border border-sky-200 bg-sky-50/90 p-3.5 text-xs text-sky-900 dark:border-sky-800/60 dark:bg-sky-950/40 dark:text-sky-200">
-                <Clock className="h-4 w-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
-                <span>
-                  Request submitted and awaiting validation and auditor assignment.
+                  Audit report preparation and validation review in progress. The report will become
+                  visible once marked as completed.
                 </span>
               </div>
             )}
@@ -890,9 +819,7 @@ export default function ReportRequestsPage() {
       <div className="flex flex-col gap-4 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="font-display text-2xl font-semibold tracking-tight">
-              Request Reports
-            </h1>
+            <h1 className="font-display text-2xl font-semibold tracking-tight">Request Reports</h1>
             <Badge
               variant="outline"
               className="border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300"
@@ -901,8 +828,7 @@ export default function ReportRequestsPage() {
             </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Store surveillance reports and requests overview. Click any row to
-            view full details.
+            Store surveillance reports and requests overview. Click any row to view full details.
           </p>
         </div>
 
@@ -914,10 +840,20 @@ export default function ReportRequestsPage() {
         </div>
       </div>
 
-      {/* KPI Cards: Strictly 3 cards — Total Requests, Completed, and Pending */}
+      {/* KPI Cards: Strictly 3 cards — Total Requests (Pending + Completed), Pending, and Completed */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {/* Card 1: Total Requests (Blue tone) */}
-        <Card className="p-4 border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900/50">
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setStatusFilter("all")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setStatusFilter("all");
+          }}
+          className={`p-4 cursor-pointer transition-all border-blue-200 bg-blue-50/50 hover:bg-blue-50/80 dark:bg-blue-950/20 dark:border-blue-900/50 ${
+            statusFilter === "all" ? "ring-2 ring-blue-500/70 shadow-xs" : ""
+          }`}
+        >
           <div className="text-xs text-blue-800 dark:text-blue-300 font-medium uppercase tracking-wider">
             Total Requests
           </div>
@@ -926,18 +862,18 @@ export default function ReportRequestsPage() {
           </div>
         </Card>
 
-        {/* Card 2: Completed (Emerald tone) */}
-        <Card className="p-4 border-emerald-300/80 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/50">
-          <div className="text-xs text-emerald-800 dark:text-emerald-300 font-medium uppercase tracking-wider">
-            Completed
-          </div>
-          <div className="mt-1 text-2xl font-bold font-display text-emerald-950 dark:text-emerald-100 tabular-nums">
-            {metrics.completed}
-          </div>
-        </Card>
-
-        {/* Card 3: Pending (Amber tone) */}
-        <Card className="p-4 border-amber-300/80 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/50">
+        {/* Card 2: Pending (Amber tone) */}
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setStatusFilter("Pending")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setStatusFilter("Pending");
+          }}
+          className={`p-4 cursor-pointer transition-all border-amber-300/80 bg-amber-50/50 hover:bg-amber-50/80 dark:bg-amber-950/20 dark:border-amber-900/50 ${
+            statusFilter === "Pending" ? "ring-2 ring-amber-500/70 shadow-xs" : ""
+          }`}
+        >
           <div className="text-xs text-amber-800 dark:text-amber-300 font-medium uppercase tracking-wider">
             Pending
           </div>
@@ -945,9 +881,29 @@ export default function ReportRequestsPage() {
             {metrics.pending}
           </div>
         </Card>
+
+        {/* Card 3: Completed (Emerald tone) */}
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setStatusFilter("Completed")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setStatusFilter("Completed");
+          }}
+          className={`p-4 cursor-pointer transition-all border-emerald-300/80 bg-emerald-50/50 hover:bg-emerald-50/80 dark:bg-emerald-950/20 dark:border-emerald-900/50 ${
+            statusFilter === "Completed" ? "ring-2 ring-emerald-500/70 shadow-xs" : ""
+          }`}
+        >
+          <div className="text-xs text-emerald-800 dark:text-emerald-300 font-medium uppercase tracking-wider">
+            Completed
+          </div>
+          <div className="mt-1 text-2xl font-bold font-display text-emerald-950 dark:text-emerald-100 tabular-nums">
+            {metrics.completed}
+          </div>
+        </Card>
       </div>
 
-      {/* Toolbar filters: Market, Status (Requested, Completed, Pending), Priority */}
+      {/* Toolbar filters: Market, Status (Pending, Completed), Priority */}
       <div className="flex flex-wrap items-center gap-2">
         <Select value={marketFilter} onValueChange={setMarketFilter}>
           <SelectTrigger className="h-9 w-[170px]">
@@ -969,9 +925,8 @@ export default function ReportRequestsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="Requested">Requested</SelectItem>
-            <SelectItem value="Completed">Completed</SelectItem>
             <SelectItem value="Pending">Pending</SelectItem>
+            <SelectItem value="Completed">Completed</SelectItem>
           </SelectContent>
         </Select>
 
@@ -987,9 +942,7 @@ export default function ReportRequestsPage() {
           </SelectContent>
         </Select>
 
-        {(statusFilter !== "all" ||
-          priorityFilter !== "all" ||
-          marketFilter !== "all") && (
+        {(statusFilter !== "all" || priorityFilter !== "all" || marketFilter !== "all") && (
           <Button
             variant="ghost"
             size="sm"
@@ -1021,8 +974,7 @@ export default function ReportRequestsPage() {
           <DialogHeader>
             <DialogTitle>Request Store Surveillance Report</DialogTitle>
             <DialogDescription>
-              Submit a surveillance footage review request for store
-              investigation.
+              Submit a surveillance footage review request for store investigation.
             </DialogDescription>
           </DialogHeader>
 
@@ -1066,10 +1018,7 @@ export default function ReportRequestsPage() {
                     <ChevronsUpDown className="h-3.5 w-3.5 opacity-50 shrink-0" />
                   </button>
                 </PopoverTrigger>
-                <PopoverContent
-                  className="w-[--radix-popover-trigger-width] p-0"
-                  align="start"
-                >
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                   <Command>
                     <CommandInput placeholder="Type a store name..." />
                     <CommandList>
@@ -1131,8 +1080,7 @@ export default function ReportRequestsPage() {
             {/* 5. Investigation Reason / Incident Summary */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">
-                Investigation Reason / Incident Summary{" "}
-                <span className="text-destructive">*</span>
+                Investigation Reason / Incident Summary <span className="text-destructive">*</span>
               </Label>
               <Input
                 value={title}

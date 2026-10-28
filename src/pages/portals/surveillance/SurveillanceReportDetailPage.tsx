@@ -37,11 +37,7 @@ import {
   type SurveillanceAuditRow,
   type SurveillanceAttachment,
 } from "@/services/portals/surveillance";
-import {
-  getStaticReportById,
-  getStaticRequestById,
-  reviewStaticReport,
-} from "./surveillance-data";
+import { getStaticReportById, getStaticRequestById, reviewStaticReport } from "./surveillance-data";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -60,8 +56,18 @@ function formatSurveillanceDateCell(raw?: string): string {
   const str = (raw || "").split(" - ")[0]?.trim() || "";
   if (!str) return "-";
   const months = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
   ];
   const already = str.match(/^(\d{1,2})\s+([A-Za-z]{3}),?\s+(\d{4})$/);
   if (already) {
@@ -266,11 +272,7 @@ const CUSTOM_CAPABLE_KEYS = new Set<string>([
 
 type BaseAuditRowKey = Exclude<
   keyof SurveillanceAuditRow,
-  | "id"
-  | "attachments"
-  | "rowHighlight"
-  | "otherDetails"
-  | `${CustomCapableKey}Details`
+  "id" | "attachments" | "rowHighlight" | "otherDetails" | `${CustomCapableKey}Details`
 >;
 
 interface AuditDataField {
@@ -328,21 +330,16 @@ const AUDIT_DATA_FIELDS: AuditDataField[] = [
 ];
 
 function isCustomToken(val: unknown): boolean {
-  const s = String(val ?? "").trim().toLowerCase();
-  return (
-    s === "custom" ||
-    s === "other" ||
-    s.startsWith("custom:") ||
-    s.startsWith("custom (")
-  );
+  const s = String(val ?? "")
+    .trim()
+    .toLowerCase();
+  return s === "custom" || s === "other" || s.startsWith("custom:") || s.startsWith("custom (");
 }
 
 function isFieldCustomInRow(row: SurveillanceAuditRow, key: BaseAuditRowKey): boolean {
   if (!CUSTOM_CAPABLE_KEYS.has(key)) return false;
   if (key === "transType") {
-    return (row.transType || "")
-      .split(/\s*\/\s*/)
-      .some((part) => isCustomToken(part));
+    return (row.transType || "").split(/\s*\/\s*/).some((part) => isCustomToken(part));
   }
   return isCustomToken(row[key]);
 }
@@ -451,12 +448,10 @@ export default function SurveillanceReportDetailPage() {
     setLoading(false);
   }, [id]);
 
-  const isReportFinalized =
-    report?.status === "Approved" || report?.status === "Rejected";
+  const isReportFinalized = report?.status === "Approved" || report?.status === "Rejected";
 
   const showManagerReviewSection =
-    Boolean(report) &&
-    (canReviewReport || isReportFinalized || Boolean(report?.managerRating));
+    Boolean(report) && (canReviewReport || isReportFinalized || Boolean(report?.managerRating));
 
   const handleApproveReport = () => {
     if (!report) return;
@@ -474,7 +469,9 @@ export default function SurveillanceReportDetailPage() {
       });
       setReport(updated);
       setLinkedRequest(getStaticRequestById(updated.requestId));
-      toast.success("Surveillance audit report approved successfully.");
+      toast.success(
+        "Surveillance audit report approved and marked as Completed. It is now visible to the requester.",
+      );
     } catch (error) {
       toast.error(`Failed to approve report: ${(error as Error).message}`);
     } finally {
@@ -545,10 +542,7 @@ export default function SurveillanceReportDetailPage() {
     return [buildFallbackRowFromReport(report, fallbackMarket)];
   }, [report, linkedRequest]);
 
-  const resolveFieldDisplay = (
-    row: SurveillanceAuditRow,
-    key: BaseAuditRowKey,
-  ): string => {
+  const resolveFieldDisplay = (row: SurveillanceAuditRow, key: BaseAuditRowKey): string => {
     if (key === "date") {
       return formatSurveillanceDateCell(row.date);
     }
@@ -715,6 +709,22 @@ export default function SurveillanceReportDetailPage() {
     );
   }
 
+  // Requesters without validation/agent permissions can only view reports once Completed (Approved)
+  if (!canReviewReport && userRole !== "user" && report.status !== "Approved") {
+    return (
+      <div className="p-8 text-center space-y-4">
+        <h2 className="text-lg font-semibold">Report Pending Completion</h2>
+        <p className="text-sm text-muted-foreground max-w-md mx-auto">
+          This surveillance audit report is currently under review and will become available once
+          marked as completed.
+        </p>
+        <Button variant="outline" onClick={() => navigate(-1)}>
+          <ArrowLeft className="h-4 w-4 mr-2" /> Go Back
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-12 animate-fade-in">
       {/* Top Header */}
@@ -793,9 +803,7 @@ export default function SurveillanceReportDetailPage() {
               </div>
               <p className="text-xs text-muted-foreground">
                 Submitted by{" "}
-                <strong className="font-semibold text-foreground">
-                  {report.investigatorName}
-                </strong>
+                <strong className="font-semibold text-foreground">{report.investigatorName}</strong>
                 {report.investigatorRole ? ` (${report.investigatorRole})` : ""} on{" "}
                 {formatReviewDateTime(report.submittedAt)}
               </p>
@@ -887,7 +895,8 @@ export default function SurveillanceReportDetailPage() {
           <DialogHeader>
             <DialogTitle>Decline Surveillance Report</DialogTitle>
             <DialogDescription>
-              Provide a clear reason explaining why this surveillance audit report is being declined.
+              Provide a clear reason explaining why this surveillance audit report is being
+              declined.
             </DialogDescription>
           </DialogHeader>
 
@@ -957,9 +966,7 @@ export default function SurveillanceReportDetailPage() {
                     <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                   )}
                   <div className="truncate">
-                    <span className="font-medium text-foreground truncate block">
-                      {file.name}
-                    </span>
+                    <span className="font-medium text-foreground truncate block">{file.name}</span>
                     <span className="text-[11px] text-muted-foreground">
                       {formatFileSize(file.size)}
                     </span>

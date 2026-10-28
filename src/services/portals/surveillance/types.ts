@@ -1,4 +1,5 @@
-export type SurveillanceRole = "admin" | "state_manager" | "market_manager" | "district_manager" | "user";
+export type SurveillanceRole =
+  "admin" | "state_manager" | "market_manager" | "district_manager" | "user";
 
 export type SurveillanceRequestStatus =
   | "Requested"
@@ -346,9 +347,7 @@ export function getSurveillanceRole(user: any): SurveillanceRole | "other" {
 
   // 1. Check portalAccess array for Surveillance portal entry first
   if (Array.isArray(user.portalAccess)) {
-    const entry = user.portalAccess.find((p: any) =>
-      norm(p?.portalName || "").includes("surveil"),
-    );
+    const entry = user.portalAccess.find((p: any) => norm(p?.portalName || "").includes("surveil"));
     if (entry?.roleName) {
       rawRole = norm(entry.roleName);
     }
@@ -423,12 +422,7 @@ export function getSurveillanceDefaultRoute(user: any): string {
 }
 
 export type SurveillanceValidationStatus =
-  | "Pending Validation"
-  | "Assigned"
-  | "Report Submitted"
-  | "Approved"
-  | "Report Rejected"
-  | "Rejected";
+  "Unassigned" | "Assigned" | "Reports Received" | "Rejected" | "Completed";
 
 export interface SurveillanceAssignableAgent {
   id: string;
@@ -505,4 +499,3 @@ export interface ReviewSubmittedReportPayload {
   rating?: number;
   comments?: string;
 }
-

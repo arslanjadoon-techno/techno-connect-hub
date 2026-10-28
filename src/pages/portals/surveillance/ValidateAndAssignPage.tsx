@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { DataTable, type Column } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,7 @@ import {
   Check,
   ChevronsUpDown,
   Clock,
+  Eye,
   EyeOff,
   Mail,
   MapPin,
@@ -48,6 +49,7 @@ import {
   Phone,
   Search,
   ShieldCheck,
+  Star,
   Store as StoreIcon,
   User as UserIcon,
   UserPlus,
@@ -72,38 +74,43 @@ import {
 
 const PRIORITY_TONES: Record<SurveillancePriority, string> = {
   low: "bg-muted text-muted-foreground border-border",
-  medium:
-    "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400",
+  medium: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400",
   high: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
 };
 
 const VALIDATION_STATUS_CONFIG: Record<
   SurveillanceValidationStatus,
-  { label: string; tone: string }
+  { label: string; tone: string; dotClass: string; textClass: string }
 > = {
-  "Pending Validation": {
-    label: "Pending Validation",
+  Unassigned: {
+    label: "Unassigned",
     tone: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
+    dotClass: "bg-amber-500",
+    textClass: "text-amber-900 dark:text-amber-100",
   },
   Assigned: {
     label: "Assigned",
-    tone: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400",
+    tone: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400",
+    dotClass: "bg-sky-500",
+    textClass: "text-sky-800 dark:text-sky-300",
   },
-  "Report Submitted": {
-    label: "Assigned",
-    tone: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400",
-  },
-  Approved: {
-    label: "Assigned",
-    tone: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400",
-  },
-  "Report Rejected": {
-    label: "Rejected",
-    tone: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400",
+  "Reports Received": {
+    label: "Reports Received",
+    tone: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-400",
+    dotClass: "bg-violet-500",
+    textClass: "text-violet-800 dark:text-violet-300",
   },
   Rejected: {
     label: "Rejected",
     tone: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400",
+    dotClass: "bg-rose-500",
+    textClass: "text-rose-700 dark:text-rose-300",
+  },
+  Completed: {
+    label: "Completed",
+    tone: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400",
+    dotClass: "bg-emerald-500",
+    textClass: "text-emerald-700 dark:text-emerald-300",
   },
 };
 
@@ -177,12 +184,10 @@ function formatDateTimeDisplay(isoString?: string): string {
 }
 
 export default function ValidateAndAssignPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const userRole = useMemo(() => getSurveillanceRole(user), [user]);
-  const canAccessValidatePage = useMemo(
-    () => canValidateSurveillance(userRole),
-    [userRole],
-  );
+  const canAccessValidatePage = useMemo(() => canValidateSurveillance(userRole), [userRole]);
 
   const [requests, setRequests] = useState<SurveillanceValidationItem[]>([]);
   const [agents, setAgents] = useState<SurveillanceAssignableAgent[]>([]);
@@ -190,24 +195,22 @@ export default function ValidateAndAssignPage() {
   // Drill-down detail state
   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
 
-  // Filters
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  // Filters (default status = "Unassigned")
+  const [statusFilter, setStatusFilter] = useState<string>("Unassigned");
   const [marketFilter, setMarketFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [agentFilter, setAgentFilter] = useState<string>("all");
 
   // Validate & Assign modal state
   const [assignModalOpen, setAssignModalOpen] = useState(false);
-  const [targetAssignItem, setTargetAssignItem] =
-    useState<SurveillanceValidationItem | null>(null);
+  const [targetAssignItem, setTargetAssignItem] = useState<SurveillanceValidationItem | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const [agentPickerOpen, setAgentPickerOpen] = useState(false);
   const [submittingAssign, setSubmittingAssign] = useState(false);
 
   // Reject / Cancel modal state
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
-  const [targetRejectItem, setTargetRejectItem] =
-    useState<SurveillanceValidationItem | null>(null);
+  const [targetRejectItem, setTargetRejectItem] = useState<SurveillanceValidationItem | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string>("");
   const [submittingReject, setSubmittingReject] = useState(false);
 
@@ -217,21 +220,18 @@ export default function ValidateAndAssignPage() {
   }, []);
 
   const markets = useMemo(
-    () =>
-      Array.from(
-        new Set(requests.map((r) => r.marketName).filter(Boolean)),
-      ).sort(),
+    () => Array.from(new Set(requests.map((r) => r.marketName).filter(Boolean))).sort(),
     [requests],
   );
 
   const metrics = useMemo(() => {
     return {
       total: requests.length,
-      pending: requests.filter(
-        (r) => r.validationStatus === "Pending Validation",
-      ).length,
+      unassigned: requests.filter((r) => r.validationStatus === "Unassigned").length,
       assigned: requests.filter((r) => r.validationStatus === "Assigned").length,
+      reportsReceived: requests.filter((r) => r.validationStatus === "Reports Received").length,
       rejected: requests.filter((r) => r.validationStatus === "Rejected").length,
+      completed: requests.filter((r) => r.validationStatus === "Completed").length,
     };
   }, [requests]);
 
@@ -266,10 +266,7 @@ export default function ValidateAndAssignPage() {
   );
 
   const selectedDetail = useMemo(
-    () =>
-      selectedDetailId
-        ? requests.find((r) => r.id === selectedDetailId) || null
-        : null,
+    () => (selectedDetailId ? requests.find((r) => r.id === selectedDetailId) || null : null),
     [requests, selectedDetailId],
   );
 
@@ -279,14 +276,14 @@ export default function ValidateAndAssignPage() {
   }, [agents, selectedDetail]);
 
   const openAssignModal = useCallback((item: SurveillanceValidationItem) => {
-    if (item.validationStatus !== "Pending Validation") return;
+    if (item.validationStatus !== "Unassigned") return;
     setTargetAssignItem(item);
     setSelectedAgentId("");
     setAssignModalOpen(true);
   }, []);
 
   const openRejectModal = useCallback((item: SurveillanceValidationItem) => {
-    if (item.validationStatus !== "Pending Validation") return;
+    if (item.validationStatus !== "Unassigned") return;
     setTargetRejectItem(item);
     setRejectionReason("");
     setRejectModalOpen(true);
@@ -312,9 +309,7 @@ export default function ValidateAndAssignPage() {
       setRequests(getStaticValidationQueue());
       setAgents(getStaticAssignableAgents());
       setAssignModalOpen(false);
-      toast.success(
-        `Request validated and assigned to ${updated.assignedAgentName}.`,
-      );
+      toast.success(`Request validated and assigned to ${updated.assignedAgentName}.`);
     } catch (error) {
       toast.error(`Assignment failed: ${(error as Error).message}`);
     } finally {
@@ -325,9 +320,7 @@ export default function ValidateAndAssignPage() {
   const handleConfirmReject = () => {
     if (!targetRejectItem) return;
     if (!rejectionReason.trim()) {
-      toast.error(
-        "Please provide a reason for rejecting or cancelling this request.",
-      );
+      toast.error("Please provide a reason for rejecting or cancelling this request.");
       return;
     }
 
@@ -343,9 +336,7 @@ export default function ValidateAndAssignPage() {
       setRequests(getStaticValidationQueue());
       setAgents(getStaticAssignableAgents());
       setRejectModalOpen(false);
-      toast.success(
-        "Surveillance request rejected and hidden from surveillance agents.",
-      );
+      toast.success("Surveillance request rejected and hidden from surveillance agents.");
     } catch (error) {
       toast.error(`Action failed: ${(error as Error).message}`);
     } finally {
@@ -355,7 +346,7 @@ export default function ValidateAndAssignPage() {
 
   const hasActiveFilters =
     marketFilter !== "all" ||
-    statusFilter !== "all" ||
+    statusFilter !== "Unassigned" ||
     priorityFilter !== "all" ||
     agentFilter !== "all";
 
@@ -364,8 +355,7 @@ export default function ValidateAndAssignPage() {
       {
         key: "surveillanceDate",
         header: "Surveillance Date",
-        searchValue: (r) =>
-          `${r.surveillanceDate} ${formatDisplayDate(r.surveillanceDate)}`,
+        searchValue: (r) => `${r.surveillanceDate} ${formatDisplayDate(r.surveillanceDate)}`,
         accessor: (r) => (
           <span className="text-sm text-foreground tabular-nums whitespace-nowrap">
             {formatDisplayDate(r.surveillanceDate)}
@@ -376,20 +366,14 @@ export default function ValidateAndAssignPage() {
         key: "store",
         header: "Store",
         searchValue: (r) => r.storeName,
-        accessor: (r) => (
-          <span className="font-medium text-sm text-foreground">
-            {r.storeName}
-          </span>
-        ),
+        accessor: (r) => <span className="font-medium text-sm text-foreground">{r.storeName}</span>,
       },
       {
         key: "market",
         header: "Market",
         searchValue: (r) => r.marketName,
         accessor: (r) => (
-          <span className="text-sm text-foreground whitespace-nowrap">
-            {r.marketName}
-          </span>
+          <span className="text-sm text-foreground whitespace-nowrap">{r.marketName}</span>
         ),
       },
       {
@@ -397,9 +381,7 @@ export default function ValidateAndAssignPage() {
         header: "Investigation Reason",
         searchValue: (r) => `${r.title} ${r.notes || ""}`,
         accessor: (r) => (
-          <span className="text-sm text-foreground line-clamp-1 max-w-[280px]">
-            {r.title}
-          </span>
+          <span className="text-sm text-foreground line-clamp-1 max-w-[280px]">{r.title}</span>
         ),
       },
       {
@@ -420,17 +402,13 @@ export default function ValidateAndAssignPage() {
         header: "Requested By",
         searchValue: (r) => `${r.requestedBy} ${r.requesterRole}`,
         accessor: (r) => (
-          <span className="text-sm text-foreground whitespace-nowrap">
-            {r.requestedBy}
-          </span>
+          <span className="text-sm text-foreground whitespace-nowrap">{r.requestedBy}</span>
         ),
       },
       {
         key: "assignedAgent",
         header: "Assigned To",
-        searchValue: (r) =>
-          r.assignedAgentName ||
-          (r.validationStatus === "Rejected" ? "Hidden" : "Unassigned"),
+        searchValue: (r) => r.assignedAgentName || "-",
         accessor: (r) => {
           if (r.assignedAgentName) {
             return (
@@ -439,19 +417,7 @@ export default function ValidateAndAssignPage() {
               </span>
             );
           }
-          if (r.validationStatus === "Rejected") {
-            return (
-              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
-                <EyeOff className="h-3.5 w-3.5 text-rose-500 shrink-0" />
-                Hidden from Agents
-              </span>
-            );
-          }
-          return (
-            <span className="text-sm text-muted-foreground whitespace-nowrap">
-              -
-            </span>
-          );
+          return <span className="text-sm text-muted-foreground whitespace-nowrap">-</span>;
         },
       },
       {
@@ -506,25 +472,39 @@ export default function ValidateAndAssignPage() {
               </div>
             </div>
 
-            {selectedDetail.validationStatus === "Pending Validation" && (
-              <div className="flex flex-wrap items-center gap-2.5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              {selectedDetail.validationStatus === "Unassigned" && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => openRejectModal(selectedDetail)}
+                    className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-background border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40 whitespace-nowrap shrink-0"
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Reject Request
+                  </Button>
+                  <Button
+                    onClick={() => openAssignModal(selectedDetail)}
+                    className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Validate & Assign
+                  </Button>
+                </>
+              )}
+
+              {Boolean(selectedDetail.linkedReportId) && (
                 <Button
-                  variant="outline"
-                  onClick={() => openRejectModal(selectedDetail)}
-                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-background border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40 whitespace-nowrap shrink-0"
-                >
-                  <XCircle className="h-4 w-4" />
-                  Reject Request
-                </Button>
-                <Button
-                  onClick={() => openAssignModal(selectedDetail)}
+                  onClick={() => navigate(`/surveillance/reports/${selectedDetail.linkedReportId}`)}
                   className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
                 >
-                  <UserPlus className="h-4 w-4" />
-                  Validate & Assign
+                  <Eye className="h-4 w-4" />
+                  {selectedDetail.validationStatus === "Reports Received"
+                    ? "Review Report"
+                    : "View Report"}
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Store Header + 6 Distinctly Colored Summary Cards */}
@@ -579,11 +559,7 @@ export default function ValidateAndAssignPage() {
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white border border-amber-100 shadow-2xs dark:bg-amber-950 dark:border-amber-900 shrink-0">
                   <span
                     className={`h-2.5 w-2.5 rounded-full ${
-                      selectedDetail.validationStatus === "Assigned"
-                        ? "bg-emerald-500"
-                        : selectedDetail.validationStatus === "Rejected"
-                          ? "bg-rose-500"
-                          : "bg-amber-500"
+                      VALIDATION_STATUS_CONFIG[selectedDetail.validationStatus].dotClass
                     }`}
                   />
                 </div>
@@ -593,17 +569,10 @@ export default function ValidateAndAssignPage() {
                   </div>
                   <div
                     className={`text-sm font-bold mt-0.5 ${
-                      selectedDetail.validationStatus === "Assigned"
-                        ? "text-emerald-700 dark:text-emerald-300"
-                        : selectedDetail.validationStatus === "Rejected"
-                          ? "text-rose-700 dark:text-rose-300"
-                          : "text-amber-900 dark:text-amber-100"
+                      VALIDATION_STATUS_CONFIG[selectedDetail.validationStatus].textClass
                     }`}
                   >
-                    {
-                      VALIDATION_STATUS_CONFIG[selectedDetail.validationStatus]
-                        .label
-                    }
+                    {VALIDATION_STATUS_CONFIG[selectedDetail.validationStatus].label}
                   </div>
                 </div>
               </div>
@@ -670,9 +639,7 @@ export default function ValidateAndAssignPage() {
               <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 REASON / INCIDENT SUMMARY
               </div>
-              <div className="text-base font-bold text-foreground">
-                {selectedDetail.title}
-              </div>
+              <div className="text-base font-bold text-foreground">{selectedDetail.title}</div>
             </div>
 
             <div className="space-y-2 pt-1">
@@ -689,16 +656,67 @@ export default function ValidateAndAssignPage() {
             </div>
           </Card>
 
+          {/* Read-Only Report Rating Banner (Displayed when Completed with rating) */}
+          {Boolean(selectedDetail.managerRating && selectedDetail.managerRating > 0) && (
+            <Card className="p-5 rounded-2xl border-amber-200/90 bg-amber-50/40 dark:bg-amber-950/20 dark:border-amber-900/50 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                    <Star className="h-4 w-4 fill-amber-400 text-amber-400 shrink-0" />
+                    <span>Report Rating</span>
+                    <Badge
+                      variant="outline"
+                      className="border-amber-300 bg-amber-100/70 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 text-[10px] font-medium"
+                    >
+                      View Only
+                    </Badge>
+                  </div>
+                  {selectedDetail.reportReviewedBy && (
+                    <p className="text-xs text-muted-foreground">
+                      Rated by{" "}
+                      <strong className="font-semibold text-foreground">
+                        {selectedDetail.reportReviewedBy}
+                      </strong>
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5 select-none pointer-events-none">
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star
+                        key={s}
+                        className={`h-4 w-4 ${
+                          s <= (selectedDetail.managerRating || 0)
+                            ? "fill-amber-400 text-amber-400"
+                            : "text-muted-foreground/30"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="ml-1 text-xs font-semibold text-foreground">
+                    {selectedDetail.managerRating} / 5
+                  </span>
+                </div>
+              </div>
+            </Card>
+          )}
+
           {/* Rejection / Cancellation Reason Banner (when Rejected) */}
           {selectedDetail.validationStatus === "Rejected" && (
             <Card className="p-5 rounded-2xl border-rose-200/90 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/60 space-y-2.5">
               <div className="flex items-center gap-2 text-rose-900 dark:text-rose-200 font-semibold text-sm">
                 <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
-                <span>Rejection / Cancellation Reason</span>
+                <span>
+                  {selectedDetail.linkedReportId
+                    ? "Report Rejection Reason"
+                    : "Rejection / Cancellation Reason"}
+                </span>
               </div>
               <div className="p-3.5 rounded-xl border border-rose-200/80 bg-background text-foreground text-xs leading-relaxed whitespace-pre-wrap">
                 {selectedDetail.rejectionReason ||
-                  "Request cancelled during validation."}
+                  selectedDetail.managerComments ||
+                  "Request rejected during review."}
               </div>
             </Card>
           )}
@@ -734,9 +752,7 @@ export default function ValidateAndAssignPage() {
                       <Mail className="h-3.5 w-3.5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[11px] text-muted-foreground">
-                        Email
-                      </div>
+                      <div className="text-[11px] text-muted-foreground">Email</div>
                       <div className="font-medium text-blue-700 dark:text-blue-300 break-all">
                         {selectedDetail.requesterEmail || "—"}
                       </div>
@@ -748,9 +764,7 @@ export default function ValidateAndAssignPage() {
                       <Phone className="h-3.5 w-3.5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[11px] text-muted-foreground">
-                        Phone
-                      </div>
+                      <div className="text-[11px] text-muted-foreground">Phone</div>
                       <div className="font-medium text-blue-700 dark:text-blue-300 tabular-nums">
                         {selectedDetail.requesterPhone || "—"}
                       </div>
@@ -762,9 +776,7 @@ export default function ValidateAndAssignPage() {
                       <Building2 className="h-3.5 w-3.5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[11px] text-muted-foreground">
-                        Department
-                      </div>
+                      <div className="text-[11px] text-muted-foreground">Department</div>
                       <div className="font-medium text-foreground">
                         {selectedDetail.requesterDepartment || "—"}
                       </div>
@@ -776,9 +788,7 @@ export default function ValidateAndAssignPage() {
                       <Clock className="h-3.5 w-3.5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[11px] text-muted-foreground">
-                        Request received at
-                      </div>
+                      <div className="text-[11px] text-muted-foreground">Request received at</div>
                       <div className="font-medium text-foreground tabular-nums">
                         {formatDateTimeDisplay(selectedDetail.createdAt)}
                       </div>
@@ -840,9 +850,7 @@ export default function ValidateAndAssignPage() {
                       <Mail className="h-3.5 w-3.5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[11px] text-muted-foreground">
-                        Email
-                      </div>
+                      <div className="text-[11px] text-muted-foreground">Email</div>
                       <div className="font-medium text-foreground break-all">
                         {selectedDetail.assignedAgentEmail || "—"}
                       </div>
@@ -854,9 +862,7 @@ export default function ValidateAndAssignPage() {
                       <Phone className="h-3.5 w-3.5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[11px] text-muted-foreground">
-                        Phone
-                      </div>
+                      <div className="text-[11px] text-muted-foreground">Phone</div>
                       <div className="font-medium text-foreground tabular-nums">
                         {selectedDetail.assignedAgentName
                           ? selectedDetail.assignedAgentPhone ||
@@ -872,9 +878,7 @@ export default function ValidateAndAssignPage() {
                       <Building2 className="h-3.5 w-3.5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[11px] text-muted-foreground">
-                        Department
-                      </div>
+                      <div className="text-[11px] text-muted-foreground">Department</div>
                       <div className="font-medium text-foreground">
                         {selectedDetail.assignedAgentName
                           ? selectedDetailAssignedAgent?.department ||
@@ -889,9 +893,7 @@ export default function ValidateAndAssignPage() {
                       <Clock className="h-3.5 w-3.5" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[11px] text-muted-foreground">
-                        Assigned at
-                      </div>
+                      <div className="text-[11px] text-muted-foreground">Assigned at</div>
                       <div className="font-medium text-foreground tabular-nums">
                         {selectedDetail.assignedAt
                           ? formatDateTimeDisplay(selectedDetail.assignedAt)
@@ -903,12 +905,29 @@ export default function ValidateAndAssignPage() {
               </div>
 
               {/* Visibility Status Callout Footer */}
-              {selectedDetail.assignedAgentName ? (
+              {selectedDetail.validationStatus === "Completed" ? (
                 <div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-100/60 p-3.5 text-xs text-emerald-900 dark:border-emerald-800/60 dark:bg-emerald-950/50 dark:text-emerald-200">
                   <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                   <span>
-                    Validated by{" "}
-                    <strong>{selectedDetail.assignedBy || "Validator"}</strong>.
+                    Approved and completed by{" "}
+                    <strong>{selectedDetail.reportReviewedBy || "Validator"}</strong>. Report is now
+                    visible to the admin and requester.
+                  </span>
+                </div>
+              ) : selectedDetail.validationStatus === "Reports Received" ? (
+                <div className="flex items-start gap-2.5 rounded-xl border border-violet-200 bg-violet-50/90 p-3.5 text-xs text-violet-900 dark:border-violet-800/60 dark:bg-violet-950/40 dark:text-violet-200">
+                  <Clock className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0 mt-0.5" />
+                  <span>
+                    Surveillance report received from{" "}
+                    <strong>{selectedDetail.assignedAgentName || "Assigned Agent"}</strong>. Click{" "}
+                    <strong>Review Report</strong> above to rate and complete or reject.
+                  </span>
+                </div>
+              ) : selectedDetail.validationStatus === "Assigned" ? (
+                <div className="flex items-start gap-2.5 rounded-xl border border-sky-200 bg-sky-50/90 p-3.5 text-xs text-sky-900 dark:border-sky-800/60 dark:bg-sky-950/40 dark:text-sky-200">
+                  <ShieldCheck className="h-4 w-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
+                  <span>
+                    Validated by <strong>{selectedDetail.assignedBy || "Validator"}</strong>.
                     Visible to assigned agent for audit report preparation.
                   </span>
                 </div>
@@ -917,16 +936,21 @@ export default function ValidateAndAssignPage() {
                   <EyeOff className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                   <span>
                     Rejected by{" "}
-                    <strong>{selectedDetail.rejectedBy || "Validator"}</strong>.
-                    Hidden from all surveillance users and agents.
+                    <strong>
+                      {selectedDetail.rejectedBy || selectedDetail.reportReviewedBy || "Validator"}
+                    </strong>
+                    .{" "}
+                    {selectedDetail.linkedReportId
+                      ? "Submitted report was declined during review."
+                      : "Hidden from all surveillance users and agents."}
                   </span>
                 </div>
               ) : (
                 <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/90 p-3.5 text-xs text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
                   <EyeOff className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                   <span>
-                    Held in the validation review queue. Not visible to any
-                    agent until validated and assigned.
+                    Unassigned in the validation queue. Not visible to any agent until validated and
+                    assigned.
                   </span>
                 </div>
               )}
@@ -942,47 +966,127 @@ export default function ValidateAndAssignPage() {
               Validate and Assign
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Review incoming surveillance requests, assign valid requests to
-              agents for report preparation, or reject invalid requests so they
-              remain hidden from agents. Click any row to review details.
+              Review incoming surveillance requests, assign valid requests to agents for report
+              preparation, and review returned reports to complete or reject them. Click any row to
+              view details.
             </p>
           </div>
 
-          {/* 4 KPI Summary Cards */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="p-4 border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900/50">
+          {/* 6 KPI Summary Cards (Clickable to filter by status) */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            {/* 1. Total Requests Received */}
+            <Card
+              role="button"
+              tabIndex={0}
+              onClick={() => setStatusFilter("all")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") setStatusFilter("all");
+              }}
+              className={`p-4 cursor-pointer transition-all border-blue-200 bg-blue-50/50 hover:bg-blue-50/80 dark:bg-blue-950/20 dark:border-blue-900/50 ${
+                statusFilter === "all" ? "ring-2 ring-blue-500/70 shadow-xs" : ""
+              }`}
+            >
               <div className="text-xs text-blue-800 dark:text-blue-300 font-medium">
-                Incoming Requests
+                Total Requests Received
               </div>
               <div className="mt-1 text-2xl font-bold font-display text-blue-950 dark:text-blue-100 tabular-nums">
                 {metrics.total}
               </div>
             </Card>
 
-            <Card className="p-4 border-amber-300/80 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/50">
+            {/* 2. Unassigned */}
+            <Card
+              role="button"
+              tabIndex={0}
+              onClick={() => setStatusFilter("Unassigned")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") setStatusFilter("Unassigned");
+              }}
+              className={`p-4 cursor-pointer transition-all border-amber-300/80 bg-amber-50/50 hover:bg-amber-50/80 dark:bg-amber-950/20 dark:border-amber-900/50 ${
+                statusFilter === "Unassigned" ? "ring-2 ring-amber-500/70 shadow-xs" : ""
+              }`}
+            >
               <div className="text-xs text-amber-800 dark:text-amber-300 font-medium">
-                Pending Validation
+                Unassigned
               </div>
               <div className="mt-1 text-2xl font-bold font-display text-amber-950 dark:text-amber-100 tabular-nums">
-                {metrics.pending}
+                {metrics.unassigned}
               </div>
             </Card>
 
-            <Card className="p-4 border-emerald-300/80 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/50">
-              <div className="text-xs text-emerald-800 dark:text-emerald-300 font-medium">
-                Validated & Assigned
-              </div>
-              <div className="mt-1 text-2xl font-bold font-display text-emerald-950 dark:text-emerald-100 tabular-nums">
+            {/* 3. Assigned */}
+            <Card
+              role="button"
+              tabIndex={0}
+              onClick={() => setStatusFilter("Assigned")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") setStatusFilter("Assigned");
+              }}
+              className={`p-4 cursor-pointer transition-all border-sky-300/80 bg-sky-50/50 hover:bg-sky-50/80 dark:bg-sky-950/20 dark:border-sky-900/50 ${
+                statusFilter === "Assigned" ? "ring-2 ring-sky-500/70 shadow-xs" : ""
+              }`}
+            >
+              <div className="text-xs text-sky-800 dark:text-sky-300 font-medium">Assigned</div>
+              <div className="mt-1 text-2xl font-bold font-display text-sky-950 dark:text-sky-100 tabular-nums">
                 {metrics.assigned}
               </div>
             </Card>
 
-            <Card className="p-4 border-rose-300/80 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/50">
-              <div className="text-xs text-rose-800 dark:text-rose-300 font-medium">
-                Rejected / Cancelled
+            {/* 4. Reports Received */}
+            <Card
+              role="button"
+              tabIndex={0}
+              onClick={() => setStatusFilter("Reports Received")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") setStatusFilter("Reports Received");
+              }}
+              className={`p-4 cursor-pointer transition-all border-violet-300/80 bg-violet-50/50 hover:bg-violet-50/80 dark:bg-violet-950/20 dark:border-violet-900/50 ${
+                statusFilter === "Reports Received" ? "ring-2 ring-violet-500/70 shadow-xs" : ""
+              }`}
+            >
+              <div className="text-xs text-violet-800 dark:text-violet-300 font-medium">
+                Reports Received
               </div>
+              <div className="mt-1 text-2xl font-bold font-display text-violet-950 dark:text-violet-100 tabular-nums">
+                {metrics.reportsReceived}
+              </div>
+            </Card>
+
+            {/* 5. Rejected */}
+            <Card
+              role="button"
+              tabIndex={0}
+              onClick={() => setStatusFilter("Rejected")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") setStatusFilter("Rejected");
+              }}
+              className={`p-4 cursor-pointer transition-all border-rose-300/80 bg-rose-50/50 hover:bg-rose-50/80 dark:bg-rose-950/20 dark:border-rose-900/50 ${
+                statusFilter === "Rejected" ? "ring-2 ring-rose-500/70 shadow-xs" : ""
+              }`}
+            >
+              <div className="text-xs text-rose-800 dark:text-rose-300 font-medium">Rejected</div>
               <div className="mt-1 text-2xl font-bold font-display text-rose-950 dark:text-rose-100 tabular-nums">
                 {metrics.rejected}
+              </div>
+            </Card>
+
+            {/* 6. Completed */}
+            <Card
+              role="button"
+              tabIndex={0}
+              onClick={() => setStatusFilter("Completed")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") setStatusFilter("Completed");
+              }}
+              className={`p-4 cursor-pointer transition-all border-emerald-300/80 bg-emerald-50/50 hover:bg-emerald-50/80 dark:bg-emerald-950/20 dark:border-emerald-900/50 ${
+                statusFilter === "Completed" ? "ring-2 ring-emerald-500/70 shadow-xs" : ""
+              }`}
+            >
+              <div className="text-xs text-emerald-800 dark:text-emerald-300 font-medium">
+                Completed
+              </div>
+              <div className="mt-1 text-2xl font-bold font-display text-emerald-950 dark:text-emerald-100 tabular-nums">
+                {metrics.completed}
               </div>
             </Card>
           </div>
@@ -1009,11 +1113,11 @@ export default function ValidateAndAssignPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="Pending Validation">
-                  Pending Validation
-                </SelectItem>
+                <SelectItem value="Unassigned">Unassigned</SelectItem>
                 <SelectItem value="Assigned">Assigned</SelectItem>
+                <SelectItem value="Reports Received">Reports Received</SelectItem>
                 <SelectItem value="Rejected">Rejected</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
               </SelectContent>
             </Select>
 
@@ -1048,7 +1152,7 @@ export default function ValidateAndAssignPage() {
               active={hasActiveFilters}
               onReset={() => {
                 setMarketFilter("all");
-                setStatusFilter("all");
+                setStatusFilter("Unassigned");
                 setPriorityFilter("all");
                 setAgentFilter("all");
               }}
@@ -1072,8 +1176,8 @@ export default function ValidateAndAssignPage() {
           <DialogHeader>
             <DialogTitle>Validate & Assign Surveillance Request</DialogTitle>
             <DialogDescription>
-              Review the requested surveillance parameters and assign this
-              request to an agent for audit preparation.
+              Review the requested surveillance parameters and assign this request to an agent for
+              audit preparation.
             </DialogDescription>
           </DialogHeader>
 
@@ -1081,9 +1185,7 @@ export default function ValidateAndAssignPage() {
             <div className="space-y-3.5 pt-1 text-xs">
               {/* 1. Requested Surveillance Date (Non-editable) */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">
-                  Requested Surveillance Date
-                </Label>
+                <Label className="text-xs font-semibold">Requested Surveillance Date</Label>
                 <Input
                   type="text"
                   readOnly
@@ -1120,13 +1222,9 @@ export default function ValidateAndAssignPage() {
               {/* 4. Assign to User / Agent * (Required searchable dropdown showing ONLY Name and Email) */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">
-                  Assign to User / Agent{" "}
-                  <span className="text-destructive">*</span>
+                  Assign to User / Agent <span className="text-destructive">*</span>
                 </Label>
-                <Popover
-                  open={agentPickerOpen}
-                  onOpenChange={setAgentPickerOpen}
-                >
+                <Popover open={agentPickerOpen} onOpenChange={setAgentPickerOpen}>
                   <PopoverTrigger asChild>
                     <button
                       type="button"
@@ -1135,9 +1233,7 @@ export default function ValidateAndAssignPage() {
                       <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       <span
                         className={`flex-1 text-left truncate ${
-                          selectedAgent
-                            ? "text-foreground"
-                            : "text-muted-foreground"
+                          selectedAgent ? "text-foreground" : "text-muted-foreground"
                         }`}
                       >
                         {selectedAgent
@@ -1147,10 +1243,7 @@ export default function ValidateAndAssignPage() {
                       <ChevronsUpDown className="h-3.5 w-3.5 opacity-50 shrink-0" />
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent
-                    className="w-[--radix-popover-trigger-width] p-0"
-                    align="start"
-                  >
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                     <Command>
                       <CommandInput placeholder="Search by name or email..." />
                       <CommandList>
@@ -1242,10 +1335,7 @@ export default function ValidateAndAssignPage() {
             >
               Cancel
             </Button>
-            <Button
-              onClick={handleConfirmAssign}
-              disabled={submittingAssign || !selectedAgentId}
-            >
+            <Button onClick={handleConfirmAssign} disabled={submittingAssign || !selectedAgentId}>
               {submittingAssign ? "Assigning..." : "Validate & Assign"}
             </Button>
           </DialogFooter>
@@ -1258,8 +1348,8 @@ export default function ValidateAndAssignPage() {
           <DialogHeader>
             <DialogTitle>Reject / Cancel Surveillance Request</DialogTitle>
             <DialogDescription>
-              Cancelling an invalid request prevents it from becoming visible to
-              any surveillance user or agent.
+              Cancelling an invalid request prevents it from becoming visible to any surveillance
+              user or agent.
             </DialogDescription>
           </DialogHeader>
 
@@ -1267,9 +1357,7 @@ export default function ValidateAndAssignPage() {
             <div className="space-y-3.5 pt-1 text-xs">
               {/* 1. Requested Surveillance Date (Non-editable) */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">
-                  Requested Surveillance Date
-                </Label>
+                <Label className="text-xs font-semibold">Requested Surveillance Date</Label>
                 <Input
                   type="text"
                   readOnly
@@ -1349,8 +1437,7 @@ export default function ValidateAndAssignPage() {
               {/* 7. Rejection / Cancellation Reason * (Editable long textarea) */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">
-                  Rejection / Cancellation Reason{" "}
-                  <span className="text-destructive">*</span>
+                  Rejection / Cancellation Reason <span className="text-destructive">*</span>
                 </Label>
                 <Textarea
                   required
@@ -1371,11 +1458,7 @@ export default function ValidateAndAssignPage() {
             >
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleConfirmReject}
-              disabled={submittingReject}
-            >
+            <Button variant="destructive" onClick={handleConfirmReject} disabled={submittingReject}>
               {submittingReject ? "Cancelling..." : "Reject & Cancel Request"}
             </Button>
           </DialogFooter>

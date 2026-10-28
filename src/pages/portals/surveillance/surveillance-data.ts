@@ -141,7 +141,7 @@ export const AVAILABLE_STORES: StaticStoreOption[] = [
 
 /**
  * Sample static data for Page 1: Request Reports (/surveillance/requests).
- * Strictly uses the 3 statuses: "Requested", "Pending", and "Completed".
+ * Strictly uses the 2 statuses: "Pending" and "Completed".
  */
 export const INITIAL_REQUEST_REPORTS: SurveillanceRequest[] = [
   {
@@ -200,7 +200,7 @@ export const INITIAL_REQUEST_REPORTS: SurveillanceRequest[] = [
     areasToReview: ["Sales Floor", "Display Counter", "Customer Entrance"],
     notes:
       "Auditor noticed empty acrylic pegs on front row. Need review of customer traffic between 11:00 and 14:00.",
-    status: "Requested",
+    status: "Pending",
     createdAt: "2026-10-25T14:40:00Z",
   },
   {
@@ -312,8 +312,7 @@ export const INITIAL_REQUEST_REPORTS: SurveillanceRequest[] = [
     reportApprovedBy: "David Kim",
     reportApprovedAt: "2026-10-15T09:05:00Z",
     managerRating: 4,
-    managerComments:
-      "Clear transaction breakdown and accurate verification of safe drop logs.",
+    managerComments: "Clear transaction breakdown and accurate verification of safe drop logs.",
   },
   {
     id: "SRV-REQ-107",
@@ -336,7 +335,7 @@ export const INITIAL_REQUEST_REPORTS: SurveillanceRequest[] = [
     areasToReview: ["Backroom / Safe", "Sales Floor"],
     notes:
       "District walkthrough noted backroom security door left unlatched. Requesting full afternoon review of backroom entry/exit compliance.",
-    status: "Requested",
+    status: "Pending",
     createdAt: "2026-10-26T15:05:00Z",
   },
 ];
@@ -679,7 +678,12 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
     offline: "No",
     attachments: [
       { id: "att-1", name: "Gate_Cam03_Shift_Log.jpg", size: 450200, type: "image/jpeg" },
-      { id: "att-2", name: "Domain_Austin_Audit_Sheet.pdf", size: 1240000, type: "application/pdf" },
+      {
+        id: "att-2",
+        name: "Domain_Austin_Audit_Sheet.pdf",
+        size: 1240000,
+        type: "application/pdf",
+      },
     ],
     managerRating: 5,
     managerComments:
@@ -974,8 +978,7 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
     status: "Approved",
     marketName: "Houston Central",
     managerRating: 4,
-    managerComments:
-      "Clear transaction breakdown and accurate verification of safe drop logs.",
+    managerComments: "Clear transaction breakdown and accurate verification of safe drop logs.",
     reviewedBy: "David Kim",
     reviewedAt: "2026-10-15T09:05:00Z",
     rows: [
@@ -1159,10 +1162,10 @@ export const INITIAL_VALIDATION_REQUESTS: SurveillanceValidationItem[] = [
     requesterPhone: "+1 (214) 555-0192",
     requesterDepartment: "Regional Store Operations",
     createdAt: "2026-10-27T08:15:00Z",
-    validationStatus: "Pending Validation",
+    validationStatus: "Unassigned",
   },
   {
-    id: "SRV-REQ-307",
+    id: "SRV-REQ-102",
     storeId: "store-103",
     storeName: "Store #103 - Downtown Houston",
     storeNumber: "103",
@@ -1170,16 +1173,16 @@ export const INITIAL_VALIDATION_REQUESTS: SurveillanceValidationItem[] = [
     districtName: "District 2",
     surveillanceDate: "2026-10-25",
     priority: "high",
-    title: "Suspected unauthorized accessory refund without customer present",
+    title: "High-value accessory shelf missing 4 flagship wireless earbuds",
     notes:
-      "Two high-margin accessory bundles were refunded on Invoice #89214 at 14:22. Store manager suspects no customer was at the counter at that timestamp.",
+      "Auditor noticed empty acrylic pegs on front row. Need review of customer traffic between 11:00 and 14:00.",
     requestedBy: "Marcus Vance",
     requesterRole: "District Manager",
     requesterEmail: "marcus.vance@techno-communications.com",
     requesterPhone: "+1 (713) 555-0144",
     requesterDepartment: "District 2 Operations",
-    createdAt: "2026-10-26T19:40:00Z",
-    validationStatus: "Pending Validation",
+    createdAt: "2026-10-25T14:40:00Z",
+    validationStatus: "Unassigned",
   },
   {
     id: "SRV-REQ-306",
@@ -1199,16 +1202,16 @@ export const INITIAL_VALIDATION_REQUESTS: SurveillanceValidationItem[] = [
     requesterPhone: "+1 (512) 555-0188",
     requesterDepartment: "Texas State Leadership",
     createdAt: "2026-10-26T15:10:00Z",
-    validationStatus: "Pending Validation",
+    validationStatus: "Unassigned",
   },
   {
-    id: "SRV-REQ-304",
+    id: "SRV-REQ-107",
     storeId: "store-102",
     storeName: "Store #102 - Galleria Mall",
     storeNumber: "102",
     marketName: "Dallas North",
     districtName: "District 1",
-    surveillanceDate: "2026-10-24",
+    surveillanceDate: "2026-10-26",
     priority: "medium",
     title: "Backroom inventory door propped open during afternoon shift",
     notes:
@@ -1218,8 +1221,8 @@ export const INITIAL_VALIDATION_REQUESTS: SurveillanceValidationItem[] = [
     requesterEmail: "elena.rostova@techno-communications.com",
     requesterPhone: "+1 (214) 555-0133",
     requesterDepartment: "District 1 Operations",
-    createdAt: "2026-10-25T09:05:00Z",
-    validationStatus: "Pending Validation",
+    createdAt: "2026-10-26T15:05:00Z",
+    validationStatus: "Unassigned",
   },
   {
     id: "SRV-REQ-303",
@@ -1280,6 +1283,74 @@ export const INITIAL_VALIDATION_REQUESTS: SurveillanceValidationItem[] = [
       "Audit full shift handover window (15:00 - 16:00) and verify physical drawer count on Camera #1.",
   },
   {
+    id: "SRV-REQ-101",
+    storeId: "store-101",
+    storeName: "Store #101 - Uptown Dallas",
+    storeNumber: "101",
+    marketName: "Dallas North",
+    districtName: "District 1",
+    surveillanceDate: "2026-10-18",
+    priority: "high",
+    title: "Discrepancy of $340 at Register #2 end of shift",
+    notes:
+      "Closing drawer count was short $340. Cashier stated multiple bill jams occurred around 20:30. Please inspect camera feeds focusing on the register and safe transfers.",
+    requestedBy: "David Kim",
+    requesterRole: "Market Manager",
+    requesterEmail: "david.kim@techno-communications.com",
+    requesterPhone: "+1 (214) 555-0192",
+    requesterDepartment: "Regional Store Operations",
+    createdAt: "2026-10-18T22:15:00Z",
+    validationStatus: "Reports Received",
+    assignedAgentId: "agt-102",
+    assignedAgentName: "Michael Sterling",
+    assignedAgentEmail: "m.sterling@techno-communications.com",
+    assignedAgentPhone: "+1 (214) 555-0821",
+    assignedAgentRole: "Asset Protection Auditor",
+    assignedBy: "System Admin",
+    assignedAt: "2026-10-19T09:30:00Z",
+    linkedReportId: "SRV-REP-202",
+    reportSubmittedAt: "2026-10-20T14:10:00Z",
+    reportStatus: "Pending Review",
+  },
+  {
+    id: "SRV-REQ-105",
+    storeId: "store-102",
+    storeName: "Store #102 - Galleria Mall",
+    storeNumber: "102",
+    marketName: "Dallas North",
+    districtName: "District 1",
+    surveillanceDate: "2026-10-12",
+    priority: "medium",
+    title: "Slip and fall incident claim in entrance vestibule",
+    notes:
+      "Customer claimed floor mat was misaligned. Store staff reported warning cones were already in place.",
+    requestedBy: "Elena Rostova",
+    requesterRole: "District Manager",
+    requesterEmail: "elena.rostova@techno-communications.com",
+    requesterPhone: "+1 (214) 555-0133",
+    requesterDepartment: "District 1 Operations",
+    createdAt: "2026-10-12T16:20:00Z",
+    validationStatus: "Rejected",
+    assignedAgentId: "agt-103",
+    assignedAgentName: "Jessica Taylor",
+    assignedAgentEmail: "j.taylor@techno-communications.com",
+    assignedAgentPhone: "+1 (210) 555-0163",
+    assignedAgentRole: "Field Security Inspector",
+    assignedBy: "System Admin",
+    assignedAt: "2026-10-12T16:45:00Z",
+    linkedReportId: "SRV-REP-203",
+    reportSubmittedAt: "2026-10-12T18:10:00Z",
+    reportStatus: "Rejected",
+    reportReviewedBy: "System Admin",
+    reportReviewedAt: "2026-10-13T09:15:00Z",
+    rejectedBy: "System Admin",
+    rejectedAt: "2026-10-13T09:15:00Z",
+    rejectionReason:
+      "Submitted footage timestamps did not include the 15-minute window prior to the reported incident.",
+    managerComments:
+      "Submitted footage timestamps did not include the 15-minute window prior to the reported incident.",
+  },
+  {
     id: "SRV-REQ-301",
     storeId: "store-101",
     storeName: "Store #101 - Uptown Dallas",
@@ -1302,6 +1373,75 @@ export const INITIAL_VALIDATION_REQUESTS: SurveillanceValidationItem[] = [
     rejectionReason:
       "Outside surveillance audit scope — exterior landlord lighting maintenance should be logged in the Ticketing portal under Facilities.",
   },
+  {
+    id: "SRV-REQ-103",
+    storeId: "store-105",
+    storeName: "Store #105 - Domain Austin",
+    storeNumber: "105",
+    marketName: "Austin Metro",
+    districtName: "District 3",
+    surveillanceDate: "2026-10-16",
+    priority: "medium",
+    title: "Full shift register & back delivery gate security verification",
+    notes:
+      "Night security officer flagged two individuals repeatedly checking back dock door handle; also verify full morning-to-afternoon register logs.",
+    requestedBy: "Sarah Jenkins",
+    requesterRole: "State Manager",
+    requesterEmail: "sarah.jenkins@techno-communications.com",
+    requesterPhone: "+1 (512) 555-0188",
+    requesterDepartment: "Texas State Leadership",
+    createdAt: "2026-10-15T23:50:00Z",
+    validationStatus: "Completed",
+    assignedAgentId: "agt-101",
+    assignedAgentName: "Alex Rivera",
+    assignedAgentEmail: "alex.rivera@techno-communications.com",
+    assignedAgentPhone: "+1 (512) 555-0177",
+    assignedAgentRole: "Surveillance Lead Specialist",
+    assignedBy: "Sarah Jenkins",
+    assignedAt: "2026-10-16T08:00:00Z",
+    linkedReportId: "SRV-REP-201",
+    reportSubmittedAt: "2026-10-16T11:45:00Z",
+    reportStatus: "Approved",
+    reportReviewedBy: "Sarah Jenkins",
+    reportReviewedAt: "2026-10-16T15:20:00Z",
+    managerRating: 5,
+    managerComments:
+      "Thorough review and precise footage timestamps. Excellent work providing actionable recommendations for dock security.",
+  },
+  {
+    id: "SRV-REQ-106",
+    storeId: "store-104",
+    storeName: "Store #104 - The Woodlands",
+    storeNumber: "104",
+    marketName: "Houston Central",
+    districtName: "District 2",
+    surveillanceDate: "2026-10-14",
+    priority: "low",
+    title: "Quarterly REVVL Tab promo pitch & safe drop compliance audit",
+    notes:
+      "Routine verification of promotional tablet pitch adherence and dual-custody safe drop procedures.",
+    requestedBy: "David Kim",
+    requesterRole: "Market Manager",
+    requesterEmail: "david.kim@techno-communications.com",
+    requesterPhone: "+1 (214) 555-0192",
+    requesterDepartment: "Regional Store Operations",
+    createdAt: "2026-10-14T09:15:00Z",
+    validationStatus: "Completed",
+    assignedAgentId: "agt-104",
+    assignedAgentName: "Omar Farooq",
+    assignedAgentEmail: "omar.farooq@techno-communications.com",
+    assignedAgentPhone: "+1 (713) 555-0248",
+    assignedAgentRole: "Surveillance Analyst",
+    assignedBy: "David Kim",
+    assignedAt: "2026-10-14T10:00:00Z",
+    linkedReportId: "SRV-REP-204",
+    reportSubmittedAt: "2026-10-14T16:40:00Z",
+    reportStatus: "Approved",
+    reportReviewedBy: "David Kim",
+    reportReviewedAt: "2026-10-15T09:05:00Z",
+    managerRating: 4,
+    managerComments: "Clear transaction breakdown and accurate verification of safe drop logs.",
+  },
 ];
 
 // ============================================================================
@@ -1314,20 +1454,22 @@ const surveillanceDraftMMKV = new MMKV({
 
 const ACTIVE_SESSION_KEY = "active-session";
 
-let requestReportsStore: SurveillanceRequest[] = INITIAL_REQUEST_REPORTS.map(
-  (item) => ({ ...item }),
-);
-let agentRequestsStore: SurveillanceRequest[] = INITIAL_SURVEILLANCE_REQUESTS.map(
-  (item) => ({ ...item }),
-);
+let requestReportsStore: SurveillanceRequest[] = INITIAL_REQUEST_REPORTS.map((item) => ({
+  ...item,
+}));
+let agentRequestsStore: SurveillanceRequest[] = INITIAL_SURVEILLANCE_REQUESTS.map((item) => ({
+  ...item,
+}));
 let reportsStore: SurveillanceReport[] = INITIAL_SURVEILLANCE_REPORTS.map((rep) => ({
   ...rep,
   rows: rep.rows ? rep.rows.map((r) => ({ ...r })) : undefined,
 }));
-let validationQueueStore: SurveillanceValidationItem[] =
-  INITIAL_VALIDATION_REQUESTS.map((item) => ({ ...item }));
-let assignableAgentsStore: SurveillanceAssignableAgent[] =
-  DUMMY_SURVEILLANCE_AGENTS.map((agent) => ({ ...agent }));
+let validationQueueStore: SurveillanceValidationItem[] = INITIAL_VALIDATION_REQUESTS.map(
+  (item) => ({ ...item }),
+);
+let assignableAgentsStore: SurveillanceAssignableAgent[] = DUMMY_SURVEILLANCE_AGENTS.map(
+  (agent) => ({ ...agent }),
+);
 
 function getRowKey(requestId: string, rowId: string): string {
   return `request:${requestId}:row:${rowId}`;
@@ -1371,9 +1513,7 @@ export function getStaticDraftRows(requestId: string): SavedAuditRowRecord[] {
   const indexedIds = surveillanceDraftMMKV.getJSON<string[]>(indexKey) || [];
   const prefix = `request:${requestId}:row:`;
 
-  const allRowKeys = surveillanceDraftMMKV
-    .getAllKeys()
-    .filter((k) => k.startsWith(prefix));
+  const allRowKeys = surveillanceDraftMMKV.getAllKeys().filter((k) => k.startsWith(prefix));
 
   const orderedIds = Array.from(
     new Set([...indexedIds, ...allRowKeys.map((k) => k.slice(prefix.length))]),
@@ -1381,9 +1521,7 @@ export function getStaticDraftRows(requestId: string): SavedAuditRowRecord[] {
 
   const records: SavedAuditRowRecord[] = [];
   for (const rowId of orderedIds) {
-    const rec = surveillanceDraftMMKV.getJSON<SavedAuditRowRecord>(
-      getRowKey(requestId, rowId),
-    );
+    const rec = surveillanceDraftMMKV.getJSON<SavedAuditRowRecord>(getRowKey(requestId, rowId));
     if (rec && rec.row) {
       records.push(rec);
     }
@@ -1419,10 +1557,7 @@ export function clearStaticRequestDraft(requestId: string): void {
   }
 }
 
-export function saveStaticActiveDraftSession(
-  requestId: string,
-  isEditing: boolean,
-): void {
+export function saveStaticActiveDraftSession(requestId: string, isEditing: boolean): void {
   const session: ActiveSurveillanceDraftSession = {
     requestId,
     isEditing,
@@ -1431,12 +1566,8 @@ export function saveStaticActiveDraftSession(
   surveillanceDraftMMKV.setJSON(ACTIVE_SESSION_KEY, session);
 }
 
-export function getStaticActiveDraftSession():
-  | ActiveSurveillanceDraftSession
-  | undefined {
-  return surveillanceDraftMMKV.getJSON<ActiveSurveillanceDraftSession>(
-    ACTIVE_SESSION_KEY,
-  );
+export function getStaticActiveDraftSession(): ActiveSurveillanceDraftSession | undefined {
+  return surveillanceDraftMMKV.getJSON<ActiveSurveillanceDraftSession>(ACTIVE_SESSION_KEY);
 }
 
 export function clearStaticActiveDraftSession(): void {
@@ -1462,9 +1593,7 @@ export function createStaticRequestReport(
   },
 ): SurveillanceRequest & { isDuplicate?: boolean } {
   const duplicate = requestReportsStore.find(
-    (r) =>
-      r.storeId === payload.storeId &&
-      r.incidentDate.trim() === payload.incidentDate.trim(),
+    (r) => r.storeId === payload.storeId && r.incidentDate.trim() === payload.incidentDate.trim(),
   );
   if (duplicate) {
     return { ...duplicate, isDuplicate: true };
@@ -1494,7 +1623,7 @@ export function createStaticRequestReport(
     requesterDepartment: requester?.department || "Store Operations",
     areasToReview: payload.areasToReview,
     notes: payload.notes,
-    status: "Requested",
+    status: "Pending",
     createdAt,
   };
 
@@ -1519,7 +1648,7 @@ export function createStaticRequestReport(
       requesterPhone: created.requesterPhone || "+1 (214) 555-0192",
       requesterDepartment: created.requesterDepartment || "Store Operations",
       createdAt: created.createdAt,
-      validationStatus: "Pending Validation",
+      validationStatus: "Unassigned",
     },
     ...validationQueueStore,
   ];
@@ -1568,12 +1697,10 @@ export function submitStaticAuditReport(
   const submittedAt = new Date().toISOString();
   const reportId = `SRV-REP-${210 + reportsStore.length + 1}`;
   const investigatorName = submitter?.name || "Michael Sterling";
-  const investigatorEmail =
-    submitter?.email || "m.sterling@techno-communications.com";
+  const investigatorEmail = submitter?.email || "m.sterling@techno-communications.com";
   const investigatorPhone = submitter?.phone || "+1 (214) 555-0821";
   const investigatorRole = submitter?.role || "Asset Protection Auditor";
-  const investigatorDepartment =
-    submitter?.department || "Surveillance & Loss Prevention";
+  const investigatorDepartment = submitter?.department || "Surveillance & Loss Prevention";
 
   const createdReport: SurveillanceReport = {
     id: reportId,
@@ -1691,6 +1818,25 @@ export function submitStaticAuditReport(
       : r,
   );
 
+  validationQueueStore = validationQueueStore.map((item) =>
+    item.id === payload.requestId
+      ? {
+          ...item,
+          validationStatus: "Reports Received",
+          linkedReportId: reportId,
+          reportSubmittedAt: submittedAt,
+          reportStatus: "Pending Review",
+          assignedAgentName: item.assignedAgentName || investigatorName,
+          assignedAgentEmail: item.assignedAgentEmail || investigatorEmail,
+          assignedAgentPhone: item.assignedAgentPhone || investigatorPhone,
+          assignedAgentRole: item.assignedAgentRole || investigatorRole,
+          rejectedBy: undefined,
+          rejectedAt: undefined,
+          rejectionReason: undefined,
+        }
+      : item,
+  );
+
   return { ...createdReport };
 }
 
@@ -1721,12 +1867,46 @@ export function reviewStaticReport(
 
   reportsStore[idx] = updatedReport;
 
-  // Update matching Request Reports item (strictly "Completed" or "Pending")
+  // Update matching Validate & Assign item ("Completed" on approval, "Rejected" on decline)
+  let matchedValidationItem: SurveillanceValidationItem | undefined;
+  validationQueueStore = validationQueueStore.map((item) => {
+    if (item.linkedReportId === reportId || item.id === updatedReport.requestId) {
+      const nextItem: SurveillanceValidationItem = {
+        ...item,
+        validationStatus: isApprove ? "Completed" : "Rejected",
+        linkedReportId: reportId,
+        reportStatus: isApprove ? "Approved" : "Rejected",
+        reportReviewedBy: payload.reviewedBy,
+        reportReviewedAt: reviewedAt,
+        managerRating: updatedReport.managerRating,
+        managerComments: updatedReport.managerComments,
+        rejectedBy: !isApprove ? payload.reviewedBy : undefined,
+        rejectedAt: !isApprove ? reviewedAt : undefined,
+        rejectionReason: !isApprove
+          ? updatedReport.managerComments || "Report declined during review."
+          : undefined,
+      };
+      matchedValidationItem = nextItem;
+      return nextItem;
+    }
+    return item;
+  });
+
+  // Update matching Request Reports item — once Completed, make report visible to Admin/Requester
+  let foundInRequestReports = false;
   requestReportsStore = requestReportsStore.map((req) => {
     if (req.linkedReportId === reportId || req.id === updatedReport.requestId) {
+      foundInRequestReports = true;
       return {
         ...req,
         status: isApprove ? "Completed" : "Pending",
+        linkedReportId: reportId,
+        preparedBy: req.preparedBy || updatedReport.investigatorName,
+        preparedByEmail: req.preparedByEmail || updatedReport.investigatorEmail,
+        preparedByPhone: req.preparedByPhone || updatedReport.investigatorPhone,
+        preparedByRole: req.preparedByRole || updatedReport.investigatorRole,
+        preparedByDepartment: req.preparedByDepartment || updatedReport.investigatorDepartment,
+        preparedAt: req.preparedAt || updatedReport.submittedAt,
         reportStatus: isApprove ? "Approved" : "Rejected",
         reportApprovedBy: payload.reviewedBy,
         reportApprovedAt: reviewedAt,
@@ -1737,6 +1917,53 @@ export function reviewStaticReport(
     }
     return req;
   });
+
+  // Ensure completed report is always visible in Request Reports even if request originated in validation queue
+  if (isApprove && !foundInRequestReports && matchedValidationItem) {
+    requestReportsStore = [
+      {
+        id: matchedValidationItem.id,
+        storeId: matchedValidationItem.storeId,
+        storeName: matchedValidationItem.storeName,
+        storeNumber: matchedValidationItem.storeNumber,
+        marketName: matchedValidationItem.marketName,
+        districtName: matchedValidationItem.districtName,
+        incidentDate: matchedValidationItem.surveillanceDate,
+        shift: "Surveillance Review",
+        investigationType: "Store Audit & Surveillance",
+        priority: matchedValidationItem.priority,
+        title: matchedValidationItem.title,
+        requestedBy: matchedValidationItem.requestedBy,
+        requestedById: "static-requester",
+        requesterRole: matchedValidationItem.requesterRole,
+        requesterEmail: matchedValidationItem.requesterEmail,
+        requesterPhone: matchedValidationItem.requesterPhone,
+        requesterDepartment: matchedValidationItem.requesterDepartment,
+        areasToReview: ["POS Registers", "Sales Floor"],
+        notes: matchedValidationItem.notes,
+        status: "Completed",
+        createdAt: matchedValidationItem.createdAt,
+        approvedBy: matchedValidationItem.assignedBy,
+        approvedAt: matchedValidationItem.assignedAt,
+        linkedReportId: reportId,
+        preparedBy: matchedValidationItem.assignedAgentName || updatedReport.investigatorName,
+        preparedByEmail:
+          matchedValidationItem.assignedAgentEmail || updatedReport.investigatorEmail,
+        preparedByPhone:
+          matchedValidationItem.assignedAgentPhone || updatedReport.investigatorPhone,
+        preparedByRole: matchedValidationItem.assignedAgentRole || updatedReport.investigatorRole,
+        preparedByDepartment:
+          updatedReport.investigatorDepartment || "Surveillance & Loss Prevention",
+        preparedAt: updatedReport.submittedAt,
+        reportStatus: "Approved",
+        reportApprovedBy: payload.reviewedBy,
+        reportApprovedAt: reviewedAt,
+        managerRating: updatedReport.managerRating,
+        managerComments: updatedReport.managerComments,
+      },
+      ...requestReportsStore,
+    ];
+  }
 
   // Update matching Surveillance Reports agent item
   agentRequestsStore = agentRequestsStore.map((req) => {
@@ -1769,9 +1996,7 @@ export function getStaticAssignableAgents(): SurveillanceAssignableAgent[] {
 export function validateAndAssignStaticRequest(
   payload: ValidateAndAssignPayload,
 ): SurveillanceValidationItem {
-  const targetIndex = validationQueueStore.findIndex(
-    (item) => item.id === payload.requestId,
-  );
+  const targetIndex = validationQueueStore.findIndex((item) => item.id === payload.requestId);
   if (targetIndex === -1) {
     throw new Error("Surveillance request not found.");
   }
@@ -1807,7 +2032,7 @@ export function validateAndAssignStaticRequest(
 
   validationQueueStore[targetIndex] = updated;
 
-  // Update Request Reports status from "Requested" to "Pending"
+  // Update Request Reports item with assigned agent details while keeping status "Pending"
   requestReportsStore = requestReportsStore.map((r) =>
     r.id === existing.id
       ? {
@@ -1858,9 +2083,7 @@ export function validateAndAssignStaticRequest(
 export function rejectStaticValidationRequest(
   payload: RejectValidationPayload,
 ): SurveillanceValidationItem {
-  const targetIndex = validationQueueStore.findIndex(
-    (item) => item.id === payload.requestId,
-  );
+  const targetIndex = validationQueueStore.findIndex((item) => item.id === payload.requestId);
   if (targetIndex === -1) {
     throw new Error("Surveillance request not found.");
   }
