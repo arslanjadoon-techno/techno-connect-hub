@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { DataTable, type Column } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
@@ -86,12 +87,10 @@ const VALIDATION_STATUS_CONFIG: Record<
   },
 };
 
-const QUICK_REJECTION_REASONS = [
-  "Duplicate surveillance request for the same store and date.",
-  "Insufficient incident details or missing register timeframe.",
-  "Camera footage unavailable for the requested date window.",
-  "Outside surveillance audit scope — please log via Ticketing.",
-];
+function formatPriorityLabel(priority: SurveillancePriority): string {
+  if (!priority) return "—";
+  return priority.charAt(0).toUpperCase() + priority.slice(1);
+}
 
 function formatDisplayDate(isoDate: string): string {
   if (!isoDate) return "—";
@@ -145,9 +144,6 @@ export default function ValidateAndAssignPage() {
     useState<SurveillanceValidationItem | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const [agentPickerOpen, setAgentPickerOpen] = useState(false);
-  const [assignPriority, setAssignPriority] =
-    useState<SurveillancePriority>("medium");
-  const [adminInstructions, setAdminInstructions] = useState<string>("");
   const [submittingAssign, setSubmittingAssign] = useState(false);
 
   // Reject / Cancel modal state
@@ -235,16 +231,11 @@ export default function ValidateAndAssignPage() {
     [requests, selectedDetailId],
   );
 
-  const openAssignModal = useCallback(
-    (item: SurveillanceValidationItem) => {
-      setTargetAssignItem(item);
-      setSelectedAgentId(item.assignedAgentId || agents[0]?.id || "");
-      setAssignPriority(item.priority);
-      setAdminInstructions(item.adminInstructions || "");
-      setAssignModalOpen(true);
-    },
-    [agents],
-  );
+  const openAssignModal = useCallback((item: SurveillanceValidationItem) => {
+    setTargetAssignItem(item);
+    setSelectedAgentId(item.assignedAgentId || "");
+    setAssignModalOpen(true);
+  }, []);
 
   const openRejectModal = useCallback((item: SurveillanceValidationItem) => {
     setTargetRejectItem(item);
@@ -255,7 +246,7 @@ export default function ValidateAndAssignPage() {
   const handleConfirmAssign = async () => {
     if (!targetAssignItem) return;
     if (!selectedAgentId) {
-      toast.error("Please select a surveillance agent to assign this request.");
+      toast.error("Please select a user or agent to assign this request.");
       return;
     }
 
@@ -265,8 +256,7 @@ export default function ValidateAndAssignPage() {
       const updated = await surveillanceService.validateAndAssignRequest({
         requestId: targetAssignItem.id,
         agentId: selectedAgentId,
-        priority: assignPriority,
-        adminInstructions: adminInstructions.trim() || undefined,
+        priority: targetAssignItem.priority,
         assignedBy: adminName,
       });
 
@@ -936,7 +926,7 @@ export default function ValidateAndAssignPage() {
         </>
       )}
 
-      {/* VALIDATE & ASSIGN AGENT MODAL */}
+      {/* VALIDATE & ASSIGN SURVEILLANCE REQUEST MODAL */}
       <Dialog open={assignModalOpen} onOpenChange={setAssignModalOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -946,35 +936,52 @@ export default function ValidateAndAssignPage() {
                 : "Validate & Assign Surveillance Request"}
             </DialogTitle>
             <DialogDescription>
-              Approve this surveillance request and assign it to an auditor so
-              they can prepare and submit the audit report.
+              Review the requested surveillance parameters and assign this
+              request to an agent for audit preparation.
             </DialogDescription>
           </DialogHeader>
 
           {targetAssignItem && (
-            <div className="space-y-4 pt-1 text-xs">
-              {/* Summary Context Box */}
-              <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-semibold text-sm text-foreground">
-                    {targetAssignItem.storeName}
-                  </span>
-                  <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                    {targetAssignItem.id} ·{" "}
-                    {formatDisplayDate(targetAssignItem.surveillanceDate)}
-                  </span>
-                </div>
-                <p className="text-foreground font-medium">
-                  {targetAssignItem.title}
-                </p>
-                <p className="text-muted-foreground">
-                  Requested by {targetAssignItem.requestedBy} (
-                  {targetAssignItem.requesterRole}) ·{" "}
-                  {targetAssignItem.marketName}
-                </p>
+            <div className="space-y-3.5 pt-1 text-xs">
+              {/* 1. Requested Surveillance Date (Non-editable) */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">
+                  Requested Surveillance Date
+                </Label>
+                <Input
+                  type="text"
+                  readOnly
+                  tabIndex={-1}
+                  value={formatDisplayDate(targetAssignItem.surveillanceDate)}
+                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0 tabular-nums"
+                />
               </div>
 
-              {/* Searchable Agent Picker */}
+              {/* 2. Market (Non-editable) */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Market</Label>
+                <Input
+                  type="text"
+                  readOnly
+                  tabIndex={-1}
+                  value={targetAssignItem.marketName}
+                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
+                />
+              </div>
+
+              {/* 3. Store Name (Non-editable) */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Store Name</Label>
+                <Input
+                  type="text"
+                  readOnly
+                  tabIndex={-1}
+                  value={targetAssignItem.storeName}
+                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
+                />
+              </div>
+
+              {/* 4. Assign to User / Agent * (Required searchable dropdown showing ONLY Name and Email) */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">
                   Assign to User / Agent{" "}
@@ -990,10 +997,16 @@ export default function ValidateAndAssignPage() {
                       className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background px-3 text-xs text-foreground hover:bg-accent"
                     >
                       <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <span className="flex-1 text-left truncate">
+                      <span
+                        className={`flex-1 text-left truncate ${
+                          selectedAgent
+                            ? "text-foreground"
+                            : "text-muted-foreground"
+                        }`}
+                      >
                         {selectedAgent
-                          ? `${selectedAgent.fullName} — ${selectedAgent.role} (${selectedAgent.activeAssignments} active)`
-                          : "Select or search a surveillance agent..."}
+                          ? selectedAgent.fullName
+                          : "Select or search user / agent..."}
                       </span>
                       <ChevronsUpDown className="h-3.5 w-3.5 opacity-50 shrink-0" />
                     </button>
@@ -1003,38 +1016,33 @@ export default function ValidateAndAssignPage() {
                     align="start"
                   >
                     <Command>
-                      <CommandInput placeholder="Search agent by name, role, or email..." />
+                      <CommandInput placeholder="Search by name or email..." />
                       <CommandList>
-                        <CommandEmpty>No matching agents found.</CommandEmpty>
+                        <CommandEmpty>No matching users found.</CommandEmpty>
                         <CommandGroup>
                           {agents.map((agent) => {
                             const isSelected = agent.id === selectedAgentId;
                             return (
                               <CommandItem
                                 key={agent.id}
-                                value={`${agent.fullName} ${agent.role} ${agent.email}`}
+                                value={`${agent.fullName} ${agent.email}`}
                                 onSelect={() => {
                                   setSelectedAgentId(agent.id);
                                   setAgentPickerOpen(false);
                                 }}
                                 className="flex items-center justify-between gap-2 py-2"
                               >
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-1.5 font-medium text-xs text-foreground">
-                                    {isSelected && (
-                                      <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-                                    )}
-                                    <span className="truncate">
-                                      {agent.fullName}
-                                    </span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-medium text-xs text-foreground truncate">
+                                    {agent.fullName}
                                   </div>
                                   <div className="text-[11px] text-muted-foreground truncate">
-                                    {agent.role} · {agent.email}
+                                    {agent.email}
                                   </div>
                                 </div>
-                                <span className="text-[11px] font-medium text-muted-foreground tabular-nums whitespace-nowrap shrink-0">
-                                  {agent.activeAssignments} active
-                                </span>
+                                {isSelected && (
+                                  <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                                )}
                               </CommandItem>
                             );
                           })}
@@ -1045,38 +1053,46 @@ export default function ValidateAndAssignPage() {
                 </Popover>
               </div>
 
-              {/* Priority Selection */}
+              {/* 5. Priority (Non-editable) */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">
-                  Priority <span className="text-destructive">*</span>
-                </Label>
-                <Select
-                  value={assignPriority}
-                  onValueChange={(v) =>
-                    setAssignPriority(v as SurveillancePriority)
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs font-semibold">Priority</Label>
+                <Input
+                  type="text"
+                  readOnly
+                  tabIndex={-1}
+                  value={formatPriorityLabel(targetAssignItem.priority)}
+                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
+                />
               </div>
 
-              {/* Optional Admin Instructions */}
+              {/* 6. Investigation Reason / Incident Summary (Non-editable) */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">
-                  Instructions for Assigned Agent
+                  Investigation Reason / Incident Summary
+                </Label>
+                <Input
+                  type="text"
+                  readOnly
+                  tabIndex={-1}
+                  value={targetAssignItem.title}
+                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
+                />
+              </div>
+
+              {/* 7. Additional Context / Special Instructions (Non-editable long textarea) */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">
+                  Additional Context / Special Instructions
                 </Label>
                 <Textarea
-                  value={adminInstructions}
-                  onChange={(e) => setAdminInstructions(e.target.value)}
-                  placeholder="Add specific camera angles, register numbers, or audit instructions for the assigned agent..."
+                  readOnly
+                  tabIndex={-1}
+                  value={
+                    targetAssignItem.notes ||
+                    "No additional context or special instructions provided."
+                  }
                   rows={3}
+                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0 resize-none"
                 />
               </div>
             </div>
@@ -1104,7 +1120,7 @@ export default function ValidateAndAssignPage() {
         </DialogContent>
       </Dialog>
 
-      {/* REJECT / CANCEL REQUEST MODAL */}
+      {/* REJECT / CANCEL SURVEILLANCE REQUEST MODAL */}
       <Dialog open={rejectModalOpen} onOpenChange={setRejectModalOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1116,49 +1132,99 @@ export default function ValidateAndAssignPage() {
           </DialogHeader>
 
           {targetRejectItem && (
-            <div className="space-y-4 pt-1 text-xs">
-              <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="font-semibold text-sm text-foreground">
-                    {targetRejectItem.storeName}
-                  </span>
-                  <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                    {targetRejectItem.id} ·{" "}
-                    {formatDisplayDate(targetRejectItem.surveillanceDate)}
-                  </span>
-                </div>
-                <p className="text-foreground font-medium">
-                  {targetRejectItem.title}
-                </p>
-              </div>
-
+            <div className="space-y-3.5 pt-1 text-xs">
+              {/* 1. Requested Surveillance Date (Non-editable) */}
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground">
-                  Quick Reason Presets
+                <Label className="text-xs font-semibold">
+                  Requested Surveillance Date
                 </Label>
-                <div className="flex flex-wrap gap-1.5">
-                  {QUICK_REJECTION_REASONS.map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setRejectionReason(preset)}
-                      className="rounded-md border border-border bg-muted/40 px-2.5 py-1 text-[11px] text-foreground hover:bg-accent transition-colors text-left"
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
+                <Input
+                  type="text"
+                  readOnly
+                  tabIndex={-1}
+                  value={formatDisplayDate(targetRejectItem.surveillanceDate)}
+                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0 tabular-nums"
+                />
               </div>
 
+              {/* 2. Market (Non-editable) */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Market</Label>
+                <Input
+                  type="text"
+                  readOnly
+                  tabIndex={-1}
+                  value={targetRejectItem.marketName}
+                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
+                />
+              </div>
+
+              {/* 3. Store Name (Non-editable) */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Store Name</Label>
+                <Input
+                  type="text"
+                  readOnly
+                  tabIndex={-1}
+                  value={targetRejectItem.storeName}
+                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
+                />
+              </div>
+
+              {/* 4. Priority (Non-editable) */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">Priority</Label>
+                <Input
+                  type="text"
+                  readOnly
+                  tabIndex={-1}
+                  value={formatPriorityLabel(targetRejectItem.priority)}
+                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
+                />
+              </div>
+
+              {/* 5. Investigation Reason / Incident Summary (Non-editable) */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">
+                  Investigation Reason / Incident Summary
+                </Label>
+                <Input
+                  type="text"
+                  readOnly
+                  tabIndex={-1}
+                  value={targetRejectItem.title}
+                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
+                />
+              </div>
+
+              {/* 6. Additional Context / Special Instructions (Non-editable long textarea) */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">
+                  Additional Context / Special Instructions
+                </Label>
+                <Textarea
+                  readOnly
+                  tabIndex={-1}
+                  value={
+                    targetRejectItem.notes ||
+                    "No additional context or special instructions provided."
+                  }
+                  rows={3}
+                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0 resize-none"
+                />
+              </div>
+
+              {/* 7. Rejection / Cancellation Reason * (Editable long textarea) */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">
                   Rejection / Cancellation Reason{" "}
                   <span className="text-destructive">*</span>
                 </Label>
                 <Textarea
+                  required
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Explain why this surveillance request is invalid or cancelled..."
+                  placeholder="Enter the reason for rejecting or cancelling this surveillance request..."
                   rows={3}
                 />
               </div>
@@ -1166,13 +1232,6 @@ export default function ValidateAndAssignPage() {
           )}
 
           <DialogFooter className="mt-2">
-            <Button
-              variant="outline"
-              onClick={() => setRejectModalOpen(false)}
-              disabled={submittingReject}
-            >
-              Keep Request
-            </Button>
             <Button
               variant="destructive"
               onClick={handleConfirmReject}
