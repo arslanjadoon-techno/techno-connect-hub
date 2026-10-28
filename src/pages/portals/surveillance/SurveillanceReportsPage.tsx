@@ -205,7 +205,6 @@ const TRANSACTION_TYPE_OPTIONS = [
   "Refunded ACC",
   "REVVL Tab",
   "Store Closed",
-  "Store Opened",
   "2 Magenta in Metro",
 ];
 
@@ -213,14 +212,12 @@ const YES_NO_OPTIONS = [
   { value: "__empty__", label: "-" },
   { value: "YES", label: "YES" },
   { value: "NO", label: "NO" },
-  { value: "Custom", label: "Custom" },
 ];
 
 const CLIENT_TYPE_OPTIONS = [
   { value: "__empty__", label: "-" },
   { value: "Buyer", label: "Buyer" },
   { value: "Non-Buyer", label: "Non-Buyer" },
-  { value: "Custom", label: "Custom" },
 ];
 
 const PAYMENT_TYPE_OPTIONS = [
@@ -236,7 +233,6 @@ const PITCH_QUALITY_OPTIONS = [
   { value: "AVG", label: "AVG" },
   { value: "FAIR", label: "FAIR" },
   { value: "POOR", label: "POOR" },
-  { value: "Custom", label: "Custom" },
 ];
 
 type CustomDetailFieldKey =
@@ -290,20 +286,6 @@ const CUSTOM_DETAIL_PROP_MAP: Record<CustomDetailFieldKey, AuditRowDetailProp> =
 
 const CUSTOM_DETAIL_KEYS = Object.keys(CUSTOM_DETAIL_PROP_MAP) as CustomDetailFieldKey[];
 
-function hasCustomInTransType(raw?: string): boolean {
-  return (raw || "")
-    .split(/\s*\/\s*/)
-    .map((s) => s.trim())
-    .some((s) => s === "Custom" || s === "Other");
-}
-
-function getRowCustomDetail(row: SurveillanceAuditRow, fieldKey: CustomDetailFieldKey): string {
-  const detailProp = CUSTOM_DETAIL_PROP_MAP[fieldKey];
-  const directVal = row[detailProp];
-  if (typeof directVal === "string") return directVal;
-  return row.otherDetails?.[fieldKey] || "";
-}
-
 function hydrateAuditRowDetails(
   row: SurveillanceAuditRow,
   reportFallback?: SurveillanceReport,
@@ -322,15 +304,8 @@ function hydrateAuditRowDetails(
   return next;
 }
 
-function normalizeCustomOption(raw: string | undefined): string {
-  const trimmed = (raw || "").trim();
-  if (trimmed === "Other") return "Custom";
-  return trimmed;
-}
-
 function normalizeClientType(raw: string | undefined, b?: string, nb?: string): string {
   const trimmed = (raw || "").trim();
-  if (trimmed === "Custom" || trimmed === "Other") return "Custom";
   if (trimmed === "Buyer" || trimmed === "Billable") return "Buyer";
   if (trimmed === "Non-Buyer" || trimmed === "Non Billable") return "Non-Buyer";
   if (trimmed) return trimmed;
@@ -354,20 +329,10 @@ function TransactionTypeMultiSelect({
     () =>
       (value || "")
         .split(/\s*\/\s*/)
-        .map((s) => (s.trim() === "Other" ? "Custom" : s.trim()))
+        .map((s) => s.trim())
         .filter(Boolean),
     [value],
   );
-
-  const baseOptionsWithCustom = useMemo(
-    () => (options.includes("Custom") ? options : [...options, "Custom"]),
-    [options],
-  );
-
-  const allChoices = useMemo(() => {
-    const extras = selectedList.filter((item) => !baseOptionsWithCustom.includes(item));
-    return [...extras, ...baseOptionsWithCustom];
-  }, [baseOptionsWithCustom, selectedList]);
 
   const toggleOption = (opt: string) => {
     const exists = selectedList.includes(opt);
@@ -431,7 +396,7 @@ function TransactionTypeMultiSelect({
           >
             <span>- (Clear Selection)</span>
           </button>
-          {allChoices.map((opt) => {
+          {options.map((opt) => {
             const checked = selectedList.includes(opt);
             return (
               <label
@@ -449,73 +414,40 @@ function TransactionTypeMultiSelect({
   );
 }
 
-function SelectWithCustomField({
+function StandardSelect({
   label,
   required = false,
   options,
   value,
-  detailValue,
   onValueChange,
-  onDetailChange,
-  detailSpanClass = "col-span-2",
 }: {
   label: string;
   required?: boolean;
   options: { value: string; label: string }[];
   value: string | undefined;
-  detailValue: string | undefined;
   onValueChange: (val: string) => void;
-  onDetailChange: (detail: string) => void;
-  detailSpanClass?: string;
 }) {
-  const cleanLabel = label.replace(/\?+$/, "").trim();
-  const detailLabel = `${cleanLabel} Details`;
-  const normalizedVal = normalizeCustomOption(value);
-  const selectVal = !normalizedVal ? "__empty__" : normalizedVal;
-  const isCustom = normalizedVal === "Custom";
-
-  const effectiveOptions = useMemo(() => {
-    if (!normalizedVal || options.some((o) => o.value === normalizedVal)) {
-      return options;
-    }
-    return [
-      options[0] || { value: "__empty__", label: "-" },
-      { value: normalizedVal, label: normalizedVal },
-      ...options.slice(1),
-    ];
-  }, [options, normalizedVal]);
+  const selectVal = !value || value === "__empty__" ? "__empty__" : value;
 
   return (
-    <>
-      <div className="space-y-1">
-        <Label className="text-[11px] font-semibold">
-          {label}
-          {required && <span className="text-destructive"> *</span>}
-        </Label>
-        <Select value={selectVal} onValueChange={(v) => onValueChange(v === "__empty__" ? "" : v)}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {effectiveOptions.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      {isCustom && (
-        <div className={`space-y-1 ${detailSpanClass}`}>
-          <Label className="text-[11px] font-semibold">{detailLabel}</Label>
-          <Input
-            value={detailValue || ""}
-            onChange={(e) => onDetailChange(e.target.value)}
-            placeholder={`Enter ${detailLabel.toLowerCase()}...`}
-          />
-        </div>
-      )}
-    </>
+    <div className="space-y-1">
+      <Label className="text-[11px] font-semibold">
+        {label}
+        {required && <span className="text-destructive"> *</span>}
+      </Label>
+      <Select value={selectVal} onValueChange={(v) => onValueChange(v === "__empty__" ? "" : v)}>
+        <SelectTrigger>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((opt) => (
+            <SelectItem key={opt.value} value={opt.value}>
+              {opt.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
   );
 }
 
@@ -1032,6 +964,12 @@ export default function SurveillanceReportsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
 
+  // Top header fields (Store Open Time & Primary Sales Rep)
+  const [headerStoreOpenTime, setHeaderStoreOpenTime] = useState<string>("09:00 AM");
+  const [headerSalesRep, setHeaderSalesRep] = useState<string>(
+    SALES_REP_NAMES[0] || "Abdul Razzak",
+  );
+
   const metrics = useMemo(() => {
     return {
       total: requests.length,
@@ -1157,6 +1095,16 @@ export default function SurveillanceReportsPage() {
 
     setSavedRowTimestamps({});
     setDirtyRowIds({});
+
+    if (existingReport) {
+      setHeaderStoreOpenTime(existingReport.cashTime || existingReport.time || "09:00 AM");
+      setHeaderSalesRep(
+        existingReport.salesRep?.split(",")[0]?.trim() || SALES_REP_NAMES[0] || "Abdul Razzak",
+      );
+    } else {
+      setHeaderStoreOpenTime("09:00 AM");
+      setHeaderSalesRep(SALES_REP_NAMES[0] || "Abdul Razzak");
+    }
 
     if (existingReport && existingReport.rows && existingReport.rows.length > 0) {
       const cloned = existingReport.rows.map((r, idx) =>
@@ -1819,8 +1767,8 @@ export default function SurveillanceReportsPage() {
     const defaultDate = formatSurveillanceDate(activeItem.incidentDate);
 
     return (
-      <div className="space-y-6 pb-12 animate-fade-in">
-        {/* Top Bar (Only Add Row on top right; Submit Report is strictly at bottom right) */}
+      <div className="space-y-5 pb-12 animate-fade-in">
+        {/* Top Bar */}
         <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <Button
@@ -1836,9 +1784,6 @@ export default function SurveillanceReportsPage() {
               <h1 className="font-display text-xl font-bold tracking-tight text-foreground">
                 Submit Surveillance Audit Report
               </h1>
-              <p className="text-xs text-muted-foreground">
-                {activeItem.storeName} • {activeItem.marketName}
-              </p>
             </div>
           </div>
 
@@ -1858,6 +1803,67 @@ export default function SurveillanceReportsPage() {
           </div>
         </div>
 
+        {/* Top Badges for Auto-populated Metadata */}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <Badge
+            variant="secondary"
+            className="px-3 py-1.5 text-xs font-semibold gap-1.5 bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900 shadow-2xs"
+          >
+            <Calendar className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+            Date: {defaultDate}
+          </Badge>
+          <Badge
+            variant="secondary"
+            className="px-3 py-1.5 text-xs font-semibold gap-1.5 bg-purple-50 text-purple-800 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-900 shadow-2xs"
+          >
+            <MapPin className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+            Market: {activeItem.marketName || "—"}
+          </Badge>
+          <Badge
+            variant="secondary"
+            className="px-3 py-1.5 text-xs font-semibold gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900 shadow-2xs"
+          >
+            <StoreIcon className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            Store: {activeItem.storeName || "—"}
+          </Badge>
+        </div>
+
+        {/* Report Header Settings Card (Store Open Time & Primary Sales Rep) */}
+        <Card className="p-4 border-border/80 shadow-2xs bg-card space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-foreground">
+                Store Open Time <span className="text-destructive">*</span>
+              </Label>
+              <AmPmTimePicker
+                value={headerStoreOpenTime}
+                onChange={(val) => setHeaderStoreOpenTime(val)}
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-foreground">
+                Sales Rep <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={toSelectVal(headerSalesRep)}
+                onValueChange={(v) => setHeaderSalesRep(fromSelectVal(v))}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Select Sales Rep" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SALES_REP_NAMES.map((rep) => (
+                    <SelectItem key={rep} value={rep} className="text-xs">
+                      {rep}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </Card>
+
         {/* Editable Multi-Row Audit Form Cards */}
         <div className="space-y-4">
           {editableRows.map((row, index) => {
@@ -1865,10 +1871,6 @@ export default function SurveillanceReportsPage() {
             const rowSavedAt = savedRowTimestamps[row.id];
             const isRowDirty = Boolean(dirtyRowIds[row.id]);
             const isRowSavedClean = Boolean(rowSavedAt && !isRowDirty);
-            const salesRepChoices =
-              row.salesRep && !SALES_REP_NAMES.includes(row.salesRep)
-                ? [row.salesRep, ...SALES_REP_NAMES]
-                : SALES_REP_NAMES;
             const computedDifference = calculateDifferenceDisplay(
               row.invoiceAmount,
               row.totalTaken,
@@ -1887,7 +1889,7 @@ export default function SurveillanceReportsPage() {
                       Row #{index + 1}
                     </Badge>
                     <span className="text-sm font-semibold text-foreground">
-                      {row.salesRep.trim() ? row.salesRep : "New Audit Entry"}
+                      {headerSalesRep || "Audit Entry"}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {row.invoice.trim() ? `• Invoice No: ${row.invoice}` : ""}
@@ -1941,63 +1943,6 @@ export default function SurveillanceReportsPage() {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                         <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">
-                            Surveillance Date <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            type="text"
-                            required
-                            readOnly
-                            tabIndex={-1}
-                            value={formatSurveillanceDate(row.date || defaultDate)}
-                            className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
-                            placeholder="e.g. 10 Oct, 2026"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">
-                            Market <span className="text-destructive">*</span>
-                          </Label>
-                          <Input
-                            type="text"
-                            required
-                            readOnly
-                            tabIndex={-1}
-                            value={row.marketName || activeItem.marketName || ""}
-                            className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
-                            placeholder="Market"
-                          />
-                        </div>
-                        <div className="space-y-1 sm:col-span-2 md:col-span-2">
-                          <Label className="text-[11px] font-semibold">
-                            Store Name <span className="text-destructive">*</span>
-                          </Label>
-                          <TooltipProvider delayDuration={150}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Input
-                                  type="text"
-                                  required
-                                  readOnly
-                                  tabIndex={-1}
-                                  value={row.storeName || activeItem.storeName || ""}
-                                  className="bg-muted/30 text-foreground truncate cursor-default focus-visible:ring-0 hover:border-primary/50 hover:bg-muted/50 transition-colors"
-                                  placeholder="Store Name"
-                                />
-                              </TooltipTrigger>
-                              {(row.storeName || activeItem.storeName) && (
-                                <TooltipContent
-                                  side="top"
-                                  align="start"
-                                  className="max-w-md break-words text-xs font-medium"
-                                >
-                                  {row.storeName || activeItem.storeName}
-                                </TooltipContent>
-                              )}
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                        <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Invoice No</Label>
                           <Input
                             value={row.invoice}
@@ -2006,29 +1951,6 @@ export default function SurveillanceReportsPage() {
                             }
                             placeholder="e.g. INV-12345"
                           />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">
-                            Sales Rep <span className="text-destructive">*</span>
-                          </Label>
-                          <Select
-                            value={toSelectVal(row.salesRep)}
-                            onValueChange={(v) =>
-                              handleUpdateRowField(row.id, "salesRep", fromSelectVal(v))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__empty__">-</SelectItem>
-                              {salesRepChoices.map((repName) => (
-                                <SelectItem key={repName} value={repName}>
-                                  {repName}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
                         </div>
 
                         <div className="space-y-1">
@@ -2052,7 +1974,8 @@ export default function SurveillanceReportsPage() {
                             onChange={(val) => handleUpdateRowField(row.id, "bdiTime", val)}
                           />
                         </div>
-                        <div className="space-y-1">
+
+                        <div className="space-y-1 sm:col-span-2">
                           <Label className="text-[11px] font-semibold">
                             Transaction Type <span className="text-destructive">*</span>
                           </Label>
@@ -2065,31 +1988,11 @@ export default function SurveillanceReportsPage() {
                           />
                         </div>
 
-                        {hasCustomInTransType(row.transType) && (
-                          <div className="space-y-1 sm:col-span-2">
-                            <Label className="text-[11px] font-semibold">
-                              Transaction Type Details
-                            </Label>
-                            <Input
-                              value={getRowCustomDetail(row, "transType")}
-                              onChange={(e) =>
-                                handleUpdateOtherDetail(row.id, "transType", e.target.value)
-                              }
-                              placeholder="Enter transaction type details..."
-                            />
-                          </div>
-                        )}
-
-                        <SelectWithCustomField
+                        <StandardSelect
                           label="Client Type"
                           options={CLIENT_TYPE_OPTIONS}
                           value={normalizeClientType(row.clientType, row.b, row.nb)}
-                          detailValue={getRowCustomDetail(row, "clientType")}
                           onValueChange={(val) => handleUpdateRowField(row.id, "clientType", val)}
-                          onDetailChange={(det) =>
-                            handleUpdateOtherDetail(row.id, "clientType", det)
-                          }
-                          detailSpanClass="sm:col-span-2"
                         />
 
                         <div className="space-y-1">
@@ -2126,11 +2029,7 @@ export default function SurveillanceReportsPage() {
                         <div className="space-y-1">
                           <Label className="text-[11px] font-semibold">Payment Type</Label>
                           <Select
-                            value={toSelectVal(
-                              row.paymentType === "Custom" || row.paymentType === "Other"
-                                ? ""
-                                : row.paymentType,
-                            )}
+                            value={toSelectVal(row.paymentType)}
                             onValueChange={(v) =>
                               handleUpdateRowField(row.id, "paymentType", fromSelectVal(v))
                             }
@@ -2173,25 +2072,11 @@ export default function SurveillanceReportsPage() {
                           </>
                         )}
 
-                        <div className="space-y-1">
-                          <Label className="text-[11px] font-semibold">Refund Invoice</Label>
-                          <Input
-                            value={row.refundInvoice}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "refundInvoice", e.target.value)
-                            }
-                            placeholder="Enter refund invoice..."
-                          />
-                        </div>
-
-                        <SelectWithCustomField
+                        <StandardSelect
                           label="Receipt"
                           options={YES_NO_OPTIONS}
                           value={row.receipt}
-                          detailValue={getRowCustomDetail(row, "receipt")}
                           onValueChange={(val) => handleUpdateRowField(row.id, "receipt", val)}
-                          onDetailChange={(det) => handleUpdateOtherDetail(row.id, "receipt", det)}
-                          detailSpanClass="sm:col-span-2"
                         />
                       </div>
                     </div>
@@ -2214,17 +2099,12 @@ export default function SurveillanceReportsPage() {
                             { key: "onlineRejectedPayment", label: "Online/Rejected Payment" },
                           ] as const
                         ).map((field) => (
-                          <SelectWithCustomField
+                          <StandardSelect
                             key={field.key}
                             label={field.label}
                             options={YES_NO_OPTIONS}
                             value={row[field.key]}
-                            detailValue={getRowCustomDetail(row, field.key)}
                             onValueChange={(val) => handleUpdateRowField(row.id, field.key, val)}
-                            onDetailChange={(det) =>
-                              handleUpdateOtherDetail(row.id, field.key, det)
-                            }
-                            detailSpanClass="col-span-2"
                           />
                         ))}
                       </div>
@@ -2248,25 +2128,17 @@ export default function SurveillanceReportsPage() {
                       </div>
 
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <SelectWithCustomField
+                        <StandardSelect
                           label="Pitch NB"
                           options={YES_NO_OPTIONS}
                           value={row.pitchNb}
-                          detailValue={getRowCustomDetail(row, "pitchNb")}
                           onValueChange={(val) => handleUpdateRowField(row.id, "pitchNb", val)}
-                          onDetailChange={(det) => handleUpdateOtherDetail(row.id, "pitchNb", det)}
-                          detailSpanClass="col-span-2"
                         />
-                        <SelectWithCustomField
+                        <StandardSelect
                           label="Pitch Quality"
                           options={PITCH_QUALITY_OPTIONS}
                           value={row.pitchQuality}
-                          detailValue={getRowCustomDetail(row, "pitchQuality")}
                           onValueChange={(val) => handleUpdateRowField(row.id, "pitchQuality", val)}
-                          onDetailChange={(det) =>
-                            handleUpdateOtherDetail(row.id, "pitchQuality", det)
-                          }
-                          detailSpanClass="col-span-2"
                         />
 
                         {(
@@ -2277,17 +2149,12 @@ export default function SurveillanceReportsPage() {
                             { key: "flipping", label: "Flipping" },
                           ] as const
                         ).map((field) => (
-                          <SelectWithCustomField
+                          <StandardSelect
                             key={field.key}
                             label={field.label}
                             options={YES_NO_OPTIONS}
                             value={row[field.key]}
-                            detailValue={getRowCustomDetail(row, field.key)}
                             onValueChange={(val) => handleUpdateRowField(row.id, field.key, val)}
-                            onDetailChange={(det) =>
-                              handleUpdateOtherDetail(row.id, field.key, det)
-                            }
-                            detailSpanClass="col-span-2"
                           />
                         ))}
 
@@ -2331,17 +2198,12 @@ export default function SurveillanceReportsPage() {
                             { key: "aalBillSame", label: "AAL Bill Same" },
                           ] as const
                         ).map((field) => (
-                          <SelectWithCustomField
+                          <StandardSelect
                             key={field.key}
                             label={field.label}
                             options={YES_NO_OPTIONS}
                             value={row[field.key]}
-                            detailValue={getRowCustomDetail(row, field.key)}
                             onValueChange={(val) => handleUpdateRowField(row.id, field.key, val)}
-                            onDetailChange={(det) =>
-                              handleUpdateOtherDetail(row.id, field.key, det)
-                            }
-                            detailSpanClass="col-span-2"
                           />
                         ))}
                       </div>
@@ -2404,14 +2266,11 @@ export default function SurveillanceReportsPage() {
                             onChange={(val) => handleUpdateRowField(row.id, "backRoomTimeOut", val)}
                           />
                         </div>
-                        <SelectWithCustomField
+                        <StandardSelect
                           label="Offline"
                           options={YES_NO_OPTIONS}
                           value={row.offline}
-                          detailValue={getRowCustomDetail(row, "offline")}
                           onValueChange={(val) => handleUpdateRowField(row.id, "offline", val)}
-                          onDetailChange={(det) => handleUpdateOtherDetail(row.id, "offline", det)}
-                          detailSpanClass="col-span-2 sm:col-span-3"
                         />
                       </div>
                     </div>
