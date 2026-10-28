@@ -1,6 +1,9 @@
 export type SurveillanceRole = "admin" | "state_manager" | "market_manager" | "district_manager" | "user";
 
 export type SurveillanceRequestStatus =
+  | "Requested"
+  | "Pending"
+  | "Completed"
   | "Report Requested"
   | "Report Received"
   | "Approved"

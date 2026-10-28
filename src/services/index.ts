@@ -86,8 +86,8 @@ export type {
 // Payslips & Payroll Hub
 export { payslipService, PayslipService, type PayslipItem } from "./payslips";
 
-// Surveillance Portal
-export { surveillanceService, SurveillanceService } from "./portals/surveillance";
+// Surveillance Portal (Service class temporarily commented out while UI is finalized with static sample data)
+// export { surveillanceService, SurveillanceService } from "./portals/surveillance";
 export type {
   SurveillanceRequest,
   SurveillanceReport,

@@ -1,7 +1,12 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
 import { DataTable, type Column } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -12,19 +17,31 @@ import {
 } from "@/components/ui/dialog";
 import {
   ArrowLeft,
+  Check,
+  CheckCircle2,
   Download,
   FileText,
   Image as ImageIcon,
+  Lock,
   Paperclip,
+  Star,
+  X,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  surveillanceService,
+  canApproveSurveillance,
+  getSurveillanceRole,
   type SurveillanceReport,
   type SurveillanceRequest,
   type SurveillanceAuditRow,
   type SurveillanceAttachment,
 } from "@/services/portals/surveillance";
+import {
+  getStaticReportById,
+  getStaticRequestById,
+  reviewStaticReport,
+} from "./surveillance-data";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -64,6 +81,25 @@ function formatSurveillanceDateCell(raw?: string): string {
     return `${String(parsed.getDate()).padStart(2, "0")} ${months[parsed.getMonth()]}, ${parsed.getFullYear()}`;
   }
   return str;
+}
+
+function formatReviewDateTime(raw?: string): string {
+  if (!raw) return "—";
+  const parsed = new Date(raw);
+  if (!Number.isNaN(parsed.getTime())) {
+    const datePart = parsed.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+    const timePart = parsed.toLocaleTimeString("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+    return `${datePart}, ${timePart}`;
+  }
+  return raw;
 }
 
 function buildFallbackRowFromReport(
@@ -332,42 +368,150 @@ function getRowFieldDetail(row: SurveillanceAuditRow, key: BaseAuditRowKey): str
   return extractLegacyInlineDetail(row[key]);
 }
 
+function StarRating({
+  value,
+  onChange,
+  readOnly = false,
+}: {
+  value: number;
+  onChange?: (val: number) => void;
+  readOnly?: boolean;
+}) {
+  const [hovered, setHovered] = useState(0);
+  const activeScore = hovered || value;
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1">
+        {[1, 2, 3, 4, 5].map((star) => {
+          const isFilled = star <= activeScore;
+          return (
+            <button
+              key={star}
+              type="button"
+              disabled={readOnly}
+              onClick={() => !readOnly && onChange?.(star)}
+              onMouseEnter={() => !readOnly && setHovered(star)}
+              onMouseLeave={() => !readOnly && setHovered(0)}
+              aria-label={`Rate ${star} out of 5 stars`}
+              className={`rounded-md p-1 transition-transform ${
+                readOnly
+                  ? "cursor-default"
+                  : "cursor-pointer hover:scale-110 focus:outline-none focus:ring-2 focus:ring-amber-400/50"
+              }`}
+            >
+              <Star
+                className={`h-5 w-5 transition-colors ${
+                  isFilled
+                    ? "fill-amber-400 text-amber-400"
+                    : "text-muted-foreground/35 hover:text-amber-300"
+                }`}
+              />
+            </button>
+          );
+        })}
+      </div>
+      <span className="ml-1 text-xs font-semibold text-foreground tabular-nums">
+        {value > 0 ? `${value} / 5` : "Not rated"}
+      </span>
+    </div>
+  );
+}
+
 export default function SurveillanceReportDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [report, setReport] = useState<SurveillanceReport | null>(null);
   const [linkedRequest, setLinkedRequest] = useState<SurveillanceRequest | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Manager Review & Submitter Rating state
+  const [ratingScore, setRatingScore] = useState<number>(0);
+  const [declineModalOpen, setDeclineModalOpen] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  const userRole = getSurveillanceRole(user);
+  const canReviewReport = canApproveSurveillance(userRole);
+
   useEffect(() => {
     if (!id) return;
-    let active = true;
     setLoading(true);
-    surveillanceService
-      .getReport(id)
-      .then(async (rep) => {
-        if (!active) return;
-        setReport(rep);
-        try {
-          const req = await surveillanceService.getRequest(rep.requestId);
-          if (active) {
-            setLinkedRequest(req);
-          }
-        } catch {
-          // The linked request is only used for fallback display fields -
-          // the report itself still renders fine without it.
-        }
-      })
-      .catch((error) => {
-        console.error("Error loading surveillance report:", error);
-        toast.error("Failed to load the surveillance report");
-      })
-      .finally(() => active && setLoading(false));
-    return () => {
-      active = false;
-    };
+    const rep = getStaticReportById(id);
+    if (rep) {
+      setReport(rep);
+      setRatingScore(rep.managerRating || 0);
+      setLinkedRequest(getStaticRequestById(rep.requestId));
+    } else {
+      setReport(null);
+      setLinkedRequest(null);
+    }
+    setLoading(false);
   }, [id]);
+
+  const isReportFinalized =
+    report?.status === "Approved" || report?.status === "Rejected";
+
+  const showManagerReviewSection =
+    Boolean(report) &&
+    (canReviewReport || isReportFinalized || Boolean(report?.managerRating));
+
+  const handleApproveReport = () => {
+    if (!report) return;
+    if (ratingScore <= 0) {
+      toast.error("Please select a star rating for the submitter before approving.");
+      return;
+    }
+
+    setSubmittingReview(true);
+    try {
+      const updated = reviewStaticReport(report.id, {
+        action: "approve",
+        rating: ratingScore,
+        reviewedBy: user?.fullName || "System Admin",
+      });
+      setReport(updated);
+      setLinkedRequest(getStaticRequestById(updated.requestId));
+      toast.success("Surveillance audit report approved successfully.");
+    } catch (error) {
+      toast.error(`Failed to approve report: ${(error as Error).message}`);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const handleOpenDeclineModal = () => {
+    setDeclineReason("");
+    setDeclineModalOpen(true);
+  };
+
+  const handleConfirmDecline = () => {
+    if (!report) return;
+    if (!declineReason.trim()) {
+      toast.error("Please provide a reason for declining the report.");
+      return;
+    }
+
+    setSubmittingReview(true);
+    try {
+      const updated = reviewStaticReport(report.id, {
+        action: "reject",
+        comments: declineReason.trim(),
+        rating: ratingScore > 0 ? ratingScore : undefined,
+        reviewedBy: user?.fullName || "System Admin",
+      });
+      setReport(updated);
+      setLinkedRequest(getStaticRequestById(updated.requestId));
+      setDeclineModalOpen(false);
+      toast.success("Surveillance audit report has been declined.");
+    } catch (error) {
+      toast.error(`Failed to decline report: ${(error as Error).message}`);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   // Row attachment viewer modal state
   const [selectedRowAttachments, setSelectedRowAttachments] = useState<{
@@ -391,7 +535,7 @@ export default function SurveillanceReportDetailPage() {
             const detailProp = `${key}Details` as keyof SurveillanceAuditRow;
             const repDetail = report[detailProp as keyof SurveillanceReport];
             if (merged[detailProp] === undefined && typeof repDetail === "string") {
-              (merged as Record<string, unknown>)[detailProp] = repDetail;
+              (merged as unknown as Record<string, unknown>)[detailProp] = repDetail;
             }
           }
         }
@@ -573,14 +717,14 @@ export default function SurveillanceReportDetailPage() {
 
   return (
     <div className="space-y-6 pb-12 animate-fade-in">
-      {/* Top Header (Clean Title without sub-tags) */}
+      {/* Top Header */}
       <div className="flex flex-col gap-4 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
             size="sm"
             onClick={() => navigate(-1)}
-            className="h-9 gap-1.5 px-3 text-xs font-medium"
+            className="h-9 gap-1.5 rounded-xl px-3.5 text-xs font-medium"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             Back
@@ -595,7 +739,7 @@ export default function SurveillanceReportDetailPage() {
             variant="outline"
             size="sm"
             onClick={handleExportCsv}
-            className="h-9 gap-1.5 px-3.5 text-xs font-medium"
+            className="h-9 gap-1.5 rounded-xl px-3.5 text-xs font-medium"
           >
             <Download className="h-3.5 w-3.5" /> Export CSV
           </Button>
@@ -610,6 +754,179 @@ export default function SurveillanceReportDetailPage() {
         pageSize={25}
         searchPlaceholder="Search audit records..."
       />
+
+      {/* Manager Review & Submitter Rating Section */}
+      {showManagerReviewSection && (
+        <Card className="p-6 rounded-2xl border-border/80 shadow-xs space-y-5">
+          <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h2 className="font-display text-base font-bold text-foreground">
+                  Manager Review &amp; Submitter Rating
+                </h2>
+                {report.status === "Approved" && (
+                  <Badge
+                    variant="outline"
+                    className="border-emerald-300 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 text-xs font-semibold gap-1"
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Approved
+                  </Badge>
+                )}
+                {report.status === "Rejected" && (
+                  <Badge
+                    variant="outline"
+                    className="border-rose-300 bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 text-xs font-semibold gap-1"
+                  >
+                    <XCircle className="h-3.5 w-3.5" />
+                    Declined
+                  </Badge>
+                )}
+                {report.status === "Report Received" && (
+                  <Badge
+                    variant="outline"
+                    className="border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 text-xs font-semibold"
+                  >
+                    Pending Review
+                  </Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Submitted by{" "}
+                <strong className="font-semibold text-foreground">
+                  {report.investigatorName}
+                </strong>
+                {report.investigatorRole ? ` (${report.investigatorRole})` : ""} on{" "}
+                {formatReviewDateTime(report.submittedAt)}
+              </p>
+            </div>
+
+            {isReportFinalized && (
+              <div className="inline-flex items-center gap-1.5 rounded-lg border bg-muted/40 px-3 py-1.5 text-xs font-medium text-muted-foreground">
+                <Lock className="h-3.5 w-3.5 shrink-0" />
+                Review Finalized
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-foreground">
+                Submitter Performance Rating {!isReportFinalized && canReviewReport ? "*" : ""}
+              </Label>
+              <StarRating
+                value={isReportFinalized ? report.managerRating || 0 : ratingScore}
+                onChange={setRatingScore}
+                readOnly={isReportFinalized || !canReviewReport}
+              />
+              {!isReportFinalized && canReviewReport && (
+                <p className="text-[11px] text-muted-foreground">
+                  Rate the accuracy and completeness of the submitted surveillance audit report.
+                </p>
+              )}
+            </div>
+
+            {!isReportFinalized && canReviewReport && (
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleOpenDeclineModal}
+                  disabled={submittingReview}
+                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-900/60 dark:text-rose-400"
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Decline Report
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleApproveReport}
+                  disabled={submittingReview}
+                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  Approve Report
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {isReportFinalized && (
+            <div
+              className={`rounded-xl border p-4 text-xs space-y-2 ${
+                report.status === "Approved"
+                  ? "border-emerald-200/80 bg-emerald-50/50 dark:border-emerald-900/50 dark:bg-emerald-950/20"
+                  : "border-rose-200/80 bg-rose-50/50 dark:border-rose-900/50 dark:bg-rose-950/20"
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-semibold text-foreground">
+                  {report.status === "Approved"
+                    ? `Approved by ${report.reviewedBy || "Manager"}`
+                    : `Declined by ${report.reviewedBy || "Manager"}`}
+                </span>
+                {report.reviewedAt && (
+                  <span className="text-muted-foreground tabular-nums">
+                    {formatReviewDateTime(report.reviewedAt)}
+                  </span>
+                )}
+              </div>
+              {report.managerComments && (
+                <p className="text-foreground leading-relaxed whitespace-pre-wrap pt-1 border-t border-border/50">
+                  {report.managerComments}
+                </p>
+              )}
+            </div>
+          )}
+        </Card>
+      )}
+
+      {/* Decline Surveillance Report Modal */}
+      <Dialog open={declineModalOpen} onOpenChange={setDeclineModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Decline Surveillance Report</DialogTitle>
+            <DialogDescription>
+              Provide a clear reason explaining why this surveillance audit report is being declined.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 py-2">
+            <Label htmlFor="decline-report-reason" className="text-xs font-semibold">
+              Decline Reason <span className="text-rose-600">*</span>
+            </Label>
+            <Textarea
+              id="decline-report-reason"
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              placeholder="Explain missing timestamps, unclear camera angles, or discrepancies requiring correction..."
+              rows={4}
+              className="text-xs resize-none"
+            />
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeclineModalOpen(false)}
+              disabled={submittingReview}
+              className="text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleConfirmDecline}
+              disabled={submittingReview}
+              className="text-xs font-semibold"
+            >
+              {submittingReview ? "Declining..." : "Confirm Decline"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Row Attachments Viewer Dialog */}
       <Dialog
