@@ -35,42 +35,6 @@ const AVAILABILITY_STATUS_TONES: Record<AgentAvailabilityStatus, string> = {
   Occupied: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
 };
 
-function getInitials(name?: string): string {
-  if (!name) return "—";
-  const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "—";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
-
-function formatDisplayDate(isoDate: string): string {
-  if (!isoDate) return "—";
-  const parts = isoDate.split("-");
-  if (parts.length === 3) {
-    const year = Number(parts[0]);
-    const monthIdx = Number(parts[1]) - 1;
-    const day = Number(parts[2]);
-    const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-    if (!Number.isNaN(year) && months[monthIdx] && !Number.isNaN(day)) {
-      return `${String(day).padStart(2, "0")} ${months[monthIdx]}, ${year}`;
-    }
-  }
-  return isoDate;
-}
-
 export default function SurveillanceAgentsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -146,30 +110,21 @@ export default function SurveillanceAgentsPage() {
   const columns: Column<EnrichedSurveillanceAgent>[] = useMemo(
     () => [
       {
-        key: "agent",
-        header: "Agent",
-        searchValue: (a) => `${a.fullName} ${a.email}`,
+        key: "agentName",
+        header: "Agent Name",
+        searchValue: (a) => a.fullName,
         accessor: (a) => (
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200 text-xs font-semibold shrink-0">
-              {getInitials(a.fullName)}
-            </div>
-            <div className="min-w-0">
-              <div className="font-medium text-sm text-foreground truncate">{a.fullName}</div>
-              <div className="text-xs text-muted-foreground truncate">{a.email}</div>
-            </div>
-          </div>
+          <span className="font-medium text-sm text-foreground whitespace-nowrap">
+            {a.fullName}
+          </span>
         ),
       },
       {
-        key: "role",
-        header: "Role & Department",
-        searchValue: (a) => `${a.role} ${a.department}`,
+        key: "email",
+        header: "Email",
+        searchValue: (a) => a.email,
         accessor: (a) => (
-          <div className="min-w-0">
-            <div className="text-sm font-medium text-foreground">{a.role}</div>
-            <div className="text-xs text-muted-foreground">{a.department}</div>
-          </div>
+          <span className="text-sm text-foreground whitespace-nowrap">{a.email}</span>
         ),
       },
       {
@@ -182,7 +137,7 @@ export default function SurveillanceAgentsPage() {
       },
       {
         key: "status",
-        header: "Availability Status",
+        header: "Status",
         searchValue: (a) => a.availabilityStatus,
         accessor: (a) => (
           <Badge
@@ -192,37 +147,6 @@ export default function SurveillanceAgentsPage() {
             {a.availabilityStatus}
           </Badge>
         ),
-      },
-      {
-        key: "assignments",
-        header: "Active Assigned Reports",
-        searchValue: (a) =>
-          a.assignedRequests.length > 0
-            ? a.assignedRequests.map((r) => `${r.id} ${r.storeName} ${r.marketName}`).join(" ")
-            : "None Available",
-        accessor: (a) => {
-          if (a.assignedRequests.length === 0) {
-            return <span className="text-sm text-muted-foreground">—</span>;
-          }
-
-          return (
-            <div className="space-y-1">
-              <div className="text-xs font-semibold text-foreground tabular-nums">
-                {a.assignedRequests.length}{" "}
-                {a.assignedRequests.length === 1 ? "report assigned" : "reports assigned"}
-              </div>
-              <div className="space-y-0.5">
-                {a.assignedRequests.map((req) => (
-                  <div key={req.id} className="text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground/90">{req.storeName}</span>
-                    <span aria-hidden="true"> · </span>
-                    <span className="tabular-nums">{formatDisplayDate(req.surveillanceDate)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        },
       },
     ],
     [],
@@ -359,7 +283,7 @@ export default function SurveillanceAgentsPage() {
         rows={filteredAgents}
         columns={columns}
         rowKey={(a) => a.id}
-        searchPlaceholder="Search by Agent Name, Email, Role, Department, Status, or Store..."
+        searchPlaceholder="Search by Agent Name, Email, Phone, or Status..."
       />
     </div>
   );

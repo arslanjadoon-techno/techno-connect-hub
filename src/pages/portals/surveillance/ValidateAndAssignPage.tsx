@@ -237,18 +237,6 @@ export default function ValidateAndAssignPage() {
     };
   }, [requests]);
 
-  const agentMetrics = useMemo(() => {
-    const availableAgents = agents.filter((a) => a.activeAssignments === 0);
-    const assignedAgents = agents.filter((a) => a.activeAssignments > 0);
-    return {
-      total: agents.length,
-      available: availableAgents.length,
-      assigned: assignedAgents.length,
-      availableAgents,
-      assignedAgents,
-    };
-  }, [agents]);
-
   const filteredRequests = useMemo(() => {
     return requests.filter((r) => {
       if (statusFilter !== "all" && r.validationStatus !== statusFilter) {
@@ -975,15 +963,26 @@ export default function ValidateAndAssignPage() {
         /* MAIN QUEUE LIST VIEW */
         <>
           {/* Header */}
-          <div className="border-b pb-4">
-            <h1 className="font-display text-2xl font-semibold tracking-tight">
-              Validate and Assign
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              Review incoming surveillance requests, assign valid requests to agents for report
-              preparation, and review returned reports to complete or reject them. Click any row to
-              view details.
-            </p>
+          <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h1 className="font-display text-2xl font-semibold tracking-tight">
+                Validate and Assign
+              </h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Review incoming surveillance requests, assign valid requests to agents for report
+                preparation, and review returned reports to complete or reject them.
+              </p>
+            </div>
+
+            <div className="flex items-center shrink-0">
+              <Button
+                onClick={() => navigate("/surveillance/validate-and-assign/agents")}
+                className="gap-2 shadow-xs"
+              >
+                <Users className="h-4 w-4" />
+                View Agents
+              </Button>
+            </div>
           </div>
 
           {/* 6 KPI Summary Cards (Clickable to filter by status) */}
@@ -1101,67 +1100,6 @@ export default function ValidateAndAssignPage() {
               </div>
               <div className="mt-1 text-2xl font-bold font-display text-emerald-950 dark:text-emerald-100 tabular-nums">
                 {metrics.completed}
-              </div>
-            </Card>
-          </div>
-
-          {/* Agent Workforce & Availability Overview */}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {/* Total Agents Card */}
-            <Card className="p-4 border-slate-200 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-900/30">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                    Total Agents
-                  </div>
-                  <div className="mt-1 text-2xl font-bold font-display text-slate-950 dark:text-slate-100 tabular-nums">
-                    {agentMetrics.total}
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                    <span>{agentMetrics.available} available</span>
-                    <span aria-hidden="true">·</span>
-                    <span>{agentMetrics.assigned} occupied</span>
-                  </div>
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate("/surveillance/validate-and-assign/agents")}
-                  className="h-8 gap-1.5 px-3 text-xs font-medium bg-background shrink-0"
-                >
-                  <Users className="h-3.5 w-3.5" />
-                  View Agents
-                </Button>
-              </div>
-            </Card>
-
-            {/* Available Agents Card */}
-            <Card className="p-4 border-teal-200/90 bg-teal-50/50 dark:border-teal-900/50 dark:bg-teal-950/20">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="text-xs font-medium text-teal-800 dark:text-teal-300">
-                    Available Agents
-                  </div>
-                  <div className="mt-1 text-2xl font-bold font-display text-teal-950 dark:text-teal-100 tabular-nums">
-                    {agentMetrics.available}
-                  </div>
-                  <div className="mt-1 text-xs text-teal-900/80 dark:text-teal-200/80 leading-relaxed">
-                    {agentMetrics.availableAgents.length > 0
-                      ? "No reports currently assigned — ready for assignment"
-                      : "All surveillance agents currently have active reports assigned."}
-                  </div>
-                </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate("/surveillance/validate-and-assign/agents")}
-                  className="h-8 gap-1.5 px-3 text-xs font-medium bg-background shrink-0"
-                >
-                  <Users className="h-3.5 w-3.5" />
-                  View Agents
-                </Button>
               </div>
             </Card>
           </div>
