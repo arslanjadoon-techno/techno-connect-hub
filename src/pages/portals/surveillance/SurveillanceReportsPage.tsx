@@ -1693,7 +1693,7 @@ export default function SurveillanceReportsPage() {
               className="h-8 gap-1.5 px-2.5 text-xs font-medium"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Back to Report Details
+              Back to Surveillance Report Detail
             </Button>
             <div>
               <h1 className="font-display text-xl font-bold tracking-tight text-foreground">
@@ -2467,7 +2467,7 @@ export default function SurveillanceReportsPage() {
                 Surveillance Reports
               </p>
               <h1 className="font-display text-2xl font-bold tracking-tight text-foreground leading-tight">
-                Report Details
+                Surveillance Report Detail
               </h1>
             </div>
           </div>

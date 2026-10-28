@@ -922,7 +922,7 @@ export default function ValidateAndAssignPage() {
                   <span>
                     Pending verification — surveillance report received from{" "}
                     <strong>{selectedDetail.assignedAgentName || "Assigned Agent"}</strong>. Click{" "}
-                    <strong>Review Report</strong> above to rate and complete or reject.
+                    <strong>Review Report</strong> above to mark as completed or decline.
                   </span>
                 </div>
               ) : selectedDetail.validationStatus === "Assigned" ? (
