@@ -32,10 +32,10 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { FilterReset } from "@/components/filter-reset";
 import {
   Plus,
   Store as StoreIcon,
-  RotateCcw,
   ArrowLeft,
   User as UserIcon,
   ShieldCheck,
@@ -946,21 +946,14 @@ export default function ReportRequestsPage() {
           </SelectContent>
         </Select>
 
-        {(statusFilter !== "all" || priorityFilter !== "all" || marketFilter !== "all") && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setMarketFilter("all");
-              setStatusFilter("all");
-              setPriorityFilter("all");
-            }}
-            className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground gap-1 border border-dashed"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Reset Filters
-          </Button>
-        )}
+        <FilterReset
+          active={statusFilter !== "all" || priorityFilter !== "all" || marketFilter !== "all"}
+          onReset={() => {
+            setMarketFilter("all");
+            setStatusFilter("all");
+            setPriorityFilter("all");
+          }}
+        />
       </div>
 
       {/* Clickable DataTable */}

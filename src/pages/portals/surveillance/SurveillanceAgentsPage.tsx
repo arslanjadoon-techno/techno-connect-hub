@@ -57,7 +57,6 @@ export default function SurveillanceAgentsPage() {
     getStaticValidationQueue(),
   );
   const [statusFilter, setStatusFilter] = useState<string>(initialStatusFilter);
-  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
 
   const loadData = useCallback(() => {
     setRawAgents(getStaticAssignableAgents());
@@ -92,20 +91,14 @@ export default function SurveillanceAgentsPage() {
     return { total, available, occupied };
   }, [enrichedAgents]);
 
-  const departments = useMemo(
-    () => Array.from(new Set(enrichedAgents.map((a) => a.department))).sort(),
-    [enrichedAgents],
-  );
-
   const filteredAgents = useMemo(() => {
     return enrichedAgents.filter((agent) => {
       if (statusFilter !== "all" && agent.availabilityStatus !== statusFilter) return false;
-      if (departmentFilter !== "all" && agent.department !== departmentFilter) return false;
       return true;
     });
-  }, [enrichedAgents, statusFilter, departmentFilter]);
+  }, [enrichedAgents, statusFilter]);
 
-  const hasActiveFilters = statusFilter !== "all" || departmentFilter !== "all";
+  const hasActiveFilters = statusFilter !== "all";
 
   const columns: Column<EnrichedSurveillanceAgent>[] = useMemo(
     () => [
@@ -255,25 +248,10 @@ export default function SurveillanceAgentsPage() {
           </SelectContent>
         </Select>
 
-        <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-          <SelectTrigger className="h-9 w-[230px]">
-            <SelectValue placeholder="Department" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Departments</SelectItem>
-            {departments.map((dept) => (
-              <SelectItem key={dept} value={dept}>
-                {dept}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
         <FilterReset
           active={hasActiveFilters}
           onReset={() => {
             setStatusFilter("all");
-            setDepartmentFilter("all");
           }}
         />
       </div>
