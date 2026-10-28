@@ -72,6 +72,7 @@ import ApproveLeavePage from "@/pages/portals/leave-management/ApproveLeave";
 // ---------- Surveillance Portal ---------- //
 import ReportRequestsPage from "@/pages/portals/surveillance/ReportRequestsPage";
 import ValidateAndAssignPage from "@/pages/portals/surveillance/ValidateAndAssignPage";
+import SurveillanceAgentsPage from "@/pages/portals/surveillance/SurveillanceAgentsPage";
 import SurveillanceReportsPage from "@/pages/portals/surveillance/SurveillanceReportsPage";
 import SurveillanceReportDetailPage from "@/pages/portals/surveillance/SurveillanceReportDetailPage";
 import SurveillanceNoAccessPage from "@/pages/portals/surveillance/SurveillanceNoAccessPage";
@@ -265,7 +266,8 @@ function PortalRouteGuard({ portalKey, children }: { portalKey: string; children
             (target === "scheduling" &&
               (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
             (target === "ticketing" && pNorm.includes("ticket")) ||
-            (target === "surveillance" && (pNorm.includes("surveil") || pNorm === "surveillance")) ||
+            (target === "surveillance" &&
+              (pNorm.includes("surveil") || pNorm === "surveillance")) ||
             (target === "leasing" && pNorm.includes("leas")) ||
             (target === "commission" && pNorm.includes("commiss")) ||
             (target === "ranker" && pNorm.includes("rank")) ||
@@ -280,7 +282,8 @@ function PortalRouteGuard({ portalKey, children }: { portalKey: string; children
             (target === "scheduling" &&
               (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
             (target === "ticketing" && pNorm.includes("ticket")) ||
-            (target === "surveillance" && (pNorm.includes("surveil") || pNorm === "surveillance")) ||
+            (target === "surveillance" &&
+              (pNorm.includes("surveil") || pNorm === "surveillance")) ||
             (target === "leasing" && pNorm.includes("leas")) ||
             (target === "commission" && pNorm.includes("commiss")) ||
             (target === "ranker" && pNorm.includes("rank")) ||
@@ -357,7 +360,6 @@ export function AppRoutes() {
         <Route path="/chat/*" element={<ChatSystem />} />
         <Route path="/settings" element={<SettingsPage />} />
 
-
         {/* ---------- Ticketing Portal ---------- */}
         <Route path="/ticketing/dashboard" element={<TicketingDashboardPage />} />
         <Route
@@ -392,7 +394,6 @@ export function AppRoutes() {
             </PortalRouteGuard>
           }
         />
-
 
         {/* ---------- Commission Portal ---------- */}
         <Route
@@ -457,7 +458,6 @@ export function AppRoutes() {
           <Route path="/ranker/rules" element={<RulesPage />} />
           <Route path="/ranker/criteria-details" element={<CriteriaDetailsPage />} />
         </Route>
-
 
         {/* ---------- Leasing Portal ---------- */}
         <Route
@@ -743,6 +743,16 @@ export function AppRoutes() {
             <PortalRouteGuard portalKey="surveillance">
               <SurveillanceValidateOnly>
                 <ValidateAndAssignPage />
+              </SurveillanceValidateOnly>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/surveillance/validate-and-assign/agents"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceValidateOnly>
+                <SurveillanceAgentsPage />
               </SurveillanceValidateOnly>
             </PortalRouteGuard>
           }

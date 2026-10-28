@@ -1,0 +1,366 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
+import { DataTable, type Column } from "@/components/data-table";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { FilterReset } from "@/components/filter-reset";
+import { ArrowLeft } from "lucide-react";
+import { getStaticAssignableAgents, getStaticValidationQueue } from "./surveillance-data";
+import {
+  canValidateSurveillance,
+  getSurveillanceDefaultRoute,
+  getSurveillanceRole,
+  type SurveillanceAssignableAgent,
+  type SurveillanceValidationItem,
+} from "@/services/portals/surveillance/types";
+
+type AgentAvailabilityStatus = "Available" | "Occupied";
+
+interface EnrichedSurveillanceAgent extends SurveillanceAssignableAgent {
+  availabilityStatus: AgentAvailabilityStatus;
+  assignedRequests: SurveillanceValidationItem[];
+}
+
+const AVAILABILITY_STATUS_TONES: Record<AgentAvailabilityStatus, string> = {
+  Available: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400",
+  Occupied: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
+};
+
+function getInitials(name?: string): string {
+  if (!name) return "—";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "—";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function formatDisplayDate(isoDate: string): string {
+  if (!isoDate) return "—";
+  const parts = isoDate.split("-");
+  if (parts.length === 3) {
+    const year = Number(parts[0]);
+    const monthIdx = Number(parts[1]) - 1;
+    const day = Number(parts[2]);
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    if (!Number.isNaN(year) && months[monthIdx] && !Number.isNaN(day)) {
+      return `${String(day).padStart(2, "0")} ${months[monthIdx]}, ${year}`;
+    }
+  }
+  return isoDate;
+}
+
+export default function SurveillanceAgentsPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const role = getSurveillanceRole(user);
+  const canAccessValidatePage = canValidateSurveillance(role);
+
+  const initialStatusParam = searchParams.get("status")?.toLowerCase();
+  const initialStatusFilter =
+    initialStatusParam === "available"
+      ? "Available"
+      : initialStatusParam === "occupied"
+        ? "Occupied"
+        : "all";
+
+  const [rawAgents, setRawAgents] = useState<SurveillanceAssignableAgent[]>(() =>
+    getStaticAssignableAgents(),
+  );
+  const [validationQueue, setValidationQueue] = useState<SurveillanceValidationItem[]>(() =>
+    getStaticValidationQueue(),
+  );
+  const [statusFilter, setStatusFilter] = useState<string>(initialStatusFilter);
+  const [departmentFilter, setDepartmentFilter] = useState<string>("all");
+
+  const loadData = useCallback(() => {
+    setRawAgents(getStaticAssignableAgents());
+    setValidationQueue(getStaticValidationQueue());
+  }, []);
+
+  useEffect(() => {
+    if (canAccessValidatePage) {
+      loadData();
+    }
+  }, [canAccessValidatePage, loadData]);
+
+  const enrichedAgents = useMemo<EnrichedSurveillanceAgent[]>(() => {
+    return rawAgents.map((agent) => {
+      const assignedRequests = validationQueue.filter(
+        (item) => item.assignedAgentId === agent.id && item.validationStatus === "Assigned",
+      );
+      const activeCount = assignedRequests.length;
+      return {
+        ...agent,
+        activeAssignments: activeCount,
+        availabilityStatus: activeCount === 0 ? "Available" : "Occupied",
+        assignedRequests,
+      };
+    });
+  }, [rawAgents, validationQueue]);
+
+  const metrics = useMemo(() => {
+    const total = enrichedAgents.length;
+    const available = enrichedAgents.filter((a) => a.availabilityStatus === "Available").length;
+    const occupied = total - available;
+    return { total, available, occupied };
+  }, [enrichedAgents]);
+
+  const departments = useMemo(
+    () => Array.from(new Set(enrichedAgents.map((a) => a.department))).sort(),
+    [enrichedAgents],
+  );
+
+  const filteredAgents = useMemo(() => {
+    return enrichedAgents.filter((agent) => {
+      if (statusFilter !== "all" && agent.availabilityStatus !== statusFilter) return false;
+      if (departmentFilter !== "all" && agent.department !== departmentFilter) return false;
+      return true;
+    });
+  }, [enrichedAgents, statusFilter, departmentFilter]);
+
+  const hasActiveFilters = statusFilter !== "all" || departmentFilter !== "all";
+
+  const columns: Column<EnrichedSurveillanceAgent>[] = useMemo(
+    () => [
+      {
+        key: "agent",
+        header: "Agent",
+        searchValue: (a) => `${a.fullName} ${a.email}`,
+        accessor: (a) => (
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200 text-xs font-semibold shrink-0">
+              {getInitials(a.fullName)}
+            </div>
+            <div className="min-w-0">
+              <div className="font-medium text-sm text-foreground truncate">{a.fullName}</div>
+              <div className="text-xs text-muted-foreground truncate">{a.email}</div>
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "role",
+        header: "Role & Department",
+        searchValue: (a) => `${a.role} ${a.department}`,
+        accessor: (a) => (
+          <div className="min-w-0">
+            <div className="text-sm font-medium text-foreground">{a.role}</div>
+            <div className="text-xs text-muted-foreground">{a.department}</div>
+          </div>
+        ),
+      },
+      {
+        key: "phone",
+        header: "Phone",
+        searchValue: (a) => a.phone,
+        accessor: (a) => (
+          <span className="text-sm text-foreground tabular-nums whitespace-nowrap">{a.phone}</span>
+        ),
+      },
+      {
+        key: "status",
+        header: "Availability Status",
+        searchValue: (a) => a.availabilityStatus,
+        accessor: (a) => (
+          <Badge
+            variant="outline"
+            className={`text-xs font-semibold whitespace-nowrap ${AVAILABILITY_STATUS_TONES[a.availabilityStatus]}`}
+          >
+            {a.availabilityStatus}
+          </Badge>
+        ),
+      },
+      {
+        key: "assignments",
+        header: "Active Assigned Reports",
+        searchValue: (a) =>
+          a.assignedRequests.length > 0
+            ? a.assignedRequests.map((r) => `${r.id} ${r.storeName} ${r.marketName}`).join(" ")
+            : "None Available",
+        accessor: (a) => {
+          if (a.assignedRequests.length === 0) {
+            return <span className="text-sm text-muted-foreground">—</span>;
+          }
+
+          return (
+            <div className="space-y-1">
+              <div className="text-xs font-semibold text-foreground tabular-nums">
+                {a.assignedRequests.length}{" "}
+                {a.assignedRequests.length === 1 ? "report assigned" : "reports assigned"}
+              </div>
+              <div className="space-y-0.5">
+                {a.assignedRequests.map((req) => (
+                  <div key={req.id} className="text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground/90">{req.storeName}</span>
+                    <span aria-hidden="true"> · </span>
+                    <span className="tabular-nums">{formatDisplayDate(req.surveillanceDate)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        },
+      },
+    ],
+    [],
+  );
+
+  if (!canAccessValidatePage) {
+    return <Navigate to={getSurveillanceDefaultRoute(user)} replace />;
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      {/* Header with Back Navigation */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b pb-4">
+        <div className="flex flex-wrap items-center gap-3.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/surveillance/validate-and-assign")}
+            className="h-9 gap-1.5 rounded-xl px-3.5 text-xs font-medium bg-background shadow-xs whitespace-nowrap shrink-0"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back to Validate & Assign
+          </Button>
+          <div>
+            <p className="text-[11px] font-medium text-muted-foreground leading-tight">
+              Validate and Assign
+            </p>
+            <h1 className="font-display text-2xl font-bold tracking-tight text-foreground leading-tight">
+              Surveillance Agents
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Review agent availability to see which surveillance agents are currently available for
+              new assignments and which agents are occupied with active reports.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 3 Clickable KPI Summary Cards */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {/* 1. Total Agents */}
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setStatusFilter("all")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setStatusFilter("all");
+          }}
+          className={`p-4 cursor-pointer transition-all border-blue-200 bg-blue-50/50 hover:bg-blue-50/80 dark:bg-blue-950/20 dark:border-blue-900/50 ${
+            statusFilter === "all" ? "ring-2 ring-blue-500/70 shadow-xs" : ""
+          }`}
+        >
+          <div className="text-xs text-blue-800 dark:text-blue-300 font-medium">Total Agents</div>
+          <div className="mt-1 text-2xl font-bold font-display text-blue-950 dark:text-blue-100 tabular-nums">
+            {metrics.total}
+          </div>
+        </Card>
+
+        {/* 2. Available Agents */}
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setStatusFilter("Available")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setStatusFilter("Available");
+          }}
+          className={`p-4 cursor-pointer transition-all border-teal-200/90 bg-teal-50/50 hover:bg-teal-50/80 dark:bg-teal-950/20 dark:border-teal-900/50 ${
+            statusFilter === "Available" ? "ring-2 ring-teal-500/70 shadow-xs" : ""
+          }`}
+        >
+          <div className="text-xs text-teal-800 dark:text-teal-300 font-medium">Available</div>
+          <div className="mt-1 text-2xl font-bold font-display text-teal-950 dark:text-teal-100 tabular-nums">
+            {metrics.available}
+          </div>
+        </Card>
+
+        {/* 3. Occupied Agents */}
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setStatusFilter("Occupied")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setStatusFilter("Occupied");
+          }}
+          className={`p-4 cursor-pointer transition-all border-amber-300/80 bg-amber-50/50 hover:bg-amber-50/80 dark:bg-amber-950/20 dark:border-amber-900/50 ${
+            statusFilter === "Occupied" ? "ring-2 ring-amber-500/70 shadow-xs" : ""
+          }`}
+        >
+          <div className="text-xs text-amber-800 dark:text-amber-300 font-medium">Occupied</div>
+          <div className="mt-1 text-2xl font-bold font-display text-amber-950 dark:text-amber-100 tabular-nums">
+            {metrics.occupied}
+          </div>
+        </Card>
+      </div>
+
+      {/* Filter Toolbar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="h-9 w-[180px]">
+            <SelectValue placeholder="Availability Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="Available">Available</SelectItem>
+            <SelectItem value="Occupied">Occupied</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+          <SelectTrigger className="h-9 w-[230px]">
+            <SelectValue placeholder="Department" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Departments</SelectItem>
+            {departments.map((dept) => (
+              <SelectItem key={dept} value={dept}>
+                {dept}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <FilterReset
+          active={hasActiveFilters}
+          onReset={() => {
+            setStatusFilter("all");
+            setDepartmentFilter("all");
+          }}
+        />
+      </div>
+
+      {/* Agents Directory & Availability DataTable */}
+      <DataTable
+        rows={filteredAgents}
+        columns={columns}
+        rowKey={(a) => a.id}
+        searchPlaceholder="Search by Agent Name, Email, Role, Department, Status, or Store..."
+      />
+    </div>
+  );
+}

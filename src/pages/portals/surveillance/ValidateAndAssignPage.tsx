@@ -1120,88 +1120,48 @@ export default function ValidateAndAssignPage() {
                   <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                     <span>{agentMetrics.available} available</span>
                     <span aria-hidden="true">·</span>
-                    <span>{agentMetrics.assigned} with active reports assigned</span>
+                    <span>{agentMetrics.assigned} occupied</span>
                   </div>
                 </div>
 
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1.5 px-3 text-xs font-medium bg-background shrink-0"
-                    >
-                      <Users className="h-3.5 w-3.5" />
-                      View Agents
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80 p-3" align="end">
-                    <div className="space-y-2.5">
-                      <div className="border-b pb-2">
-                        <div className="text-xs font-semibold text-foreground">
-                          Surveillance Agent Availability
-                        </div>
-                        <div className="text-[11px] text-muted-foreground mt-0.5">
-                          {agentMetrics.available} of {agentMetrics.total} agents have no active
-                          reports assigned
-                        </div>
-                      </div>
-                      <div className="max-h-60 overflow-y-auto divide-y divide-border/60">
-                        {agents.map((agent) => {
-                          const isAvailable = agent.activeAssignments === 0;
-                          return (
-                            <div
-                              key={agent.id}
-                              className="flex items-center justify-between gap-2 py-2 first:pt-0 last:pb-0"
-                            >
-                              <div className="min-w-0">
-                                <div className="text-xs font-medium text-foreground truncate">
-                                  {agent.fullName}
-                                </div>
-                                <div className="text-[11px] text-muted-foreground truncate">
-                                  {agent.email}
-                                </div>
-                              </div>
-                              <span
-                                className={`text-[11px] font-semibold whitespace-nowrap tabular-nums shrink-0 ${
-                                  isAvailable
-                                    ? "text-teal-700 dark:text-teal-400"
-                                    : "text-sky-700 dark:text-sky-400"
-                                }`}
-                              >
-                                {isAvailable
-                                  ? "Available"
-                                  : `${agent.activeAssignments} ${
-                                      agent.activeAssignments === 1 ? "report" : "reports"
-                                    } assigned`}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/surveillance/validate-and-assign/agents")}
+                  className="h-8 gap-1.5 px-3 text-xs font-medium bg-background shrink-0"
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  View Agents
+                </Button>
               </div>
             </Card>
 
             {/* Available Agents Card */}
             <Card className="p-4 border-teal-200/90 bg-teal-50/50 dark:border-teal-900/50 dark:bg-teal-950/20">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <div className="text-xs font-medium text-teal-800 dark:text-teal-300">
-                  Available Agents
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-medium text-teal-800 dark:text-teal-300">
+                    Available Agents
+                  </div>
+                  <div className="mt-1 text-2xl font-bold font-display text-teal-950 dark:text-teal-100 tabular-nums">
+                    {agentMetrics.available}
+                  </div>
+                  <div className="mt-1 text-xs text-teal-900/80 dark:text-teal-200/80 leading-relaxed">
+                    {agentMetrics.availableAgents.length > 0
+                      ? "No reports currently assigned — ready for assignment"
+                      : "All surveillance agents currently have active reports assigned."}
+                  </div>
                 </div>
-                <span className="text-[11px] text-teal-700/80 dark:text-teal-300/80">
-                  No reports currently assigned — ready for assignment
-                </span>
-              </div>
-              <div className="mt-1 text-2xl font-bold font-display text-teal-950 dark:text-teal-100 tabular-nums">
-                {agentMetrics.available}
-              </div>
-              <div className="mt-1 text-xs text-teal-900/80 dark:text-teal-200/80 leading-relaxed">
-                {agentMetrics.availableAgents.length > 0
-                  ? agentMetrics.availableAgents.map((a) => a.fullName).join(" · ")
-                  : "All surveillance agents currently have active reports assigned."}
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/surveillance/validate-and-assign/agents")}
+                  className="h-8 gap-1.5 px-3 text-xs font-medium bg-background shrink-0"
+                >
+                  <Users className="h-3.5 w-3.5" />
+                  View Agents
+                </Button>
               </div>
             </Card>
           </div>
