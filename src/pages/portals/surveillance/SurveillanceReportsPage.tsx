@@ -737,6 +737,30 @@ function formatSurveillanceDate(raw?: string): string {
   return str;
 }
 
+export interface RepTimingRow {
+  id: string;
+  repName: string;
+  timeLeft: string;
+  timeReturned: string;
+  backRoomTimeIn: string;
+  backRoomTimeOut: string;
+  offlineTime: string;
+  onlineTime: string;
+}
+
+function createEmptyRepTimingRow(): RepTimingRow {
+  return {
+    id: `rep-timing-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    repName: "",
+    timeLeft: "",
+    timeReturned: "",
+    backRoomTimeIn: "",
+    backRoomTimeOut: "",
+    offlineTime: "",
+    onlineTime: "",
+  };
+}
+
 // All dropdowns (Yes/No/-, Sales Rep, Client Type, Payment Type, Pitch Quality) default to "" ("-")
 function createEmptyAuditRow(
   storeName: string,
@@ -974,6 +998,11 @@ export default function SurveillanceReportsPage() {
     SALES_REP_NAMES[0] || "Abdul Razzak",
   );
 
+  // Standalone Floor Presence & Rep Timings rows
+  const [repTimingRows, setRepTimingRows] = useState<RepTimingRow[]>([
+    createEmptyRepTimingRow(),
+  ]);
+
   const metrics = useMemo(() => {
     return {
       total: requests.length,
@@ -1109,11 +1138,28 @@ export default function SurveillanceReportsPage() {
       setHeaderStoreCloseSalesRep(
         existingReport.nameOfRepLeaving?.trim() || SALES_REP_NAMES[0] || "Abdul Razzak",
       );
+      if (existingReport.nameOfRepLeaving || existingReport.timeLeft) {
+        setRepTimingRows([
+          {
+            id: `rep-timing-${Date.now()}`,
+            repName: existingReport.nameOfRepLeaving?.trim() || "",
+            timeLeft: existingReport.timeLeft || "",
+            timeReturned: existingReport.timeReturned || "",
+            backRoomTimeIn: existingReport.backRoomTimeIn || "",
+            backRoomTimeOut: existingReport.backRoomTimeOut || "",
+            offlineTime: "",
+            onlineTime: "",
+          },
+        ]);
+      } else {
+        setRepTimingRows([createEmptyRepTimingRow()]);
+      }
     } else {
       setHeaderStoreOpenTime("");
       setHeaderSalesRep(SALES_REP_NAMES[0] || "Abdul Razzak");
       setHeaderStoreCloseTime("");
       setHeaderStoreCloseSalesRep(SALES_REP_NAMES[0] || "Abdul Razzak");
+      setRepTimingRows([createEmptyRepTimingRow()]);
     }
 
     if (existingReport && existingReport.rows && existingReport.rows.length > 0) {
@@ -1260,6 +1306,28 @@ export default function SurveillanceReportsPage() {
       delete next[rowId];
       return next;
     });
+  };
+
+  const handleAddRepTimingRow = () => {
+    setRepTimingRows((prev) => [...prev, createEmptyRepTimingRow()]);
+  };
+
+  const handleRemoveRepTimingRow = (id: string) => {
+    if (repTimingRows.length <= 1) {
+      setRepTimingRows([createEmptyRepTimingRow()]);
+      return;
+    }
+    setRepTimingRows((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const handleUpdateRepTimingField = <K extends keyof RepTimingRow>(
+    id: string,
+    field: K,
+    value: RepTimingRow[K],
+  ) => {
+    setRepTimingRows((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)),
+    );
   };
 
   const toggleRowExpanded = (rowId: string) => {
@@ -2203,61 +2271,6 @@ export default function SurveillanceReportsPage() {
                         </div>
                       </div>
 
-                      {/* 4. Floor Presence & Rep Timings */}
-                      <div className="space-y-3 rounded-lg border p-3.5">
-                        <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
-                          <Clock className="h-4 w-4 text-primary" />
-                          4. Floor Presence & Rep Timings
-                        </div>
-
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-                          <div className="space-y-1">
-                            <Label className="text-[11px] font-semibold">Name of Rep Leaving</Label>
-                            <Input
-                              value={row.nameOfRepLeaving}
-                              onChange={(e) =>
-                                handleUpdateRowField(row.id, "nameOfRepLeaving", e.target.value)
-                              }
-                              placeholder="Rep Name"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[11px] font-semibold">Time Left</Label>
-                            <AmPmTimePicker
-                              value={row.timeLeft}
-                              onChange={(val) => handleUpdateRowField(row.id, "timeLeft", val)}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[11px] font-semibold">Time Returned</Label>
-                            <AmPmTimePicker
-                              value={row.timeReturned}
-                              onChange={(val) => handleUpdateRowField(row.id, "timeReturned", val)}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[11px] font-semibold">Back Room Time - In</Label>
-                            <AmPmTimePicker
-                              value={row.backRoomTimeIn}
-                              onChange={(val) => handleUpdateRowField(row.id, "backRoomTimeIn", val)}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[11px] font-semibold">Back Room Time - Out</Label>
-                            <AmPmTimePicker
-                              value={row.backRoomTimeOut}
-                              onChange={(val) => handleUpdateRowField(row.id, "backRoomTimeOut", val)}
-                            />
-                          </div>
-                          <StandardSelect
-                            label="Offline"
-                            options={YES_NO_OPTIONS}
-                            value={row.offline}
-                            onValueChange={(val) => handleUpdateRowField(row.id, "offline", val)}
-                          />
-                        </div>
-                      </div>
-
                       {/* Row-level MMKV Save Footer */}
                       <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
                         <div className="flex items-center gap-1.5 text-xs">
@@ -2301,7 +2314,163 @@ export default function SurveillanceReportsPage() {
           )}
         </div>
 
-        {/* 4. Store Closed Section */}
+        {/* 4. Floor Presence & Rep Timings Section */}
+        <Card className="p-4 border-border/80 shadow-2xs bg-card space-y-4">
+          <div className="flex items-center justify-between border-b pb-2">
+            <div className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
+              <Clock className="h-4 w-4 text-primary" />
+              Floor Presence & Rep Timings
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleAddRepTimingRow}
+              className="h-8 gap-1.5 text-xs font-medium"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Row
+            </Button>
+          </div>
+
+          <div className="space-y-3">
+            {repTimingRows.map((timingRow, tIdx) => (
+              <div
+                key={timingRow.id}
+                className="space-y-3 rounded-lg border bg-muted/10 p-3.5"
+              >
+                <div className="flex items-center justify-between gap-2 border-b pb-2">
+                  <span className="text-[11px] font-semibold text-foreground font-mono">
+                    Timing Row #{tIdx + 1}
+                  </span>
+                  {repTimingRows.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveRepTimingRow(timingRow.id)}
+                      className="h-7 px-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30 text-xs"
+                      title="Remove Row"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+                  {/* Name of Rep Leaving Dropdown */}
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-semibold">
+                      Name of Rep Leaving
+                    </Label>
+                    <Select
+                      value={toSelectVal(timingRow.repName)}
+                      onValueChange={(v) =>
+                        handleUpdateRepTimingField(
+                          timingRow.id,
+                          "repName",
+                          fromSelectVal(v),
+                        )
+                      }
+                    >
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue placeholder="-" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__empty__" className="text-xs">
+                          -
+                        </SelectItem>
+                        {SALES_REP_NAMES.map((rep) => (
+                          <SelectItem key={rep} value={rep} className="text-xs">
+                            {rep}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Time Left */}
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-semibold">Time Left</Label>
+                    <AmPmTimePicker
+                      value={timingRow.timeLeft}
+                      onChange={(val) =>
+                        handleUpdateRepTimingField(timingRow.id, "timeLeft", val)
+                      }
+                    />
+                  </div>
+
+                  {/* Time Returned */}
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-semibold">
+                      Time Returned
+                    </Label>
+                    <AmPmTimePicker
+                      value={timingRow.timeReturned}
+                      onChange={(val) =>
+                        handleUpdateRepTimingField(timingRow.id, "timeReturned", val)
+                      }
+                    />
+                  </div>
+
+                  {/* Back Room Time - In */}
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-semibold">
+                      Back Room Time - In
+                    </Label>
+                    <AmPmTimePicker
+                      value={timingRow.backRoomTimeIn}
+                      onChange={(val) =>
+                        handleUpdateRepTimingField(timingRow.id, "backRoomTimeIn", val)
+                      }
+                    />
+                  </div>
+
+                  {/* Back Room Time - Out */}
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-semibold">
+                      Back Room Time - Out
+                    </Label>
+                    <AmPmTimePicker
+                      value={timingRow.backRoomTimeOut}
+                      onChange={(val) =>
+                        handleUpdateRepTimingField(timingRow.id, "backRoomTimeOut", val)
+                      }
+                    />
+                  </div>
+
+                  {/* Offline Time */}
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-semibold">
+                      Offline Time
+                    </Label>
+                    <AmPmTimePicker
+                      value={timingRow.offlineTime}
+                      onChange={(val) =>
+                        handleUpdateRepTimingField(timingRow.id, "offlineTime", val)
+                      }
+                    />
+                  </div>
+
+                  {/* Online Time */}
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-semibold">
+                      Online Time
+                    </Label>
+                    <AmPmTimePicker
+                      value={timingRow.onlineTime}
+                      onChange={(val) =>
+                        handleUpdateRepTimingField(timingRow.id, "onlineTime", val)
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* 5. Store Closed Section */}
         <Card className="p-4 border-border/80 shadow-2xs bg-card space-y-3">
           <div className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2 border-b pb-2">
             <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
