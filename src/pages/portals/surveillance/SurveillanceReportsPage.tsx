@@ -2391,8 +2391,8 @@ export default function SurveillanceReportsPage() {
                 key={timingRow.id}
                 className="py-2.5 first:pt-1 last:pb-1 flex flex-wrap lg:flex-nowrap items-end gap-2.5"
               >
-                {/* Name of Rep Leaving Dropdown (Wider Column) */}
-                <div className="w-full sm:w-auto flex-1 min-w-[220px] space-y-1">
+                {/* Name of Rep Leaving Dropdown (Reduced width) */}
+                <div className="w-full sm:w-44 lg:w-48 xl:w-52 shrink-0 space-y-1">
                   <Label className="text-[11px] font-semibold text-foreground">
                     Name of Rep Leaving
                   </Label>
@@ -2422,8 +2422,8 @@ export default function SurveillanceReportsPage() {
                   </Select>
                 </div>
 
-                {/* Time Left (Compact) */}
-                <div className="w-1/2 sm:w-28 space-y-1 shrink-0">
+                {/* Time Left */}
+                <div className="flex-1 min-w-[110px] space-y-1">
                   <Label className="text-[11px] font-semibold text-foreground">Time Left</Label>
                   <AmPmTimePicker
                     value={timingRow.timeLeft}
@@ -2433,8 +2433,8 @@ export default function SurveillanceReportsPage() {
                   />
                 </div>
 
-                {/* Time Returned (Compact) */}
-                <div className="w-1/2 sm:w-28 space-y-1 shrink-0">
+                {/* Time Returned */}
+                <div className="flex-1 min-w-[110px] space-y-1">
                   <Label className="text-[11px] font-semibold text-foreground">Time Returned</Label>
                   <AmPmTimePicker
                     value={timingRow.timeReturned}
@@ -2444,8 +2444,8 @@ export default function SurveillanceReportsPage() {
                   />
                 </div>
 
-                {/* Back Room Time - In (Compact) */}
-                <div className="w-1/2 sm:w-32 space-y-1 shrink-0">
+                {/* Back Room Time - In */}
+                <div className="flex-1 min-w-[115px] space-y-1">
                   <Label className="text-[11px] font-semibold text-foreground">Back Room - In</Label>
                   <AmPmTimePicker
                     value={timingRow.backRoomTimeIn}
@@ -2455,8 +2455,8 @@ export default function SurveillanceReportsPage() {
                   />
                 </div>
 
-                {/* Back Room Time - Out (Compact) */}
-                <div className="w-1/2 sm:w-32 space-y-1 shrink-0">
+                {/* Back Room Time - Out */}
+                <div className="flex-1 min-w-[115px] space-y-1">
                   <Label className="text-[11px] font-semibold text-foreground">Back Room - Out</Label>
                   <AmPmTimePicker
                     value={timingRow.backRoomTimeOut}
@@ -2466,8 +2466,8 @@ export default function SurveillanceReportsPage() {
                   />
                 </div>
 
-                {/* Offline Time (Compact) */}
-                <div className="w-1/2 sm:w-28 space-y-1 shrink-0">
+                {/* Offline Time */}
+                <div className="flex-1 min-w-[110px] space-y-1">
                   <Label className="text-[11px] font-semibold text-foreground">Offline Time</Label>
                   <AmPmTimePicker
                     value={timingRow.offlineTime}
@@ -2477,8 +2477,8 @@ export default function SurveillanceReportsPage() {
                   />
                 </div>
 
-                {/* Online Time (Compact) */}
-                <div className="w-1/2 sm:w-28 space-y-1 shrink-0">
+                {/* Online Time */}
+                <div className="flex-1 min-w-[110px] space-y-1">
                   <Label className="text-[11px] font-semibold text-foreground">Online Time</Label>
                   <AmPmTimePicker
                     value={timingRow.onlineTime}
