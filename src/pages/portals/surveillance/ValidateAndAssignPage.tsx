@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { DataTable, type Column } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,7 @@ import {
   Clock,
   Eye,
   EyeOff,
+  FileText,
   Mail,
   MapPin,
   MessageSquare,
@@ -186,6 +187,7 @@ function formatDateTimeDisplay(isoString?: string): string {
 
 export default function ValidateAndAssignPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const userRole = useMemo(() => getSurveillanceRole(user), [user]);
   const canAccessValidatePage = useMemo(() => canValidateSurveillance(userRole), [userRole]);
@@ -193,11 +195,31 @@ export default function ValidateAndAssignPage() {
   const [requests, setRequests] = useState<SurveillanceValidationItem[]>([]);
   const [agents, setAgents] = useState<SurveillanceAssignableAgent[]>([]);
 
-  // Drill-down detail state
-  const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
+  // Drill-down detail state & status filter synced with URL search params
+  const selectedDetailId = searchParams.get("detail");
+  const statusFilter = searchParams.get("status") || "Unassigned";
 
-  // Filters (default status = "Unassigned")
-  const [statusFilter, setStatusFilter] = useState<string>("Unassigned");
+  const setSelectedDetailId = (id: string | null) => {
+    const next = new URLSearchParams(searchParams);
+    if (id) {
+      next.set("detail", id);
+    } else {
+      next.delete("detail");
+    }
+    setSearchParams(next, { replace: true });
+  };
+
+  const setStatusFilter = (status: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (status && status !== "Unassigned") {
+      next.set("status", status);
+    } else {
+      next.delete("status");
+    }
+    setSearchParams(next, { replace: true });
+  };
+
+  // Filters
   const [marketFilter, setMarketFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [agentFilter, setAgentFilter] = useState<string>("all");
@@ -496,17 +518,35 @@ export default function ValidateAndAssignPage() {
               )}
 
               {Boolean(selectedDetail.linkedReportId) && (
-                <Button
-                  onClick={() =>
-                    navigate(`/surveillance/validate-and-assign/review/${selectedDetail.linkedReportId}`)
-                  }
-                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
-                >
-                  <Eye className="h-4 w-4" />
-                  {selectedDetail.validationStatus === "Pending Verification"
-                    ? "Review Report"
-                    : "View Report"}
-                </Button>
+                <>
+                  {selectedDetail.validationStatus === "Completed" && (
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        navigate(
+                          `/surveillance/validate-and-assign/summary/${selectedDetail.linkedReportId}`,
+                        )
+                      }
+                      className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold border-blue-200 bg-blue-50/70 text-blue-700 hover:bg-blue-100/80 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70 shadow-xs whitespace-nowrap shrink-0"
+                    >
+                      <FileText className="h-4 w-4" />
+                      View Summary
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() =>
+                      navigate(
+                        `/surveillance/validate-and-assign/review/${selectedDetail.linkedReportId}`,
+                      )
+                    }
+                    className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
+                  >
+                    <Eye className="h-4 w-4" />
+                    {selectedDetail.validationStatus === "Pending Verification"
+                      ? "Review Report"
+                      : "View Report"}
+                  </Button>
+                </>
               )}
             </div>
           </div>

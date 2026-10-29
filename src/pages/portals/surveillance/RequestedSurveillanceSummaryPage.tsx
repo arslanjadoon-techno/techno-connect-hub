@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -892,6 +892,8 @@ function FlagStatusPill({ value }: { value: "Yes" | "No" }) {
 export default function RequestedSurveillanceSummaryPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isFromValidateAndAssign = location.pathname.includes("/validate-and-assign/");
   const { user } = useAuth();
   const role = getSurveillanceRole(user);
 
@@ -984,7 +986,7 @@ export default function RequestedSurveillanceSummaryPage() {
           </Button>
           <div>
             <p className="text-[11px] font-medium text-muted-foreground leading-tight">
-              Requested Report Summary
+              {isFromValidateAndAssign ? "Validate and Assign" : "Requested Report Summary"}
             </p>
             <div className="flex items-center gap-2.5">
               <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
@@ -1033,7 +1035,13 @@ export default function RequestedSurveillanceSummaryPage() {
           </Button>
           <Button
             size="sm"
-            onClick={() => navigate(`/surveillance/requests/report/${report.id}`)}
+            onClick={() =>
+              navigate(
+                isFromValidateAndAssign
+                  ? `/surveillance/validate-and-assign/review/${report.id}`
+                  : `/surveillance/requests/report/${report.id}`,
+              )
+            }
             className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white"
           >
             <Eye className="h-3.5 w-3.5" />

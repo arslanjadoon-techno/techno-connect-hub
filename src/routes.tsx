@@ -781,6 +781,16 @@ export function AppRoutes() {
           }
         />
         <Route
+          path="/surveillance/validate-and-assign/summary/:id"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceValidateOnly>
+                <RequestedSurveillanceSummaryPage />
+              </SurveillanceValidateOnly>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
           path="/surveillance/validate-and-assign/review/:id"
           element={
             <PortalRouteGuard portalKey="surveillance">
