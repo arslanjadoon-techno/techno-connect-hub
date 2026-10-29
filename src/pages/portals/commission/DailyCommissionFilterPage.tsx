@@ -98,7 +98,6 @@ const monthKey = (year: number, month: number) => `${year}-${month}`;
 const monthLabel = (m: { year: number; month: number }) => `${MONTH_NAMES[m.month - 1]} ${m.year}`;
 
 const historyLabel = (h: CommissionHistory) => new Date(h.savedAt).toLocaleDateString();
-const payTypeLabel = (id: number) => PAY_TYPES.find((p) => p.id === id)?.label ?? String(id);
 
 const numText = (v: number | null | undefined) => (v === null || v === undefined ? "" : String(v));
 const toNum = (v: string) => (v.trim() === "" ? null : Number(v));
@@ -222,6 +221,18 @@ export default function DailyCommissionFilterPage() {
   };
   const dirtyTypes = useMemo(() => current?.types.filter(isDirty) ?? [], [current]);
 
+  const setMonthTypes = (key: string, types: CommissionType[]) =>
+    setMonths((prev) =>
+      prev.map((m) => (m.key === key ? { ...m, types: types.map((t) => toEditable(t, true)) } : m)),
+    );
+
+  /* Load that date's filters into the editor so it can be changed and saved on the same date */
+  const openVersion = (index: number) => {
+    if (!current) return;
+    setSelectedVersion(index);
+    setMonthTypes(current.key, current.history[index].types);
+  };
+
   const updateTypes = (update: (types: EditableType[]) => EditableType[]) =>
     setMonths((prev) =>
       prev.map((m) => (m.key === selected ? { ...m, types: update(m.types) } : m)),
@@ -305,6 +316,7 @@ export default function DailyCommissionFilterPage() {
       const saved = await dailyCommissionFilterService.saveDailyCommissionFilter({
         year: current.year,
         month: current.month,
+        savedDate: version?.savedAt,
         types: dirtyTypes.map(toPayload),
       });
       const savedByKey = new Map(dirtyTypes.map((t, i) => [t.key, saved[i]]));
@@ -314,6 +326,8 @@ export default function DailyCommissionFilterPage() {
           return match ? { ...toEditable(match, true), key: t.key, open: t.open } : t;
         }),
       );
+      if (!version || new Date(version.savedAt).toDateString() === new Date().toDateString())
+        await dailyCommissionFilterService.refreshDailyCommissionSummary();
       toast.success("Saved");
       await refreshHistory();
     } catch (e) {
@@ -327,6 +341,7 @@ export default function DailyCommissionFilterPage() {
     const target = deleteTarget;
     setDeleteTarget(null);
     if (!target || !current) return;
+    setSaving(true);
     try {
       if (target.id > 0)
         await dailyCommissionFilterService.deleteDailyCommissionFilter(
@@ -335,13 +350,23 @@ export default function DailyCommissionFilterPage() {
           current.month,
         );
       updateTypes((types) => types.filter((t) => t.key !== target.key));
+      await dailyCommissionFilterService.refreshDailyCommissionSummary();
     } catch (e) {
       toast.error((e as Error).message || "Could not delete");
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
     <div className="grid gap-4 p-4 md:grid-cols-[220px_1fr] md:p-6">
+      {saving && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <div className="text-lg font-semibold">Saving and calculating commission...</div>
+          <div className="text-sm text-muted-foreground">This can take up to a minute. Please wait.</div>
+        </div>
+      )}
       <div className="space-y-2">
         <input
           ref={fileRef}
@@ -378,6 +403,8 @@ export default function DailyCommissionFilterPage() {
                     onClick={() => {
                       setSelected(m.key === selected ? null : m.key);
                       setSelectedVersion(null);
+                      const latest = m.history[m.history.length - 1];
+                      if (latest) setMonthTypes(m.key, latest.types);
                     }}
                     className={cn(
                       "flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-muted",
@@ -392,7 +419,7 @@ export default function DailyCommissionFilterPage() {
                       <button
                         key={h.savedAt}
                         type="button"
-                        onClick={() => setSelectedVersion(index === selectedVersion ? null : index)}
+                        onClick={() => openVersion(index)}
                         className={cn(
                           "w-full rounded-md py-1.5 pl-6 pr-3 text-left text-xs text-muted-foreground hover:bg-muted",
                           index === selectedVersion && "bg-muted font-medium text-foreground",
@@ -408,54 +435,17 @@ export default function DailyCommissionFilterPage() {
         </Card>
       </div>
 
-      {current && version && (
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold">
-            {monthLabel(current)}
-            <span className="ml-2 text-sm font-normal text-muted-foreground">
-              {historyLabel(version)}
-            </span>
-          </h2>
-          {version.types.map((t) => (
-            <Card key={t.id}>
-              <CardContent className="p-0">
-                <div className="p-3 font-medium">{t.name}</div>
-                <div className="overflow-x-auto border-t">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Criteria</TableHead>
-                        <TableHead>Min</TableHead>
-                        <TableHead>Max</TableHead>
-                        <TableHead>Payout</TableHead>
-                        <TableHead>Pay type</TableHead>
-                        <TableHead>Active</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {t.filters.map((f, index) => (
-                        <TableRow key={index}>
-                          <TableCell>{f.criteria ?? ""}</TableCell>
-                          <TableCell>{numText(f.minValue)}</TableCell>
-                          <TableCell>{numText(f.maxValue)}</TableCell>
-                          <TableCell>{numText(f.commissionPayout)}</TableCell>
-                          <TableCell>{payTypeLabel(f.payTypeId)}</TableCell>
-                          <TableCell>{f.isActive ? "Yes" : "No"}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {current && !version && (
+      {current && (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold">{monthLabel(current)}</h2>
+            <h2 className="text-lg font-semibold">
+              {monthLabel(current)}
+              {version && (
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  {historyLabel(version)}
+                </span>
+              )}
+            </h2>
             <div className="flex gap-2">
               <Button variant="outline" onClick={addSection}>
                 <Plus className="mr-2 h-4 w-4" />

@@ -147,6 +147,7 @@ export const DAILY_COMMISSION_FILTER_API_PATHS = {
     `/api/DailyCommission/DeleteDailyCommissionFilter/${id}?year=${year}&month=${month}`,
   getDailyCommissionSdrFilter: "/api/DailyCommission/GetDailyCommissionSdrFilter",
   saveDailyCommissionSdrFilter: "/api/DailyCommission/SaveDailyCommissionSdrFilter",
+  refreshDailyCommissionSummary: "/api/DailyCommission/RefreshDailyCommissionSummary",
 } as const;
 
 export const LEAVE_API_PATHS = {

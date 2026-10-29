@@ -30,6 +30,7 @@ export interface CommissionHistory {
 export interface CommissionMonth {
   year: number;
   month: number;
+  savedDate?: string;
   types: CommissionType[];
   history?: CommissionHistory[];
 }
@@ -60,6 +61,10 @@ export class DailyCommissionFilterService {
       sdrFilters,
     );
     return res.data ?? [];
+  }
+
+  async refreshDailyCommissionSummary(): Promise<void> {
+    await http.post<boolean>(DAILY_COMMISSION_FILTER_API_PATHS.refreshDailyCommissionSummary, {});
   }
 
   async getAllDailyCommissionFilter(): Promise<CommissionMonth[]> {

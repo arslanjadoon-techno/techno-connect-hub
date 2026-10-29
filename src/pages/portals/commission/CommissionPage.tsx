@@ -30,8 +30,10 @@ import {
   Calendar,
   Layers,
   ShoppingBag,
+  Download,
 } from "lucide-react";
 import { FilterReset } from "@/components/filter-reset";
+import { exportToExcel } from "@/lib/excel-export";
 import {
   commissionService,
   type CommissionRow,
@@ -328,6 +330,63 @@ export default function CommissionPage() {
       fetchUserCommissionData();
     }
   }, [isManagerOrAdmin, fetchManagerCommissionData, fetchUserCommissionData]);
+
+  // Download all records of the selected date & market as Excel
+  const [exporting, setExporting] = useState<boolean>(false);
+  const onExport = async () => {
+    try {
+      setExporting(true);
+      const res = await commissionService.getDailyCommission({
+        fromDate: selectedDate,
+        toDate: selectedDate,
+        page: 1,
+        pageSize: Math.max(paginationInfo.totalRecords, 1),
+        market: selectedMarket !== "all" ? selectedMarket : undefined,
+      });
+      const data = res.data.map((r) => {
+        const row = r as Row & Record<string, unknown>;
+        return {
+          date: selectedDate,
+          market: row.market,
+          ntid: row.ntid,
+          name: row.employee_Name,
+          eligible: row.eligible,
+          commission: row.commission,
+          totalBox: row.total_Box,
+          boxCommission: row.box_Commission,
+          accSales: row.acc_Sales,
+          accCommission: row.acc_Commission,
+          vasCommission: row.vaS_Commission,
+          hsi: row.hsi,
+          hsiCommission: row.hsI_Commission,
+        };
+      });
+      exportToExcel(
+        data,
+        ["date", "market", "ntid", "name", "eligible", "commission", "totalBox", "boxCommission", "accSales", "accCommission", "vasCommission", "hsi", "hsiCommission"],
+        {
+          date: "Date",
+          market: "Market",
+          ntid: "NTID",
+          name: "Employee Name",
+          eligible: "Eligible",
+          commission: "Commission",
+          totalBox: "Total Box",
+          boxCommission: "Box Commission",
+          accSales: "Acc Sales",
+          accCommission: "Acc Commission",
+          vasCommission: "VAS Commission",
+          hsi: "HSI",
+          hsiCommission: "HSI Commission",
+        },
+        { sheetName: "Commission", fileName: `Commission_${selectedDate}` },
+      );
+    } catch (error) {
+      console.error("Error exporting commission:", error);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Handle filter changes (resets page to 1)
   const handleDateChange = (newDate: string) => {
@@ -760,6 +819,20 @@ export default function CommissionPage() {
               </strong>
             </span>
           )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onExport}
+            disabled={exporting || loading || paginationInfo.totalRecords === 0}
+            className="h-8 text-xs"
+          >
+            {exporting ? (
+              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+            )}
+            Export Excel
+          </Button>
         </div>
       </div>
 

@@ -80,6 +80,7 @@ export default function SdrFilterPanel() {
           .map((m) => ({ marketId: m.id, name: m.name, isActive: true })),
       );
       setSavedIds(selectedIds);
+      await dailyCommissionFilterService.refreshDailyCommissionSummary();
       toast.success("SDR markets saved");
     } catch (e) {
       toast.error((e as Error).message || "Could not save");
