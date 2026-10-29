@@ -1,5 +1,9 @@
 export type SurveillanceRole =
-  "admin" | "state_manager" | "market_manager" | "district_manager" | "user";
+  | "admin"
+  | "market_manager"
+  | "district_manager"
+  | "surveillance_manager"
+  | "user";
 
 export type SurveillanceRequestStatus =
   | "Requested"
@@ -383,9 +387,20 @@ export interface CreateSurveillanceReportPayload {
   attachments?: SurveillanceAttachment[];
 }
 
-/** Check user role for surveillance portal */
+/** Check user role for the Surveillance portal across all system roles */
 export function getSurveillanceRole(user: any): SurveillanceRole | "other" {
-  if (!user) return "other";
+  let storedUser: any = null;
+  if (typeof window !== "undefined") {
+    try {
+      const raw = window.localStorage.getItem("user");
+      if (raw) storedUser = JSON.parse(raw);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const effectiveUser = user || storedUser;
+  if (!effectiveUser) return "other";
 
   const norm = (s: string) =>
     String(s || "")
@@ -393,68 +408,91 @@ export function getSurveillanceRole(user: any): SurveillanceRole | "other" {
       .replace(/[\s_-]/g, "");
 
   let rawRole = "";
+  let roleId: number | undefined;
 
   // 1. Check portalAccess array for Surveillance portal entry first
-  if (Array.isArray(user.portalAccess)) {
-    const entry = user.portalAccess.find((p: any) => norm(p?.portalName || "").includes("surveil"));
-    if (entry?.roleName) {
+  const accessList = Array.isArray(effectiveUser.portalAccess)
+    ? effectiveUser.portalAccess
+    : Array.isArray(storedUser?.portalAccess)
+      ? storedUser.portalAccess
+      : [];
+
+  const entry = accessList.find((p: any) => norm(p?.portalName || "").includes("surveil"));
+  if (entry) {
+    if (entry.roleName) {
       rawRole = norm(entry.roleName);
+    }
+    if (typeof entry.roleId === "number") {
+      roleId = entry.roleId;
     }
   }
 
-  // 2. Fallback to general user roleName / role only if no Surveillance-specific roleName was found
-  if (!rawRole) {
-    rawRole = norm(user.roleName || user.role || "");
+  // 2. Fallback to explicit user role if no Surveillance-specific portalAccess entry exists
+  if (!rawRole && roleId === undefined) {
+    const fallbackRoleStr =
+      effectiveUser.rawRoleName ??
+      effectiveUser.role?.name ??
+      (typeof effectiveUser.role === "string" ? effectiveUser.role : undefined) ??
+      storedUser?.role?.name ??
+      storedUser?.roleName ??
+      (typeof storedUser?.role === "string" ? storedUser.role : undefined) ??
+      (!storedUser ? effectiveUser.roleName : undefined) ??
+      "";
+    rawRole = norm(fallbackRoleStr);
+
+    const fallbackRoleId = effectiveUser.role?.id ?? storedUser?.role?.id;
+    if (typeof fallbackRoleId === "number") {
+      roleId = fallbackRoleId;
+    }
   }
 
-  if (!rawRole) return "other";
-  if (rawRole === "user") return "user";
-  if (rawRole.includes("admin")) return "admin";
-  if (rawRole.includes("statemanager") || rawRole === "state") return "state_manager";
-  if (rawRole.includes("marketmanager") || rawRole === "market") return "market_manager";
-  if (rawRole.includes("districtmanager") || rawRole === "district") return "district_manager";
+  if (!rawRole && roleId === undefined) return "other";
 
+  if (rawRole === "admin" || roleId === 1) return "admin";
+  if (rawRole === "marketmanager" || roleId === 5) return "market_manager";
+  if (rawRole === "districtmanager" || roleId === 4) return "district_manager";
+  if (rawRole === "surveillancemanager" || roleId === 26) return "surveillance_manager";
+  if (rawRole === "user" || roleId === 7) return "user";
+
+  // All remaining roles (manager, stateManager, storeManager, backoffice, rep, trainer, etc.) have no access
   return "other";
 }
 
-/** Check whether user strictly has the 'user' role for the surveillance portal */
+/** Check whether user strictly has the 'user' role for the Surveillance portal */
 export function isSurveillanceUserRole(user: any): boolean {
   return getSurveillanceRole(user) === "user";
 }
 
 /**
  * Page 1: Request Reports (/surveillance/requests)
- * Accessible to: Admin, State Manager, Market Manager, District Manager
+ * Accessible to: admin, marketManager, districtManager
  */
 export function canRequestSurveillance(role: SurveillanceRole | "other"): boolean {
-  return (
-    role === "admin" ||
-    role === "state_manager" ||
-    role === "market_manager" ||
-    role === "district_manager"
-  );
+  return role === "admin" || role === "market_manager" || role === "district_manager";
 }
 
 /**
  * Page 2: Validate and Assign (/surveillance/validate-and-assign)
- * Accessible to: Admin, State Manager, Market Manager (NOT District Manager or User)
+ * Accessible to: admin, SurveillanceManager
  */
 export function canValidateSurveillance(role: SurveillanceRole | "other"): boolean {
-  return role === "admin" || role === "state_manager" || role === "market_manager";
+  return role === "admin" || role === "surveillance_manager";
 }
 
 /**
- * Page 3: Surveillance Reports (/surveillance/reports)
- * Accessible to: Admin and User
+ * Page 3: Submit Report (/surveillance/reports)
+ * Accessible to: admin, user
  */
 export function canAccessSurveillanceReports(role: SurveillanceRole | "other"): boolean {
   return role === "admin" || role === "user";
 }
 
+/**
+ * Review / Approve / Reject submitted surveillance audit reports
+ * Accessible to: admin, SurveillanceManager
+ */
 export function canApproveSurveillance(role: SurveillanceRole | "other"): boolean {
-  // District manager can only VIEW, NOT approve!
-  // Only admin, state manager, market manager can approve
-  return role === "admin" || role === "state_manager" || role === "market_manager";
+  return role === "admin" || role === "surveillance_manager";
 }
 
 /** Check whether user has the Admin role in the Surveillance portal */
@@ -466,6 +504,7 @@ export function isSurveillanceAdmin(user: any): boolean {
 export function getSurveillanceDefaultRoute(user: any): string {
   const role = getSurveillanceRole(user);
   if (canRequestSurveillance(role)) return "/surveillance/requests";
+  if (canValidateSurveillance(role)) return "/surveillance/validate-and-assign";
   if (canAccessSurveillanceReports(role)) return "/surveillance/reports";
   return "/surveillance/no-access";
 }

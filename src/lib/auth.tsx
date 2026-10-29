@@ -59,10 +59,15 @@ export function mapBackendUser(b: any): User {
   const firstName = parts[0] ?? "";
   const lastName = parts.slice(1).join(" ") || "";
 
-  // 🛠️ Hybrid Extraction: Check if object exists (list API), direct string exists (Login API), or portalAccess
-  const rawRole =
+  const explicitRawRole =
     b.role?.name ||
     b.roleName ||
+    (typeof b.role === "string" ? b.role : undefined) ||
+    undefined;
+
+  // 🛠️ Hybrid Extraction: Check if object exists (list API), direct string exists (Login API), or portalAccess
+  const rawRole =
+    explicitRawRole ||
     (Array.isArray(b.portalAccess) && b.portalAccess.length > 0
       ? b.portalAccess[0].roleName
       : "user");
@@ -99,6 +104,7 @@ export function mapBackendUser(b: any): User {
     department,
     departmentName: b.department?.name ?? b.departmentName ?? undefined,
     roleName,
+    rawRoleName: explicitRawRole,
     assignedPortals: Array.isArray(b.assignedPortals) ? b.assignedPortals : [],
     portalAccess: Array.isArray(b.portalAccess) ? b.portalAccess : [],
     allowedUserManagement: Boolean(b.allowedUserManagement),

@@ -47,6 +47,7 @@ export interface User {
   departmentName?: string;
 
   roleName?: Role;
+  rawRoleName?: string;
 
   assignedPortals?: string[];
   allowedUserManagement?: boolean;

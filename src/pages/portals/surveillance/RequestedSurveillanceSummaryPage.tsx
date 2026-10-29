@@ -941,7 +941,11 @@ export default function RequestedSurveillanceSummaryPage() {
     );
   }
 
-  if (role === "manager" && report.status !== "Approved") {
+  if (
+    !isFromValidateAndAssign &&
+    (role === "market_manager" || role === "district_manager") &&
+    report.status !== "Approved"
+  ) {
     return (
       <div className="p-8 text-center space-y-4">
         <h2 className="text-lg font-semibold">Summary Pending Completion</h2>

@@ -191,7 +191,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     items: [
       { title: "Request Reports", url: "/surveillance/requests", icon: ClipboardCheck },
       { title: "Validate and Assign", url: "/surveillance/validate-and-assign", icon: UserCheck },
-      { title: "Surveillance Reports", url: "/surveillance/reports", icon: Video },
+      { title: "Submit Report", url: "/surveillance/reports", icon: Video },
     ],
   },
   leave: {
@@ -632,11 +632,11 @@ export function AppSidebar() {
     }
 
     // Surveillance Portal Role-Wise Categorization:
-    // - Admin: Request Reports + Validate and Assign + Surveillance Reports (all 3 pages)
-    // - State Manager / Market Manager: Request Reports + Validate and Assign (first 2 pages)
-    // - District Manager: Request Reports only
-    // - User: Surveillance Reports only
-    // - Any other role assigned to Surveillance portal: fallback Portal Access page (/surveillance/no-access)
+    // - admin: Request Reports + Validate and Assign + Submit Report (all 3 pages)
+    // - marketManager / districtManager: Request Reports only
+    // - SurveillanceManager: Validate and Assign only
+    // - user: Submit Report only
+    // - All other roles (manager, stateManager, storeManager, backoffice, rep, trainer, etc.): No Access (/surveillance/no-access)
     if (key === "surveillance") {
       const survRole = getSurveillanceRole(user);
       const filteredItems = master.items.filter((i) => {
@@ -657,7 +657,7 @@ export function AppSidebar() {
           ...master,
           items: [
             {
-              title: "Portal Access",
+              title: "No Access",
               url: "/surveillance/no-access",
               icon: ShieldCheck,
             },

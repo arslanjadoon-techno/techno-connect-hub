@@ -3264,87 +3264,89 @@ export default function SurveillanceReportsPage() {
               {repTimingRows.map((timingRow) => (
                 <div
                   key={timingRow.id}
-                  className="py-2.5 first:pt-1 last:pb-1 flex flex-wrap lg:flex-nowrap items-end gap-2.5"
+                  className="py-2.5 first:pt-1 last:pb-1 flex items-end gap-2.5"
                 >
-                  {/* Name of Rep Leaving Dropdown (Reduced width) */}
-                  <div className="w-full sm:w-44 lg:w-48 xl:w-52 shrink-0 space-y-1">
-                    <Label className="text-[11px] font-semibold text-foreground">
-                      Name of Rep Leaving
-                    </Label>
-                    <Select
-                      value={toSelectVal(timingRow.repName)}
-                      onValueChange={(v) =>
-                        handleUpdateRepTimingField(
-                          timingRow.id,
-                          "repName",
-                          fromSelectVal(v),
-                        )
-                      }
-                    >
-                      <SelectTrigger className="h-9 text-xs w-full">
-                        <SelectValue placeholder="-" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__empty__" className="text-xs">
-                          -
-                        </SelectItem>
-                        {SALES_REP_NAMES.map((rep) => (
-                          <SelectItem key={rep} value={rep} className="text-xs">
-                            {rep}
+                  <div className="grid flex-1 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 min-w-0">
+                    {/* Name of Rep Leaving Dropdown */}
+                    <div className="min-w-0 space-y-1">
+                      <Label className="text-[11px] font-semibold text-foreground">
+                        Name of Rep Leaving
+                      </Label>
+                      <Select
+                        value={toSelectVal(timingRow.repName)}
+                        onValueChange={(v) =>
+                          handleUpdateRepTimingField(
+                            timingRow.id,
+                            "repName",
+                            fromSelectVal(v),
+                          )
+                        }
+                      >
+                        <SelectTrigger className="h-9 text-xs w-full">
+                          <SelectValue placeholder="-" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__empty__" className="text-xs">
+                            -
                           </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                          {SALES_REP_NAMES.map((rep) => (
+                            <SelectItem key={rep} value={rep} className="text-xs">
+                              {rep}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                  {/* Time Left */}
-                  <div className="flex-1 min-w-[110px] space-y-1">
-                    <Label className="text-[11px] font-semibold text-foreground">Time Left</Label>
-                    <AmPmTimePicker
-                      value={timingRow.timeLeft}
-                      onChange={(val) =>
-                        handleUpdateRepTimingField(timingRow.id, "timeLeft", val)
-                      }
-                    />
-                  </div>
+                    {/* Time Left */}
+                    <div className="min-w-0 space-y-1">
+                      <Label className="text-[11px] font-semibold text-foreground">Time Left</Label>
+                      <AmPmTimePicker
+                        value={timingRow.timeLeft}
+                        onChange={(val) =>
+                          handleUpdateRepTimingField(timingRow.id, "timeLeft", val)
+                        }
+                      />
+                    </div>
 
-                  {/* Time Returned */}
-                  <div className="flex-1 min-w-[110px] space-y-1">
-                    <Label className="text-[11px] font-semibold text-foreground">
-                      Time Returned
-                    </Label>
-                    <AmPmTimePicker
-                      value={timingRow.timeReturned}
-                      onChange={(val) =>
-                        handleUpdateRepTimingField(timingRow.id, "timeReturned", val)
-                      }
-                    />
-                  </div>
+                    {/* Time Returned */}
+                    <div className="min-w-0 space-y-1">
+                      <Label className="text-[11px] font-semibold text-foreground">
+                        Time Returned
+                      </Label>
+                      <AmPmTimePicker
+                        value={timingRow.timeReturned}
+                        onChange={(val) =>
+                          handleUpdateRepTimingField(timingRow.id, "timeReturned", val)
+                        }
+                      />
+                    </div>
 
-                  {/* Back Room Time - In */}
-                  <div className="flex-1 min-w-[115px] space-y-1">
-                    <Label className="text-[11px] font-semibold text-foreground">
-                      Back Room - In
-                    </Label>
-                    <AmPmTimePicker
-                      value={timingRow.backRoomTimeIn}
-                      onChange={(val) =>
-                        handleUpdateRepTimingField(timingRow.id, "backRoomTimeIn", val)
-                      }
-                    />
-                  </div>
+                    {/* Back Room Time - In */}
+                    <div className="min-w-0 space-y-1">
+                      <Label className="text-[11px] font-semibold text-foreground">
+                        Back Room - In
+                      </Label>
+                      <AmPmTimePicker
+                        value={timingRow.backRoomTimeIn}
+                        onChange={(val) =>
+                          handleUpdateRepTimingField(timingRow.id, "backRoomTimeIn", val)
+                        }
+                      />
+                    </div>
 
-                  {/* Back Room Time - Out */}
-                  <div className="flex-1 min-w-[115px] space-y-1">
-                    <Label className="text-[11px] font-semibold text-foreground">
-                      Back Room - Out
-                    </Label>
-                    <AmPmTimePicker
-                      value={timingRow.backRoomTimeOut}
-                      onChange={(val) =>
-                        handleUpdateRepTimingField(timingRow.id, "backRoomTimeOut", val)
-                      }
-                    />
+                    {/* Back Room Time - Out */}
+                    <div className="min-w-0 space-y-1">
+                      <Label className="text-[11px] font-semibold text-foreground">
+                        Back Room - Out
+                      </Label>
+                      <AmPmTimePicker
+                        value={timingRow.backRoomTimeOut}
+                        onChange={(val) =>
+                          handleUpdateRepTimingField(timingRow.id, "backRoomTimeOut", val)
+                        }
+                      />
+                    </div>
                   </div>
 
                   {/* Delete Button at end */}
@@ -3584,11 +3586,11 @@ export default function SurveillanceReportsPage() {
               className="h-9 gap-1.5 rounded-xl px-3.5 text-xs font-medium bg-background shadow-xs whitespace-nowrap shrink-0"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Back to Surveillance Reports
+              Back to Submit Report
             </Button>
             <div>
               <p className="text-[11px] font-medium text-muted-foreground leading-tight">
-                Surveillance Reports
+                Submit Report
               </p>
               <h1 className="font-display text-2xl font-bold tracking-tight text-foreground leading-tight">
                 Surveillance Report Detail
@@ -4051,7 +4053,7 @@ export default function SurveillanceReportsPage() {
       <div className="border-b pb-4">
         <div className="flex items-center gap-2.5">
           <h1 className="font-display text-2xl font-semibold tracking-tight">
-            Surveillance Reports
+            Submit Report
           </h1>
         </div>
         <p className="text-sm text-muted-foreground mt-0.5">

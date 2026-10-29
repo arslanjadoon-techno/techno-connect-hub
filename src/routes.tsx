@@ -216,15 +216,6 @@ function SurveillanceValidateOnly({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-function SurveillanceKnownRoleDetailOnly({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
-  const role = getSurveillanceRole(user);
-  if (role === "other") {
-    return <Navigate to="/surveillance/no-access" replace />;
-  }
-  return <>{children}</>;
-}
-
 function SurveillanceRedirect() {
   const { user } = useAuth();
   return <Navigate to={getSurveillanceDefaultRoute(user)} replace />;
@@ -824,9 +815,9 @@ export function AppRoutes() {
           path="/surveillance/reports/:id"
           element={
             <PortalRouteGuard portalKey="surveillance">
-              <SurveillanceKnownRoleDetailOnly>
+              <SurveillanceReportsAccessOnly>
                 <SubmittedSurveillanceReportPage />
-              </SurveillanceKnownRoleDetailOnly>
+              </SurveillanceReportsAccessOnly>
             </PortalRouteGuard>
           }
         />
