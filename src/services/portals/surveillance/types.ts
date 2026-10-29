@@ -64,8 +64,24 @@ export interface SurveillanceAttachment {
   type: string;
 }
 
+export interface SurveillanceAdditionalInvoice {
+  id: string;
+  invoice: string;
+  bdiTime: string;
+  transType: string;
+  invoiceAmount: string;
+  totalTaken: string;
+  difference: string;
+  paymentType: string;
+  cash?: string;
+  card?: string;
+  receipt: string;
+}
+
 export interface SurveillanceAuditRow {
   id: string;
+  customerGroupId?: string;
+  additionalInvoices?: SurveillanceAdditionalInvoice[];
   date: string;
   marketName?: string;
   storeName: string;

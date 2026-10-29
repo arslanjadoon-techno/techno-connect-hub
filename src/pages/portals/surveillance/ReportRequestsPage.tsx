@@ -436,7 +436,7 @@ export default function ReportRequestsPage() {
           <div className="flex flex-wrap items-center gap-2.5">
             {normalizedStatus === "Completed" && Boolean(targetReportId) && (
               <Button
-                onClick={() => navigate(`/surveillance/reports/${targetReportId}`)}
+                onClick={() => navigate(`/surveillance/requests/report/${targetReportId}`)}
                 className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
               >
                 <Eye className="h-4 w-4" />

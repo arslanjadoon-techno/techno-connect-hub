@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useAuth } from "@/lib/auth";
 import { DataTable, type Column } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,8 +26,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  canApproveSurveillance,
-  getSurveillanceRole,
   type SurveillanceReport,
   type SurveillanceRequest,
   type SurveillanceAuditRow,
@@ -269,8 +266,31 @@ const CUSTOM_CAPABLE_KEYS = new Set<string>([
 
 type BaseAuditRowKey = Exclude<
   keyof SurveillanceAuditRow,
-  "id" | "attachments" | "rowHighlight" | "otherDetails" | `${CustomCapableKey}Details`
+  | "id"
+  | "customerGroupId"
+  | "additionalInvoices"
+  | "attachments"
+  | "rowHighlight"
+  | "otherDetails"
+  | `${CustomCapableKey}Details`
 >;
+
+const CUSTOMER_GROUP_HIGHLIGHT_PALETTE = [
+  "bg-sky-50/85 hover:bg-sky-100/75 dark:bg-sky-950/35 dark:hover:bg-sky-950/55 border-l-4 border-l-sky-500",
+  "bg-amber-50/85 hover:bg-amber-100/75 dark:bg-amber-950/35 dark:hover:bg-amber-950/55 border-l-4 border-l-amber-500",
+  "bg-emerald-50/85 hover:bg-emerald-100/75 dark:bg-emerald-950/35 dark:hover:bg-emerald-950/55 border-l-4 border-l-emerald-500",
+  "bg-purple-50/85 hover:bg-purple-100/75 dark:bg-purple-950/35 dark:hover:bg-purple-950/55 border-l-4 border-l-purple-500",
+  "bg-rose-50/85 hover:bg-rose-100/75 dark:bg-rose-950/35 dark:hover:bg-rose-950/55 border-l-4 border-l-rose-500",
+  "bg-teal-50/85 hover:bg-teal-100/75 dark:bg-teal-950/35 dark:hover:bg-teal-950/55 border-l-4 border-l-teal-500",
+];
+
+function getRowGroupIdentifier(row: SurveillanceAuditRow): string {
+  const grp = (row.customerGroupId || "").trim();
+  if (grp) return `grp:${grp}`;
+  const inv = (row.invoice || "").trim().toLowerCase();
+  if (inv && inv !== "-" && inv !== "—") return `inv:${inv}`;
+  return "";
+}
 
 interface AuditDataField {
   key: BaseAuditRowKey;
@@ -386,23 +406,16 @@ function StarRating({ value }: { value: number }) {
 }
 
 /**
- * Dedicated Read-Only Report Detail Page opened from Surveillance Reports > Surveillance Report Detail > View Report.
- * Features:
- * - Read-only Audit Data Table.
- * - Non-editable "Manager Review & Feedback" section (Star rating + Manager comments).
- * - NO Accept or Decline / Reject buttons.
+ * Dedicated Read-Only Report Page opened from Surveillance Reports > Surveillance Report Detail > View Report.
+ * Displays the submitted surveillance audit report for agents and administrators.
  */
-export default function SurveillanceReportDetailPage() {
+export default function SubmittedSurveillanceReportPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
 
   const [report, setReport] = useState<SurveillanceReport | null>(null);
   const [linkedRequest, setLinkedRequest] = useState<SurveillanceRequest | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const userRole = getSurveillanceRole(user);
-  const canReviewReport = canApproveSurveillance(userRole);
 
   useEffect(() => {
     if (!id) return;
@@ -449,6 +462,39 @@ export default function SurveillanceReportDetailPage() {
     }
     return [buildFallbackRowFromReport(report, fallbackMarket)];
   }, [report, linkedRequest]);
+
+  // Compute group highlight class map for rows sharing the same customerGroupId or duplicate invoice number
+  const rowHighlightClassMap = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of allRows) {
+      const key = getRowGroupIdentifier(row);
+      if (key) {
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+    }
+
+    const assignedColorByGroup = new Map<string, string>();
+    let colorIdx = 0;
+    for (const [key, count] of counts.entries()) {
+      if (count > 1) {
+        assignedColorByGroup.set(
+          key,
+          CUSTOMER_GROUP_HIGHLIGHT_PALETTE[colorIdx % CUSTOMER_GROUP_HIGHLIGHT_PALETTE.length],
+        );
+        colorIdx++;
+      }
+    }
+
+    const mapByRowId = new Map<string, string>();
+    for (const row of allRows) {
+      const key = getRowGroupIdentifier(row);
+      const colorClass = key ? assignedColorByGroup.get(key) : undefined;
+      if (colorClass) {
+        mapByRowId.set(row.id, colorClass);
+      }
+    }
+    return mapByRowId;
+  }, [allRows]);
 
   const resolveFieldDisplay = (row: SurveillanceAuditRow, key: BaseAuditRowKey): string => {
     if (key === "date") {
@@ -592,7 +638,7 @@ export default function SurveillanceReportDetailPage() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${report.id}_Surveillance_Audit_Report.csv`;
+    link.download = `${report.id}_Submitted_Surveillance_Audit_Report.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -610,22 +656,6 @@ export default function SurveillanceReportDetailPage() {
         <h2 className="text-lg font-semibold">Report Not Found</h2>
         <Button variant="outline" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4 mr-2" /> Return to Reports
-        </Button>
-      </div>
-    );
-  }
-
-  // Requesters without validation/agent permissions can only view reports once Completed (Approved)
-  if (!canReviewReport && userRole !== "user" && report.status !== "Approved") {
-    return (
-      <div className="p-8 text-center space-y-4">
-        <h2 className="text-lg font-semibold">Report Pending Completion</h2>
-        <p className="text-sm text-muted-foreground max-w-md mx-auto">
-          This surveillance audit report is currently under review and will become available once
-          marked as completed.
-        </p>
-        <Button variant="outline" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-4 w-4 mr-2" /> Go Back
         </Button>
       </div>
     );
@@ -649,7 +679,7 @@ export default function SurveillanceReportDetailPage() {
             Back
           </Button>
           <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">
-            Surveillance Audit Report
+            Submitted Surveillance Audit Report
           </h1>
           {report.status === "Approved" && (
             <Badge
@@ -702,6 +732,7 @@ export default function SurveillanceReportDetailPage() {
         rows={allRows}
         columns={columns}
         rowKey={(r, i) => r.id || String(i)}
+        rowClassName={(r) => rowHighlightClassMap.get(r.id)}
         pageSize={25}
         searchPlaceholder="Search audit records..."
       />
@@ -730,7 +761,9 @@ export default function SurveillanceReportDetailPage() {
           )}
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-foreground">Manager Comments / Feedback</Label>
+            <Label className="text-xs font-semibold text-foreground">
+              Manager Comments / Feedback
+            </Label>
             <Textarea
               readOnly
               rows={3}

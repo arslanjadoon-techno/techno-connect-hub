@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Plus,
@@ -70,6 +71,7 @@ import {
   type SurveillanceRequest,
   type SurveillanceAttachment,
   type SurveillanceAuditRow,
+  type SurveillanceAdditionalInvoice,
   type SurveillancePriority,
   type SurveillanceRequestStatus,
 } from "@/services/portals/surveillance";
@@ -204,7 +206,6 @@ const TRANSACTION_TYPE_OPTIONS = [
   "LOA",
   "Refunded ACC",
   "REVVL Tab",
-  "Store Closed",
   "2 Magenta in Metro",
 ];
 
@@ -301,6 +302,45 @@ function hydrateAuditRowDetails(
     next[prop] = existing;
   }
   return next;
+}
+
+function hasCustomInTransType(raw: string | undefined): boolean {
+  return (raw || "")
+    .split(/\s*\/\s*/)
+    .some((s) => {
+      const low = s.trim().toLowerCase();
+      return low === "custom" || low === "other";
+    });
+}
+
+function getRowCustomDetail(row: SurveillanceAuditRow, fieldKey: CustomDetailFieldKey): string {
+  const prop = CUSTOM_DETAIL_PROP_MAP[fieldKey];
+  const direct = row[prop];
+  if (typeof direct === "string") return direct;
+  return row.otherDetails?.[fieldKey] || "";
+}
+
+function normalizeCustomOption(val: string | undefined): string {
+  const trimmed = (val || "").trim();
+  if (!trimmed || trimmed === "__empty__") return "";
+  if (trimmed === "Other") return "Custom";
+  return trimmed;
+}
+
+function createEmptyAdditionalInvoice(): SurveillanceAdditionalInvoice {
+  return {
+    id: `add-inv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    invoice: "",
+    bdiTime: "",
+    transType: "",
+    invoiceAmount: "",
+    totalTaken: "",
+    difference: "$0.00",
+    paymentType: "",
+    cash: "",
+    card: "",
+    receipt: "",
+  };
 }
 
 function normalizeClientType(raw: string | undefined, b?: string, nb?: string): string {
@@ -765,9 +805,11 @@ function createEmptyAuditRow(
   storeName: string,
   marketName: string,
   defaultDate?: string,
+  defaultSalesRep?: string,
 ): SurveillanceAuditRow {
   return {
     id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    additionalInvoices: [],
     date: formatSurveillanceDate(defaultDate),
     marketName: marketName || "",
     storeName: storeName || "",
@@ -775,7 +817,7 @@ function createEmptyAuditRow(
     cashTime: "",
     time: "",
     bdiTime: "",
-    salesRep: "",
+    salesRep: defaultSalesRep || "",
     transType: "",
     transTypeDetails: "",
     clientType: "",
@@ -1001,6 +1043,13 @@ export default function SurveillanceReportsPage() {
   const [repTimingRows, setRepTimingRows] = useState<RepTimingRow[]>([
     createEmptyRepTimingRow(),
   ]);
+  const [isFloorPresenceEnabled, setIsFloorPresenceEnabled] = useState<boolean>(false);
+  const [fraudSectionEnabledByRow, setFraudSectionEnabledByRow] = useState<Record<string, boolean>>(
+    {},
+  );
+  const [salesPitchSectionEnabledByRow, setSalesPitchSectionEnabledByRow] = useState<
+    Record<string, boolean>
+  >({});
   const [isTimingSectionDirty, setIsTimingSectionDirty] = useState<boolean>(false);
   const [isTimingSectionSaved, setIsTimingSectionSaved] = useState<boolean>(false);
   const [headerGeneralNotes, setHeaderGeneralNotes] = useState<string>("");
@@ -1113,6 +1162,9 @@ export default function SurveillanceReportsPage() {
       setSavedRowTimestamps(timestamps);
       setDirtyRowIds({});
       setExpandedRowIds(expanded);
+      setIsFloorPresenceEnabled(false);
+      setFraudSectionEnabledByRow({});
+      setSalesPitchSectionEnabledByRow({});
       saveStaticActiveDraftSession(reqItem.id, true);
       setIsEditingReport(true);
       toast.info(
@@ -1130,6 +1182,9 @@ export default function SurveillanceReportsPage() {
 
     setSavedRowTimestamps({});
     setDirtyRowIds({});
+    setIsFloorPresenceEnabled(false);
+    setFraudSectionEnabledByRow({});
+    setSalesPitchSectionEnabledByRow({});
 
     if (existingReport) {
       setHeaderStoreOpenTime(existingReport.cashTime || existingReport.time || "");
@@ -1292,9 +1347,102 @@ export default function SurveillanceReportsPage() {
 
   // Adds a fresh audit row
   const handleAddAuditRow = (storeName: string, marketName: string, defaultDate?: string) => {
-    const nextRow = createEmptyAuditRow(storeName, marketName, defaultDate);
+    const nextRow = createEmptyAuditRow(
+      storeName,
+      marketName,
+      defaultDate,
+      headerSalesRep || SALES_REP_NAMES[0] || "Abdul Razzak",
+    );
     setEditableRows((prev) => [...prev, nextRow]);
     setExpandedRowIds((prev) => ({ ...prev, [nextRow.id]: true }));
+    setFraudSectionEnabledByRow((prev) => ({ ...prev, [nextRow.id]: false }));
+    setSalesPitchSectionEnabledByRow((prev) => ({ ...prev, [nextRow.id]: false }));
+  };
+
+  const handleAddAdditionalInvoice = (rowId: string) => {
+    setDirtyRowIds((prev) => ({ ...prev, [rowId]: true }));
+    setEditableRows((prev) =>
+      prev.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              additionalInvoices: [
+                ...(row.additionalInvoices || []),
+                createEmptyAdditionalInvoice(),
+              ],
+            }
+          : row,
+      ),
+    );
+  };
+
+  const handleRemoveAdditionalInvoice = (rowId: string, addInvId: string) => {
+    setDirtyRowIds((prev) => ({ ...prev, [rowId]: true }));
+    setEditableRows((prev) =>
+      prev.map((row) =>
+        row.id === rowId
+          ? {
+              ...row,
+              additionalInvoices: (row.additionalInvoices || []).filter(
+                (item) => item.id !== addInvId,
+              ),
+            }
+          : row,
+      ),
+    );
+  };
+
+  const handleUpdateAdditionalInvoiceField = <K extends keyof SurveillanceAdditionalInvoice>(
+    rowId: string,
+    addInvId: string,
+    field: K,
+    value: SurveillanceAdditionalInvoice[K],
+  ) => {
+    setDirtyRowIds((prev) => ({ ...prev, [rowId]: true }));
+    setEditableRows((prev) =>
+      prev.map((row) => {
+        if (row.id !== rowId) return row;
+        const nextList = (row.additionalInvoices || []).map((item) => {
+          if (item.id !== addInvId) return item;
+          const updated: SurveillanceAdditionalInvoice = { ...item, [field]: value };
+          if (field === "paymentType") {
+            const pt = String(value || "");
+            const amt = (updated.totalTaken || "").trim();
+            if (pt === "Card") {
+              updated.card = amt || "Card";
+              updated.cash = "";
+            } else if (pt === "Cash") {
+              updated.cash = amt || "Cash";
+              updated.card = "";
+            } else if (pt === "Mix Payment") {
+              if (updated.card === "Card") updated.card = "";
+              if (updated.cash === "Cash") updated.cash = "";
+            } else {
+              updated.card = "";
+              updated.cash = "";
+            }
+          } else if (field === "totalTaken") {
+            const pt = updated.paymentType || "";
+            const amt = String(value || "").trim();
+            if (pt === "Card") {
+              updated.card = amt || "Card";
+              updated.cash = "";
+            } else if (pt === "Cash") {
+              updated.cash = amt || "Cash";
+              updated.card = "";
+            }
+          }
+          if (field === "invoiceAmount" || field === "totalTaken") {
+            updated.difference = calculateDifferenceDisplay(
+              updated.invoiceAmount,
+              updated.totalTaken,
+            );
+          }
+          return updated;
+        });
+        return { ...row, additionalInvoices: nextList };
+      }),
+    );
   };
 
   const handleRemoveAuditRow = (requestId: string, rowId: string) => {
@@ -1306,6 +1454,16 @@ export default function SurveillanceReportsPage() {
       return next;
     });
     setDirtyRowIds((prev) => {
+      const next = { ...prev };
+      delete next[rowId];
+      return next;
+    });
+    setFraudSectionEnabledByRow((prev) => {
+      const next = { ...prev };
+      delete next[rowId];
+      return next;
+    });
+    setSalesPitchSectionEnabledByRow((prev) => {
       const next = { ...prev };
       delete next[rowId];
       return next;
@@ -1432,7 +1590,8 @@ export default function SurveillanceReportsPage() {
         toast.error(`Store Name is required for Row #${rowNum}.`);
         return false;
       }
-      if (!r.salesRep || !r.salesRep.trim()) {
+      const effectiveSalesRep = (r.salesRep || headerSalesRep || "").trim();
+      if (!effectiveSalesRep) {
         setExpandedRowIds((prev) => ({ ...prev, [r.id]: true }));
         toast.error(`Please select a Sales Rep for Row #${rowNum} before submitting.`);
         return false;
@@ -1441,6 +1600,18 @@ export default function SurveillanceReportsPage() {
         setExpandedRowIds((prev) => ({ ...prev, [r.id]: true }));
         toast.error(`Please select a Transaction Type for Row #${rowNum} before submitting.`);
         return false;
+      }
+      if (r.additionalInvoices && r.additionalInvoices.length > 0) {
+        for (let j = 0; j < r.additionalInvoices.length; j++) {
+          const addInv = r.additionalInvoices[j];
+          if (!addInv.transType || !addInv.transType.trim()) {
+            setExpandedRowIds((prev) => ({ ...prev, [r.id]: true }));
+            toast.error(
+              `Please select a Transaction Type for Additional Invoice #${j + 2} in Row #${rowNum}.`,
+            );
+            return false;
+          }
+        }
       }
     }
 
@@ -1486,14 +1657,21 @@ export default function SurveillanceReportsPage() {
         .join(" / ");
     };
 
-    const serializeAuditRow = (r: SurveillanceAuditRow): SurveillanceAuditRow => {
+    const serializeAuditRowWithGroup = (
+      r: SurveillanceAuditRow,
+      groupId?: string,
+    ): SurveillanceAuditRow => {
       const normalizedClientType = normalizeClientType(r.clientType, r.b, r.nb);
       const normalizedPaymentType =
         r.paymentType === "Custom" || r.paymentType === "Other" ? "" : r.paymentType || "";
       const normOpt = (v?: string) => normalizeCustomOption(v);
+      const fraudEnabled = Boolean(fraudSectionEnabledByRow[r.id]);
+      const pitchEnabled = Boolean(salesPitchSectionEnabledByRow[r.id]);
+      const resolvedSalesRep = (r.salesRep || headerSalesRep || "").trim();
 
       return {
         id: r.id,
+        customerGroupId: groupId || r.customerGroupId,
         date: formatSurveillanceDate(r.date || reqItem.incidentDate),
         marketName: (r.marketName || reqItem.marketName || "").trim(),
         storeName: (r.storeName || reqItem.storeName || "").trim(),
@@ -1501,7 +1679,7 @@ export default function SurveillanceReportsPage() {
         cashTime: r.cashTime,
         time: r.time,
         bdiTime: r.bdiTime,
-        salesRep: r.salesRep.trim(),
+        salesRep: resolvedSalesRep,
         transType: normalizeTransTypeString(r.transType),
         transTypeDetails: resolveCustomDetailValue(r, "transType", r.transType),
         clientType: normalizedClientType,
@@ -1518,67 +1696,128 @@ export default function SurveillanceReportsPage() {
         receipt: normOpt(r.receipt),
         receiptDetails: resolveCustomDetailValue(r, "receipt", r.receipt),
         splitPayments: normalizedPaymentType === "Mix Payment" ? "YES" : "NO",
-        fraudTransactions: normOpt(r.fraudTransactions),
-        fraudTransactionsDetails: resolveCustomDetailValue(
-          r,
-          "fraudTransactions",
-          r.fraudTransactions,
-        ),
-        missOpportunity: normOpt(r.missOpportunity),
-        missOpportunityDetails: resolveCustomDetailValue(r, "missOpportunity", r.missOpportunity),
-        paymentFraud: normOpt(r.paymentFraud),
-        paymentFraudDetails: resolveCustomDetailValue(r, "paymentFraud", r.paymentFraud),
-        aalSwap: normOpt(r.aalSwap),
-        aalSwapDetails: resolveCustomDetailValue(r, "aalSwap", r.aalSwap),
-        mim: normOpt(r.mim),
-        mimDetails: resolveCustomDetailValue(r, "mim", r.mim),
-        onlineRejectedPayment: normOpt(r.onlineRejectedPayment),
-        onlineRejectedPaymentDetails: resolveCustomDetailValue(
-          r,
-          "onlineRejectedPayment",
-          r.onlineRejectedPayment,
-        ),
-        notes: r.notes,
-        pitchNb: normOpt(r.pitchNb),
-        pitchNbDetails: resolveCustomDetailValue(r, "pitchNb", r.pitchNb),
-        pitchNotes: r.pitchNotes,
-        pitchQuality: normOpt(r.pitchQuality),
-        pitchQualityDetails: resolveCustomDetailValue(r, "pitchQuality", r.pitchQuality),
-        showingPhone: normOpt(r.showingPhone),
-        showingPhoneDetails: resolveCustomDetailValue(r, "showingPhone", r.showingPhone),
-        accOffered: normOpt(r.accOffered),
-        accOfferedDetails: resolveCustomDetailValue(r, "accOffered", r.accOffered),
-        maximize: normOpt(r.maximize),
-        maximizeDetails: resolveCustomDetailValue(r, "maximize", r.maximize),
-        flipping: normOpt(r.flipping),
-        flippingDetails: resolveCustomDetailValue(r, "flipping", r.flipping),
-        bundleNb: r.bundleNb,
-        bundleStartB: r.bundleStartB,
-        bundleEndB: r.bundleEndB,
-        bundleAccGiven: normOpt(r.bundleAccGiven),
-        bundleAccGivenDetails: resolveCustomDetailValue(r, "bundleAccGiven", r.bundleAccGiven),
-        portIn: normOpt(r.portIn),
-        portInDetails: resolveCustomDetailValue(r, "portIn", r.portIn),
-        nonUp: normOpt(r.nonUp),
-        nonUpDetails: resolveCustomDetailValue(r, "nonUp", r.nonUp),
-        smartPayMentioned: normOpt(r.smartPayMentioned),
-        smartPayMentionedDetails: resolveCustomDetailValue(
-          r,
-          "smartPayMentioned",
-          r.smartPayMentioned,
-        ),
-        aalBillSame: normOpt(r.aalBillSame),
-        aalBillSameDetails: resolveCustomDetailValue(r, "aalBillSame", r.aalBillSame),
-        nameOfRepLeaving: r.nameOfRepLeaving,
-        timeLeft: r.timeLeft,
-        timeReturned: r.timeReturned,
-        backRoomTimeIn: r.backRoomTimeIn,
-        backRoomTimeOut: r.backRoomTimeOut,
+        fraudTransactions: fraudEnabled ? normOpt(r.fraudTransactions) : "",
+        fraudTransactionsDetails: fraudEnabled
+          ? resolveCustomDetailValue(r, "fraudTransactions", r.fraudTransactions)
+          : "",
+        missOpportunity: fraudEnabled ? normOpt(r.missOpportunity) : "",
+        missOpportunityDetails: fraudEnabled
+          ? resolveCustomDetailValue(r, "missOpportunity", r.missOpportunity)
+          : "",
+        paymentFraud: fraudEnabled ? normOpt(r.paymentFraud) : "",
+        paymentFraudDetails: fraudEnabled
+          ? resolveCustomDetailValue(r, "paymentFraud", r.paymentFraud)
+          : "",
+        aalSwap: fraudEnabled ? normOpt(r.aalSwap) : "",
+        aalSwapDetails: fraudEnabled ? resolveCustomDetailValue(r, "aalSwap", r.aalSwap) : "",
+        mim: fraudEnabled ? normOpt(r.mim) : "",
+        mimDetails: fraudEnabled ? resolveCustomDetailValue(r, "mim", r.mim) : "",
+        onlineRejectedPayment: fraudEnabled ? normOpt(r.onlineRejectedPayment) : "",
+        onlineRejectedPaymentDetails: fraudEnabled
+          ? resolveCustomDetailValue(r, "onlineRejectedPayment", r.onlineRejectedPayment)
+          : "",
+        notes: fraudEnabled ? r.notes : "",
+        pitchNb: pitchEnabled ? normOpt(r.pitchNb) : "",
+        pitchNbDetails: pitchEnabled ? resolveCustomDetailValue(r, "pitchNb", r.pitchNb) : "",
+        pitchNotes: pitchEnabled ? r.pitchNotes : "",
+        pitchQuality: pitchEnabled ? normOpt(r.pitchQuality) : "",
+        pitchQualityDetails: pitchEnabled
+          ? resolveCustomDetailValue(r, "pitchQuality", r.pitchQuality)
+          : "",
+        showingPhone: pitchEnabled ? normOpt(r.showingPhone) : "",
+        showingPhoneDetails: pitchEnabled
+          ? resolveCustomDetailValue(r, "showingPhone", r.showingPhone)
+          : "",
+        accOffered: pitchEnabled ? normOpt(r.accOffered) : "",
+        accOfferedDetails: pitchEnabled
+          ? resolveCustomDetailValue(r, "accOffered", r.accOffered)
+          : "",
+        maximize: pitchEnabled ? normOpt(r.maximize) : "",
+        maximizeDetails: pitchEnabled ? resolveCustomDetailValue(r, "maximize", r.maximize) : "",
+        flipping: fraudEnabled ? normOpt(r.flipping) : "",
+        flippingDetails: fraudEnabled ? resolveCustomDetailValue(r, "flipping", r.flipping) : "",
+        bundleNb: pitchEnabled ? r.bundleNb : "",
+        bundleStartB: pitchEnabled ? r.bundleStartB : "",
+        bundleEndB: pitchEnabled ? r.bundleEndB : "",
+        bundleAccGiven: pitchEnabled ? normOpt(r.bundleAccGiven) : "",
+        bundleAccGivenDetails: pitchEnabled
+          ? resolveCustomDetailValue(r, "bundleAccGiven", r.bundleAccGiven)
+          : "",
+        portIn: fraudEnabled ? normOpt(r.portIn) : "",
+        portInDetails: fraudEnabled ? resolveCustomDetailValue(r, "portIn", r.portIn) : "",
+        nonUp: fraudEnabled ? normOpt(r.nonUp) : "",
+        nonUpDetails: fraudEnabled ? resolveCustomDetailValue(r, "nonUp", r.nonUp) : "",
+        smartPayMentioned: fraudEnabled ? normOpt(r.smartPayMentioned) : "",
+        smartPayMentionedDetails: fraudEnabled
+          ? resolveCustomDetailValue(r, "smartPayMentioned", r.smartPayMentioned)
+          : "",
+        aalBillSame: fraudEnabled ? normOpt(r.aalBillSame) : "",
+        aalBillSameDetails: fraudEnabled
+          ? resolveCustomDetailValue(r, "aalBillSame", r.aalBillSame)
+          : "",
+        nameOfRepLeaving: isFloorPresenceEnabled
+          ? repTimingRows[0]?.repName || r.nameOfRepLeaving
+          : "",
+        timeLeft: isFloorPresenceEnabled ? repTimingRows[0]?.timeLeft || r.timeLeft : "",
+        timeReturned: isFloorPresenceEnabled
+          ? repTimingRows[0]?.timeReturned || r.timeReturned
+          : "",
+        backRoomTimeIn: isFloorPresenceEnabled
+          ? repTimingRows[0]?.backRoomTimeIn || r.backRoomTimeIn
+          : "",
+        backRoomTimeOut: isFloorPresenceEnabled
+          ? repTimingRows[0]?.backRoomTimeOut || r.backRoomTimeOut
+          : "",
         offline: normOpt(r.offline),
         offlineDetails: resolveCustomDetailValue(r, "offline", r.offline),
         attachments: r.attachments && r.attachments.length > 0 ? r.attachments : undefined,
       };
     };
+
+    const flattenedAuditRows: SurveillanceAuditRow[] = editableRows.flatMap((r) => {
+      const addList = r.additionalInvoices || [];
+      const groupId =
+        addList.length > 0
+          ? r.customerGroupId || `cust-grp-${r.id}`
+          : r.customerGroupId;
+      const baseSerialized = serializeAuditRowWithGroup(r, groupId);
+      if (addList.length === 0) {
+        return [baseSerialized];
+      }
+      const extraSerialized: SurveillanceAuditRow[] = addList.map((inv, idx) => {
+        const normalizedPt =
+          inv.paymentType === "Custom" || inv.paymentType === "Other" ? "" : inv.paymentType || "";
+        return {
+          ...baseSerialized,
+          id: `${r.id}-inv-${idx + 2}`,
+          customerGroupId: groupId,
+          invoice: inv.invoice,
+          bdiTime: inv.bdiTime,
+          transType: normalizeTransTypeString(inv.transType),
+          transTypeDetails: "",
+          invoiceAmount: inv.invoiceAmount,
+          totalTaken: inv.totalTaken,
+          difference: calculateDifferenceDisplay(inv.invoiceAmount, inv.totalTaken),
+          paymentType: normalizedPt,
+          cash:
+            normalizedPt === "Cash"
+              ? (inv.totalTaken || "").trim() || "Cash"
+              : normalizedPt === "Mix Payment"
+                ? inv.cash || ""
+                : "",
+          card:
+            normalizedPt === "Card"
+              ? (inv.totalTaken || "").trim() || "Card"
+              : normalizedPt === "Mix Payment"
+                ? inv.card || ""
+                : "",
+          splitPayments: normalizedPt === "Mix Payment" ? "YES" : "NO",
+          receipt: normalizeCustomOption(inv.receipt),
+          receiptDetails: "",
+        };
+      });
+      return [baseSerialized, ...extraSerialized];
+    });
 
     const combinedAttachments = editableRows.flatMap((r) => r.attachments || []);
     const primaryClientType = normalizeClientType(
@@ -1589,18 +1828,18 @@ export default function SurveillanceReportsPage() {
 
     const payload = {
       requestId: reqItem.id,
-      rows: editableRows.map(serializeAuditRow),
+      rows: flattenedAuditRows,
       date: formatSurveillanceDate(primaryRow.date || reqItem.incidentDate),
       marketName: (primaryRow.marketName || reqItem.marketName || "").trim(),
       storeName: (primaryRow.storeName || reqItem.storeName || "").trim(),
       invoiceNo:
-        editableRows.length > 1
-          ? `${primaryRow.invoice || "Audit"} (${editableRows.length} Rows)`
+        flattenedAuditRows.length > 1
+          ? `${primaryRow.invoice || "Audit"} (${flattenedAuditRows.length} Rows)`
           : primaryRow.invoice || "-",
       cashTime: primaryRow.cashTime,
       time: primaryRow.time,
       bdiTime: primaryRow.bdiTime,
-      salesRep: primaryRow.salesRep.trim(),
+      salesRep: (primaryRow.salesRep || headerSalesRep || "").trim(),
       transType:
         editableRows.length > 1
           ? `Shift Audit (${editableRows.length} Entries)`
@@ -2027,9 +2266,21 @@ export default function SurveillanceReportsPage() {
                     <div className="p-4 space-y-5 text-xs">
                       {/* 1. Transaction & Billing Details */}
                       <div className="space-y-3 rounded-lg border p-3.5">
-                        <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
-                          <ShoppingBag className="h-4 w-4 text-primary" />
-                          1. Transaction & Billing Details
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
+                          <div className="flex items-center gap-2 font-semibold text-foreground text-xs uppercase tracking-wide">
+                            <ShoppingBag className="h-4 w-4 text-primary" />
+                            1. Transaction & Billing Details
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleAddAdditionalInvoice(row.id)}
+                            className="h-7 gap-1.5 px-2.5 text-xs font-semibold"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Add Invoice
+                          </Button>
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
@@ -2170,138 +2421,403 @@ export default function SurveillanceReportsPage() {
                             onValueChange={(val) => handleUpdateRowField(row.id, "receipt", val)}
                           />
                         </div>
+
+                        {/* Additional Invoices for Same Customer */}
+                        {row.additionalInvoices && row.additionalInvoices.length > 0 && (
+                          <div className="space-y-3 pt-2 border-t border-dashed border-border/80">
+                            {row.additionalInvoices.map((addInv, invIdx) => {
+                              const addInvDiff = calculateDifferenceDisplay(
+                                addInv.invoiceAmount,
+                                addInv.totalTaken,
+                              );
+                              return (
+                                <div
+                                  key={addInv.id}
+                                  className="rounded-lg border border-blue-200/70 bg-blue-50/35 dark:border-blue-900/50 dark:bg-blue-950/20 p-3 space-y-2.5"
+                                >
+                                  <div className="flex items-center justify-between border-b border-blue-200/60 dark:border-blue-900/40 pb-1.5">
+                                    <span className="text-[11px] font-semibold uppercase tracking-wider text-blue-900 dark:text-blue-300">
+                                      Additional Invoice #{invIdx + 2} (Same Customer)
+                                    </span>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleRemoveAdditionalInvoice(row.id, addInv.id)
+                                      }
+                                      className="h-7 px-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30"
+                                      title="Remove Invoice"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                                    <div className="space-y-1">
+                                      <Label className="text-[11px] font-semibold">
+                                        Invoice No
+                                      </Label>
+                                      <Input
+                                        value={addInv.invoice}
+                                        onChange={(e) =>
+                                          handleUpdateAdditionalInvoiceField(
+                                            row.id,
+                                            addInv.id,
+                                            "invoice",
+                                            e.target.value,
+                                          )
+                                        }
+                                        placeholder="e.g. INV-12346"
+                                      />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                      <Label className="text-[11px] font-semibold">BDI Time</Label>
+                                      <AmPmTimePicker
+                                        value={addInv.bdiTime}
+                                        onChange={(val) =>
+                                          handleUpdateAdditionalInvoiceField(
+                                            row.id,
+                                            addInv.id,
+                                            "bdiTime",
+                                            val,
+                                          )
+                                        }
+                                      />
+                                    </div>
+
+                                    <div className="space-y-1 sm:col-span-2">
+                                      <Label className="text-[11px] font-semibold">
+                                        Transaction Type <span className="text-destructive">*</span>
+                                      </Label>
+                                      <TransactionTypeMultiSelect
+                                        value={addInv.transType}
+                                        options={TRANSACTION_TYPE_OPTIONS}
+                                        onChange={(nextVal) =>
+                                          handleUpdateAdditionalInvoiceField(
+                                            row.id,
+                                            addInv.id,
+                                            "transType",
+                                            nextVal,
+                                          )
+                                        }
+                                      />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                      <Label className="text-[11px] font-semibold">
+                                        Invoice Amount
+                                      </Label>
+                                      <Input
+                                        value={addInv.invoiceAmount}
+                                        onChange={(e) =>
+                                          handleUpdateAdditionalInvoiceField(
+                                            row.id,
+                                            addInv.id,
+                                            "invoiceAmount",
+                                            e.target.value,
+                                          )
+                                        }
+                                        placeholder="$0.00"
+                                      />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                      <Label className="text-[11px] font-semibold">
+                                        Total Taken
+                                      </Label>
+                                      <Input
+                                        value={addInv.totalTaken}
+                                        onChange={(e) =>
+                                          handleUpdateAdditionalInvoiceField(
+                                            row.id,
+                                            addInv.id,
+                                            "totalTaken",
+                                            e.target.value,
+                                          )
+                                        }
+                                        placeholder="$0.00"
+                                      />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                      <Label className="text-[11px] font-semibold">
+                                        Difference
+                                      </Label>
+                                      <Input
+                                        value={addInvDiff}
+                                        readOnly
+                                        tabIndex={-1}
+                                        className="bg-muted/30 font-semibold text-foreground cursor-default select-none focus-visible:ring-0"
+                                        placeholder="$0.00"
+                                      />
+                                    </div>
+
+                                    <div className="space-y-1">
+                                      <Label className="text-[11px] font-semibold">
+                                        Payment Type
+                                      </Label>
+                                      <Select
+                                        value={toSelectVal(addInv.paymentType)}
+                                        onValueChange={(v) =>
+                                          handleUpdateAdditionalInvoiceField(
+                                            row.id,
+                                            addInv.id,
+                                            "paymentType",
+                                            fromSelectVal(v),
+                                          )
+                                        }
+                                      >
+                                        <SelectTrigger>
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {PAYMENT_TYPE_OPTIONS.map((opt) => (
+                                            <SelectItem key={opt.value} value={opt.value}>
+                                              {opt.label}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+
+                                    {addInv.paymentType === "Mix Payment" && (
+                                      <>
+                                        <div className="space-y-1">
+                                          <Label className="text-[11px] font-semibold">
+                                            Cash Payment
+                                          </Label>
+                                          <Input
+                                            value={addInv.cash || ""}
+                                            onChange={(e) =>
+                                              handleUpdateAdditionalInvoiceField(
+                                                row.id,
+                                                addInv.id,
+                                                "cash",
+                                                e.target.value,
+                                              )
+                                            }
+                                            placeholder="$0.00"
+                                          />
+                                        </div>
+                                        <div className="space-y-1">
+                                          <Label className="text-[11px] font-semibold">
+                                            Card Payment
+                                          </Label>
+                                          <Input
+                                            value={addInv.card || ""}
+                                            onChange={(e) =>
+                                              handleUpdateAdditionalInvoiceField(
+                                                row.id,
+                                                addInv.id,
+                                                "card",
+                                                e.target.value,
+                                              )
+                                            }
+                                            placeholder="$0.00"
+                                          />
+                                        </div>
+                                      </>
+                                    )}
+
+                                    <StandardSelect
+                                      label="Receipt"
+                                      options={YES_NO_OPTIONS}
+                                      value={addInv.receipt}
+                                      onValueChange={(val) =>
+                                        handleUpdateAdditionalInvoiceField(
+                                          row.id,
+                                          addInv.id,
+                                          "receipt",
+                                          val,
+                                        )
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
 
                       {/* 2. Fraud & Compliance Verification */}
                       <div className="space-y-3 rounded-lg border p-3.5">
-                        <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
-                          <ShieldAlert className="h-4 w-4 text-rose-600" />
-                          2. Fraud & Compliance Verification
-                        </div>
-
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          {(
-                            [
-                              { key: "fraudTransactions", label: "Fraud Transactions" },
-                              { key: "missOpportunity", label: "Miss Opportunity" },
-                              { key: "paymentFraud", label: "Payment fraud" },
-                              { key: "aalSwap", label: "AAL Swap" },
-                              { key: "mim", label: "MIM" },
-                              { key: "onlineRejectedPayment", label: "Online/Rejected Payment" },
-                              { key: "flipping", label: "Flipping" },
-                              { key: "portIn", label: "Port In" },
-                              { key: "nonUp", label: "Non-Up" },
-                              { key: "smartPayMentioned", label: "SmartPay Mentioned" },
-                              { key: "aalBillSame", label: "AAL Bill Same" },
-                            ] as const
-                          ).map((field) => (
-                            <StandardSelect
-                              key={field.key}
-                              label={field.label}
-                              options={YES_NO_OPTIONS}
-                              value={row[field.key]}
-                              onValueChange={(val) => handleUpdateRowField(row.id, field.key, val)}
-                            />
-                          ))}
-                        </div>
-
-                        <div className="space-y-1 pt-1">
-                          <Label className="text-[11px] font-semibold">Notes</Label>
-                          <Textarea
-                            value={row.notes}
-                            onChange={(e) => handleUpdateRowField(row.id, "notes", e.target.value)}
-                            placeholder="Document transaction observations, cash handling, or compliance notes..."
-                            rows={2}
+                        <div
+                          className={`flex items-center gap-2.5 font-semibold text-foreground text-xs uppercase tracking-wide ${
+                            fraudSectionEnabledByRow[row.id] ? "border-b pb-2" : ""
+                          }`}
+                        >
+                          <Switch
+                            checked={Boolean(fraudSectionEnabledByRow[row.id])}
+                            onCheckedChange={(checked) =>
+                              setFraudSectionEnabledByRow((prev) => ({
+                                ...prev,
+                                [row.id]: checked,
+                              }))
+                            }
+                            aria-label="Toggle Fraud & Compliance Verification"
                           />
+                          <ShieldAlert className="h-4 w-4 text-rose-600" />
+                          <span>2. Fraud & Compliance Verification</span>
                         </div>
+
+                        {Boolean(fraudSectionEnabledByRow[row.id]) && (
+                          <>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                              {(
+                                [
+                                  { key: "fraudTransactions", label: "Fraud Transactions" },
+                                  { key: "missOpportunity", label: "Miss Opportunity" },
+                                  { key: "paymentFraud", label: "Payment fraud" },
+                                  { key: "aalSwap", label: "AAL Swap" },
+                                  { key: "mim", label: "MIM" },
+                                  { key: "onlineRejectedPayment", label: "Online/Rejected Payment" },
+                                  { key: "flipping", label: "Flipping" },
+                                  { key: "portIn", label: "Port In" },
+                                  { key: "nonUp", label: "Non-Up" },
+                                  { key: "smartPayMentioned", label: "SmartPay Mentioned" },
+                                  { key: "aalBillSame", label: "AAL Bill Same" },
+                                ] as const
+                              ).map((field) => (
+                                <StandardSelect
+                                  key={field.key}
+                                  label={field.label}
+                                  options={YES_NO_OPTIONS}
+                                  value={row[field.key]}
+                                  onValueChange={(val) =>
+                                    handleUpdateRowField(row.id, field.key, val)
+                                  }
+                                />
+                              ))}
+                            </div>
+
+                            <div className="space-y-1 pt-1">
+                              <Label className="text-[11px] font-semibold">Notes</Label>
+                              <Textarea
+                                value={row.notes}
+                                onChange={(e) =>
+                                  handleUpdateRowField(row.id, "notes", e.target.value)
+                                }
+                                placeholder="Document transaction observations, cash handling, or compliance notes..."
+                                rows={2}
+                              />
+                            </div>
+                          </>
+                        )}
                       </div>
 
                       {/* 3. Sales Pitch & Bundle Verification */}
                       <div className="space-y-3 rounded-lg border p-3.5">
-                        <div className="flex items-center gap-2 border-b pb-1.5 font-semibold text-foreground text-xs uppercase tracking-wide">
-                          <UserCheck className="h-4 w-4 text-emerald-600" />
-                          3. Sales Pitch & Bundle Verification
-                        </div>
-
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          <StandardSelect
-                            label="Pitch NB"
-                            options={YES_NO_OPTIONS}
-                            value={row.pitchNb}
-                            onValueChange={(val) => handleUpdateRowField(row.id, "pitchNb", val)}
-                          />
-                          <StandardSelect
-                            label="Pitch Quality"
-                            options={PITCH_QUALITY_OPTIONS}
-                            value={row.pitchQuality}
-                            onValueChange={(val) => handleUpdateRowField(row.id, "pitchQuality", val)}
-                          />
-
-                          {(
-                            [
-                              { key: "showingPhone", label: "Showing Phone?" },
-                              { key: "accOffered", label: "Acc Offered" },
-                              { key: "maximize", label: "Maximize" },
-                            ] as const
-                          ).map((field) => (
-                            <StandardSelect
-                              key={field.key}
-                              label={field.label}
-                              options={YES_NO_OPTIONS}
-                              value={row[field.key]}
-                              onValueChange={(val) => handleUpdateRowField(row.id, field.key, val)}
-                            />
-                          ))}
-
-                          <div className="space-y-1">
-                            <Label className="text-[11px] font-semibold">Bundle NB</Label>
-                            <Input
-                              value={row.bundleNb}
-                              onChange={(e) =>
-                                handleUpdateRowField(row.id, "bundleNb", e.target.value)
-                              }
-                              placeholder="e.g. Standard Bundle"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[11px] font-semibold">Bundle-Start B</Label>
-                            <Input
-                              value={row.bundleStartB}
-                              onChange={(e) =>
-                                handleUpdateRowField(row.id, "bundleStartB", e.target.value)
-                              }
-                              placeholder="e.g. Case"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[11px] font-semibold">Bundle-End B</Label>
-                            <Input
-                              value={row.bundleEndB}
-                              onChange={(e) =>
-                                handleUpdateRowField(row.id, "bundleEndB", e.target.value)
-                              }
-                              placeholder="e.g. Charger"
-                            />
-                          </div>
-
-                          <StandardSelect
-                            label="Bundle Acc Given"
-                            options={YES_NO_OPTIONS}
-                            value={row.bundleAccGiven}
-                            onValueChange={(val) => handleUpdateRowField(row.id, "bundleAccGiven", val)}
-                          />
-                        </div>
-
-                        <div className="space-y-1 pt-1">
-                          <Label className="text-[11px] font-semibold">Pitch Notes</Label>
-                          <Input
-                            value={row.pitchNotes}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "pitchNotes", e.target.value)
+                        <div
+                          className={`flex items-center gap-2.5 font-semibold text-foreground text-xs uppercase tracking-wide ${
+                            salesPitchSectionEnabledByRow[row.id] ? "border-b pb-2" : ""
+                          }`}
+                        >
+                          <Switch
+                            checked={Boolean(salesPitchSectionEnabledByRow[row.id])}
+                            onCheckedChange={(checked) =>
+                              setSalesPitchSectionEnabledByRow((prev) => ({
+                                ...prev,
+                                [row.id]: checked,
+                              }))
                             }
-                            placeholder="Enter customer response, accessory pitch, and closing notes..."
+                            aria-label="Toggle Sales Pitch & Bundle Verification"
                           />
+                          <UserCheck className="h-4 w-4 text-emerald-600" />
+                          <span>3. Sales Pitch & Bundle Verification</span>
                         </div>
+
+                        {Boolean(salesPitchSectionEnabledByRow[row.id]) && (
+                          <>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                              <StandardSelect
+                                label="Pitch NB"
+                                options={YES_NO_OPTIONS}
+                                value={row.pitchNb}
+                                onValueChange={(val) => handleUpdateRowField(row.id, "pitchNb", val)}
+                              />
+                              <StandardSelect
+                                label="Pitch Quality"
+                                options={PITCH_QUALITY_OPTIONS}
+                                value={row.pitchQuality}
+                                onValueChange={(val) =>
+                                  handleUpdateRowField(row.id, "pitchQuality", val)
+                                }
+                              />
+
+                              {(
+                                [
+                                  { key: "showingPhone", label: "Showing Phone?" },
+                                  { key: "accOffered", label: "Acc Offered" },
+                                  { key: "maximize", label: "Maximize" },
+                                ] as const
+                              ).map((field) => (
+                                <StandardSelect
+                                  key={field.key}
+                                  label={field.label}
+                                  options={YES_NO_OPTIONS}
+                                  value={row[field.key]}
+                                  onValueChange={(val) =>
+                                    handleUpdateRowField(row.id, field.key, val)
+                                  }
+                                />
+                              ))}
+
+                              <div className="space-y-1">
+                                <Label className="text-[11px] font-semibold">Bundle NB</Label>
+                                <Input
+                                  value={row.bundleNb}
+                                  onChange={(e) =>
+                                    handleUpdateRowField(row.id, "bundleNb", e.target.value)
+                                  }
+                                  placeholder="e.g. Standard Bundle"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-[11px] font-semibold">Bundle-Start B</Label>
+                                <Input
+                                  value={row.bundleStartB}
+                                  onChange={(e) =>
+                                    handleUpdateRowField(row.id, "bundleStartB", e.target.value)
+                                  }
+                                  placeholder="e.g. Case"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-[11px] font-semibold">Bundle-End B</Label>
+                                <Input
+                                  value={row.bundleEndB}
+                                  onChange={(e) =>
+                                    handleUpdateRowField(row.id, "bundleEndB", e.target.value)
+                                  }
+                                  placeholder="e.g. Charger"
+                                />
+                              </div>
+
+                              <StandardSelect
+                                label="Bundle Acc Given"
+                                options={YES_NO_OPTIONS}
+                                value={row.bundleAccGiven}
+                                onValueChange={(val) =>
+                                  handleUpdateRowField(row.id, "bundleAccGiven", val)
+                                }
+                              />
+                            </div>
+
+                            <div className="space-y-1 pt-1">
+                              <Label className="text-[11px] font-semibold">Pitch Notes</Label>
+                              <Input
+                                value={row.pitchNotes}
+                                onChange={(e) =>
+                                  handleUpdateRowField(row.id, "pitchNotes", e.target.value)
+                                }
+                                placeholder="Enter customer response, accessory pitch, and closing notes..."
+                              />
+                            </div>
+                          </>
+                        )}
                       </div>
 
                       {/* Row-level MMKV Save Footer */}
@@ -2349,161 +2865,182 @@ export default function SurveillanceReportsPage() {
 
         {/* 4. Floor Presence & Rep Timings Section */}
         <Card className="p-4 border-border/80 shadow-2xs bg-card space-y-3">
-          <div className="flex items-center justify-between border-b pb-2.5">
-            <div className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
+          <div
+            className={`flex flex-wrap items-center justify-between gap-2 ${
+              isFloorPresenceEnabled ? "border-b pb-2.5" : ""
+            }`}
+          >
+            <div className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2.5">
+              <Switch
+                checked={isFloorPresenceEnabled}
+                onCheckedChange={setIsFloorPresenceEnabled}
+                aria-label="Toggle Floor Presence & Rep Timings"
+              />
               <Clock className="h-4 w-4 text-primary" />
-              Floor Presence & Rep Timings
+              <span>Floor Presence & Rep Timings</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                onClick={handleSaveAllRepTimings}
-                className={
-                  isTimingSectionDirty
-                    ? "bg-blue-600 hover:bg-blue-700 text-white shadow-xs font-semibold h-8 px-3 text-xs gap-1.5"
-                    : "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 font-semibold h-8 px-3 text-xs gap-1.5"
-                }
-              >
-                {isTimingSectionDirty ? (
-                  <Save className="h-3.5 w-3.5" />
-                ) : (
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
-                )}
-                {isTimingSectionDirty ? "Save" : "Saved"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAddRepTimingRow}
-                className="h-8 gap-1.5 text-xs font-medium"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add Row
-              </Button>
-            </div>
-          </div>
-
-          <div className="divide-y divide-border/60">
-            {repTimingRows.map((timingRow, tIdx) => (
-              <div
-                key={timingRow.id}
-                className="py-2.5 first:pt-1 last:pb-1 flex flex-wrap lg:flex-nowrap items-end gap-2.5"
-              >
-                {/* Name of Rep Leaving Dropdown (Reduced width) */}
-                <div className="w-full sm:w-44 lg:w-48 xl:w-52 shrink-0 space-y-1">
-                  <Label className="text-[11px] font-semibold text-foreground">
-                    Name of Rep Leaving
-                  </Label>
-                  <Select
-                    value={toSelectVal(timingRow.repName)}
-                    onValueChange={(v) =>
-                      handleUpdateRepTimingField(
-                        timingRow.id,
-                        "repName",
-                        fromSelectVal(v),
-                      )
-                    }
-                  >
-                    <SelectTrigger className="h-9 text-xs w-full">
-                      <SelectValue placeholder="-" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__empty__" className="text-xs">
-                        -
-                      </SelectItem>
-                      {SALES_REP_NAMES.map((rep) => (
-                        <SelectItem key={rep} value={rep} className="text-xs">
-                          {rep}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Time Left */}
-                <div className="flex-1 min-w-[110px] space-y-1">
-                  <Label className="text-[11px] font-semibold text-foreground">Time Left</Label>
-                  <AmPmTimePicker
-                    value={timingRow.timeLeft}
-                    onChange={(val) =>
-                      handleUpdateRepTimingField(timingRow.id, "timeLeft", val)
-                    }
-                  />
-                </div>
-
-                {/* Time Returned */}
-                <div className="flex-1 min-w-[110px] space-y-1">
-                  <Label className="text-[11px] font-semibold text-foreground">Time Returned</Label>
-                  <AmPmTimePicker
-                    value={timingRow.timeReturned}
-                    onChange={(val) =>
-                      handleUpdateRepTimingField(timingRow.id, "timeReturned", val)
-                    }
-                  />
-                </div>
-
-                {/* Back Room Time - In */}
-                <div className="flex-1 min-w-[115px] space-y-1">
-                  <Label className="text-[11px] font-semibold text-foreground">Back Room - In</Label>
-                  <AmPmTimePicker
-                    value={timingRow.backRoomTimeIn}
-                    onChange={(val) =>
-                      handleUpdateRepTimingField(timingRow.id, "backRoomTimeIn", val)
-                    }
-                  />
-                </div>
-
-                {/* Back Room Time - Out */}
-                <div className="flex-1 min-w-[115px] space-y-1">
-                  <Label className="text-[11px] font-semibold text-foreground">Back Room - Out</Label>
-                  <AmPmTimePicker
-                    value={timingRow.backRoomTimeOut}
-                    onChange={(val) =>
-                      handleUpdateRepTimingField(timingRow.id, "backRoomTimeOut", val)
-                    }
-                  />
-                </div>
-
-                {/* Offline Time */}
-                <div className="flex-1 min-w-[110px] space-y-1">
-                  <Label className="text-[11px] font-semibold text-foreground">Offline Time</Label>
-                  <AmPmTimePicker
-                    value={timingRow.offlineTime}
-                    onChange={(val) =>
-                      handleUpdateRepTimingField(timingRow.id, "offlineTime", val)
-                    }
-                  />
-                </div>
-
-                {/* Online Time */}
-                <div className="flex-1 min-w-[110px] space-y-1">
-                  <Label className="text-[11px] font-semibold text-foreground">Online Time</Label>
-                  <AmPmTimePicker
-                    value={timingRow.onlineTime}
-                    onChange={(val) =>
-                      handleUpdateRepTimingField(timingRow.id, "onlineTime", val)
-                    }
-                  />
-                </div>
-
-                {/* Delete Button at end */}
-                <div className="flex items-center pb-0.5 shrink-0">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRemoveRepTimingRow(timingRow.id)}
-                    className="h-9 w-9 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30"
-                    title="Delete row"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
+            {isFloorPresenceEnabled && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleSaveAllRepTimings}
+                  className={
+                    isTimingSectionDirty
+                      ? "bg-blue-600 hover:bg-blue-700 text-white shadow-xs font-semibold h-8 px-3 text-xs gap-1.5"
+                      : "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 font-semibold h-8 px-3 text-xs gap-1.5"
+                  }
+                >
+                  {isTimingSectionDirty ? (
+                    <Save className="h-3.5 w-3.5" />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                  )}
+                  {isTimingSectionDirty ? "Save" : "Saved"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddRepTimingRow}
+                  className="h-8 gap-1.5 text-xs font-medium"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Row
+                </Button>
               </div>
-            ))}
+            )}
           </div>
+
+          {isFloorPresenceEnabled && (
+            <div className="divide-y divide-border/60">
+              {repTimingRows.map((timingRow) => (
+                <div
+                  key={timingRow.id}
+                  className="py-2.5 first:pt-1 last:pb-1 flex flex-wrap lg:flex-nowrap items-end gap-2.5"
+                >
+                  {/* Name of Rep Leaving Dropdown (Reduced width) */}
+                  <div className="w-full sm:w-44 lg:w-48 xl:w-52 shrink-0 space-y-1">
+                    <Label className="text-[11px] font-semibold text-foreground">
+                      Name of Rep Leaving
+                    </Label>
+                    <Select
+                      value={toSelectVal(timingRow.repName)}
+                      onValueChange={(v) =>
+                        handleUpdateRepTimingField(
+                          timingRow.id,
+                          "repName",
+                          fromSelectVal(v),
+                        )
+                      }
+                    >
+                      <SelectTrigger className="h-9 text-xs w-full">
+                        <SelectValue placeholder="-" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__empty__" className="text-xs">
+                          -
+                        </SelectItem>
+                        {SALES_REP_NAMES.map((rep) => (
+                          <SelectItem key={rep} value={rep} className="text-xs">
+                            {rep}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Time Left */}
+                  <div className="flex-1 min-w-[110px] space-y-1">
+                    <Label className="text-[11px] font-semibold text-foreground">Time Left</Label>
+                    <AmPmTimePicker
+                      value={timingRow.timeLeft}
+                      onChange={(val) =>
+                        handleUpdateRepTimingField(timingRow.id, "timeLeft", val)
+                      }
+                    />
+                  </div>
+
+                  {/* Time Returned */}
+                  <div className="flex-1 min-w-[110px] space-y-1">
+                    <Label className="text-[11px] font-semibold text-foreground">
+                      Time Returned
+                    </Label>
+                    <AmPmTimePicker
+                      value={timingRow.timeReturned}
+                      onChange={(val) =>
+                        handleUpdateRepTimingField(timingRow.id, "timeReturned", val)
+                      }
+                    />
+                  </div>
+
+                  {/* Back Room Time - In */}
+                  <div className="flex-1 min-w-[115px] space-y-1">
+                    <Label className="text-[11px] font-semibold text-foreground">
+                      Back Room - In
+                    </Label>
+                    <AmPmTimePicker
+                      value={timingRow.backRoomTimeIn}
+                      onChange={(val) =>
+                        handleUpdateRepTimingField(timingRow.id, "backRoomTimeIn", val)
+                      }
+                    />
+                  </div>
+
+                  {/* Back Room Time - Out */}
+                  <div className="flex-1 min-w-[115px] space-y-1">
+                    <Label className="text-[11px] font-semibold text-foreground">
+                      Back Room - Out
+                    </Label>
+                    <AmPmTimePicker
+                      value={timingRow.backRoomTimeOut}
+                      onChange={(val) =>
+                        handleUpdateRepTimingField(timingRow.id, "backRoomTimeOut", val)
+                      }
+                    />
+                  </div>
+
+                  {/* Offline Time */}
+                  <div className="flex-1 min-w-[110px] space-y-1">
+                    <Label className="text-[11px] font-semibold text-foreground">
+                      Offline Time
+                    </Label>
+                    <AmPmTimePicker
+                      value={timingRow.offlineTime}
+                      onChange={(val) =>
+                        handleUpdateRepTimingField(timingRow.id, "offlineTime", val)
+                      }
+                    />
+                  </div>
+
+                  {/* Online Time */}
+                  <div className="flex-1 min-w-[110px] space-y-1">
+                    <Label className="text-[11px] font-semibold text-foreground">Online Time</Label>
+                    <AmPmTimePicker
+                      value={timingRow.onlineTime}
+                      onChange={(val) =>
+                        handleUpdateRepTimingField(timingRow.id, "onlineTime", val)
+                      }
+                    />
+                  </div>
+
+                  {/* Delete Button at end */}
+                  <div className="flex items-center pb-0.5 shrink-0">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveRepTimingRow(timingRow.id)}
+                      className="h-9 w-9 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30"
+                      title="Delete row"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
 
         {/* 5. Store Closed Section */}
@@ -2663,7 +3200,7 @@ export default function SurveillanceReportsPage() {
             ) : (
               Boolean(targetReportId) && (
                 <Button
-                  onClick={() => navigate(`/surveillance/reports/${targetReportId}`)}
+                  onClick={() => navigate(`/surveillance/reports/submitted/${targetReportId}`)}
                   className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
                 >
                   <Eye className="h-4 w-4" />

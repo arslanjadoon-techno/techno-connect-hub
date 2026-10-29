@@ -74,7 +74,8 @@ import ReportRequestsPage from "@/pages/portals/surveillance/ReportRequestsPage"
 import ValidateAndAssignPage from "@/pages/portals/surveillance/ValidateAndAssignPage";
 import SurveillanceAgentsPage from "@/pages/portals/surveillance/SurveillanceAgentsPage";
 import SurveillanceReportsPage from "@/pages/portals/surveillance/SurveillanceReportsPage";
-import SurveillanceReportDetailPage from "@/pages/portals/surveillance/SurveillanceReportDetailPage";
+import RequestedSurveillanceReportPage from "@/pages/portals/surveillance/RequestedSurveillanceReportPage";
+import SubmittedSurveillanceReportPage from "@/pages/portals/surveillance/SubmittedSurveillanceReportPage";
 import SurveillanceReportReviewPage from "@/pages/portals/surveillance/SurveillanceReportReviewPage";
 import SurveillanceNoAccessPage from "@/pages/portals/surveillance/SurveillanceNoAccessPage";
 import {
@@ -739,6 +740,16 @@ export function AppRoutes() {
           }
         />
         <Route
+          path="/surveillance/requests/report/:id"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceRequestsOnly>
+                <RequestedSurveillanceReportPage />
+              </SurveillanceRequestsOnly>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
           path="/surveillance/validate-and-assign"
           element={
             <PortalRouteGuard portalKey="surveillance">
@@ -779,11 +790,21 @@ export function AppRoutes() {
           }
         />
         <Route
+          path="/surveillance/reports/submitted/:id"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceReportsAccessOnly>
+                <SubmittedSurveillanceReportPage />
+              </SurveillanceReportsAccessOnly>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
           path="/surveillance/reports/:id"
           element={
             <PortalRouteGuard portalKey="surveillance">
               <SurveillanceKnownRoleDetailOnly>
-                <SurveillanceReportDetailPage />
+                <SubmittedSurveillanceReportPage />
               </SurveillanceKnownRoleDetailOnly>
             </PortalRouteGuard>
           }
