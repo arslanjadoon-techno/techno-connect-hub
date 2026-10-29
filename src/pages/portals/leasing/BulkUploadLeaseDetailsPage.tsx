@@ -32,6 +32,8 @@ const SECTION_COLUMNS: Record<string, string[]> = {
     "Tenant / Entity Name",
     "Lease Signed By",
     "Market Manager",
+    "Market Manager Phone Number",
+    "Status Date",
   ],
   "Agreement Clause": [
     "TECH ID",

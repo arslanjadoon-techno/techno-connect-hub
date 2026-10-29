@@ -28,6 +28,7 @@ import { useChatModeration } from "./useChatModeration";
 import { useChatPageState } from "./useChatPageState";
 import ChatSystemView from "./ChatSystemView";
 import { useCallTone } from "./calls/useCallTone";
+import { canRequestOtp } from "@/lib/otp-access";
 const CALLS_ENABLED = false;
 type ChatState = Record<string, any> | null;
 export default function ChatSystem({ standalone = false, adminPage = false }) {
@@ -375,6 +376,11 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     amount: number;
     notes: string;
   }) => {
+    if (!canRequestOtp(currentUser)) {
+      setSendError("Only Reps and Trainers can request an OTP.");
+      return;
+    }
+
     const requestTypes: Record<string, string> = {
       "qpay-removal": "QPay removal",
       refund: "Refund",

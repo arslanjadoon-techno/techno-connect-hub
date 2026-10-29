@@ -18,8 +18,11 @@ import { ForwardMessageDialog } from "./ChatWindowPanels";
 import { getBuddyEmail, getBuddyName, getBuddySendId } from "../chatHealper";
 import { AttachmentPreview } from "./AttachmentPreview";
 import OTPDialog from "./OTPDialog";
+import { canRequestOtp as userCanRequestOtp } from "@/lib/otp-access";
 
 const MAX_INPUT_HEIGHT = 224; // px, about 9 lines; scrolls after this
+// Planned chat controls; keep the implementation in place but do not expose them yet.
+const SHOW_CHAT_AUDIT_ANNOUNCEMENTS = false;
 
 export default function ChatComposerPanel(props: Record<string, any>) {
   const {
@@ -74,6 +77,7 @@ export default function ChatComposerPanel(props: Record<string, any>) {
 
   const busy = Boolean(uploading || (editingMessage && sending));
   const canSend = !busy && (inputValue.trim().length > 0 || pendingFiles.length > 0);
+  const canRequestOtp = userCanRequestOtp(currentUser);
 
   const mentionCandidates = useMemo(() => {
     if (selectedChat?.type !== "channel" && selectedChat?.type !== "group") {
@@ -276,29 +280,33 @@ export default function ChatComposerPanel(props: Record<string, any>) {
 
             {(selectedChat?.type === "channel" || selectedChat?.type === "group") && (
               <>
-                <OTPDialog onSubmit={props.handleOTPRequest} />
+                {canRequestOtp && <OTPDialog onSubmit={props.handleOTPRequest} />}
 
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  title="Audit"
-                  aria-label="Audit"
-                  disabled={busy}
-                  onClick={(event) => setEmojiAnchor(event.currentTarget)}
-                >
-                  <ClipboardCheck className="h-[18px] w-[18px]" />
-                </Button>
+                {SHOW_CHAT_AUDIT_ANNOUNCEMENTS && (
+                  <>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title="Audit"
+                      aria-label="Audit"
+                      disabled={busy}
+                      onClick={(event) => setEmojiAnchor(event.currentTarget)}
+                    >
+                      <ClipboardCheck className="h-[18px] w-[18px]" />
+                    </Button>
 
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  title="Announcements"
-                  aria-label="Announcements"
-                  disabled={busy}
-                  onClick={(event) => setEmojiAnchor(event.currentTarget)}
-                >
-                  <Megaphone className="h-[18px] w-[18px]" />
-                </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      title="Announcements"
+                      aria-label="Announcements"
+                      disabled={busy}
+                      onClick={(event) => setEmojiAnchor(event.currentTarget)}
+                    >
+                      <Megaphone className="h-[18px] w-[18px]" />
+                    </Button>
+                  </>
+                )}
               </>
             )}
             <Button

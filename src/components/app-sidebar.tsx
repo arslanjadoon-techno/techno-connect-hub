@@ -43,6 +43,9 @@ import {
   Receipt,
   FileSignature,
   Eye,
+  FolderKanban,
+  Video,
+  ClipboardCheck,
 } from "lucide-react";
 
 import {
@@ -80,14 +83,23 @@ const topItems: Item[] = [
   { title: "Team Chat", url: "/chat", icon: MessagesSquare },
 ];
 
-const otpBackofficeGroup: Group = { title: "Backoffice", icon: ShieldCheck, items: [{ title: "OTP Approvals", url: "/otp/backoffice", icon: CheckSquare }] };
-const otpManagerGroup: Group = { title: "Manager", icon: UserCheck, items: [{ title: "OTP Approvals", url: "/otp/manager", icon: CheckSquare }] };
+const otpBackofficeGroup: Group = {
+  title: "Backoffice",
+  icon: ShieldCheck,
+  items: [{ title: "OTP Approvals", url: "/otp/backoffice", icon: CheckSquare }],
+};
+const otpManagerGroup: Group = {
+  title: "Manager",
+  icon: UserCheck,
+  items: [{ title: "OTP Approvals", url: "/otp/manager", icon: CheckSquare }],
+};
 
 const PORTAL_ORDER = [
   "commission",
   "leasing",
   "ranker",
   "ticketing",
+  "surveillance",
   "leave",
   "scheduling",
   "reporting",
@@ -173,8 +185,17 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     icon: TicketIcon,
     items: [
       { title: "Dashboard", url: "/ticketing/dashboard", icon: LayoutDashboard },
-      // { title: "Tickets", url: "/ticketing/tickets", icon: TicketCheck },
-      // { title: "External Team", url: "/ticketing/external", icon: Wrench },
+      { title: "Tickets", url: "/ticketing/tickets", icon: TicketCheck },
+      { title: "Support Categories", url: "/ticketing/categories", icon: FolderKanban },
+      { title: "External Team", url: "/ticketing/external", icon: Wrench },
+    ],
+  },
+  surveillance: {
+    title: "Surveillance",
+    icon: Video,
+    items: [
+      { title: "Reports", url: "/surveillance/requests", icon: ClipboardCheck },
+      { title: "Surveillance Reports", url: "/surveillance/reports", icon: Video },
     ],
   },
   leave: {
@@ -405,6 +426,7 @@ function getCurrentPortalRole(user: any, pathname: string): string {
         (currentPortal === "commission" && pn.includes("commiss")) ||
         (currentPortal === "scheduling" && (pn.includes("schedul") || pn.includes("attendance"))) ||
         (currentPortal === "ticketing" && pn.includes("ticket")) ||
+        (currentPortal === "surveillance" && (pn.includes("surveil") || pn === "surveillance")) ||
         (currentPortal === "leasing" && pn.includes("leas")) ||
         (currentPortal === "ranker" && pn.includes("rank")) ||
         (currentPortal === "reporting" && pn.includes("report"))
@@ -448,7 +470,8 @@ export function AppSidebar() {
 
   const isActive = (p: string) => pathname === p || pathname.startsWith(p + "/");
   const groupActive = (g: Group) =>
-    g.items.some((i) => isActive(i.url) || (i.children?.some((c) => isActive(c.url)) ?? false));
+    g.items.some((i) => isActive(i.url) || (i.children?.some((c) => isActive(c.url)) ?? false)) ||
+    (g.title === "Surveillance" && pathname.startsWith("/surveillance/"));
   // Accordion: only one group open at a time. `null` = follow the active route.
   const isGroupOpen = (g: Group) => (openGroup === null ? groupActive(g) : openGroup === g.title);
   const toggleGroup = (g: Group) => setOpenGroup(isGroupOpen(g) ? "" : g.title);
@@ -504,6 +527,7 @@ export function AppSidebar() {
         (target === "leave" && (pNorm.includes("leave") || pNorm.includes("attendance"))) ||
         (target === "scheduling" && (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
         (target === "ticketing" && pNorm.includes("ticket")) ||
+        (target === "surveillance" && (pNorm.includes("surveil") || pNorm === "surveillance")) ||
         (target === "leasing" && pNorm.includes("leas")) ||
         (target === "commission" && pNorm.includes("commiss")) ||
         (target === "ranker" && pNorm.includes("rank")) ||
@@ -520,6 +544,7 @@ export function AppSidebar() {
         (target === "leave" && (pNorm.includes("leave") || pNorm.includes("attendance"))) ||
         (target === "scheduling" && (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
         (target === "ticketing" && pNorm.includes("ticket")) ||
+        (target === "surveillance" && (pNorm.includes("surveil") || pNorm === "surveillance")) ||
         (target === "leasing" && pNorm.includes("leas")) ||
         (target === "commission" && pNorm.includes("commiss")) ||
         (target === "ranker" && pNorm.includes("rank")) ||
@@ -538,6 +563,7 @@ export function AppSidebar() {
         (target === "leave" && (pNorm.includes("leave") || pNorm.includes("attendance"))) ||
         (target === "scheduling" && (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
         (target === "ticketing" && pNorm.includes("ticket")) ||
+        (target === "surveillance" && (pNorm.includes("surveil") || pNorm === "surveillance")) ||
         (target === "leasing" && pNorm.includes("leas")) ||
         (target === "commission" && pNorm.includes("commiss")) ||
         (target === "ranker" && pNorm.includes("rank")) ||
@@ -609,6 +635,37 @@ export function AppSidebar() {
       };
     }
 
+    // Surveillance Portal:
+    // - "Reports" (/surveillance/requests) is for Admin, State Manager, Market Manager, District Manager.
+    // - "Surveillance Reports" (/surveillance/reports) is strictly ONLY visible to the "user" role.
+    if (key === "surveillance") {
+      const roleStr = (getPortalRole("surveillance") || user.roleName || user.role || "")
+        .toLowerCase()
+        .replace(/[\s_-]/g, "");
+
+      const isStrictUser = roleStr === "user";
+      const isEligibleManager =
+        !isStrictUser &&
+        (roleStr.includes("admin") ||
+          roleStr.includes("statemanager") ||
+          roleStr.includes("marketmanager") ||
+          roleStr.includes("districtmanager") ||
+          roleStr.includes("manager") ||
+          roleStr.includes("state") ||
+          roleStr.includes("market") ||
+          roleStr.includes("district") ||
+          roleStr.includes("supervisor"));
+
+      return {
+        ...master,
+        items: master.items.filter((i) => {
+          if (i.url === "/surveillance/reports") return isStrictUser;
+          if (i.url === "/surveillance/requests") return isEligibleManager;
+          return true;
+        }),
+      };
+    }
+
     return master;
   };
 
@@ -621,15 +678,25 @@ export function AppSidebar() {
     .filter((g: Group | undefined): g is Group => Boolean(g && g.items.length > 0));
 
   const portalRoles = (user.portalAccess ?? []) as any[];
-  const hasOtpPortalRole = (kind: "backoffice" | "manager") => portalRoles.some((p) => {
-    const portal = String(p.portalName ?? "").toLowerCase().replace(/[\s_-]/g, "");
-    const role = String(p.roleName ?? "").toLowerCase().replace(/[\s_-]/g, "");
-    return portal.includes(kind) && (role.includes(kind) || role === "admin");
-  });
+  const hasOtpPortalRole = (kind: "backoffice" | "manager") =>
+    portalRoles.some((p) => {
+      const portal = String(p.portalName ?? "")
+        .toLowerCase()
+        .replace(/[\s_-]/g, "");
+      const role = String(p.roleName ?? "")
+        .toLowerCase()
+        .replace(/[\s_-]/g, "");
+      return portal.includes(kind) && (role.includes(kind) || role === "admin");
+    });
   const roleText = `${user.roleName ?? ""} ${user.role ?? ""}`.toLowerCase().replace(/[\s_-]/g, "");
   const otpGroups = [
     hasOtpPortalRole("backoffice") || roleText.includes("backoffice") ? otpBackofficeGroup : null,
-    hasOtpPortalRole("manager") || ["manager", "marketmanager", "statemanager", "districtmanager", "storemanager"].includes(roleText) ? otpManagerGroup : null,
+    hasOtpPortalRole("manager") ||
+    ["manager", "marketmanager", "statemanager", "districtmanager", "storemanager"].includes(
+      roleText,
+    )
+      ? otpManagerGroup
+      : null,
   ].filter((g): g is Group => Boolean(g));
 
   return (
@@ -718,7 +785,17 @@ export function AppSidebar() {
           <SidebarGroup>
             {!collapsed && <SidebarGroupLabel>OTP Approvals</SidebarGroupLabel>}
             <SidebarGroupContent>
-              {otpGroups.map((g) => <CollapsibleGroup key={g.title} group={g} collapsed={collapsed} isActive={isActive} active={groupActive(g)} open={isGroupOpen(g)} onToggle={() => toggleGroup(g)} />)}
+              {otpGroups.map((g) => (
+                <CollapsibleGroup
+                  key={g.title}
+                  group={g}
+                  collapsed={collapsed}
+                  isActive={isActive}
+                  active={groupActive(g)}
+                  open={isGroupOpen(g)}
+                  onToggle={() => toggleGroup(g)}
+                />
+              ))}
             </SidebarGroupContent>
           </SidebarGroup>
         )}
@@ -800,11 +877,11 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border/60 py-2.5 px-3">
         <div className="flex items-center justify-center select-none tracking-tight">
           {collapsed ? (
-            <span title="Version 3.0.8" className="text-[10px]">
-              v3.0.8
+            <span title="Version 3.1.2" className="text-[10px]">
+              v3.1.2
             </span>
           ) : (
-            <span className="text-[14px] text-white font-medium">Version - 3.0.8</span>
+            <span className="text-[14px] text-white font-medium">Version - 3.1.2</span>
           )}
         </div>
       </SidebarFooter>

@@ -102,6 +102,8 @@ export default function LeasingDetailedPage() {
   const [allLeases, setAllLeases] = useState<LeaseRecord[]>([]);
   const [agreements, setAgreements] = useState<LeaseRentAgreement[]>([]);
   const [remarks, setRemarks] = useState("");
+  const [remarksBy, setRemarksBy] = useState<string | null>(null);
+  const [remarksEditDate, setRemarksEditDate] = useState<string | null>(null);
   const [pageLoading, setPageLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<LeaseRecord | null>(null);
@@ -176,9 +178,11 @@ export default function LeasingDetailedPage() {
         ]);
         if (!active) return;
         setAllLeases(leases);
-        // GetLeaseExpirationRemarks returns a flat List<string> (one entry per
-        // saved remark row), not objects - same shape the old LeasingFrontend read.
-        setRemarks((remarkRows[0] as string | undefined) ?? "");
+        // One remark row per techId - GetLeaseExpirationRemarks returns an array
+        // for symmetry with the bulk variant, but there's ever only one entry.
+        setRemarks(remarkRows[0]?.remarks ?? "");
+        setRemarksBy(remarkRows[0]?.remarksBy ?? null);
+        setRemarksEditDate(remarkRows[0]?.remarksEditDate ?? null);
       } catch (error) {
         console.error("Error loading lease detail:", error);
         toast.error("Failed to load lease details");
@@ -224,6 +228,8 @@ export default function LeasingDetailedPage() {
           formData.commencementDateRent?.trim() === "" ? null : formData.commencementDateRent,
         optionNoticeDate:
           formData.optionNoticeDate?.trim() === "" ? null : formData.optionNoticeDate,
+        leaseStatusDate:
+          formData.leaseStatusDate?.trim() === "" ? null : formData.leaseStatusDate,
         isDeleted: false,
       };
       await leasingService.postLeasingInfo(payload);
@@ -300,6 +306,9 @@ export default function LeasingDetailedPage() {
     setSavingRemarks(true);
     try {
       await leasingService.saveLeaseExpirationRemarks({ techId, remarks });
+      const refreshed = await leasingService.getLeaseExpirationRemarks(techId);
+      setRemarksBy(refreshed[0]?.remarksBy ?? null);
+      setRemarksEditDate(refreshed[0]?.remarksEditDate ?? null);
       toast.success("Remarks saved.");
     } catch (error) {
       toast.error(`Failed to save remarks: ${(error as Error).message}`);
@@ -496,11 +505,14 @@ export default function LeasingDetailedPage() {
                 badgeTone={!isEditing ? statusTone(leaseData.leaseStatus) : undefined}
                 displayValue={!isEditing ? leaseData.leaseStatus || "Not Set" : undefined}
               />
-              {/* Backend-managed, not user-editable: set only when Lease Status is saved as InActive. */}
+              {/* Only takes effect when Lease Status is InActive - defaults to "now" on
+                  save if left untouched, but editable so users can correct/backdate it. */}
               <EditableField
                 label="Status Date"
-                value={leaseData.leaseStatusDate?.split("T")[0] ?? ""}
-                editing={false}
+                value={f.leaseStatusDate?.split("T")[0] ?? ""}
+                editing={isEditing && canWriteLeaseStatus && f.leaseStatus === "InActive"}
+                type="date"
+                onChange={(v) => set("leaseStatusDate", v)}
                 displayValue={leaseData.leaseStatusDate?.split("T")[0] || "—"}
               />
             </div>
@@ -525,6 +537,13 @@ export default function LeasingDetailedPage() {
               </>
             ) : (
               <p className="text-sm text-muted-foreground">{remarks || "No remarks added."}</p>
+            )}
+            {(remarksBy || remarksEditDate) && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {remarksBy && <>Added by: {remarksBy}</>}
+                {remarksBy && remarksEditDate && " · "}
+                {remarksEditDate && <>Last edited: {new Date(remarksEditDate).toLocaleString()}</>}
+              </p>
             )}
           </Card>
         )}
@@ -976,6 +995,7 @@ export default function LeasingDetailedPage() {
             value={f.optionPeriodDuration ?? ""}
             editing={isEditing && canWriteClauses}
             onChange={(v) => set("optionPeriodDuration", v)}
+            maxLength={200}
           />
           <EditableField
             label="Option Notice Date"

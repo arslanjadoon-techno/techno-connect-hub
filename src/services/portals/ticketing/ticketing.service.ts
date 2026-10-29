@@ -53,6 +53,34 @@ export class TicketingService {
       content,
     });
   }
+
+  /**
+   * Fetch all support categories.
+   */
+  async getSupportCategories() {
+    return http.get<SupportCategory[]>("/api/support-categories");
+  }
+
+  /**
+   * Create a new support category.
+   */
+  async createSupportCategory(payload: CreateSupportCategoryPayload) {
+    return http.post<SupportCategory>("/api/support-categories", payload);
+  }
+
+  /**
+   * Update an existing support category.
+   */
+  async updateSupportCategory(payload: UpdateSupportCategoryPayload) {
+    return http.put<SupportCategory>(`/api/support-categories/${payload.id}`, payload);
+  }
+
+  /**
+   * Delete a support category.
+   */
+  async deleteSupportCategory(id: string | number) {
+    return http.delete<null>(`/api/support-categories/${id}`);
+  }
 }
 
 export const ticketingService = new TicketingService();

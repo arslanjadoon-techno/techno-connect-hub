@@ -129,7 +129,7 @@ export default function OTPflow({ onSubmit }: OTPflowProps) {
             : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
         }`}
       >
-        <KeyRound className="h-[18px] w-[18px] text-white stroke-[2.5]" />
+        <KeyRound className="h-[18px] w-[18px] text-current stroke-[2.5]" />
       </button>
 
       {open && (

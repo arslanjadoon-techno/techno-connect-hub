@@ -34,6 +34,67 @@ import {
   type FinancialMonthlyFiguresUpdate,
 } from "@/services/portals/leasing";
 import { useCanShow, LEASING_EXPORT_BUTTON_PERMISSION_KEY } from "@/lib/leasing-permissions";
+import { exportToExcel } from "@/lib/excel-export";
+
+const RENT_PAYMENT_COLUMNS = [
+  "market",
+  "techId",
+  "storeName",
+  "total_accounting_figure",
+  "paymentMode",
+  "paidBy",
+  "subjectOfPayment",
+  "paymentConfirmation",
+  "status",
+  "base_rent",
+  "adjustment",
+  "cam_charges",
+  "cam_Reconciliation_Charges",
+  "security_deposit_assignmentfee",
+  "credit_available",
+  "year",
+  "month",
+  "other_charges",
+  "paid",
+  "pay_date",
+  "remarks",
+  "accounting_remarks",
+  "accountNumber",
+  "routingNumber",
+  "bankName",
+  "accountTitle",
+  "checkAddress",
+];
+
+const RENT_PAYMENT_HEADER_MAP: Record<string, string> = {
+  market: "Market",
+  techId: "Tech Id",
+  storeName: "Store Name",
+  paymentMode: "Payment Mode",
+  paidBy: "Paid By",
+  subjectOfPayment: "Subject of Payment",
+  paymentConfirmation: "Payment Confirmation",
+  status: "Status",
+  base_rent: "Base Rent",
+  adjustment: "Adjustment",
+  cam_charges: "CAM Charges",
+  cam_Reconciliation_Charges: "CAM Reconciliation Charges",
+  security_deposit_assignmentfee: "Security Deposit/Assignment Fee",
+  credit_available: "Credit Available",
+  year: "Year",
+  month: "Month",
+  other_charges: "Other Charges",
+  total_accounting_figure: "Total Accounting Figure",
+  paid: "Paid",
+  pay_date: "Pay Date",
+  remarks: "Remarks",
+  accounting_remarks: "Accounting Remarks",
+  accountNumber: "Account Number",
+  routingNumber: "Routing Number",
+  bankName: "Bank Name",
+  accountTitle: "Account Title",
+  checkAddress: "Check Address",
+};
 
 interface GroupedPayment extends RentalPaymentDetail {
   total_due: number;
@@ -254,7 +315,20 @@ export default function ManageRentPaymentListPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => toast.message("Excel export coming soon for this page.")}
+              onClick={() =>
+                exportToExcel(
+                  filteredGroups.map((g) => ({ ...g, status: g.paid ? "Paid" : "Pending" })),
+                  RENT_PAYMENT_COLUMNS,
+                  RENT_PAYMENT_HEADER_MAP,
+                  {
+                    sheetName: "Rent Payments",
+                    fileName: `Rent_Sheet_${MONTHS[selectedMonth - 1]}_${selectedYear}`,
+                    addRentHeaders: true,
+                    year: selectedYear,
+                    month: selectedMonth,
+                  },
+                )
+              }
             >
               <Download className="mr-1.5 h-4 w-4" /> Export Excel
             </Button>

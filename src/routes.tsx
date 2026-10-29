@@ -25,6 +25,7 @@ import SettingsPage from "@/pages/settings/SettingsPage";
 import TicketingDashboardPage from "@/pages/portals/ticketing/DashboardPage";
 import TicketsPage from "@/pages/portals/ticketing/TicketsPage";
 import TicketDetailPage from "@/pages/portals/ticketing/TicketDetailPage";
+import SupportCategoriesPage from "@/pages/portals/ticketing/SupportCategoriesPage";
 import ExternalPage from "@/pages/portals/ticketing/ExternalPage";
 
 // ---------- Reporting Portal ---------- //
@@ -67,6 +68,16 @@ import LeasingDetailedPage from "@/pages/portals/leasing/LeasingDetailedPage";
 // ---------- Leave Portal ---------- //
 import RequestLeavePage from "@/pages/portals/leave-management/RequestLeave";
 import ApproveLeavePage from "@/pages/portals/leave-management/ApproveLeave";
+
+// ---------- Surveillance Portal ---------- //
+import ReportRequestsPage from "@/pages/portals/surveillance/ReportRequestsPage";
+import SurveillanceReportsPage from "@/pages/portals/surveillance/SurveillanceReportsPage";
+import SurveillanceReportDetailPage from "@/pages/portals/surveillance/SurveillanceReportDetailPage";
+import {
+  getSurveillanceRole,
+  canRequestSurveillance,
+  isSurveillanceUserRole,
+} from "@/services/portals/surveillance/types";
 
 // ---------- User manager ---------- //
 import UsersPage from "@/pages/user-manager/UsersPage";
@@ -171,6 +182,39 @@ function LeaveApproveOnly({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+function SurveillanceRequestsOnly({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const role = getSurveillanceRole(user);
+  if (!canRequestSurveillance(role)) {
+    return (
+      <Navigate to={isSurveillanceUserRole(user) ? "/surveillance/reports" : "/ai-chat"} replace />
+    );
+  }
+  return <>{children}</>;
+}
+
+function SurveillanceUserOnly({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  if (!isSurveillanceUserRole(user)) {
+    const role = getSurveillanceRole(user);
+    return (
+      <Navigate to={canRequestSurveillance(role) ? "/surveillance/requests" : "/ai-chat"} replace />
+    );
+  }
+  return <>{children}</>;
+}
+
+function SurveillanceRedirect() {
+  const { user } = useAuth();
+  if (isSurveillanceUserRole(user)) {
+    return <Navigate to="/surveillance/reports" replace />;
+  }
+  const role = getSurveillanceRole(user);
+  return (
+    <Navigate to={canRequestSurveillance(role) ? "/surveillance/requests" : "/ai-chat"} replace />
+  );
+}
+
 function UserManagementOnly({ children }: { children: ReactNode }) {
   let isAllowed = false;
   try {
@@ -210,6 +254,8 @@ function PortalRouteGuard({ portalKey, children }: { portalKey: string; children
             (target === "scheduling" &&
               (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
             (target === "ticketing" && pNorm.includes("ticket")) ||
+            (target === "surveillance" &&
+              (pNorm.includes("surveil") || pNorm === "surveillance")) ||
             (target === "leasing" && pNorm.includes("leas")) ||
             (target === "commission" && pNorm.includes("commiss")) ||
             (target === "ranker" && pNorm.includes("rank")) ||
@@ -224,6 +270,8 @@ function PortalRouteGuard({ portalKey, children }: { portalKey: string; children
             (target === "scheduling" &&
               (pNorm.includes("schedul") || pNorm.includes("attendance"))) ||
             (target === "ticketing" && pNorm.includes("ticket")) ||
+            (target === "surveillance" &&
+              (pNorm.includes("surveil") || pNorm === "surveillance")) ||
             (target === "leasing" && pNorm.includes("leas")) ||
             (target === "commission" && pNorm.includes("commiss")) ||
             (target === "ranker" && pNorm.includes("rank")) ||
@@ -247,11 +295,22 @@ function PermissionRouteGuard({ permKey, children }: { permKey: string; children
   return <>{children}</>;
 }
 
-function OtpRouteGuard({ kind, children }: { kind: "manager" | "backoffice"; children: ReactNode }) {
+function OtpRouteGuard({
+  kind,
+  children,
+}: {
+  kind: "manager" | "backoffice";
+  children: ReactNode;
+}) {
   const { user, permissions } = useAuth();
-  const normalized = (v: unknown) => String(v ?? "").toLowerCase().replace(/[\s_-]/g, "");
+  const normalized = (v: unknown) =>
+    String(v ?? "")
+      .toLowerCase()
+      .replace(/[\s_-]/g, "");
   const portalRows = [...(user?.portalAccess ?? [])] as any[];
-  const hasPortal = portalRows.some(p => normalized(p.portalName).includes(kind) && normalized(p.roleName).includes(kind));
+  const hasPortal = portalRows.some(
+    (p) => normalized(p.portalName).includes(kind) && normalized(p.roleName).includes(kind),
+  );
   const role = normalized(user?.roleName || user?.role);
   const allowed = hasPortal || role.includes(kind);
   return allowed ? <>{children}</> : <Navigate to="/ai-chat" replace />;
@@ -309,10 +368,24 @@ export function AppRoutes() {
         <Route path="/ai-chat" element={<AiChatPage />} />
         <Route path="/chat/*" element={<ChatSystem />} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/otp/backoffice" element={<OtpRouteGuard kind="backoffice"><OtpApprovalPage kind="backoffice" /></OtpRouteGuard>} />
-        <Route path="/otp/manager" element={<OtpRouteGuard kind="manager"><OtpApprovalPage kind="manager" /></OtpRouteGuard>} />
+        <Route
+          path="/otp/backoffice"
+          element={
+            <OtpRouteGuard kind="backoffice">
+              <OtpApprovalPage kind="backoffice" />
+            </OtpRouteGuard>
+          }
+        />
+        <Route
+          path="/otp/manager"
+          element={
+            <OtpRouteGuard kind="manager">
+              <OtpApprovalPage kind="manager" />
+            </OtpRouteGuard>
+          }
+        />
         {/* ---------- Ticketing Portal ---------- */}
-        {/* <Route path="/ticketing/dashboard" element={<TicketingDashboardPage />} /> */}
+        <Route path="/ticketing/dashboard" element={<TicketingDashboardPage />} />
         <Route
           path="/ticketing/tickets"
           element={
@@ -330,6 +403,14 @@ export function AppRoutes() {
           }
         />
         <Route
+          path="/ticketing/categories"
+          element={
+            <PortalRouteGuard portalKey="ticketing">
+              <SupportCategoriesPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
           path="/ticketing/external"
           element={
             <PortalRouteGuard portalKey="ticketing">
@@ -337,6 +418,7 @@ export function AppRoutes() {
             </PortalRouteGuard>
           }
         />
+
         {/* ---------- Commission Portal ---------- */}
         <Route
           path="/commission/dashboard"
@@ -401,7 +483,7 @@ export function AppRoutes() {
           <Route path="/ranker/criteria-details" element={<CriteriaDetailsPage />} />
         </Route>
 
-        {/* ---------- Lease / Scheduling / Ticketing Portals ---------- */}
+        {/* ---------- Leasing Portal ---------- */}
         <Route
           path="/lease/dashboard"
           element={
@@ -542,6 +624,8 @@ export function AppRoutes() {
             </PortalRouteGuard>
           }
         />
+
+        {/* ---------- Upcoming Scheduling Portal ---------- */}
         <Route
           path="/scheduling/dashboard"
           element={
@@ -550,14 +634,7 @@ export function AppRoutes() {
             </PortalRouteGuard>
           }
         />
-        <Route
-          path="/ticketing/dashboard"
-          element={
-            <PortalRouteGuard portalKey="ticketing">
-              <ComingSoon title="Ticketing Portal Dashboard" />
-            </PortalRouteGuard>
-          }
-        />
+
         {/* ---------- Reporting Portal ---------- */}
         <Route
           path="/reporting"
@@ -664,6 +741,45 @@ export function AppRoutes() {
             </PortalRouteGuard>
           }
         />
+
+        {/* ---------- Surveillance Portal ---------- */}
+        <Route
+          path="/surveillance"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceRedirect />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/surveillance/requests"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceRequestsOnly>
+                <ReportRequestsPage />
+              </SurveillanceRequestsOnly>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/surveillance/reports"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceUserOnly>
+                <SurveillanceReportsPage />
+              </SurveillanceUserOnly>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/surveillance/reports/:id"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceReportDetailPage />
+            </PortalRouteGuard>
+          }
+        />
+
         {/* ---------- User Manager ---------- */}
         <Route
           path="/admin/users"

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import {
   FolderOpen,
   ChevronRight,
   ChevronLeft,
+  GripVertical,
   Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -39,12 +40,14 @@ const ALL_FIELDS: Field[] = [
   { key: "takeOverDate", label: "Take Over Date", group: "General" },
   { key: "commencementDateRent", label: "Commencement Date Rent", group: "General" },
   { key: "marketManager", label: "Market Manager", group: "General" },
+  { key: "marketManagerPhoneNumber", label: "Market Manager Phone Number", group: "General" },
   { key: "leaseSignedBy", label: "Lease Signed By", group: "General" },
   { key: "entityName", label: "Entity Name", group: "General" },
   { key: "storeEmail", label: "Store Email", group: "General" },
   { key: "storePhoneNumber", label: "Store Phone Number", group: "General" },
   { key: "storeAddress", label: "Store Address", group: "General" },
   { key: "leaseStatus", label: "Lease Status", group: "General" },
+  { key: "leaseStatusDate", label: "Status Date", group: "General" },
   { key: "leaseExpirationRemarks", label: "Lease Expiration Remarks", group: "General" },
   { key: "securityDeposit", label: "Security Deposit", group: "Agreement" },
   { key: "hvac", label: "HVAC", group: "Agreement" },
@@ -105,6 +108,9 @@ export default function ReportsPage() {
   const [saving, setSaving] = useState(false);
   const [templatesLoading, setTemplatesLoading] = useState(true);
 
+  const dragIndexRef = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
   useEffect(() => {
     leasingService
       .getReportTemplates()
@@ -137,6 +143,20 @@ export default function ReportsPage() {
     setSelected((s) => s.filter((f) => !hlRight.has(f.key)));
     setAvailable((a) => [...a, ...returning]);
     setHlRight(new Set());
+  };
+
+  const handleReorderDrop = (dropIndex: number) => {
+    const fromIndex = dragIndexRef.current;
+    setDragOverIndex(null);
+    dragIndexRef.current = null;
+    if (fromIndex === null || fromIndex === dropIndex) return;
+
+    setSelected((s) => {
+      const reordered = [...s];
+      const [moved] = reordered.splice(fromIndex, 1);
+      reordered.splice(dropIndex, 0, moved);
+      return reordered;
+    });
   };
 
   const runDownload = async (fieldKeys: string[], fileName: string, dlId: string | number) => {
@@ -330,15 +350,39 @@ export default function ReportsPage() {
                 Highlight fields on the left and press the arrow to add them.
               </p>
             ) : (
-              selected.map((f) => (
+              selected.map((f, index) => (
                 <div
                   key={f.key}
+                  draggable
+                  onDragStart={(e) => {
+                    dragIndexRef.current = index;
+                    // Firefox refuses to start a drag at all unless dataTransfer
+                    // carries data - Chrome is lenient about this, Firefox isn't.
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", f.key);
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = "move";
+                    setDragOverIndex(index);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    handleReorderDrop(index);
+                  }}
+                  onDragEnd={() => {
+                    dragIndexRef.current = null;
+                    setDragOverIndex(null);
+                  }}
                   onClick={() => toggleHl(f.key, "right")}
-                  className={`flex cursor-pointer items-center justify-between rounded-md px-2 py-1.5 text-sm ${
-                    hlRight.has(f.key) ? "bg-primary/10 text-primary" : "hover:bg-muted"
-                  }`}
+                  className={`flex cursor-grab items-center justify-between rounded-md px-2 py-1.5 text-sm ${
+                    dragOverIndex === index ? "border border-dashed border-primary" : ""
+                  } ${hlRight.has(f.key) ? "bg-primary/10 text-primary" : "hover:bg-muted"}`}
                 >
-                  <span>{f.label}</span>
+                  <div className="flex items-center gap-1.5">
+                    <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span>{f.label}</span>
+                  </div>
                   <span className="text-[10px] text-muted-foreground">{f.group}</span>
                 </div>
               ))
