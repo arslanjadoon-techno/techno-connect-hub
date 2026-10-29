@@ -229,10 +229,9 @@ const PAYMENT_TYPE_OPTIONS = [
 
 const PITCH_QUALITY_OPTIONS = [
   { value: "__empty__", label: "-" },
-  { value: "GOOD", label: "GOOD" },
-  { value: "AVG", label: "AVG" },
-  { value: "FAIR", label: "FAIR" },
-  { value: "POOR", label: "POOR" },
+  { value: "Good", label: "Good" },
+  { value: "Average", label: "Average" },
+  { value: "Poor", label: "Poor" },
 ];
 
 type CustomDetailFieldKey =
@@ -1002,6 +1001,8 @@ export default function SurveillanceReportsPage() {
   const [repTimingRows, setRepTimingRows] = useState<RepTimingRow[]>([
     createEmptyRepTimingRow(),
   ]);
+  const [savedRepTimingIds, setSavedRepTimingIds] = useState<Record<string, string>>({});
+  const [headerGeneralNotes, setHeaderGeneralNotes] = useState<string>("");
 
   const metrics = useMemo(() => {
     return {
@@ -1138,6 +1139,7 @@ export default function SurveillanceReportsPage() {
       setHeaderStoreCloseSalesRep(
         existingReport.nameOfRepLeaving?.trim() || SALES_REP_NAMES[0] || "Abdul Razzak",
       );
+      setHeaderGeneralNotes(existingReport.notes || "");
       if (existingReport.nameOfRepLeaving || existingReport.timeLeft) {
         setRepTimingRows([
           {
@@ -1159,6 +1161,7 @@ export default function SurveillanceReportsPage() {
       setHeaderSalesRep(SALES_REP_NAMES[0] || "Abdul Razzak");
       setHeaderStoreCloseTime("");
       setHeaderStoreCloseSalesRep(SALES_REP_NAMES[0] || "Abdul Razzak");
+      setHeaderGeneralNotes("");
       setRepTimingRows([createEmptyRepTimingRow()]);
     }
 
@@ -1313,6 +1316,11 @@ export default function SurveillanceReportsPage() {
   };
 
   const handleRemoveRepTimingRow = (id: string) => {
+    setSavedRepTimingIds((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
     if (repTimingRows.length <= 1) {
       setRepTimingRows([createEmptyRepTimingRow()]);
       return;
@@ -1325,9 +1333,45 @@ export default function SurveillanceReportsPage() {
     field: K,
     value: RepTimingRow[K],
   ) => {
+    setSavedRepTimingIds((prev) => {
+      if (!prev[id]) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
     setRepTimingRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)),
     );
+  };
+
+  const handleSaveRepTimingRow = (timingRow: RepTimingRow, tIdx: number) => {
+    if (!timingRow.repName || !timingRow.repName.trim()) {
+      toast.error(`Please select "Name of Rep Leaving" for Timing Row #${tIdx + 1} before saving.`);
+      return;
+    }
+
+    const hasFilledTime = [
+      timingRow.timeLeft,
+      timingRow.timeReturned,
+      timingRow.backRoomTimeIn,
+      timingRow.backRoomTimeOut,
+      timingRow.offlineTime,
+      timingRow.onlineTime,
+    ].some((t) => t && t.trim());
+
+    if (!hasFilledTime) {
+      toast.error(
+        `Please enter at least one time entry for Timing Row #${tIdx + 1} before saving.`,
+      );
+      return;
+    }
+
+    setSavedRepTimingIds((prev) => ({
+      ...prev,
+      [timingRow.id]: new Date().toISOString(),
+    }));
+
+    toast.success(`Timing Row #${tIdx + 1} (${timingRow.repName}) saved successfully.`);
   };
 
   const toggleRowExpanded = (rowId: string) => {
@@ -2148,6 +2192,11 @@ export default function SurveillanceReportsPage() {
                               { key: "aalSwap", label: "AAL Swap" },
                               { key: "mim", label: "MIM" },
                               { key: "onlineRejectedPayment", label: "Online/Rejected Payment" },
+                              { key: "flipping", label: "Flipping" },
+                              { key: "portIn", label: "Port In" },
+                              { key: "nonUp", label: "Non-Up" },
+                              { key: "smartPayMentioned", label: "SmartPay Mentioned" },
+                              { key: "aalBillSame", label: "AAL Bill Same" },
                             ] as const
                           ).map((field) => (
                             <StandardSelect
@@ -2197,7 +2246,6 @@ export default function SurveillanceReportsPage() {
                               { key: "showingPhone", label: "Showing Phone?" },
                               { key: "accOffered", label: "Acc Offered" },
                               { key: "maximize", label: "Maximize" },
-                              { key: "flipping", label: "Flipping" },
                             ] as const
                           ).map((field) => (
                             <StandardSelect
@@ -2240,23 +2288,12 @@ export default function SurveillanceReportsPage() {
                             />
                           </div>
 
-                          {(
-                            [
-                              { key: "bundleAccGiven", label: "Bundle Acc Given" },
-                              { key: "portIn", label: "Port In" },
-                              { key: "nonUp", label: "Non-Up" },
-                              { key: "smartPayMentioned", label: "SmartPay Mentioned" },
-                              { key: "aalBillSame", label: "AAL Bill Same" },
-                            ] as const
-                          ).map((field) => (
-                            <StandardSelect
-                              key={field.key}
-                              label={field.label}
-                              options={YES_NO_OPTIONS}
-                              value={row[field.key]}
-                              onValueChange={(val) => handleUpdateRowField(row.id, field.key, val)}
-                            />
-                          ))}
+                          <StandardSelect
+                            label="Bundle Acc Given"
+                            options={YES_NO_OPTIONS}
+                            value={row.bundleAccGiven}
+                            onValueChange={(val) => handleUpdateRowField(row.id, "bundleAccGiven", val)}
+                          />
                         </div>
 
                         <div className="space-y-1 pt-1">
@@ -2340,21 +2377,49 @@ export default function SurveillanceReportsPage() {
                 className="space-y-3 rounded-lg border bg-muted/10 p-3.5"
               >
                 <div className="flex items-center justify-between gap-2 border-b pb-2">
-                  <span className="text-[11px] font-semibold text-foreground font-mono">
-                    Timing Row #{tIdx + 1}
-                  </span>
-                  {repTimingRows.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-semibold text-foreground font-mono">
+                      Timing Row #{tIdx + 1}
+                    </span>
+                    {savedRepTimingIds[timingRow.id] ? (
+                      <Badge
+                        variant="outline"
+                        className="border-emerald-200 bg-emerald-50 text-[10px] font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 px-2 py-0.5"
+                      >
+                        Saved
+                      </Badge>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground italic">
+                        Unsaved
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
                     <Button
                       type="button"
-                      variant="ghost"
                       size="sm"
-                      onClick={() => handleRemoveRepTimingRow(timingRow.id)}
-                      className="h-7 px-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30 text-xs"
-                      title="Remove Row"
+                      variant={savedRepTimingIds[timingRow.id] ? "outline" : "default"}
+                      onClick={() => handleSaveRepTimingRow(timingRow, tIdx)}
+                      className="h-7 px-2.5 text-xs font-semibold gap-1"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Save className="h-3.5 w-3.5" />
+                      {savedRepTimingIds[timingRow.id] ? "Saved" : "Save"}
                     </Button>
-                  )}
+
+                    {repTimingRows.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleRemoveRepTimingRow(timingRow.id)}
+                        className="h-7 px-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30 text-xs"
+                        title="Remove Row"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
@@ -2508,6 +2573,21 @@ export default function SurveillanceReportsPage() {
               </Select>
             </div>
           </div>
+        </Card>
+
+        {/* 6. General Notes Section */}
+        <Card className="p-4 border-border/80 shadow-2xs bg-card space-y-2">
+          <div className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2 border-b pb-2">
+            <MessageSquare className="h-4 w-4 text-primary" />
+            General Notes <span className="text-[10px] font-normal text-muted-foreground lowercase">(optional)</span>
+          </div>
+          <Textarea
+            value={headerGeneralNotes}
+            onChange={(e) => setHeaderGeneralNotes(e.target.value)}
+            placeholder="Enter any additional general notes, overall store observations, or audit summary..."
+            rows={3}
+            className="text-xs"
+          />
         </Card>
 
         {/* Bottom Action Footer */}
