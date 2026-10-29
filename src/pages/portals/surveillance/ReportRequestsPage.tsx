@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { DataTable, type Column } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
@@ -52,6 +52,7 @@ import {
   MapPin,
   MessageSquare,
   UserPlus,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -170,6 +171,7 @@ function formatDateTimeDisplay(isoString?: string): string {
 
 export default function ReportRequestsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
 
   const [requests, setRequests] = useState<SurveillanceRequest[]>([]);
@@ -182,8 +184,17 @@ export default function ReportRequestsPage() {
     setStores(getStaticStores());
   }, []);
 
-  // Active drill-down detail view state (null = list view)
-  const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
+  // Active drill-down detail view state synced with URL query param (?detail=...)
+  const selectedDetailId = searchParams.get("detail");
+  const setSelectedDetailId = (id: string | null) => {
+    const next = new URLSearchParams(searchParams);
+    if (id) {
+      next.set("detail", id);
+    } else {
+      next.delete("detail");
+    }
+    setSearchParams(next, { replace: true });
+  };
 
   // Filter states
   const [marketFilter, setMarketFilter] = useState<string>("all");
@@ -435,13 +446,23 @@ export default function ReportRequestsPage() {
 
           <div className="flex flex-wrap items-center gap-2.5">
             {normalizedStatus === "Completed" && Boolean(targetReportId) && (
-              <Button
-                onClick={() => navigate(`/surveillance/requests/report/${targetReportId}`)}
-                className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
-              >
-                <Eye className="h-4 w-4" />
-                View Report
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate(`/surveillance/requests/summary/${targetReportId}`)}
+                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold border-blue-200 bg-blue-50/70 text-blue-700 hover:bg-blue-100/80 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70 shadow-xs whitespace-nowrap shrink-0"
+                >
+                  <FileText className="h-4 w-4" />
+                  View Summary
+                </Button>
+                <Button
+                  onClick={() => navigate(`/surveillance/requests/report/${targetReportId}`)}
+                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
+                >
+                  <Eye className="h-4 w-4" />
+                  View Report
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -798,7 +819,8 @@ export default function ReportRequestsPage() {
                 <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                 <span>
                   Surveillance audit report completed and verified. Click{" "}
-                  <strong>View Report</strong> above to inspect the full audit log.
+                  <strong>View Summary</strong> or <strong>View Report</strong> above to inspect the
+                  audit findings.
                 </span>
               </div>
             ) : (

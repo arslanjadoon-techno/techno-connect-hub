@@ -170,6 +170,36 @@ export interface ActiveSurveillanceDraftSession {
   updatedAt: string;
 }
 
+export interface SurveillanceBadPitchItem {
+  repName?: string;
+  description: string;
+  link?: string;
+}
+
+export interface SurveillanceRepIntervalLog {
+  repName: string;
+  intervals: Array<{
+    start: string;
+    end: string;
+  }>;
+}
+
+export interface SurveillanceReportSummaryMeta {
+  loomisMachineVisible?: "Yes" | "No" | string;
+  loomisLink?: string;
+  safeLockerVisible?: "Yes" | "No" | string;
+  safeLockerLink?: string;
+  badPitchItems?: SurveillanceBadPitchItem[];
+  repLeavingLogs?: SurveillanceRepIntervalLog[];
+  backroomLogs?: SurveillanceRepIntervalLog[];
+  paymentsMadeOnline?: "Yes" | "No";
+  paymentsRejected?: "Yes" | "No";
+  generalOtherNotes?: string;
+  amountDifferenceOverride?: string;
+  reasonForDifference?: string;
+  qaName?: string;
+}
+
 export interface SurveillanceReport {
   id: string;
   requestId: string;
@@ -184,6 +214,9 @@ export interface SurveillanceReport {
 
   // Multi-row Surveillance Audit Log Entries
   rows?: SurveillanceAuditRow[];
+
+  // Optional supplemental summary metadata
+  summaryMeta?: SurveillanceReportSummaryMeta;
 
   // Summary / Primary Audit Form Attributes
   date: string;

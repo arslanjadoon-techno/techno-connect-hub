@@ -75,6 +75,7 @@ import ValidateAndAssignPage from "@/pages/portals/surveillance/ValidateAndAssig
 import SurveillanceAgentsPage from "@/pages/portals/surveillance/SurveillanceAgentsPage";
 import SurveillanceReportsPage from "@/pages/portals/surveillance/SurveillanceReportsPage";
 import RequestedSurveillanceReportPage from "@/pages/portals/surveillance/RequestedSurveillanceReportPage";
+import RequestedSurveillanceSummaryPage from "@/pages/portals/surveillance/RequestedSurveillanceSummaryPage";
 import SubmittedSurveillanceReportPage from "@/pages/portals/surveillance/SubmittedSurveillanceReportPage";
 import SurveillanceReportReviewPage from "@/pages/portals/surveillance/SurveillanceReportReviewPage";
 import SurveillanceNoAccessPage from "@/pages/portals/surveillance/SurveillanceNoAccessPage";
@@ -735,6 +736,16 @@ export function AppRoutes() {
             <PortalRouteGuard portalKey="surveillance">
               <SurveillanceRequestsOnly>
                 <ReportRequestsPage />
+              </SurveillanceRequestsOnly>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/surveillance/requests/summary/:id"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceRequestsOnly>
+                <RequestedSurveillanceSummaryPage />
               </SurveillanceRequestsOnly>
             </PortalRouteGuard>
           }
