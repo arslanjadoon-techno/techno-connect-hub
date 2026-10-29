@@ -62,7 +62,6 @@ import {
   getStaticValidationQueue,
   getStaticAssignableAgents,
   validateAndAssignStaticRequest,
-  rejectStaticValidationRequest,
 } from "./surveillance-data";
 import {
   canValidateSurveillance,
@@ -231,12 +230,6 @@ export default function ValidateAndAssignPage() {
   const [agentPickerOpen, setAgentPickerOpen] = useState(false);
   const [submittingAssign, setSubmittingAssign] = useState(false);
 
-  // Reject / Cancel modal state
-  const [rejectModalOpen, setRejectModalOpen] = useState(false);
-  const [targetRejectItem, setTargetRejectItem] = useState<SurveillanceValidationItem | null>(null);
-  const [rejectionReason, setRejectionReason] = useState<string>("");
-  const [submittingReject, setSubmittingReject] = useState(false);
-
   useEffect(() => {
     setRequests(getStaticValidationQueue());
     setAgents(getStaticAssignableAgents());
@@ -306,13 +299,6 @@ export default function ValidateAndAssignPage() {
     setAssignModalOpen(true);
   }, []);
 
-  const openRejectModal = useCallback((item: SurveillanceValidationItem) => {
-    if (item.validationStatus !== "Unassigned") return;
-    setTargetRejectItem(item);
-    setRejectionReason("");
-    setRejectModalOpen(true);
-  }, []);
-
   const handleConfirmAssign = () => {
     if (!targetAssignItem) return;
     if (!selectedAgentId) {
@@ -338,33 +324,6 @@ export default function ValidateAndAssignPage() {
       toast.error(`Assignment failed: ${(error as Error).message}`);
     } finally {
       setSubmittingAssign(false);
-    }
-  };
-
-  const handleConfirmReject = () => {
-    if (!targetRejectItem) return;
-    if (!rejectionReason.trim()) {
-      toast.error("Please provide a reason for rejecting or cancelling this request.");
-      return;
-    }
-
-    setSubmittingReject(true);
-    try {
-      const adminName = user?.fullName || "System Admin";
-      rejectStaticValidationRequest({
-        requestId: targetRejectItem.id,
-        reason: rejectionReason.trim(),
-        rejectedBy: adminName,
-      });
-
-      setRequests(getStaticValidationQueue());
-      setAgents(getStaticAssignableAgents());
-      setRejectModalOpen(false);
-      toast.success("Surveillance request rejected and hidden from surveillance agents.");
-    } catch (error) {
-      toast.error(`Action failed: ${(error as Error).message}`);
-    } finally {
-      setSubmittingReject(false);
     }
   };
 
@@ -498,23 +457,13 @@ export default function ValidateAndAssignPage() {
 
             <div className="flex flex-wrap items-center gap-2.5">
               {selectedDetail.validationStatus === "Unassigned" && (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => openRejectModal(selectedDetail)}
-                    className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-background border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40 whitespace-nowrap shrink-0"
-                  >
-                    <XCircle className="h-4 w-4" />
-                    Reject Request
-                  </Button>
-                  <Button
-                    onClick={() => openAssignModal(selectedDetail)}
-                    className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
-                  >
-                    <UserPlus className="h-4 w-4" />
-                    Validate & Assign
-                  </Button>
-                </>
+                <Button
+                  onClick={() => openAssignModal(selectedDetail)}
+                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Validate & Assign
+                </Button>
               )}
 
               {Boolean(selectedDetail.linkedReportId) && (
@@ -1392,129 +1341,6 @@ export default function ValidateAndAssignPage() {
             </Button>
             <Button onClick={handleConfirmAssign} disabled={submittingAssign || !selectedAgentId}>
               {submittingAssign ? "Assigning..." : "Validate & Assign"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* REJECT / CANCEL SURVEILLANCE REQUEST MODAL */}
-      <Dialog open={rejectModalOpen} onOpenChange={setRejectModalOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Reject / Cancel Surveillance Request</DialogTitle>
-            <DialogDescription>
-              Cancelling an invalid request prevents it from becoming visible to any surveillance
-              user or agent.
-            </DialogDescription>
-          </DialogHeader>
-
-          {targetRejectItem && (
-            <div className="space-y-3.5 pt-1 text-xs">
-              {/* 1. Requested Surveillance Date (Non-editable) */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Requested Surveillance Date</Label>
-                <Input
-                  type="text"
-                  readOnly
-                  tabIndex={-1}
-                  value={formatDisplayDate(targetRejectItem.surveillanceDate)}
-                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0 tabular-nums"
-                />
-              </div>
-
-              {/* 2. Market (Non-editable) */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Market</Label>
-                <Input
-                  type="text"
-                  readOnly
-                  tabIndex={-1}
-                  value={targetRejectItem.marketName}
-                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
-                />
-              </div>
-
-              {/* 3. Store Name (Non-editable) */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Store Name</Label>
-                <Input
-                  type="text"
-                  readOnly
-                  tabIndex={-1}
-                  value={targetRejectItem.storeName}
-                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
-                />
-              </div>
-
-              {/* 4. Priority (Non-editable) */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">Priority</Label>
-                <Input
-                  type="text"
-                  readOnly
-                  tabIndex={-1}
-                  value={formatPriorityLabel(targetRejectItem.priority)}
-                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
-                />
-              </div>
-
-              {/* 5. Investigation Reason / Incident Summary (Non-editable) */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">
-                  Investigation Reason / Incident Summary
-                </Label>
-                <Input
-                  type="text"
-                  readOnly
-                  tabIndex={-1}
-                  value={targetRejectItem.title}
-                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
-                />
-              </div>
-
-              {/* 6. Additional Context / Special Instructions (Non-editable long textarea) */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">
-                  Additional Context / Special Instructions
-                </Label>
-                <Textarea
-                  readOnly
-                  tabIndex={-1}
-                  value={
-                    targetRejectItem.notes ||
-                    "No additional context or special instructions provided."
-                  }
-                  rows={3}
-                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0 resize-none"
-                />
-              </div>
-
-              {/* 7. Rejection / Cancellation Reason * (Editable long textarea) */}
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold">
-                  Rejection / Cancellation Reason <span className="text-destructive">*</span>
-                </Label>
-                <Textarea
-                  required
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Enter the reason for rejecting or cancelling this surveillance request..."
-                  rows={3}
-                />
-              </div>
-            </div>
-          )}
-
-          <DialogFooter className="mt-2">
-            <Button
-              variant="outline"
-              onClick={() => setRejectModalOpen(false)}
-              disabled={submittingReject}
-            >
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleConfirmReject} disabled={submittingReject}>
-              {submittingReject ? "Cancelling..." : "Reject & Cancel Request"}
             </Button>
           </DialogFooter>
         </DialogContent>

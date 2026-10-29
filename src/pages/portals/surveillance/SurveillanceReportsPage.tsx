@@ -61,6 +61,7 @@ import {
   MessageSquare,
   Search,
   UserPlus,
+  Video,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -419,6 +420,15 @@ function normalizeCustomOption(val: string | undefined): string {
   return trimmed;
 }
 
+function normalizePitchQualitySelectValue(raw: string | undefined): string {
+  const s = (raw || "").trim().toLowerCase();
+  if (!s || s === "__empty__" || s === "-" || s === "—" || s === "not observed") return "";
+  if (s === "good") return "Good";
+  if (s === "avg" || s === "average" || s === "fair") return "Average";
+  if (s === "poor" || s === "bad") return "Poor";
+  return (raw || "").trim();
+}
+
 function createEmptyAdditionalInvoice(): SurveillanceAdditionalInvoice {
   return {
     id: `add-inv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -514,7 +524,7 @@ function TransactionTypeMultiSelect({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-[--radix-popover-trigger-width] min-w-[220px] p-1.5"
+        className="w-(--radix-popover-trigger-width) p-1.5"
       >
         <div className="max-h-64 overflow-y-auto space-y-0.5">
           <button
@@ -933,8 +943,6 @@ export interface RepTimingRow {
   timeReturned: string;
   backRoomTimeIn: string;
   backRoomTimeOut: string;
-  offlineTime: string;
-  onlineTime: string;
 }
 
 function createEmptyRepTimingRow(): RepTimingRow {
@@ -945,8 +953,22 @@ function createEmptyRepTimingRow(): RepTimingRow {
     timeReturned: "",
     backRoomTimeIn: "",
     backRoomTimeOut: "",
-    offlineTime: "",
+  };
+}
+
+export interface CameraUptimeRow {
+  id: string;
+  cameraName: string;
+  onlineTime: string;
+  offlineTime: string;
+}
+
+function createEmptyCameraUptimeRow(): CameraUptimeRow {
+  return {
+    id: `cam-uptime-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    cameraName: "",
     onlineTime: "",
+    offlineTime: "",
   };
 }
 
@@ -1062,11 +1084,9 @@ function buildFallbackRowFromReport(
   };
   const pqTrimmed = (report.pitchQuality || "").trim();
   const normalizedPitchQuality =
-    !pqTrimmed || pqTrimmed === "Not Observed"
-      ? ""
-      : pqTrimmed.toLowerCase() === "custom" || pqTrimmed.toLowerCase() === "other"
-        ? "Custom"
-        : pqTrimmed.toUpperCase();
+    pqTrimmed.toLowerCase() === "custom" || pqTrimmed.toLowerCase() === "other"
+      ? "Custom"
+      : normalizePitchQualitySelectValue(pqTrimmed);
 
   return {
     id: `${report.id}-row-1`,
@@ -1187,14 +1207,23 @@ export default function SurveillanceReportsPage() {
     createEmptyRepTimingRow(),
   ]);
   const [isFloorPresenceEnabled, setIsFloorPresenceEnabled] = useState<boolean>(false);
+  const [isTimingSectionDirty, setIsTimingSectionDirty] = useState<boolean>(false);
+  const [, setIsTimingSectionSaved] = useState<boolean>(false);
+
+  // Standalone Camera Uptime Logs rows
+  const [cameraUptimeRows, setCameraUptimeRows] = useState<CameraUptimeRow[]>([
+    createEmptyCameraUptimeRow(),
+  ]);
+  const [isCameraUptimeEnabled, setIsCameraUptimeEnabled] = useState<boolean>(false);
+  const [isCameraUptimeDirty, setIsCameraUptimeDirty] = useState<boolean>(false);
+  const [, setIsCameraUptimeSaved] = useState<boolean>(false);
+
   const [fraudSectionEnabledByRow, setFraudSectionEnabledByRow] = useState<Record<string, boolean>>(
     {},
   );
   const [salesPitchSectionEnabledByRow, setSalesPitchSectionEnabledByRow] = useState<
     Record<string, boolean>
   >({});
-  const [isTimingSectionDirty, setIsTimingSectionDirty] = useState<boolean>(false);
-  const [isTimingSectionSaved, setIsTimingSectionSaved] = useState<boolean>(false);
   const [headerGeneralNotes, setHeaderGeneralNotes] = useState<string>("");
 
   const metrics = useMemo(() => {
@@ -1382,6 +1411,9 @@ export default function SurveillanceReportsPage() {
     setSavedRowTimestamps({});
     setDirtyRowIds({});
     setIsFloorPresenceEnabled(false);
+    setIsCameraUptimeEnabled(false);
+    setIsTimingSectionDirty(false);
+    setIsCameraUptimeDirty(false);
     setFraudSectionEnabledByRow({});
     setSalesPitchSectionEnabledByRow({});
 
@@ -1398,18 +1430,18 @@ export default function SurveillanceReportsPage() {
             timeReturned: existingReport.timeReturned || "",
             backRoomTimeIn: existingReport.backRoomTimeIn || "",
             backRoomTimeOut: existingReport.backRoomTimeOut || "",
-            offlineTime: "",
-            onlineTime: "",
           },
         ]);
       } else {
         setRepTimingRows([createEmptyRepTimingRow()]);
       }
+      setCameraUptimeRows([createEmptyCameraUptimeRow()]);
     } else {
       setHeaderStoreOpenTime("");
       setHeaderStoreCloseTime("");
       setHeaderGeneralNotes("");
       setRepTimingRows([createEmptyRepTimingRow()]);
+      setCameraUptimeRows([createEmptyCameraUptimeRow()]);
     }
 
     if (existingReport && existingReport.rows && existingReport.rows.length > 0) {
@@ -1573,6 +1605,14 @@ export default function SurveillanceReportsPage() {
             updated.cash,
             updated.card,
           );
+        }
+
+        if (field === "pitchQuality") {
+          const normalizedPq = normalizePitchQualitySelectValue(String(value || ""));
+          updated.pitchQuality = normalizedPq;
+          if (normalizedPq !== "Average" && normalizedPq !== "Poor") {
+            updated.pitchNotes = "";
+          }
         }
 
         return updated;
@@ -1756,8 +1796,6 @@ export default function SurveillanceReportsPage() {
         row.timeReturned,
         row.backRoomTimeIn,
         row.backRoomTimeOut,
-        row.offlineTime,
-        row.onlineTime,
       ].some((t) => t && t.trim());
 
       const hasRepName = Boolean(row.repName && row.repName.trim());
@@ -1775,6 +1813,58 @@ export default function SurveillanceReportsPage() {
     setIsTimingSectionDirty(false);
     setIsTimingSectionSaved(true);
     toast.success("Floor Presence & Rep Timings saved successfully.");
+  };
+
+  const handleAddCameraUptimeRow = () => {
+    setIsCameraUptimeDirty(true);
+    setIsCameraUptimeSaved(false);
+    setCameraUptimeRows((prev) => [...prev, createEmptyCameraUptimeRow()]);
+  };
+
+  const handleRemoveCameraUptimeRow = (id: string) => {
+    setIsCameraUptimeDirty(true);
+    setIsCameraUptimeSaved(false);
+    if (cameraUptimeRows.length <= 1) {
+      setCameraUptimeRows([createEmptyCameraUptimeRow()]);
+      return;
+    }
+    setCameraUptimeRows((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const handleUpdateCameraUptimeField = <K extends keyof CameraUptimeRow>(
+    id: string,
+    field: K,
+    value: CameraUptimeRow[K],
+  ) => {
+    setIsCameraUptimeDirty(true);
+    setIsCameraUptimeSaved(false);
+    setCameraUptimeRows((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)),
+    );
+  };
+
+  const handleSaveAllCameraUptimeLogs = () => {
+    for (let i = 0; i < cameraUptimeRows.length; i++) {
+      const row = cameraUptimeRows[i];
+      const rowNum = i + 1;
+      const hasCameraName = Boolean(row.cameraName && row.cameraName.trim());
+      const hasAnyTime = [row.onlineTime, row.offlineTime].some((t) => t && t.trim());
+
+      if (hasAnyTime && !hasCameraName) {
+        toast.error(`Please enter a Camera Name for Camera Uptime Row #${rowNum}.`);
+        return;
+      }
+      if (hasCameraName && !hasAnyTime) {
+        toast.error(
+          `Please select Online Time or Offline Time for Camera Uptime Row #${rowNum}.`,
+        );
+        return;
+      }
+    }
+
+    setIsCameraUptimeDirty(false);
+    setIsCameraUptimeSaved(true);
+    toast.success("Camera Uptime Logs saved successfully.");
   };
 
   const toggleRowExpanded = (rowId: string) => {
@@ -1983,10 +2073,16 @@ export default function SurveillanceReportsPage() {
           "onlineRejectedPaymentDetails",
         ),
         notes: "",
-        pitchNb: pitchEnabled ? normOpt(r.pitchNb) : "",
-        pitchNbDetails: pitchEnabled ? resolveCustomDetailValue(r, "pitchNb", r.pitchNb) : "",
-        pitchNotes: pitchEnabled ? r.pitchNotes : "",
-        pitchQuality: pitchEnabled ? normOpt(r.pitchQuality) : "",
+        pitchNb:
+          pitchEnabled && normalizePitchQualitySelectValue(r.pitchQuality) ? "YES" : "",
+        pitchNbDetails: "",
+        pitchNotes:
+          pitchEnabled &&
+          (normalizePitchQualitySelectValue(r.pitchQuality) === "Average" ||
+            normalizePitchQualitySelectValue(r.pitchQuality) === "Poor")
+            ? r.pitchNotes
+            : "",
+        pitchQuality: pitchEnabled ? normalizePitchQualitySelectValue(r.pitchQuality) : "",
         pitchQualityDetails: pitchEnabled
           ? resolveCustomDetailValue(r, "pitchQuality", r.pitchQuality)
           : "",
@@ -2033,8 +2129,28 @@ export default function SurveillanceReportsPage() {
         backRoomTimeOut: isFloorPresenceEnabled
           ? repTimingRows[0]?.backRoomTimeOut || r.backRoomTimeOut
           : "",
-        offline: normOpt(r.offline),
-        offlineDetails: resolveCustomDetailValue(r, "offline", r.offline),
+        offline:
+          isCameraUptimeEnabled &&
+          cameraUptimeRows.some(
+            (c) => c.cameraName.trim() || c.onlineTime.trim() || c.offlineTime.trim(),
+          )
+            ? "Custom"
+            : normOpt(r.offline),
+        offlineDetails:
+          isCameraUptimeEnabled &&
+          cameraUptimeRows.some(
+            (c) => c.cameraName.trim() || c.onlineTime.trim() || c.offlineTime.trim(),
+          )
+            ? cameraUptimeRows
+                .filter(
+                  (c) => c.cameraName.trim() || c.onlineTime.trim() || c.offlineTime.trim(),
+                )
+                .map(
+                  (c) =>
+                    `${c.cameraName.trim() || "Camera"} (Online: ${c.onlineTime || "-"}, Offline: ${c.offlineTime || "-"})`,
+                )
+                .join("; ")
+            : resolveCustomDetailValue(r, "offline", r.offline),
         attachments: r.attachments && r.attachments.length > 0 ? r.attachments : undefined,
       };
     };
@@ -2173,8 +2289,8 @@ export default function SurveillanceReportsPage() {
       timeReturned: headerStoreCloseTime || primarySerialized.timeReturned,
       backRoomTimeIn: primarySerialized.backRoomTimeIn,
       backRoomTimeOut: primarySerialized.backRoomTimeOut,
-      offline: resolveYesNoValue(primaryRow.offline),
-      offlineDetails: resolveCustomDetailValue(primaryRow, "offline", primaryRow.offline),
+      offline: resolveYesNoValue(primarySerialized.offline),
+      offlineDetails: primarySerialized.offlineDetails || "",
       attachments: combinedAttachments.length > 0 ? combinedAttachments : undefined,
     };
 
@@ -2530,7 +2646,7 @@ export default function SurveillanceReportsPage() {
                             onValueChange={(val) => handleUpdateRowField(row.id, "salesRep", val)}
                           />
 
-                          <div className="space-y-1 sm:col-span-2">
+                          <div className="space-y-1">
                             <Label className="text-[11px] font-semibold">
                               Transaction Type <span className="text-destructive">*</span>
                             </Label>
@@ -2701,7 +2817,7 @@ export default function SurveillanceReportsPage() {
                                       />
                                     </div>
 
-                                    <div className="space-y-1 sm:col-span-2">
+                                    <div className="space-y-1">
                                       <Label className="text-[11px] font-semibold">
                                         Transaction Type <span className="text-destructive">*</span>
                                       </Label>
@@ -2967,15 +3083,9 @@ export default function SurveillanceReportsPage() {
                           <>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                               <StandardSelect
-                                label="Pitch NB"
-                                options={YES_NO_OPTIONS}
-                                value={row.pitchNb}
-                                onValueChange={(val) => handleUpdateRowField(row.id, "pitchNb", val)}
-                              />
-                              <StandardSelect
                                 label="Pitch Quality"
                                 options={PITCH_QUALITY_OPTIONS}
-                                value={row.pitchQuality}
+                                value={normalizePitchQualitySelectValue(row.pitchQuality)}
                                 onValueChange={(val) =>
                                   handleUpdateRowField(row.id, "pitchQuality", val)
                                 }
@@ -3040,16 +3150,19 @@ export default function SurveillanceReportsPage() {
                               />
                             </div>
 
-                            <div className="space-y-1 pt-1">
-                              <Label className="text-[11px] font-semibold">Pitch Notes</Label>
-                              <Input
-                                value={row.pitchNotes}
-                                onChange={(e) =>
-                                  handleUpdateRowField(row.id, "pitchNotes", e.target.value)
-                                }
-                                placeholder="Enter customer response, accessory pitch, and closing notes..."
-                              />
-                            </div>
+                            {(normalizePitchQualitySelectValue(row.pitchQuality) === "Average" ||
+                              normalizePitchQualitySelectValue(row.pitchQuality) === "Poor") && (
+                              <div className="space-y-1 pt-1">
+                                <Label className="text-[11px] font-semibold">Pitch Notes</Label>
+                                <Input
+                                  value={row.pitchNotes}
+                                  onChange={(e) =>
+                                    handleUpdateRowField(row.id, "pitchNotes", e.target.value)
+                                  }
+                                  placeholder="Enter customer response, accessory pitch, and closing notes..."
+                                />
+                              </div>
+                            )}
                           </>
                         )}
                       </div>
@@ -3234,26 +3347,122 @@ export default function SurveillanceReportsPage() {
                     />
                   </div>
 
-                  {/* Offline Time */}
-                  <div className="flex-1 min-w-[110px] space-y-1">
+                  {/* Delete Button at end */}
+                  <div className="flex items-center pb-0.5 shrink-0">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveRepTimingRow(timingRow.id)}
+                      className="h-9 w-9 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30"
+                      title="Delete row"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* 5. Camera Uptime Logs Section */}
+        <Card className="p-4 border-border/80 shadow-2xs bg-card space-y-3">
+          <div
+            className={`flex flex-wrap items-center justify-between gap-2 ${
+              isCameraUptimeEnabled ? "border-b pb-2.5" : ""
+            }`}
+          >
+            <div className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2.5">
+              <Switch
+                checked={isCameraUptimeEnabled}
+                onCheckedChange={setIsCameraUptimeEnabled}
+                aria-label="Toggle Camera Uptime Logs"
+              />
+              <Video className="h-4 w-4 text-primary" />
+              <span>Camera Uptime Logs</span>
+            </div>
+            {isCameraUptimeEnabled && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleSaveAllCameraUptimeLogs}
+                  className={
+                    isCameraUptimeDirty
+                      ? "bg-blue-600 hover:bg-blue-700 text-white shadow-xs font-semibold h-8 px-3 text-xs gap-1.5"
+                      : "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 font-semibold h-8 px-3 text-xs gap-1.5"
+                  }
+                >
+                  {isCameraUptimeDirty ? (
+                    <Save className="h-3.5 w-3.5" />
+                  ) : (
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                  )}
+                  {isCameraUptimeDirty ? "Save" : "Saved"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddCameraUptimeRow}
+                  className="h-8 gap-1.5 text-xs font-medium"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add Row
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {isCameraUptimeEnabled && (
+            <div className="divide-y divide-border/60">
+              {cameraUptimeRows.map((camRow) => (
+                <div
+                  key={camRow.id}
+                  className="py-2.5 first:pt-1 last:pb-1 flex flex-wrap lg:flex-nowrap items-end gap-2.5"
+                >
+                  {/* Camera Name Textbox */}
+                  <div className="flex-1 min-w-[180px] space-y-1">
                     <Label className="text-[11px] font-semibold text-foreground">
-                      Offline Time
+                      Camera Name
                     </Label>
-                    <AmPmTimePicker
-                      value={timingRow.offlineTime}
-                      onChange={(val) =>
-                        handleUpdateRepTimingField(timingRow.id, "offlineTime", val)
+                    <Input
+                      value={camRow.cameraName}
+                      onChange={(e) =>
+                        handleUpdateCameraUptimeField(
+                          camRow.id,
+                          "cameraName",
+                          e.target.value,
+                        )
                       }
+                      placeholder="Enter camera name (e.g. Sales Floor Cam #1)"
+                      className="h-9 text-xs"
                     />
                   </div>
 
                   {/* Online Time */}
-                  <div className="flex-1 min-w-[110px] space-y-1">
-                    <Label className="text-[11px] font-semibold text-foreground">Online Time</Label>
+                  <div className="flex-1 min-w-[140px] space-y-1">
+                    <Label className="text-[11px] font-semibold text-foreground">
+                      Online Time
+                    </Label>
                     <AmPmTimePicker
-                      value={timingRow.onlineTime}
+                      value={camRow.onlineTime}
                       onChange={(val) =>
-                        handleUpdateRepTimingField(timingRow.id, "onlineTime", val)
+                        handleUpdateCameraUptimeField(camRow.id, "onlineTime", val)
+                      }
+                    />
+                  </div>
+
+                  {/* Offline Time */}
+                  <div className="flex-1 min-w-[140px] space-y-1">
+                    <Label className="text-[11px] font-semibold text-foreground">
+                      Offline Time
+                    </Label>
+                    <AmPmTimePicker
+                      value={camRow.offlineTime}
+                      onChange={(val) =>
+                        handleUpdateCameraUptimeField(camRow.id, "offlineTime", val)
                       }
                     />
                   </div>
@@ -3264,7 +3473,7 @@ export default function SurveillanceReportsPage() {
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleRemoveRepTimingRow(timingRow.id)}
+                      onClick={() => handleRemoveCameraUptimeRow(camRow.id)}
                       className="h-9 w-9 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30"
                       title="Delete row"
                     >
