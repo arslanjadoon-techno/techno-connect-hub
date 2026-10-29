@@ -1001,7 +1001,8 @@ export default function SurveillanceReportsPage() {
   const [repTimingRows, setRepTimingRows] = useState<RepTimingRow[]>([
     createEmptyRepTimingRow(),
   ]);
-  const [savedRepTimingIds, setSavedRepTimingIds] = useState<Record<string, string>>({});
+  const [isTimingSectionDirty, setIsTimingSectionDirty] = useState<boolean>(false);
+  const [isTimingSectionSaved, setIsTimingSectionSaved] = useState<boolean>(false);
   const [headerGeneralNotes, setHeaderGeneralNotes] = useState<string>("");
 
   const metrics = useMemo(() => {
@@ -1312,15 +1313,14 @@ export default function SurveillanceReportsPage() {
   };
 
   const handleAddRepTimingRow = () => {
+    setIsTimingSectionDirty(true);
+    setIsTimingSectionSaved(false);
     setRepTimingRows((prev) => [...prev, createEmptyRepTimingRow()]);
   };
 
   const handleRemoveRepTimingRow = (id: string) => {
-    setSavedRepTimingIds((prev) => {
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+    setIsTimingSectionDirty(true);
+    setIsTimingSectionSaved(false);
     if (repTimingRows.length <= 1) {
       setRepTimingRows([createEmptyRepTimingRow()]);
       return;
@@ -1333,45 +1333,41 @@ export default function SurveillanceReportsPage() {
     field: K,
     value: RepTimingRow[K],
   ) => {
-    setSavedRepTimingIds((prev) => {
-      if (!prev[id]) return prev;
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
+    setIsTimingSectionDirty(true);
+    setIsTimingSectionSaved(false);
     setRepTimingRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)),
     );
   };
 
-  const handleSaveRepTimingRow = (timingRow: RepTimingRow, tIdx: number) => {
-    if (!timingRow.repName || !timingRow.repName.trim()) {
-      toast.error(`Please select "Name of Rep Leaving" for Timing Row #${tIdx + 1} before saving.`);
-      return;
+  const handleSaveAllRepTimings = () => {
+    for (let i = 0; i < repTimingRows.length; i++) {
+      const row = repTimingRows[i];
+      const rowNum = i + 1;
+      const hasAnyTime = [
+        row.timeLeft,
+        row.timeReturned,
+        row.backRoomTimeIn,
+        row.backRoomTimeOut,
+        row.offlineTime,
+        row.onlineTime,
+      ].some((t) => t && t.trim());
+
+      const hasRepName = Boolean(row.repName && row.repName.trim());
+
+      if (hasAnyTime && !hasRepName) {
+        toast.error(`Please select "Name of Rep Leaving" for Timing Row #${rowNum}.`);
+        return;
+      }
+      if (hasRepName && !hasAnyTime) {
+        toast.error(`Please enter at least one time entry for Timing Row #${rowNum}.`);
+        return;
+      }
     }
 
-    const hasFilledTime = [
-      timingRow.timeLeft,
-      timingRow.timeReturned,
-      timingRow.backRoomTimeIn,
-      timingRow.backRoomTimeOut,
-      timingRow.offlineTime,
-      timingRow.onlineTime,
-    ].some((t) => t && t.trim());
-
-    if (!hasFilledTime) {
-      toast.error(
-        `Please enter at least one time entry for Timing Row #${tIdx + 1} before saving.`,
-      );
-      return;
-    }
-
-    setSavedRepTimingIds((prev) => ({
-      ...prev,
-      [timingRow.id]: new Date().toISOString(),
-    }));
-
-    toast.success(`Timing Row #${tIdx + 1} (${timingRow.repName}) saved successfully.`);
+    setIsTimingSectionDirty(false);
+    setIsTimingSectionSaved(true);
+    toast.success("Floor Presence & Rep Timings saved successfully.");
   };
 
   const toggleRowExpanded = (rowId: string) => {
@@ -1866,26 +1862,26 @@ export default function SurveillanceReportsPage() {
         </div>
 
         {/* 1. Top Badges for Auto-populated Metadata */}
-        <div className="flex flex-wrap items-center gap-2 pt-1">
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
           <Badge
             variant="secondary"
-            className="px-3 py-1.5 text-xs font-semibold gap-1.5 bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900 shadow-2xs"
+            className="px-4 py-2 text-xs sm:text-sm font-semibold gap-2 bg-blue-50 text-blue-800 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-900 shadow-2xs"
           >
-            <Calendar className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
-            Date: {defaultDate}
+            <Calendar className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0" />
+            Requested Surveillance Date: {defaultDate}
           </Badge>
           <Badge
             variant="secondary"
-            className="px-3 py-1.5 text-xs font-semibold gap-1.5 bg-purple-50 text-purple-800 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-900 shadow-2xs"
+            className="px-4 py-2 text-xs sm:text-sm font-semibold gap-2 bg-purple-50 text-purple-800 border border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-900 shadow-2xs"
           >
-            <MapPin className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400 shrink-0" />
+            <MapPin className="h-4 w-4 text-purple-600 dark:text-purple-400 shrink-0" />
             Market: {activeItem.marketName || "—"}
           </Badge>
           <Badge
             variant="secondary"
-            className="px-3 py-1.5 text-xs font-semibold gap-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900 shadow-2xs"
+            className="px-4 py-2 text-xs sm:text-sm font-semibold gap-2 bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900 shadow-2xs"
           >
-            <StoreIcon className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <StoreIcon className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
             Store: {activeItem.storeName || "—"}
           </Badge>
         </div>
@@ -2352,183 +2348,158 @@ export default function SurveillanceReportsPage() {
         </div>
 
         {/* 4. Floor Presence & Rep Timings Section */}
-        <Card className="p-4 border-border/80 shadow-2xs bg-card space-y-4">
-          <div className="flex items-center justify-between border-b pb-2">
+        <Card className="p-4 border-border/80 shadow-2xs bg-card space-y-3">
+          <div className="flex items-center justify-between border-b pb-2.5">
             <div className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
               <Clock className="h-4 w-4 text-primary" />
               Floor Presence & Rep Timings
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleAddRepTimingRow}
-              className="h-8 gap-1.5 text-xs font-medium"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add Row
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSaveAllRepTimings}
+                className={
+                  isTimingSectionDirty
+                    ? "bg-blue-600 hover:bg-blue-700 text-white shadow-xs font-semibold h-8 px-3 text-xs gap-1.5"
+                    : "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 font-semibold h-8 px-3 text-xs gap-1.5"
+                }
+              >
+                {isTimingSectionDirty ? (
+                  <Save className="h-3.5 w-3.5" />
+                ) : (
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                )}
+                {isTimingSectionDirty ? "Save" : "Saved"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddRepTimingRow}
+                className="h-8 gap-1.5 text-xs font-medium"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add Row
+              </Button>
+            </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="divide-y divide-border/60">
             {repTimingRows.map((timingRow, tIdx) => (
               <div
                 key={timingRow.id}
-                className="space-y-3 rounded-lg border bg-muted/10 p-3.5"
+                className="py-2.5 first:pt-1 last:pb-1 flex flex-wrap lg:flex-nowrap items-end gap-2.5"
               >
-                <div className="flex items-center justify-between gap-2 border-b pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] font-semibold text-foreground font-mono">
-                      Timing Row #{tIdx + 1}
-                    </span>
-                    {savedRepTimingIds[timingRow.id] ? (
-                      <Badge
-                        variant="outline"
-                        className="border-emerald-200 bg-emerald-50 text-[10px] font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400 px-2 py-0.5"
-                      >
-                        Saved
-                      </Badge>
-                    ) : (
-                      <span className="text-[10px] text-muted-foreground italic">
-                        Unsaved
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={savedRepTimingIds[timingRow.id] ? "outline" : "default"}
-                      onClick={() => handleSaveRepTimingRow(timingRow, tIdx)}
-                      className="h-7 px-2.5 text-xs font-semibold gap-1"
-                    >
-                      <Save className="h-3.5 w-3.5" />
-                      {savedRepTimingIds[timingRow.id] ? "Saved" : "Save"}
-                    </Button>
-
-                    {repTimingRows.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveRepTimingRow(timingRow.id)}
-                        className="h-7 px-2 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30 text-xs"
-                        title="Remove Row"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
+                {/* Name of Rep Leaving Dropdown (Wider Column) */}
+                <div className="w-full sm:w-auto flex-1 min-w-[220px] space-y-1">
+                  <Label className="text-[11px] font-semibold text-foreground">
+                    Name of Rep Leaving
+                  </Label>
+                  <Select
+                    value={toSelectVal(timingRow.repName)}
+                    onValueChange={(v) =>
+                      handleUpdateRepTimingField(
+                        timingRow.id,
+                        "repName",
+                        fromSelectVal(v),
+                      )
+                    }
+                  >
+                    <SelectTrigger className="h-9 text-xs w-full">
+                      <SelectValue placeholder="-" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__empty__" className="text-xs">
+                        -
+                      </SelectItem>
+                      {SALES_REP_NAMES.map((rep) => (
+                        <SelectItem key={rep} value={rep} className="text-xs">
+                          {rep}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
-                  {/* Name of Rep Leaving Dropdown */}
-                  <div className="space-y-1">
-                    <Label className="text-[11px] font-semibold">
-                      Name of Rep Leaving
-                    </Label>
-                    <Select
-                      value={toSelectVal(timingRow.repName)}
-                      onValueChange={(v) =>
-                        handleUpdateRepTimingField(
-                          timingRow.id,
-                          "repName",
-                          fromSelectVal(v),
-                        )
-                      }
-                    >
-                      <SelectTrigger className="h-9 text-xs">
-                        <SelectValue placeholder="-" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__empty__" className="text-xs">
-                          -
-                        </SelectItem>
-                        {SALES_REP_NAMES.map((rep) => (
-                          <SelectItem key={rep} value={rep} className="text-xs">
-                            {rep}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                {/* Time Left (Compact) */}
+                <div className="w-1/2 sm:w-28 space-y-1 shrink-0">
+                  <Label className="text-[11px] font-semibold text-foreground">Time Left</Label>
+                  <AmPmTimePicker
+                    value={timingRow.timeLeft}
+                    onChange={(val) =>
+                      handleUpdateRepTimingField(timingRow.id, "timeLeft", val)
+                    }
+                  />
+                </div>
 
-                  {/* Time Left */}
-                  <div className="space-y-1">
-                    <Label className="text-[11px] font-semibold">Time Left</Label>
-                    <AmPmTimePicker
-                      value={timingRow.timeLeft}
-                      onChange={(val) =>
-                        handleUpdateRepTimingField(timingRow.id, "timeLeft", val)
-                      }
-                    />
-                  </div>
+                {/* Time Returned (Compact) */}
+                <div className="w-1/2 sm:w-28 space-y-1 shrink-0">
+                  <Label className="text-[11px] font-semibold text-foreground">Time Returned</Label>
+                  <AmPmTimePicker
+                    value={timingRow.timeReturned}
+                    onChange={(val) =>
+                      handleUpdateRepTimingField(timingRow.id, "timeReturned", val)
+                    }
+                  />
+                </div>
 
-                  {/* Time Returned */}
-                  <div className="space-y-1">
-                    <Label className="text-[11px] font-semibold">
-                      Time Returned
-                    </Label>
-                    <AmPmTimePicker
-                      value={timingRow.timeReturned}
-                      onChange={(val) =>
-                        handleUpdateRepTimingField(timingRow.id, "timeReturned", val)
-                      }
-                    />
-                  </div>
+                {/* Back Room Time - In (Compact) */}
+                <div className="w-1/2 sm:w-32 space-y-1 shrink-0">
+                  <Label className="text-[11px] font-semibold text-foreground">Back Room - In</Label>
+                  <AmPmTimePicker
+                    value={timingRow.backRoomTimeIn}
+                    onChange={(val) =>
+                      handleUpdateRepTimingField(timingRow.id, "backRoomTimeIn", val)
+                    }
+                  />
+                </div>
 
-                  {/* Back Room Time - In */}
-                  <div className="space-y-1">
-                    <Label className="text-[11px] font-semibold">
-                      Back Room Time - In
-                    </Label>
-                    <AmPmTimePicker
-                      value={timingRow.backRoomTimeIn}
-                      onChange={(val) =>
-                        handleUpdateRepTimingField(timingRow.id, "backRoomTimeIn", val)
-                      }
-                    />
-                  </div>
+                {/* Back Room Time - Out (Compact) */}
+                <div className="w-1/2 sm:w-32 space-y-1 shrink-0">
+                  <Label className="text-[11px] font-semibold text-foreground">Back Room - Out</Label>
+                  <AmPmTimePicker
+                    value={timingRow.backRoomTimeOut}
+                    onChange={(val) =>
+                      handleUpdateRepTimingField(timingRow.id, "backRoomTimeOut", val)
+                    }
+                  />
+                </div>
 
-                  {/* Back Room Time - Out */}
-                  <div className="space-y-1">
-                    <Label className="text-[11px] font-semibold">
-                      Back Room Time - Out
-                    </Label>
-                    <AmPmTimePicker
-                      value={timingRow.backRoomTimeOut}
-                      onChange={(val) =>
-                        handleUpdateRepTimingField(timingRow.id, "backRoomTimeOut", val)
-                      }
-                    />
-                  </div>
+                {/* Offline Time (Compact) */}
+                <div className="w-1/2 sm:w-28 space-y-1 shrink-0">
+                  <Label className="text-[11px] font-semibold text-foreground">Offline Time</Label>
+                  <AmPmTimePicker
+                    value={timingRow.offlineTime}
+                    onChange={(val) =>
+                      handleUpdateRepTimingField(timingRow.id, "offlineTime", val)
+                    }
+                  />
+                </div>
 
-                  {/* Offline Time */}
-                  <div className="space-y-1">
-                    <Label className="text-[11px] font-semibold">
-                      Offline Time
-                    </Label>
-                    <AmPmTimePicker
-                      value={timingRow.offlineTime}
-                      onChange={(val) =>
-                        handleUpdateRepTimingField(timingRow.id, "offlineTime", val)
-                      }
-                    />
-                  </div>
+                {/* Online Time (Compact) */}
+                <div className="w-1/2 sm:w-28 space-y-1 shrink-0">
+                  <Label className="text-[11px] font-semibold text-foreground">Online Time</Label>
+                  <AmPmTimePicker
+                    value={timingRow.onlineTime}
+                    onChange={(val) =>
+                      handleUpdateRepTimingField(timingRow.id, "onlineTime", val)
+                    }
+                  />
+                </div>
 
-                  {/* Online Time */}
-                  <div className="space-y-1">
-                    <Label className="text-[11px] font-semibold">
-                      Online Time
-                    </Label>
-                    <AmPmTimePicker
-                      value={timingRow.onlineTime}
-                      onChange={(val) =>
-                        handleUpdateRepTimingField(timingRow.id, "onlineTime", val)
-                      }
-                    />
-                  </div>
+                {/* Delete Button at end */}
+                <div className="flex items-center pb-0.5 shrink-0">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveRepTimingRow(timingRow.id)}
+                    className="h-9 w-9 p-0 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30"
+                    title="Delete row"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             ))}
