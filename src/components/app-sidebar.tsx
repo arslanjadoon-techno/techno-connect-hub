@@ -118,6 +118,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     items: [
       { title: "Dashboard", url: "/commission/dashboard", icon: BarChart3 },
       { title: "Commission", url: "/commission/my-commission", icon: DollarSign },
+      { title: "Commission Filters", url: "/commission/structure", icon: FileSpreadsheet },
       { title: "Privacy", url: "/commission/privacy", icon: LockKeyhole },
       { title: "Support", url: "/commission/support", icon: Contact },
       { title: "Houses", url: "/commission/houses", icon: Home },
@@ -609,7 +610,9 @@ export function AppSidebar() {
       if (!isCommAdmin) {
         return {
           ...master,
-          items: master.items.filter((i) => i.url !== "/commission/dashboard"),
+          items: master.items.filter(
+            (i) => i.url !== "/commission/dashboard" && i.url !== "/commission/structure",
+          ),
         };
       }
     }

@@ -135,7 +135,18 @@ export const COMMISSION_API_PATHS = {
   getAllEmployeeCommissionMarketWise: "/GetAllEmployeeCommissionMarketWise",
   getAllEmployeeCommissionMarketWiseWithPagination:
     "/GetAllEmployeeCommissionMarketWiseWithPagination",
+  getDailyCommission: "/api/DailyCommission/GetDailyCommission",
   getDashboard: "/GetDashboard",
+} as const;
+
+export const DAILY_COMMISSION_FILTER_API_PATHS = {
+  getAllDailyCommissionFilter: "/api/DailyCommission/GetAllDailyCommissionFilter",
+  saveDailyCommissionFilter: "/api/DailyCommission/SaveDailyCommissionFilter",
+  dailyCommissionParsePdf: "/api/DailyCommission/DailyCommissionParsePdf",
+  deleteDailyCommissionFilter: (id: number, year: number, month: number) =>
+    `/api/DailyCommission/DeleteDailyCommissionFilter/${id}?year=${year}&month=${month}`,
+  getDailyCommissionSdrFilter: "/api/DailyCommission/GetDailyCommissionSdrFilter",
+  saveDailyCommissionSdrFilter: "/api/DailyCommission/SaveDailyCommissionSdrFilter",
 } as const;
 
 export const LEAVE_API_PATHS = {

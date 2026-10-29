@@ -262,7 +262,14 @@ export default function CommissionPage() {
     if (!selectedDate || !isManagerOrAdmin) return;
     try {
       setLoading(true);
-      const res = await commissionService.getAllEmployeeCommissionMarketWiseWithPagination({
+      // const res = await commissionService.getAllEmployeeCommissionMarketWiseWithPagination({
+      //   fromDate: selectedDate,
+      //   toDate: selectedDate,
+      //   page,
+      //   pageSize,
+      //   market: selectedMarket !== "all" ? selectedMarket : undefined,
+      // });
+      const res = await commissionService.getDailyCommission({
         fromDate: selectedDate,
         toDate: selectedDate,
         page,
