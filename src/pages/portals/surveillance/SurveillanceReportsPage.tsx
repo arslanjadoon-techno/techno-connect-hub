@@ -1061,6 +1061,9 @@ export default function SurveillanceReportsPage() {
         (r) => r.status === "Report Received" || r.status === "Approved" || r.status === "Rejected",
       ).length,
       pending: requests.filter((r) => r.status === "Report Requested").length,
+      rejected: requests.filter(
+        (r) => r.status === "Rejected" || r.reportStatus === "Rejected",
+      ).length,
       approved: requests.filter((r) => r.status === "Approved").length,
     };
   }, [requests]);
@@ -3643,12 +3646,12 @@ export default function SurveillanceReportsPage() {
         </p>
       </div>
 
-      {/* Top Dashboard Summary Cards (4 Distinct Colors) */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Card 1: Total Requests (Blue tone) */}
+      {/* Top Dashboard Summary Cards (5 Distinct Colors) */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        {/* Card 1: Total Requests Received (Blue tone) */}
         <Card className="p-4 border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900/50">
           <div className="text-xs text-blue-800 dark:text-blue-300 font-medium uppercase tracking-wider">
-            Total Requests
+            Total Requests Received
           </div>
           <div className="mt-1 text-2xl font-bold font-display text-blue-950 dark:text-blue-100">
             {metrics.total}
@@ -3675,7 +3678,17 @@ export default function SurveillanceReportsPage() {
           </div>
         </Card>
 
-        {/* Card 4: Approved (Emerald tone) */}
+        {/* Card 4: Rejected (Rose tone) */}
+        <Card className="p-4 border-rose-300/80 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/50">
+          <div className="text-xs text-rose-800 dark:text-rose-300 font-medium uppercase tracking-wider">
+            Rejected
+          </div>
+          <div className="mt-1 text-2xl font-bold font-display text-rose-950 dark:text-rose-100">
+            {metrics.rejected}
+          </div>
+        </Card>
+
+        {/* Card 5: Approved (Emerald tone) */}
         <Card className="p-4 border-emerald-300/80 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/50">
           <div className="text-xs text-emerald-800 dark:text-emerald-300 font-medium uppercase tracking-wider">
             Approved
