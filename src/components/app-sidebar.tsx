@@ -73,6 +73,12 @@ import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { LEASING_PAGE_PERMISSION_KEYS } from "@/lib/leasing-permissions";
 import SidebarRail from "@/pages/team-chat/sidebar/SidebarRail";
+import {
+  getSurveillanceRole,
+  canRequestSurveillance,
+  canValidateSurveillance,
+  canAccessSurveillanceReports,
+} from "@/services/portals/surveillance/types";
 
 type SubItem = { title: string; url: string; icon?: any };
 type Item = { title: string; url: string; icon: any; children?: SubItem[] };
@@ -194,8 +200,9 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     title: "Surveillance",
     icon: Video,
     items: [
-      { title: "Reports", url: "/surveillance/requests", icon: ClipboardCheck },
-      { title: "Surveillance Reports", url: "/surveillance/reports", icon: Video },
+      { title: "Request Reports", url: "/surveillance/requests", icon: ClipboardCheck },
+      { title: "Validate and Assign", url: "/surveillance/validate-and-assign", icon: UserCheck },
+      { title: "Submit Report", url: "/surveillance/reports", icon: Video },
     ],
   },
   leave: {
@@ -635,34 +642,43 @@ export function AppSidebar() {
       };
     }
 
-    // Surveillance Portal:
-    // - "Reports" (/surveillance/requests) is for Admin, State Manager, Market Manager, District Manager.
-    // - "Surveillance Reports" (/surveillance/reports) is strictly ONLY visible to the "user" role.
+    // Surveillance Portal Role-Wise Categorization:
+    // - admin: Request Reports + Validate and Assign + Submit Report (all 3 pages)
+    // - marketManager / districtManager: Request Reports only
+    // - SurveillanceManager: Validate and Assign only
+    // - user: Submit Report only
+    // - All other roles (manager, stateManager, storeManager, backoffice, rep, trainer, etc.): No Access (/surveillance/no-access)
     if (key === "surveillance") {
-      const roleStr = (getPortalRole("surveillance") || user.roleName || user.role || "")
-        .toLowerCase()
-        .replace(/[\s_-]/g, "");
+      const survRole = getSurveillanceRole(user);
+      const filteredItems = master.items.filter((i) => {
+        if (i.url === "/surveillance/requests") {
+          return canRequestSurveillance(survRole);
+        }
+        if (i.url === "/surveillance/validate-and-assign") {
+          return canValidateSurveillance(survRole);
+        }
+        if (i.url === "/surveillance/reports") {
+          return canAccessSurveillanceReports(survRole);
+        }
+        return false;
+      });
 
-      const isStrictUser = roleStr === "user";
-      const isEligibleManager =
-        !isStrictUser &&
-        (roleStr.includes("admin") ||
-          roleStr.includes("statemanager") ||
-          roleStr.includes("marketmanager") ||
-          roleStr.includes("districtmanager") ||
-          roleStr.includes("manager") ||
-          roleStr.includes("state") ||
-          roleStr.includes("market") ||
-          roleStr.includes("district") ||
-          roleStr.includes("supervisor"));
+      if (filteredItems.length === 0) {
+        return {
+          ...master,
+          items: [
+            {
+              title: "No Access",
+              url: "/surveillance/no-access",
+              icon: ShieldCheck,
+            },
+          ],
+        };
+      }
 
       return {
         ...master,
-        items: master.items.filter((i) => {
-          if (i.url === "/surveillance/reports") return isStrictUser;
-          if (i.url === "/surveillance/requests") return isEligibleManager;
-          return true;
-        }),
+        items: filteredItems,
       };
     }
 
@@ -877,11 +893,11 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border/60 py-2.5 px-3">
         <div className="flex items-center justify-center select-none tracking-tight">
           {collapsed ? (
-            <span title="Version 3.1.2" className="text-[10px]">
-              v3.1.2
+            <span title="Version 3.1.6" className="text-[10px]">
+              v3.1.6
             </span>
           ) : (
-            <span className="text-[14px] text-white font-medium">Version - 3.1.2</span>
+            <span className="text-[14px] text-white font-medium">Version - 3.1.6</span>
           )}
         </div>
       </SidebarFooter>

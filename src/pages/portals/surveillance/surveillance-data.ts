@@ -1,11 +1,21 @@
+import { MMKV } from "@/lib/mmkv-storage";
 import type {
   SurveillanceRequest,
   SurveillanceReport,
   SurveillanceAuditRow,
+  SurveillanceAssignableAgent,
+  SurveillanceValidationItem,
+  SavedAuditRowRecord,
+  ActiveSurveillanceDraftSession,
+  CreateSurveillanceRequestPayload,
+  CreateSurveillanceReportPayload,
+  ValidateAndAssignPayload,
+  RejectValidationPayload,
 } from "@/services/portals/surveillance/types";
 
 function makeAuditRow(
-  partial: Partial<SurveillanceAuditRow> & Pick<SurveillanceAuditRow, "id" | "date" | "storeName" | "time" | "salesRep" | "transType">,
+  partial: Partial<SurveillanceAuditRow> &
+    Pick<SurveillanceAuditRow, "id" | "date" | "storeName" | "time" | "salesRep" | "transType">,
 ): SurveillanceAuditRow {
   return {
     invoice: "",
@@ -53,7 +63,127 @@ function makeAuditRow(
   };
 }
 
-export const INITIAL_SURVEILLANCE_REQUESTS: SurveillanceRequest[] = [
+export interface StaticStoreOption {
+  id: string;
+  name: string;
+  number: string;
+  market: string;
+  district: string;
+  address: string;
+}
+
+export const AVAILABLE_STORES: StaticStoreOption[] = [
+  {
+    id: "store-101",
+    name: "Store #101 - Uptown Dallas",
+    number: "101",
+    market: "Dallas North",
+    district: "District 1",
+    address: "2401 McKinney Ave, Dallas, TX",
+  },
+  {
+    id: "store-102",
+    name: "Store #102 - Galleria Mall",
+    number: "102",
+    market: "Dallas North",
+    district: "District 1",
+    address: "13350 Dallas Pkwy, Dallas, TX",
+  },
+  {
+    id: "store-107",
+    name: "Store #107 - Plano Legacy",
+    number: "107",
+    market: "Dallas North",
+    district: "District 1",
+    address: "5800 Legacy Dr, Plano, TX",
+  },
+  {
+    id: "store-103",
+    name: "Store #103 - Downtown Houston",
+    number: "103",
+    market: "Houston Central",
+    district: "District 2",
+    address: "1200 Louisiana St, Houston, TX",
+  },
+  {
+    id: "store-104",
+    name: "Store #104 - The Woodlands",
+    number: "104",
+    market: "Houston Central",
+    district: "District 2",
+    address: "1201 Lake Woodlands Dr, The Woodlands, TX",
+  },
+  {
+    id: "store-105",
+    name: "Store #105 - Domain Austin",
+    number: "105",
+    market: "Austin Metro",
+    district: "District 3",
+    address: "11410 Century Oaks Terrace, Austin, TX",
+  },
+  {
+    id: "store-108",
+    name: "Store #108 - South Congress",
+    number: "108",
+    market: "Austin Metro",
+    district: "District 3",
+    address: "1608 S Congress Ave, Austin, TX",
+  },
+  {
+    id: "store-106",
+    name: "Store #106 - Riverwalk Center",
+    number: "106",
+    market: "San Antonio",
+    district: "District 4",
+    address: "849 E Commerce St, San Antonio, TX",
+  },
+];
+
+/**
+ * Sample static data for Page 1: Request Reports (/surveillance/requests).
+ * Strictly uses the 2 statuses: "Pending" and "Completed".
+ */
+export const INITIAL_REQUEST_REPORTS: SurveillanceRequest[] = [
+  {
+    id: "SRV-REQ-108",
+    storeId: "store-785",
+    storeName: "13191 HARBOR-IIG -785",
+    storeNumber: "785",
+    marketName: "Dallas North",
+    districtName: "District 1",
+    incidentDate: "2026-10-14",
+    shift: "Full Shift Audit (10:00 - 20:00)",
+    investigationType: "Full Store Compliance & Pitch Audit",
+    priority: "high",
+    title: "Full-day customer pitch, bundle closing, floor presence & invoice compliance audit",
+    requestedBy: "Sarah Jenkins",
+    requestedById: "u-4",
+    requesterRole: "State Manager",
+    requesterEmail: "sarah.jenkins@techno-communications.com",
+    requesterPhone: "+1 (512) 555-0188",
+    requesterDepartment: "Regional Store Operations",
+    areasToReview: ["Sales Floor", "POS Registers", "Backroom / Safe", "Loomis Machine"],
+    notes:
+      "Complete full-shift audit requested covering customer traffic, non-buying pitches, bundle conversions, floor presence intervals, Loomis/Safe visibility, and register invoice reconciliation.",
+    status: "Completed",
+    createdAt: "2026-10-14T08:30:00Z",
+    approvedBy: "Sarah Jenkins",
+    approvedAt: "2026-10-14T09:00:00Z",
+    linkedReportId: "SRV-REP-205",
+    preparedBy: "Muhammad Saqlain",
+    preparedById: "agt-107",
+    preparedByEmail: "m.saqlain@techno-communications.com",
+    preparedByPhone: "+1 (214) 555-0490",
+    preparedByRole: "QA Surveillance Specialist",
+    preparedByDepartment: "Surveillance & Quality Assurance",
+    preparedAt: "2026-10-15T10:15:00Z",
+    reportStatus: "Approved",
+    reportApprovedBy: "Sarah Jenkins",
+    reportApprovedAt: "2026-10-15T14:00:00Z",
+    managerRating: 5,
+    managerComments:
+      "Comprehensive customer-by-customer audit with exact invoice and timestamp verification.",
+  },
   {
     id: "SRV-REQ-101",
     storeId: "store-101",
@@ -61,7 +191,7 @@ export const INITIAL_SURVEILLANCE_REQUESTS: SurveillanceRequest[] = [
     storeNumber: "101",
     marketName: "Dallas North",
     districtName: "District 1",
-    incidentDate: "2026-10-18 - 2026-10-19",
+    incidentDate: "2026-10-18",
     shift: "Evening Shift (16:00 - 00:00)",
     investigationType: "Cash Drawer Shortage",
     priority: "high",
@@ -69,23 +199,17 @@ export const INITIAL_SURVEILLANCE_REQUESTS: SurveillanceRequest[] = [
     requestedBy: "David Kim",
     requestedById: "u-2",
     requesterRole: "Market Manager",
-    requesterEmail: "david.kim@techno.com",
+    requesterEmail: "david.kim@techno-communications.com",
     requesterPhone: "+1 (214) 555-0192",
     requesterDepartment: "Regional Store Operations",
     areasToReview: ["POS 1 Register", "POS 2 Register", "Backroom / Safe"],
-    notes: "Closing drawer count was short $340. Cashier stated multiple bill jams occurred around 20:30. Please inspect camera feeds focusing on the register and safe transfers.",
-    status: "Report Received",
+    notes:
+      "Closing drawer count was short $340. Cashier stated multiple bill jams occurred around 20:30. Please inspect camera feeds focusing on the register and safe transfers.",
+    status: "Pending",
     createdAt: "2026-10-18T22:15:00Z",
-    approvedBy: "Default Admin",
+    approvedBy: "System Admin",
     approvedAt: "2026-10-19T09:30:00Z",
     linkedReportId: "SRV-REP-202",
-    preparedBy: "Michael Sterling",
-    preparedById: "usr-3",
-    preparedByEmail: "m.sterling@techno.com",
-    preparedByPhone: "+1 (214) 555-0821",
-    preparedByRole: "Asset Protection Auditor",
-    preparedByDepartment: "Surveillance & Loss Prevention",
-    preparedAt: "2026-10-20T14:10:00Z",
     reportStatus: "Pending Review",
   },
   {
@@ -95,7 +219,7 @@ export const INITIAL_SURVEILLANCE_REQUESTS: SurveillanceRequest[] = [
     storeNumber: "103",
     marketName: "Houston Central",
     districtName: "District 2",
-    incidentDate: "2026-10-19",
+    incidentDate: "2026-10-25",
     shift: "Morning Shift (08:00 - 16:00)",
     investigationType: "Inventory Discrepancy",
     priority: "high",
@@ -103,14 +227,14 @@ export const INITIAL_SURVEILLANCE_REQUESTS: SurveillanceRequest[] = [
     requestedBy: "Marcus Vance",
     requestedById: "u-5",
     requesterRole: "District Manager",
-    requesterEmail: "marcus.vance@techno.com",
+    requesterEmail: "marcus.vance@techno-communications.com",
     requesterPhone: "+1 (713) 555-0144",
     requesterDepartment: "District 2 Operations",
     areasToReview: ["Sales Floor", "Display Counter", "Customer Entrance"],
-    notes: "Auditor noticed empty acrylic pegs on front row. Need review of customer traffic between 11:00 and 14:00.",
-    status: "Report Requested",
-    createdAt: "2026-10-19T14:40:00Z",
-    preparedBy: undefined,
+    notes:
+      "Auditor noticed empty acrylic pegs on front row. Need review of customer traffic between 11:00 and 14:00.",
+    status: "Pending",
+    createdAt: "2026-10-25T14:40:00Z",
   },
   {
     id: "SRV-REQ-103",
@@ -119,27 +243,28 @@ export const INITIAL_SURVEILLANCE_REQUESTS: SurveillanceRequest[] = [
     storeNumber: "105",
     marketName: "Austin Metro",
     districtName: "District 3",
-    incidentDate: "2026-10-15",
-    shift: "Closing Shift (20:00 - 23:00)",
+    incidentDate: "2026-10-16",
+    shift: "Full Shift Audit",
     investigationType: "Suspicious Activity",
     priority: "medium",
-    title: "Unidentified individuals loitering near back delivery gate",
+    title: "Full shift register & back delivery gate security verification",
     requestedBy: "Sarah Jenkins",
     requestedById: "u-4",
     requesterRole: "State Manager",
-    requesterEmail: "sarah.jenkins@techno.com",
+    requesterEmail: "sarah.jenkins@techno-communications.com",
     requesterPhone: "+1 (512) 555-0188",
     requesterDepartment: "Texas State Leadership",
-    areasToReview: ["Backroom / Safe", "Customer Entrance"],
-    notes: "Night security officer flagged two individuals repeatedly checking back dock door handle.",
-    status: "Approved",
+    areasToReview: ["Backroom / Safe", "Customer Entrance", "POS Registers"],
+    notes:
+      "Night security officer flagged two individuals repeatedly checking back dock door handle; also verify full morning-to-afternoon register logs.",
+    status: "Completed",
     createdAt: "2026-10-15T23:50:00Z",
     approvedBy: "Sarah Jenkins",
     approvedAt: "2026-10-16T08:00:00Z",
     linkedReportId: "SRV-REP-201",
     preparedBy: "Alex Rivera",
-    preparedById: "usr-1",
-    preparedByEmail: "alex.rivera@techno.com",
+    preparedById: "agt-101",
+    preparedByEmail: "alex.rivera@techno-communications.com",
     preparedByPhone: "+1 (512) 555-0177",
     preparedByRole: "Surveillance Lead Specialist",
     preparedByDepartment: "Surveillance & Asset Protection",
@@ -148,7 +273,8 @@ export const INITIAL_SURVEILLANCE_REQUESTS: SurveillanceRequest[] = [
     reportApprovedBy: "Sarah Jenkins",
     reportApprovedAt: "2026-10-16T15:20:00Z",
     managerRating: 5,
-    managerComments: "Thorough review and precise footage timestamps. Excellent work providing actionable recommendations for dock security.",
+    managerComments:
+      "Thorough review and precise footage timestamps. Excellent work providing actionable recommendations for dock security.",
   },
   {
     id: "SRV-REQ-104",
@@ -157,24 +283,217 @@ export const INITIAL_SURVEILLANCE_REQUESTS: SurveillanceRequest[] = [
     storeNumber: "106",
     marketName: "San Antonio",
     districtName: "District 4",
-    incidentDate: "2026-10-20",
-    shift: "Full Day Operational Review",
+    incidentDate: "2026-10-23",
+    shift: "Afternoon Shift (12:00 - 20:00)",
     investigationType: "Employee Operational Audit",
+    priority: "high",
+    title: "Split payment discrepancy across multiple AAL activations",
+    requestedBy: "Sarah Jenkins",
+    requestedById: "u-4",
+    requesterRole: "State Manager",
+    requesterEmail: "sarah.jenkins@techno-communications.com",
+    requesterPhone: "+1 (512) 555-0188",
+    requesterDepartment: "Texas State Leadership",
+    areasToReview: ["Customer Entrance", "Sales Floor", "POS Registers"],
+    notes:
+      "Three consecutive AAL activations recorded mixed cash/card tenders with missing printed receipts. Assigned to auditor for investigation.",
+    status: "Pending",
+    createdAt: "2026-10-24T10:30:00Z",
+    approvedBy: "System Admin",
+    approvedAt: "2026-10-24T11:15:00Z",
+  },
+  {
+    id: "SRV-REQ-106",
+    storeId: "store-104",
+    storeName: "Store #104 - The Woodlands",
+    storeNumber: "104",
+    marketName: "Houston Central",
+    districtName: "District 2",
+    incidentDate: "2026-10-14",
+    shift: "Morning Shift (09:00 - 17:00)",
+    investigationType: "Operational Compliance",
     priority: "low",
-    title: "Routine safety & door locking verification audit",
+    title: "Quarterly REVVL Tab promo pitch & safe drop compliance audit",
     requestedBy: "David Kim",
     requestedById: "u-2",
     requesterRole: "Market Manager",
-    requesterEmail: "david.kim@techno.com",
+    requesterEmail: "david.kim@techno-communications.com",
     requesterPhone: "+1 (214) 555-0192",
     requesterDepartment: "Regional Store Operations",
-    areasToReview: ["Customer Entrance", "Sales Floor", "Backroom / Safe"],
-    notes: "Quarterly spot check on secondary door alarm adherence and visitor log verification.",
-    status: "Report Requested",
-    createdAt: "2026-10-20T10:00:00Z",
+    areasToReview: ["Sales Floor", "POS Registers", "Backroom / Safe"],
+    notes:
+      "Routine verification of promotional tablet pitch adherence and dual-custody safe drop procedures.",
+    status: "Completed",
+    createdAt: "2026-10-14T09:15:00Z",
     approvedBy: "David Kim",
-    approvedAt: "2026-10-20T10:15:00Z",
-    preparedBy: undefined,
+    approvedAt: "2026-10-14T10:00:00Z",
+    linkedReportId: "SRV-REP-204",
+    preparedBy: "Omar Farooq",
+    preparedById: "agt-104",
+    preparedByEmail: "omar.farooq@techno-communications.com",
+    preparedByPhone: "+1 (713) 555-0248",
+    preparedByRole: "Surveillance Analyst",
+    preparedByDepartment: "Surveillance & Asset Protection",
+    preparedAt: "2026-10-14T16:40:00Z",
+    reportStatus: "Approved",
+    reportApprovedBy: "David Kim",
+    reportApprovedAt: "2026-10-15T09:05:00Z",
+    managerRating: 4,
+    managerComments: "Clear transaction breakdown and accurate verification of safe drop logs.",
+  },
+  {
+    id: "SRV-REQ-107",
+    storeId: "store-102",
+    storeName: "Store #102 - Galleria Mall",
+    storeNumber: "102",
+    marketName: "Dallas North",
+    districtName: "District 1",
+    incidentDate: "2026-10-26",
+    shift: "Afternoon Shift (12:00 - 18:00)",
+    investigationType: "Security Compliance",
+    priority: "medium",
+    title: "Backroom inventory door propped open during afternoon shift",
+    requestedBy: "Elena Rostova",
+    requestedById: "u-6",
+    requesterRole: "District Manager",
+    requesterEmail: "elena.rostova@techno-communications.com",
+    requesterPhone: "+1 (214) 555-0133",
+    requesterDepartment: "District 1 Operations",
+    areasToReview: ["Backroom / Safe", "Sales Floor"],
+    notes:
+      "District walkthrough noted backroom security door left unlatched. Requesting full afternoon review of backroom entry/exit compliance.",
+    status: "Pending",
+    createdAt: "2026-10-26T15:05:00Z",
+  },
+];
+
+/**
+ * Sample static data for Page 3: Surveillance Reports (/surveillance/reports).
+ * Represents validated requests assigned to surveillance agents/auditors.
+ */
+export const INITIAL_SURVEILLANCE_REQUESTS: SurveillanceRequest[] = [
+  {
+    id: "SRV-REQ-303",
+    storeId: "store-106",
+    storeName: "Store #106 - Riverwalk Center",
+    storeNumber: "106",
+    marketName: "San Antonio",
+    districtName: "District 4",
+    incidentDate: "2026-10-23",
+    shift: "Afternoon Shift (12:00 - 20:00)",
+    investigationType: "Payment Discrepancy",
+    priority: "high",
+    title: "Split payment discrepancy across multiple AAL activations",
+    requestedBy: "Sarah Jenkins",
+    requestedById: "u-4",
+    requesterRole: "State Manager",
+    requesterEmail: "sarah.jenkins@techno-communications.com",
+    requesterPhone: "+1 (512) 555-0188",
+    requesterDepartment: "Texas State Leadership",
+    areasToReview: ["POS Registers", "Sales Floor"],
+    notes:
+      "Three consecutive AAL activations recorded mixed cash/card tenders with missing printed receipts. Cross-check all Mix Payment tenders between 13:00 and 18:00 against BDI activation timestamps.",
+    status: "Report Requested",
+    createdAt: "2026-10-24T10:30:00Z",
+  },
+  {
+    id: "SRV-REQ-302",
+    storeId: "store-105",
+    storeName: "Store #105 - Domain Austin",
+    storeNumber: "105",
+    marketName: "Austin Metro",
+    districtName: "District 3",
+    incidentDate: "2026-10-22",
+    shift: "Shift Handover (15:00 - 16:00)",
+    investigationType: "Cash Handover Dispute",
+    priority: "medium",
+    title: "Full-day audit following sales rep shift handover dispute",
+    requestedBy: "David Kim",
+    requestedById: "u-2",
+    requesterRole: "Market Manager",
+    requesterEmail: "david.kim@techno-communications.com",
+    requesterPhone: "+1 (214) 555-0192",
+    requesterDepartment: "Regional Store Operations",
+    areasToReview: ["POS Registers", "Backroom / Safe"],
+    notes:
+      "Morning and evening reps reported conflicting cash drawer starting balances at 15:30 shift change. Audit full shift handover window and verify physical drawer count.",
+    status: "Report Requested",
+    createdAt: "2026-10-23T09:20:00Z",
+  },
+  {
+    id: "SRV-REQ-101",
+    storeId: "store-101",
+    storeName: "Store #101 - Uptown Dallas",
+    storeNumber: "101",
+    marketName: "Dallas North",
+    districtName: "District 1",
+    incidentDate: "2026-10-18",
+    shift: "Evening Shift (16:00 - 00:00)",
+    investigationType: "Cash Drawer Shortage",
+    priority: "high",
+    title: "Discrepancy of $340 at Register #2 end of shift",
+    requestedBy: "David Kim",
+    requestedById: "u-2",
+    requesterRole: "Market Manager",
+    requesterEmail: "david.kim@techno-communications.com",
+    requesterPhone: "+1 (214) 555-0192",
+    requesterDepartment: "Regional Store Operations",
+    areasToReview: ["POS 1 Register", "POS 2 Register", "Backroom / Safe"],
+    notes:
+      "Closing drawer count was short $340. Cashier stated multiple bill jams occurred around 20:30. Please inspect camera feeds focusing on the register and safe transfers.",
+    status: "Report Received",
+    createdAt: "2026-10-18T22:15:00Z",
+    approvedBy: "System Admin",
+    approvedAt: "2026-10-19T09:30:00Z",
+    linkedReportId: "SRV-REP-202",
+    preparedBy: "Michael Sterling",
+    preparedById: "agt-102",
+    preparedByEmail: "m.sterling@techno-communications.com",
+    preparedByPhone: "+1 (214) 555-0821",
+    preparedByRole: "Asset Protection Auditor",
+    preparedByDepartment: "Surveillance & Loss Prevention",
+    preparedAt: "2026-10-20T14:10:00Z",
+    reportStatus: "Pending Review",
+  },
+  {
+    id: "SRV-REQ-103",
+    storeId: "store-105",
+    storeName: "Store #105 - Domain Austin",
+    storeNumber: "105",
+    marketName: "Austin Metro",
+    districtName: "District 3",
+    incidentDate: "2026-10-16",
+    shift: "Closing Shift (20:00 - 23:00)",
+    investigationType: "Suspicious Activity",
+    priority: "medium",
+    title: "Full shift register & back delivery gate security verification",
+    requestedBy: "Sarah Jenkins",
+    requestedById: "u-4",
+    requesterRole: "State Manager",
+    requesterEmail: "sarah.jenkins@techno-communications.com",
+    requesterPhone: "+1 (512) 555-0188",
+    requesterDepartment: "Texas State Leadership",
+    areasToReview: ["Backroom / Safe", "Customer Entrance"],
+    notes:
+      "Night security officer flagged two individuals repeatedly checking back dock door handle.",
+    status: "Approved",
+    createdAt: "2026-10-15T23:50:00Z",
+    approvedBy: "Sarah Jenkins",
+    approvedAt: "2026-10-16T08:00:00Z",
+    linkedReportId: "SRV-REP-201",
+    preparedBy: "Alex Rivera",
+    preparedById: "agt-101",
+    preparedByEmail: "alex.rivera@techno-communications.com",
+    preparedByPhone: "+1 (512) 555-0177",
+    preparedByRole: "Surveillance Lead Specialist",
+    preparedByDepartment: "Surveillance & Asset Protection",
+    preparedAt: "2026-10-16T11:45:00Z",
+    reportStatus: "Approved",
+    reportApprovedBy: "Sarah Jenkins",
+    reportApprovedAt: "2026-10-16T15:20:00Z",
+    managerRating: 5,
+    managerComments:
+      "Thorough review and precise footage timestamps. Excellent work providing actionable recommendations for dock security.",
   },
   {
     id: "SRV-REQ-105",
@@ -191,26 +510,29 @@ export const INITIAL_SURVEILLANCE_REQUESTS: SurveillanceRequest[] = [
     requestedBy: "Elena Rostova",
     requestedById: "u-6",
     requesterRole: "District Manager",
-    requesterEmail: "elena.rostova@techno.com",
+    requesterEmail: "elena.rostova@techno-communications.com",
     requesterPhone: "+1 (214) 555-0133",
     requesterDepartment: "District 1 Operations",
     areasToReview: ["Customer Entrance", "Sales Floor"],
-    notes: "Customer claimed floor mat was misaligned. Store staff reported warning cones were already in place.",
+    notes:
+      "Customer claimed floor mat was misaligned. Store staff reported warning cones were already in place.",
     status: "Rejected",
     createdAt: "2026-10-12T16:20:00Z",
     linkedReportId: "SRV-REP-203",
     preparedBy: "Jessica Taylor",
-    preparedById: "usr-4",
-    preparedByEmail: "j.taylor@techno.com",
+    preparedById: "agt-103",
+    preparedByEmail: "j.taylor@techno-communications.com",
     preparedByPhone: "+1 (210) 555-0163",
     preparedByRole: "Field Security Inspector",
     preparedByDepartment: "Internal Audit",
     preparedAt: "2026-10-12T18:10:00Z",
     reportStatus: "Rejected",
-    reportApprovedBy: "Default Admin",
+    reportApprovedBy: "System Admin",
     reportApprovedAt: "2026-10-13T09:15:00Z",
-    rejectionReason: "Submitted footage timestamps did not include the 15-minute window prior to the reported incident.",
-    managerComments: "Submitted footage timestamps did not include the 15-minute window prior to the reported incident.",
+    rejectionReason:
+      "Submitted footage timestamps did not include the 15-minute window prior to the reported incident.",
+    managerComments:
+      "Submitted footage timestamps did not include the 15-minute window prior to the reported incident.",
   },
 ];
 
@@ -219,35 +541,37 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
     id: "SRV-REP-201",
     requestId: "SRV-REQ-103",
     investigatorName: "Alex Rivera",
-    investigatorId: "usr-1",
-    investigatorEmail: "alex.rivera@techno.com",
+    investigatorId: "agt-101",
+    investigatorEmail: "alex.rivera@techno-communications.com",
     investigatorPhone: "+1 (512) 555-0177",
     investigatorRole: "Surveillance Lead Specialist",
     investigatorDepartment: "Surveillance & Asset Protection",
     submittedAt: "2026-10-16T11:45:00Z",
     status: "Approved",
-
+    marketName: "Austin Metro",
     rows: [
       makeAuditRow({
         id: "r201-1",
         date: "10/16/2026",
+        marketName: "Austin Metro",
         storeName: "Store #105 - Domain Austin",
         time: "9:35:00 AM",
         salesRep: "Abdul Razzak",
-        transType: "Store opened",
+        transType: "Store Opened",
         difference: "$0.00",
         rowHighlight: "opening",
       }),
       makeAuditRow({
         id: "r201-2",
         date: "10/16/2026",
+        marketName: "Austin Metro",
         storeName: "Store #105 - Domain Austin",
         invoice: "140511",
         cashTime: "10:01:00 AM",
         time: "9:59:00 AM",
         bdiTime: "10:02:00 AM",
         salesRep: "Abdul Razzak",
-        transType: "BILL PAYMENT",
+        transType: "Bill Payment",
         nb: "NB",
         invoiceAmount: "$146.00",
         totalTaken: "$146.00",
@@ -260,10 +584,11 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
       makeAuditRow({
         id: "r201-3",
         date: "10/16/2026",
+        marketName: "Austin Metro",
         storeName: "Store #105 - Domain Austin",
         time: "10:03:00 AM",
         salesRep: "Dakshay Raval",
-        transType: "CLIENT",
+        transType: "Client",
         nb: "NB",
         difference: "$0.00",
         pitchNb: "YES",
@@ -274,13 +599,14 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
       makeAuditRow({
         id: "r201-4",
         date: "10/16/2026",
+        marketName: "Austin Metro",
         storeName: "Store #105 - Domain Austin",
         invoice: "140512",
         cashTime: "10:14:00 AM",
         time: "10:12:00 AM",
         bdiTime: "10:15:00 AM",
         salesRep: "Dakshay Raval",
-        transType: "BILL PAYMENT",
+        transType: "Bill Payment",
         b: "B",
         invoiceAmount: "$122.60",
         totalTaken: "$122.00",
@@ -289,189 +615,33 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
         receipt: "YES",
         notes: "Minor coin rounding variance observed at register.",
         attachments: [
-          { id: "att-r201-4", name: "Reg1_1014_CoinTray.jpg", size: 312400, type: "image/jpeg" },
+          {
+            id: "att-r201-4",
+            name: "Reg1_1014_CoinTray.jpg",
+            size: 312400,
+            type: "image/jpeg",
+          },
         ],
       }),
       makeAuditRow({
         id: "r201-5",
+        customerGroupId: "cust-grp-201-a",
         date: "10/16/2026",
-        storeName: "Store #105 - Domain Austin",
-        time: "10:18:00 AM",
-        salesRep: "Abdul Razzak",
-        transType: "CLIENT",
-        nb: "NB",
-        difference: "$0.00",
-      }),
-      makeAuditRow({
-        id: "r201-6",
-        date: "10/16/2026",
-        storeName: "Store #105 - Domain Austin",
-        time: "10:20:00 AM",
-        salesRep: "Dakshay Raval",
-        transType: "CLIENT",
-        nb: "NB",
-        difference: "$0.00",
-      }),
-      makeAuditRow({
-        id: "r201-7",
-        date: "10/16/2026",
-        storeName: "Store #105 - Domain Austin",
-        invoice: "140513",
-        cashTime: "10:29:00 AM",
-        time: "10:26:00 AM",
-        bdiTime: "10:30:00 AM",
-        salesRep: "Abdul Razzak",
-        transType: "BILL PAYMENT",
-        nb: "NB",
-        invoiceAmount: "$45.00",
-        totalTaken: "$45.00",
-        card: "$45.00",
-        difference: "$0.00",
-        receipt: "YES",
-      }),
-      makeAuditRow({
-        id: "r201-8",
-        date: "10/16/2026",
-        storeName: "Store #105 - Domain Austin",
-        invoice: "140514",
-        cashTime: "10:40:00 AM",
-        time: "10:29:00 AM",
-        bdiTime: "10:47:00 AM",
-        salesRep: "Dakshay Raval",
-        transType: "ACT PAY",
-        nb: "NB",
-        invoiceAmount: "$75.45",
-        totalTaken: "$75.45",
-        card: "$75.45",
-        difference: "$0.00",
-        receipt: "NO",
-        showingPhone: "YES",
-        accOffered: "YES",
-        maximize: "YES",
-        bundleNb: "YES",
-        bundleStartB: "Case",
-        bundleEndB: "Tempered Glass",
-        bundleAccGiven: "YES",
-        smartPayMentioned: "YES",
-        rowHighlight: "amber",
-      }),
-      makeAuditRow({
-        id: "r201-9",
-        date: "10/16/2026",
-        storeName: "Store #105 - Domain Austin",
-        invoice: "140515",
-        time: "",
-        bdiTime: "10:50:00 AM",
-        salesRep: "Dakshay Raval",
-        transType: "LOA",
-        invoiceAmount: "$0.00",
-        difference: "$0.00",
-        aalBillSame: "YES",
-        rowHighlight: "amber",
-      }),
-      makeAuditRow({
-        id: "r201-10",
-        date: "10/16/2026",
-        storeName: "Store #105 - Domain Austin",
-        time: "10:30:00 AM",
-        salesRep: "Abdul Razzak",
-        transType: "CLIENT",
-        b: "B",
-        difference: "$0.00",
-      }),
-      makeAuditRow({
-        id: "r201-11",
-        date: "10/16/2026",
-        storeName: "Store #105 - Domain Austin",
-        invoice: "140516",
-        cashTime: "10:44:00 AM",
-        time: "10:39:00 AM",
-        bdiTime: "10:51:00 AM",
-        salesRep: "Dakshay Raval",
-        transType: "BILL PAYMENT",
-        nb: "NB",
-        invoiceAmount: "$60.00",
-        totalTaken: "$60.00",
-        cash: "$60.00",
-        difference: "$0.00",
-        receipt: "NO",
-      }),
-      makeAuditRow({
-        id: "r201-12",
-        date: "10/16/2026",
-        storeName: "Store #105 - Domain Austin",
-        time: "11:30:00 AM",
-        salesRep: "Abdul Razzak",
-        transType: "CLIENT",
-        nb: "NB",
-        difference: "$0.00",
-        backRoomTimeIn: "11:32:00 AM",
-        backRoomTimeOut: "11:36:00 AM",
-      }),
-      makeAuditRow({
-        id: "r201-13",
-        date: "10/16/2026",
-        storeName: "Store #105 - Domain Austin",
-        time: "11:38:00 AM",
-        salesRep: "Abdul Razzak",
-        transType: "CLIENT",
-        b: "B",
-        difference: "$0.00",
-      }),
-      makeAuditRow({
-        id: "r201-14",
-        date: "10/16/2026",
-        storeName: "Store #105 - Domain Austin",
-        invoice: "140517",
-        cashTime: "11:49:00 AM",
-        time: "11:42:00 AM",
-        bdiTime: "11:50:00 AM",
-        salesRep: "Dakshay Raval",
-        transType: "BILL PAYMENT",
-        b: "B",
-        invoiceAmount: "$110.00",
-        totalTaken: "$110.00",
-        card: "$110.00",
-        difference: "$0.00",
-        receipt: "YES",
-      }),
-      makeAuditRow({
-        id: "r201-15",
-        date: "10/16/2026",
-        storeName: "Store #105 - Domain Austin",
-        invoice: "140518",
-        cashTime: "12:17:00 PM",
-        time: "12:16:00 PM",
-        bdiTime: "12:21:00 PM",
-        salesRep: "Dakshay Raval",
-        transType: "BILL PAYMENT",
-        nb: "NB",
-        invoiceAmount: "$77.00",
-        totalTaken: "$77.00",
-        cash: "$77.00",
-        difference: "$0.00",
-        receipt: "YES",
-        pitchNb: "YES",
-        pitchQuality: "AVG",
-        pitchNotes: "Mentioned tablet promo during payment receipt handoff.",
-      }),
-      makeAuditRow({
-        id: "r201-16",
-        date: "10/16/2026",
+        marketName: "Austin Metro",
         storeName: "Store #105 - Domain Austin",
         invoice: "140519",
         cashTime: "12:08:00 PM",
         time: "12:04:00 PM",
         bdiTime: "12:22:00 PM",
         salesRep: "Abdul Razzak",
-        transType: "REVVL TAB/ ACT PAY",
+        transType: "REVVL Tab / ACT Pay",
         nb: "NB",
         invoiceAmount: "$62.57",
         totalTaken: "$65.00",
         cash: "$65.00",
         difference: "$2.43",
         receipt: "YES",
-        splitPayments: "C",
+        splitPayments: "YES",
         mim: "YES",
         pitchNb: "YES",
         pitchQuality: "AVG",
@@ -480,59 +650,54 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
         maximize: "YES",
         bundleAccGiven: "YES",
         attachments: [
-          { id: "att-r201-16", name: "RevvlTab_Bundle_1208.jpg", size: 428100, type: "image/jpeg" },
+          {
+            id: "att-r201-16",
+            name: "RevvlTab_Bundle_1208.jpg",
+            size: 428100,
+            type: "image/jpeg",
+          },
         ],
       }),
       makeAuditRow({
-        id: "r201-17",
+        id: "r201-6",
+        customerGroupId: "cust-grp-201-a",
         date: "10/16/2026",
+        marketName: "Austin Metro",
         storeName: "Store #105 - Domain Austin",
         invoice: "140520",
-        cashTime: "12:16:00 PM",
-        time: "",
-        bdiTime: "12:22:00 PM",
+        cashTime: "12:08:00 PM",
+        time: "12:04:00 PM",
+        bdiTime: "12:25:00 PM",
         salesRep: "Abdul Razzak",
-        transType: "ACT PAY",
-        invoiceAmount: "$5.12",
-        difference: "($5.12)",
-        notes: "Paired activation fee offset against prior REVVL TAB bundle.",
-        rowHighlight: "green",
-      }),
-      makeAuditRow({
-        id: "r201-18",
-        date: "10/16/2026",
-        storeName: "Store #105 - Domain Austin",
-        invoice: "140521",
-        cashTime: "1:27:00 PM",
-        time: "1:26:00 PM",
-        bdiTime: "1:29:00 PM",
-        salesRep: "Dakshay Raval",
-        transType: "BILL PAYMENT",
+        transType: "ACC",
         nb: "NB",
-        invoiceAmount: "$38.00",
-        totalTaken: "$38.00",
-        cash: "$38.00",
+        invoiceAmount: "$35.00",
+        totalTaken: "$35.00",
+        paymentType: "Card",
+        card: "$35.00",
         difference: "$0.00",
         receipt: "YES",
         pitchNb: "YES",
         pitchQuality: "AVG",
+        showingPhone: "YES",
+        accOffered: "YES",
+        maximize: "YES",
+        bundleAccGiven: "YES",
       }),
     ],
-
-    // Summary Retail Surveillance Audit Attributes
     date: "2026-10-16",
     storeName: "Store #105 - Domain Austin",
-    invoiceNo: "140511 – 140521 (18 Rows)",
+    invoiceNo: "140511 – 140519 (5 Rows)",
     cashTime: "10:01:00 AM",
     time: "9:35:00 AM",
     bdiTime: "10:02:00 AM",
     salesRep: "Abdul Razzak, Dakshay Raval",
-    transType: "Full Shift Audit (18 Entries)",
+    transType: "Full Shift Audit (5 Entries)",
     clientType: "Billable",
-    invoiceAmount: "$741.74",
-    totalTaken: "$738.45",
+    invoiceAmount: "$331.17",
+    totalTaken: "$333.00",
     paymentMode: "Split",
-    difference: "($3.29)",
+    difference: "$1.83",
     receipt: "Yes",
     splitPayments: "Yes",
     fraudTransactions: "No",
@@ -541,10 +706,11 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
     paymentFraud: "No",
     aalSwap: "No",
     mim: "Yes",
-    notes: "Full shift transaction log verified. All bill payments, activations, and REVVL tablet bundles reconciled with minor paired fee rounding.",
+    notes:
+      "Full shift transaction log verified. All bill payments, activations, and REVVL tablet bundles reconciled.",
     pitchNb: "Yes",
     pitchQuality: "AVG",
-    pitchNotes: "Sales reps consistently pitched tablet promotions on non-billable walk-ins.",
+    pitchNotes: "Sales reps consistently pitched tablet promotions on walk-ins.",
     showingPhone: "Yes",
     accOffered: "Yes",
     maximize: "Yes",
@@ -564,13 +730,18 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
     backRoomTimeIn: "11:32:00 AM",
     backRoomTimeOut: "11:36:00 AM",
     offline: "No",
-
     attachments: [
       { id: "att-1", name: "Gate_Cam03_Shift_Log.jpg", size: 450200, type: "image/jpeg" },
-      { id: "att-2", name: "Domain_Austin_Audit_Sheet.pdf", size: 1240000, type: "application/pdf" },
+      {
+        id: "att-2",
+        name: "Domain_Austin_Audit_Sheet.pdf",
+        size: 1240000,
+        type: "application/pdf",
+      },
     ],
     managerRating: 5,
-    managerComments: "Thorough review and precise footage timestamps. Excellent work providing complete row-by-row register reconciliation.",
+    managerComments:
+      "Thorough review and precise footage timestamps. Excellent work providing complete row-by-row register reconciliation.",
     reviewedBy: "Sarah Jenkins",
     reviewedAt: "2026-10-16T15:20:00Z",
   },
@@ -578,35 +749,37 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
     id: "SRV-REP-202",
     requestId: "SRV-REQ-101",
     investigatorName: "Michael Sterling",
-    investigatorId: "usr-3",
-    investigatorEmail: "m.sterling@techno.com",
+    investigatorId: "agt-102",
+    investigatorEmail: "m.sterling@techno-communications.com",
     investigatorPhone: "+1 (214) 555-0821",
     investigatorRole: "Asset Protection Auditor",
     investigatorDepartment: "Surveillance & Loss Prevention",
     submittedAt: "2026-10-20T14:10:00Z",
     status: "Report Received",
-
+    marketName: "Dallas North",
     rows: [
       makeAuditRow({
         id: "r202-1",
         date: "10/18/2026",
-        storeName: "15421 PARTHENIA ST-ARC-1200",
+        marketName: "Dallas North",
+        storeName: "Store #101 - Uptown Dallas",
         time: "4:00:00 PM",
         salesRep: "Marcus Young",
-        transType: "Store Shift Handover",
+        transType: "Store Opened",
         difference: "$0.00",
         rowHighlight: "opening",
       }),
       makeAuditRow({
         id: "r202-2",
         date: "10/18/2026",
-        storeName: "15421 PARTHENIA ST-ARC-1200",
+        marketName: "Dallas North",
+        storeName: "Store #101 - Uptown Dallas",
         invoice: "78408",
         cashTime: "4:22:00 PM",
         time: "4:19:00 PM",
         bdiTime: "4:24:00 PM",
         salesRep: "Marcus Young",
-        transType: "BILL PAYMENT",
+        transType: "Bill Payment",
         nb: "NB",
         invoiceAmount: "$95.00",
         totalTaken: "$95.00",
@@ -619,29 +792,17 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
         accOffered: "YES",
       }),
       makeAuditRow({
-        id: "r202-3",
-        date: "10/18/2026",
-        storeName: "15421 PARTHENIA ST-ARC-1200",
-        time: "4:48:00 PM",
-        salesRep: "Elena Cole",
-        transType: "CLIENT",
-        nb: "NB",
-        difference: "$0.00",
-        missOpportunity: "YES",
-        pitchNb: "NO",
-        pitchQuality: "POOR",
-        pitchNotes: "Customer inquired about upgrade pricing; rep did not check account eligibility.",
-      }),
-      makeAuditRow({
         id: "r202-4",
+        customerGroupId: "cust-grp-202-a",
         date: "10/18/2026",
-        storeName: "15421 PARTHENIA ST-ARC-1200",
+        marketName: "Dallas North",
+        storeName: "Store #101 - Uptown Dallas",
         invoice: "78409",
         cashTime: "5:15:00 PM",
         time: "5:08:00 PM",
         bdiTime: "5:18:00 PM",
         salesRep: "Marcus Young",
-        transType: "ACT PAY",
+        transType: "ACT Pay",
         b: "B",
         invoiceAmount: "$184.50",
         totalTaken: "$184.50",
@@ -661,60 +822,52 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
         portIn: "YES",
         smartPayMentioned: "YES",
         attachments: [
-          { id: "att-r202-4", name: "SplitPay_Receipt_78409.pdf", size: 215000, type: "application/pdf" },
+          {
+            id: "att-r202-4",
+            name: "SplitPay_Receipt_78409.pdf",
+            size: 215000,
+            type: "application/pdf",
+          },
         ],
       }),
       makeAuditRow({
         id: "r202-5",
+        customerGroupId: "cust-grp-202-a",
         date: "10/18/2026",
-        storeName: "15421 PARTHENIA ST-ARC-1200",
+        marketName: "Dallas North",
+        storeName: "Store #101 - Uptown Dallas",
         invoice: "78410",
-        cashTime: "6:12:00 PM",
-        time: "6:10:00 PM",
-        bdiTime: "6:14:00 PM",
-        salesRep: "Elena Cole",
-        transType: "BILL PAYMENT",
-        nb: "NB",
-        invoiceAmount: "$82.00",
-        totalTaken: "$82.00",
-        cash: "$82.00",
-        difference: "$0.00",
-        receipt: "NO",
-      }),
-      makeAuditRow({
-        id: "r202-6",
-        date: "10/18/2026",
-        storeName: "15421 PARTHENIA ST-ARC-1200",
-        invoice: "78411",
-        cashTime: "7:34:00 PM",
-        time: "7:30:00 PM",
-        bdiTime: "7:36:00 PM",
+        cashTime: "5:15:00 PM",
+        time: "5:08:00 PM",
+        bdiTime: "5:21:00 PM",
         salesRep: "Marcus Young",
-        transType: "REVVL TAB/ ACT PAY",
-        nb: "NB",
-        invoiceAmount: "$128.00",
-        totalTaken: "$128.00",
-        card: "$128.00",
+        transType: "ACC",
+        b: "B",
+        invoiceAmount: "$49.00",
+        totalTaken: "$49.00",
+        paymentType: "Card",
+        card: "$49.00",
         difference: "$0.00",
         receipt: "YES",
-        mim: "YES",
-        pitchNb: "YES",
-        pitchQuality: "AVG",
         showingPhone: "YES",
         accOffered: "YES",
+        maximize: "YES",
+        bundleNb: "3-Acc",
+        bundleStartB: "Case, Glass",
+        bundleEndB: "20W Adapter",
         bundleAccGiven: "YES",
-        rowHighlight: "green",
       }),
       makeAuditRow({
         id: "r202-7",
         date: "10/18/2026",
-        storeName: "15421 PARTHENIA ST-ARC-1200",
+        marketName: "Dallas North",
+        storeName: "Store #101 - Uptown Dallas",
         invoice: "78412",
         cashTime: "8:25:00 PM",
         time: "8:29:00 PM",
         bdiTime: "8:31:00 PM",
         salesRep: "Elena Cole",
-        transType: "VOID / BILL REVERSAL",
+        transType: "Refunded ACC",
         b: "B",
         invoiceAmount: "$340.00",
         totalTaken: "$0.00",
@@ -722,10 +875,11 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
         difference: "($340.00)",
         receipt: "NO",
         fraudTransactions: "YES",
-        refundInvoice: "YES",
+        refundInvoice: "INV-78412",
         paymentFraud: "YES",
         onlineRejectedPayment: "YES",
-        notes: "Cashier reversed $340 cash payment after customer departed; cash removed from Register #2 drawer at 20:29:14.",
+        notes:
+          "Cashier reversed $340 cash payment after customer departed; cash removed from Register #2 drawer at 20:29:14.",
         pitchNb: "NO",
         pitchQuality: "POOR",
         nonUp: "YES",
@@ -735,41 +889,32 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
         backRoomTimeIn: "8:34:00 PM",
         backRoomTimeOut: "8:39:00 PM",
         attachments: [
-          { id: "att-r202-7a", name: "POS2_CashDrawer_2029_Angle.jpg", size: 520400, type: "image/jpeg" },
-          { id: "att-r202-7b", name: "Register2_Journal_78412.pdf", size: 640000, type: "application/pdf" },
+          {
+            id: "att-r202-7a",
+            name: "POS2_CashDrawer_2029_Angle.jpg",
+            size: 520400,
+            type: "image/jpeg",
+          },
+          {
+            id: "att-r202-7b",
+            name: "Register2_Journal_78412.pdf",
+            size: 640000,
+            type: "application/pdf",
+          },
         ],
       }),
-      makeAuditRow({
-        id: "r202-8",
-        date: "10/18/2026",
-        storeName: "15421 PARTHENIA ST-ARC-1200",
-        invoice: "78413",
-        cashTime: "9:04:00 PM",
-        time: "9:01:00 PM",
-        bdiTime: "9:06:00 PM",
-        salesRep: "Marcus Young",
-        transType: "BILL PAYMENT",
-        nb: "NB",
-        invoiceAmount: "$55.00",
-        totalTaken: "$55.00",
-        cash: "$55.00",
-        difference: "$0.00",
-        receipt: "YES",
-      }),
     ],
-
-    // Summary Retail Surveillance Audit Attributes
     date: "2026-10-18",
     storeName: "Store #101 - Uptown Dallas",
-    invoiceNo: "78408 – 78413 (8 Rows)",
+    invoiceNo: "78408 – 78412 (4 Rows)",
     cashTime: "20:25",
     time: "20:29",
     bdiTime: "20:31",
     salesRep: "Elena Cole, Marcus Young",
-    transType: "Evening Shift Audit (8 Entries)",
+    transType: "Evening Shift Audit (4 Entries)",
     clientType: "Billable",
-    invoiceAmount: "$884.50",
-    totalTaken: "$544.50",
+    invoiceAmount: "$619.50",
+    totalTaken: "$279.50",
     paymentMode: "Cash",
     difference: "($340.00)",
     receipt: "No",
@@ -780,10 +925,11 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
     paymentFraud: "Yes",
     aalSwap: "No",
     mim: "Yes",
-    notes: "At 20:29:14 during transaction reversal of $340 (Invoice #78412), cashier opened cash drawer and removed three $100 bills and two $20 bills. Closing count discrepancy confirmed.",
+    notes:
+      "At 20:29:14 during transaction reversal of $340 (Invoice #78412), cashier opened cash drawer and removed three $100 bills and two $20 bills. Closing count discrepancy confirmed.",
     pitchNb: "No",
     pitchQuality: "Poor",
-    pitchNotes: "Missed upgrade pitch at 4:48 PM and bypassed drawer counting protocol during 8:29 PM reversal.",
+    pitchNotes: "Bypassed drawer counting protocol during 8:29 PM reversal.",
     showingPhone: "No",
     accOffered: "No",
     maximize: "No",
@@ -803,7 +949,6 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
     backRoomTimeIn: "20:34",
     backRoomTimeOut: "20:39",
     offline: "No",
-
     attachments: [
       { id: "att-3", name: "POS2_CashDrawer_2029_Angle.jpg", size: 520400, type: "image/jpeg" },
       { id: "att-4", name: "Register2_Journal_Audit.pdf", size: 980000, type: "application/pdf" },
@@ -813,14 +958,15 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
     id: "SRV-REP-203",
     requestId: "SRV-REQ-105",
     investigatorName: "Jessica Taylor",
-    investigatorId: "usr-4",
-    investigatorEmail: "j.taylor@techno.com",
+    investigatorId: "agt-103",
+    investigatorEmail: "j.taylor@techno-communications.com",
     investigatorPhone: "+1 (210) 555-0163",
     investigatorRole: "Field Security Inspector",
     investigatorDepartment: "Internal Audit",
     submittedAt: "2026-10-12T18:10:00Z",
     status: "Rejected",
-    reviewedBy: "Default Admin",
+    marketName: "Dallas North",
+    reviewedBy: "System Admin",
     reviewedAt: "2026-10-13T09:15:00Z",
     managerComments:
       "Submitted footage timestamps did not include the 15-minute window prior to the reported incident.",
@@ -828,13 +974,14 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
       makeAuditRow({
         id: "r203-1",
         date: "10/12/2026",
+        marketName: "Dallas North",
         storeName: "Store #102 - Galleria Mall",
         invoice: "INV-64210",
         cashTime: "2:12 PM",
         time: "2:10:00 PM",
         bdiTime: "2:14 PM",
         salesRep: "Ryan Brooks",
-        transType: "Accessory Sale",
+        transType: "ACC",
         b: "B",
         invoiceAmount: "$49.00",
         totalTaken: "$49.00",
@@ -862,7 +1009,7 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
     time: "14:10",
     bdiTime: "14:14",
     salesRep: "Ryan Brooks",
-    transType: "Accessory Sale",
+    transType: "ACC",
     clientType: "Billable",
     invoiceAmount: "$49.00",
     totalTaken: "$49.00",
@@ -900,55 +1047,1800 @@ export const INITIAL_SURVEILLANCE_REPORTS: SurveillanceReport[] = [
     backRoomTimeOut: "—",
     offline: "No",
   },
+  {
+    id: "SRV-REP-204",
+    requestId: "SRV-REQ-106",
+    investigatorName: "Omar Farooq",
+    investigatorId: "agt-104",
+    investigatorEmail: "omar.farooq@techno-communications.com",
+    investigatorPhone: "+1 (713) 555-0248",
+    investigatorRole: "Surveillance Analyst",
+    investigatorDepartment: "Surveillance & Asset Protection",
+    submittedAt: "2026-10-14T16:40:00Z",
+    status: "Approved",
+    marketName: "Houston Central",
+    managerRating: 4,
+    managerComments: "Clear transaction breakdown and accurate verification of safe drop logs.",
+    reviewedBy: "David Kim",
+    reviewedAt: "2026-10-15T09:05:00Z",
+    rows: [
+      makeAuditRow({
+        id: "r204-1",
+        date: "10/14/2026",
+        marketName: "Houston Central",
+        storeName: "Store #104 - The Woodlands",
+        time: "9:00:00 AM",
+        salesRep: "Abdul Razzak",
+        transType: "Store Opened",
+        difference: "$0.00",
+        rowHighlight: "opening",
+      }),
+      makeAuditRow({
+        id: "r204-2",
+        date: "10/14/2026",
+        marketName: "Houston Central",
+        storeName: "Store #104 - The Woodlands",
+        invoice: "99210",
+        cashTime: "11:12:00 AM",
+        time: "11:05:00 AM",
+        bdiTime: "11:15:00 AM",
+        salesRep: "Abdul Razzak",
+        transType: "REVVL Tab / ACT Pay",
+        b: "B",
+        invoiceAmount: "$118.00",
+        totalTaken: "$118.00",
+        card: "$118.00",
+        difference: "$0.00",
+        receipt: "YES",
+        pitchNb: "YES",
+        pitchQuality: "GOOD",
+        showingPhone: "YES",
+        accOffered: "YES",
+        bundleAccGiven: "YES",
+        notes: "Promotional REVVL tablet pitched and completed per guidelines.",
+      }),
+      makeAuditRow({
+        id: "r204-3",
+        date: "10/14/2026",
+        marketName: "Houston Central",
+        storeName: "Store #104 - The Woodlands",
+        invoice: "99214",
+        cashTime: "2:40:00 PM",
+        time: "2:36:00 PM",
+        bdiTime: "2:42:00 PM",
+        salesRep: "Marcus Young",
+        transType: "Bill Payment",
+        nb: "NB",
+        invoiceAmount: "$85.00",
+        totalTaken: "$85.00",
+        cash: "$85.00",
+        difference: "$0.00",
+        receipt: "YES",
+        pitchNb: "YES",
+        pitchQuality: "AVG",
+        notes: "Dual-custody mid-shift safe drop verified on Backroom Cam #2.",
+      }),
+    ],
+    date: "2026-10-14",
+    storeName: "Store #104 - The Woodlands",
+    invoiceNo: "99210 – 99214 (3 Rows)",
+    cashTime: "11:12:00 AM",
+    time: "9:00:00 AM",
+    bdiTime: "11:15:00 AM",
+    salesRep: "Abdul Razzak, Marcus Young",
+    transType: "Operational Audit (3 Entries)",
+    clientType: "Billable",
+    invoiceAmount: "$203.00",
+    totalTaken: "$203.00",
+    paymentMode: "Split",
+    difference: "$0.00",
+    receipt: "Yes",
+    splitPayments: "No",
+    fraudTransactions: "No",
+    refundInvoice: "No",
+    missOpportunity: "No",
+    paymentFraud: "No",
+    aalSwap: "No",
+    mim: "No",
+    notes: "Promotional REVVL tablet pitch and dual-custody safe drop verified.",
+    pitchNb: "Yes",
+    pitchQuality: "Good",
+    pitchNotes: "Consistent promotional offers across morning traffic.",
+    showingPhone: "Yes",
+    accOffered: "Yes",
+    maximize: "Yes",
+    flipping: "No",
+    bundleNb: "Standard Bundle",
+    bundleStartB: "Case",
+    bundleEndB: "Screen Protector",
+    bundleAccGiven: "Yes",
+    portIn: "No",
+    nonUp: "No",
+    smartPayMentioned: "Yes",
+    aalBillSame: "Yes",
+    onlineRejectedPayment: "No",
+    nameOfRepLeaving: "None",
+    timeLeft: "—",
+    timeReturned: "—",
+    backRoomTimeIn: "2:44:00 PM",
+    backRoomTimeOut: "2:47:00 PM",
+    offline: "No",
+  },
+  {
+    id: "SRV-REP-205",
+    requestId: "SRV-REQ-108",
+    investigatorName: "Muhammad Saqlain",
+    investigatorId: "agt-107",
+    investigatorEmail: "m.saqlain@techno-communications.com",
+    investigatorPhone: "+1 (214) 555-0490",
+    investigatorRole: "QA Surveillance Specialist",
+    investigatorDepartment: "Surveillance & Quality Assurance",
+    submittedAt: "2026-10-15T10:15:00Z",
+    status: "Approved",
+    reviewedBy: "Sarah Jenkins",
+    reviewedAt: "2026-10-15T14:00:00Z",
+    managerRating: 5,
+    managerComments:
+      "Comprehensive customer-by-customer audit with exact invoice and timestamp verification.",
+    summaryMeta: {
+      loomisMachineVisible: "Yes",
+      loomisLink: "https://cam-archive.techno-communications.local/harbor-785/2026-10-14/loomis-cam2",
+      safeLockerVisible: "Yes",
+      safeLockerLink: "https://cam-archive.techno-communications.local/harbor-785/2026-10-14/safe-cam4",
+      badPitchItems: [
+        {
+          repName: "Azmeer Elijah",
+          description:
+            "Azmeer Elijah pitch tablet offer to the customer, customer decline the offer and left the store.",
+          link: "https://cam-archive.techno-communications.local/harbor-785/2026-10-14/pitch-clip-1422",
+        },
+      ],
+      repLeavingLogs: [
+        {
+          repName: "Varun Kumar Bokam",
+          intervals: [
+            { start: "3:21:00 PM", end: "3:30:00 PM" },
+            { start: "3:43:00 PM", end: "4:13:00 PM" },
+          ],
+        },
+        {
+          repName: "Azmeer Elijah",
+          intervals: [
+            { start: "3:21:00 PM", end: "3:30:00 PM" },
+            { start: "3:31:00 PM", end: "3:40:00 PM" },
+            { start: "3:44:00 PM", end: "4:13:00 PM" },
+          ],
+        },
+      ],
+      backroomLogs: [
+        {
+          repName: "Varun Kumar Bokam",
+          intervals: [
+            { start: "11:16:00 AM", end: "11:35:00 AM" },
+            { start: "1:43:00 PM", end: "2:02:00 PM" },
+          ],
+        },
+        {
+          repName: "Azmeer Elijah",
+          intervals: [
+            { start: "11:07:00 AM", end: "11:20:00 AM" },
+            { start: "11:28:00 AM", end: "11:45:00 AM" },
+            { start: "1:43:00 PM", end: "2:07:00 PM" },
+          ],
+        },
+      ],
+      paymentsMadeOnline: "No",
+      paymentsRejected: "No",
+      generalOtherNotes: "No",
+      amountDifferenceOverride: "-$2.12",
+      reasonForDifference: "No",
+      qaName: "Muhammad Saqlain",
+    },
+    rows: [
+      // --- Varun Kumar Bokam: 2 Buying Customers ---
+      makeAuditRow({
+        id: "r205-v-b1",
+        date: "10/14/2026",
+        marketName: "Dallas North",
+        storeName: "13191 HARBOR-IIG -785",
+        invoice: "102165",
+        cashTime: "10:42:00 AM",
+        time: "10:18:00 AM",
+        bdiTime: "10:44:00 AM",
+        salesRep: "Varun Kumar Bokam",
+        transType: "Upgrade",
+        clientType: "Buyer",
+        b: "B",
+        invoiceAmount: "$347.91",
+        totalTaken: "$347.91",
+        paymentType: "Card",
+        card: "$347.91",
+        difference: "$0.00",
+        receipt: "YES",
+        bundleNb: "#of phone sold (1)",
+        bundleStartB: "$347.91",
+        bundleEndB: "$347.91",
+        bundleAccGiven: "YES",
+      }),
+      makeAuditRow({
+        id: "r205-v-b2",
+        date: "10/14/2026",
+        marketName: "Dallas North",
+        storeName: "13191 HARBOR-IIG -785",
+        invoice: "102172",
+        cashTime: "4:55:00 PM",
+        time: "4:28:00 PM",
+        bdiTime: "4:57:00 PM",
+        salesRep: "Varun Kumar Bokam",
+        transType: "ACT Pay",
+        clientType: "Buyer",
+        b: "B",
+        invoiceAmount: "$9.78",
+        totalTaken: "$9.78",
+        paymentType: "Cash",
+        cash: "$9.78",
+        difference: "$0.00",
+        receipt: "YES",
+        bundleNb: "#of phone sold (1)",
+        bundleStartB: "$9.78",
+        bundleEndB: "$9.78",
+        bundleAccGiven: "NO",
+      }),
+      // --- Varun Kumar Bokam: 5 Pitched Non-Buying Customers (2 Showed Phone, 3 Didn't Show Phone, 5 Average) ---
+      makeAuditRow({
+        id: "r205-v-nb1",
+        date: "10/14/2026",
+        marketName: "Dallas North",
+        storeName: "13191 HARBOR-IIG -785",
+        invoice: "102151",
+        cashTime: "11:05:00 AM",
+        time: "10:58:00 AM",
+        bdiTime: "11:06:00 AM",
+        salesRep: "Varun Kumar Bokam",
+        transType: "Bill Payment",
+        clientType: "Non-Buyer",
+        nb: "NB",
+        invoiceAmount: "$60.00",
+        totalTaken: "$60.00",
+        paymentType: "Cash",
+        cash: "$60.00",
+        difference: "$0.00",
+        receipt: "YES",
+        pitchNb: "YES",
+        pitchQuality: "AVG",
+        showingPhone: "YES",
+        pitchNotes:
+          "Varun Kumar Bokam pitch upgrade offer from A16 to A17, customer decline the offer and left the store.",
+      }),
+      makeAuditRow({
+        id: "r205-v-nb2",
+        date: "10/14/2026",
+        marketName: "Dallas North",
+        storeName: "13191 HARBOR-IIG -785",
+        invoice: "102154",
+        cashTime: "12:12:00 PM",
+        time: "12:04:00 PM",
+        bdiTime: "12:14:00 PM",
+        salesRep: "Varun Kumar Bokam",
+        transType: "Bill Payment",
+        clientType: "Non-Buyer",
+        nb: "NB",
+        invoiceAmount: "$85.00",
+        totalTaken: "$85.00",
+        paymentType: "Cash",
+        cash: "$85.00",
+        difference: "$0.00",
+        receipt: "YES",
+        pitchNb: "YES",
+        pitchQuality: "AVG",
+        showingPhone: "YES",
+        pitchNotes:
+          "Varun Kumar Bokam pitch free phone offer customer decline the offer and left the store.",
+      }),
+      makeAuditRow({
+        id: "r205-v-nb3",
+        date: "10/14/2026",
+        marketName: "Dallas North",
+        storeName: "13191 HARBOR-IIG -785",
+        invoice: "102158",
+        cashTime: "1:18:00 PM",
+        time: "1:10:00 PM",
+        bdiTime: "1:19:00 PM",
+        salesRep: "Varun Kumar Bokam",
+        transType: "Bill Payment",
+        clientType: "Non-Buyer",
+        nb: "NB",
+        invoiceAmount: "$55.00",
+        totalTaken: "$55.00",
+        paymentType: "Card",
+        card: "$55.00",
+        difference: "$0.00",
+        receipt: "YES",
+        pitchNb: "YES",
+        pitchQuality: "AVG",
+        showingPhone: "NO",
+        pitchNotes:
+          "Varun Kumar Bokam pitch free phone offer to the customer you only pay for activation, customer decline the offer and left the store.",
+      }),
+      makeAuditRow({
+        id: "r205-v-nb4",
+        date: "10/14/2026",
+        marketName: "Dallas North",
+        storeName: "13191 HARBOR-IIG -785",
+        invoice: "102161",
+        cashTime: "2:24:00 PM",
+        time: "2:18:00 PM",
+        bdiTime: "2:25:00 PM",
+        salesRep: "Varun Kumar Bokam",
+        transType: "Bill Payment",
+        clientType: "Non-Buyer",
+        nb: "NB",
+        invoiceAmount: "$45.00",
+        totalTaken: "$45.00",
+        paymentType: "Cash",
+        cash: "$45.00",
+        difference: "$0.00",
+        receipt: "YES",
+        pitchNb: "YES",
+        pitchQuality: "AVG",
+        showingPhone: "NO",
+      }),
+      makeAuditRow({
+        id: "r205-v-nb5",
+        date: "10/14/2026",
+        marketName: "Dallas North",
+        storeName: "13191 HARBOR-IIG -785",
+        invoice: "102163",
+        cashTime: "2:52:00 PM",
+        time: "2:46:00 PM",
+        bdiTime: "2:53:00 PM",
+        salesRep: "Varun Kumar Bokam",
+        transType: "Bill Payment",
+        clientType: "Non-Buyer",
+        nb: "NB",
+        invoiceAmount: "$70.00",
+        totalTaken: "$70.00",
+        paymentType: "Cash",
+        cash: "$70.00",
+        difference: "$0.00",
+        receipt: "YES",
+        pitchNb: "YES",
+        pitchQuality: "AVG",
+        showingPhone: "NO",
+      }),
+      // --- Varun Kumar Bokam: 5 Unpitched Non-Buying Customers (including Fraud Invoices 102173 & 102174 linked to customer presence) ---
+      makeAuditRow({
+        id: "r205-v-nb6",
+        customerGroupId: "harbor-grp-fraud-1",
+        date: "10/14/2026",
+        marketName: "Dallas North",
+        storeName: "13191 HARBOR-IIG -785",
+        invoice: "102171",
+        cashTime: "5:10:00 PM",
+        time: "5:04:00 PM",
+        bdiTime: "5:11:00 PM",
+        salesRep: "Varun Kumar Bokam",
+        transType: "Bill Payment",
+        clientType: "Non-Buyer",
+        nb: "NB",
+        invoiceAmount: "$65.00",
+        totalTaken: "$65.00",
+        paymentType: "Cash",
+        cash: "$65.00",
+        difference: "$0.00",
+        receipt: "YES",
+        pitchNb: "NO",
+      }),
+      makeAuditRow({
+        id: "r205-v-fraud1",
+        customerGroupId: "harbor-grp-fraud-1",
+        date: "10/14/2026",
+        marketName: "Dallas North",
+        storeName: "13191 HARBOR-IIG -785",
+        invoice: "102173",
+        cashTime: "5:12:00 PM",
+        time: "5:04:00 PM",
+        bdiTime: "5:13:00 PM",
+        salesRep: "Varun Kumar Bokam",
+        transType: "Plan Change",
+        clientType: "Non-Buyer",
+        nb: "NB",
+        invoiceAmount: "$25.00",
+        totalTaken: "$0.00",
+        paymentType: "Cash",
+        cash: "$0.00",
+        difference: "($25.00)",
+        receipt: "NO",
+        fraudTransactions: "YES",
+        fraudTransactionsDetails:
+          "Varun Kumar Bokam created an invoice of feature change worth $25 in the presence of the other customer. (-$25 Short)",
+        paymentFraud: "YES",
+        paymentFraudDetails:
+          "Varun Kumar Bokam created an invoice of feature change worth $25 in the presence of the other customer without collecting tender. (-$25 Short)",
+        rowHighlight: "violation",
+      }),
+      makeAuditRow({
+        id: "r205-v-fraud2",
+        customerGroupId: "harbor-grp-fraud-1",
+        date: "10/14/2026",
+        marketName: "Dallas North",
+        storeName: "13191 HARBOR-IIG -785",
+        invoice: "102174",
+        cashTime: "5:14:00 PM",
+        time: "5:04:00 PM",
+        bdiTime: "5:15:00 PM",
+        salesRep: "Varun Kumar Bokam",
+        transType: "Plan Change",
+        clientType: "Non-Buyer",
+        nb: "NB",
+        invoiceAmount: "$10.00",
+        totalTaken: "$0.00",
+        paymentType: "Cash",
+        cash: "$0.00",
+        difference: "($10.00)",
+        receipt: "NO",
+        fraudTransactions: "YES",
+        fraudTransactionsDetails:
+          "Varun Kumar Bokam created an invoice of feature change worth $10 in the presence of the other customer. (-$10 Short)",
+        paymentFraud: "YES",
+        paymentFraudDetails:
+          "Varun Kumar Bokam created an invoice of feature change worth $10 in the presence of the other customer without collecting tender. (-$10 Short)",
+        rowHighlight: "violation",
+      }),
+      ...Array.from({ length: 4 }, (_, i) =>
+        makeAuditRow({
+          id: `r205-v-nb-rest-${i + 1}`,
+          date: "10/14/2026",
+          marketName: "Dallas North",
+          storeName: "13191 HARBOR-IIG -785",
+          invoice: String(102175 + i),
+          cashTime: `6:${15 + i * 8}:00 PM`,
+          time: `6:${10 + i * 8}:00 PM`,
+          bdiTime: `6:${16 + i * 8}:00 PM`,
+          salesRep: "Varun Kumar Bokam",
+          transType: "Bill Payment",
+          clientType: "Non-Buyer",
+          nb: "NB",
+          invoiceAmount: "$50.00",
+          totalTaken: "$50.00",
+          paymentType: "Cash",
+          cash: "$50.00",
+          difference: "$0.00",
+          receipt: "YES",
+          pitchNb: "NO",
+        }),
+      ),
+
+      // --- Azmeer Elijah: 19 Non-Buying Customers (1 Closed Non-Buying Bundle, 11 Pitched: 7 Showed / 4 Didn't Show, 1 Bad + 10 Average) ---
+      makeAuditRow({
+        id: "r205-a-nb-bundle",
+        date: "10/14/2026",
+        marketName: "Dallas North",
+        storeName: "13191 HARBOR-IIG -785",
+        invoice: "102167",
+        cashTime: "12:40:00 PM",
+        time: "12:22:00 PM",
+        bdiTime: "12:42:00 PM",
+        salesRep: "Azmeer Elijah",
+        transType: "AAL",
+        clientType: "Non-Buyer",
+        nb: "NB",
+        invoiceAmount: "$0.00",
+        totalTaken: "$0.00",
+        paymentType: "Cash",
+        cash: "$0.00",
+        difference: "$0.00",
+        receipt: "YES",
+        pitchNb: "YES",
+        pitchQuality: "AVG",
+        showingPhone: "YES",
+        bundleNb: "#of tab sold (1)",
+        bundleStartB: "$00",
+        bundleEndB: "$00",
+        bundleAccGiven: "NO",
+      }),
+      makeAuditRow({
+        id: "r205-a-p1",
+        date: "10/14/2026",
+        marketName: "Dallas North",
+        storeName: "13191 HARBOR-IIG -785",
+        invoice: "102152",
+        cashTime: "11:25:00 AM",
+        time: "11:21:00 AM",
+        bdiTime: "11:26:00 AM",
+        salesRep: "Azmeer Elijah",
+        transType: "Bill Payment",
+        clientType: "Non-Buyer",
+        nb: "NB",
+        invoiceAmount: "$60.00",
+        totalTaken: "$60.00",
+        paymentType: "Cash",
+        cash: "$60.00",
+        difference: "$0.00",
+        receipt: "YES",
+        pitchNb: "YES",
+        pitchQuality: "AVG",
+        showingPhone: "YES",
+        pitchNotes:
+          "Azmeer Elijah pitch upgrade offer to the customer, customer decline the offer and said may be next time and left the store.",
+      }),
+      makeAuditRow({
+        id: "r205-a-p2",
+        date: "10/14/2026",
+        marketName: "Dallas North",
+        storeName: "13191 HARBOR-IIG -785",
+        invoice: "102155",
+        cashTime: "12:05:00 PM",
+        time: "11:58:00 AM",
+        bdiTime: "12:06:00 PM",
+        salesRep: "Azmeer Elijah",
+        transType: "Bill Payment",
+        clientType: "Non-Buyer",
+        nb: "NB",
+        invoiceAmount: "$75.00",
+        totalTaken: "$75.00",
+        paymentType: "Cash",
+        cash: "$75.00",
+        difference: "$0.00",
+        receipt: "YES",
+        pitchNb: "YES",
+        pitchQuality: "AVG",
+        showingPhone: "YES",
+        pitchNotes:
+          "Azmeer Elijah pitch free table offer to the customer, customer decline the offer and left the store.",
+      }),
+      makeAuditRow({
+        id: "r205-a-p3",
+        date: "10/14/2026",
+        marketName: "Dallas North",
+        storeName: "13191 HARBOR-IIG -785",
+        invoice: "102159",
+        cashTime: "1:30:00 PM",
+        time: "1:22:00 PM",
+        bdiTime: "1:31:00 PM",
+        salesRep: "Azmeer Elijah",
+        transType: "Bill Payment",
+        clientType: "Non-Buyer",
+        nb: "NB",
+        invoiceAmount: "$55.00",
+        totalTaken: "$55.00",
+        paymentType: "Card",
+        card: "$55.00",
+        difference: "$0.00",
+        receipt: "YES",
+        pitchNb: "YES",
+        pitchQuality: "AVG",
+        showingPhone: "YES",
+        pitchNotes:
+          "Azmeer Elijah pitch free table offer to the customer, customer decline the offer and left the store.",
+      }),
+      // 3 more AVG with showingPhone: YES (making 7 total showedPhone for Azmeer)
+      ...Array.from({ length: 3 }, (_, i) =>
+        makeAuditRow({
+          id: `r205-a-pshow-${i + 1}`,
+          date: "10/14/2026",
+          marketName: "Dallas North",
+          storeName: "13191 HARBOR-IIG -785",
+          invoice: String(102180 + i),
+          cashTime: `2:${15 + i * 10}:00 PM`,
+          time: `2:${10 + i * 10}:00 PM`,
+          bdiTime: `2:${16 + i * 10}:00 PM`,
+          salesRep: "Azmeer Elijah",
+          transType: "Bill Payment",
+          clientType: "Non-Buyer",
+          nb: "NB",
+          invoiceAmount: "$50.00",
+          totalTaken: "$50.00",
+          paymentType: "Cash",
+          cash: "$50.00",
+          difference: "$0.00",
+          receipt: "YES",
+          pitchNb: "YES",
+          pitchQuality: "AVG",
+          showingPhone: "YES",
+        }),
+      ),
+      // 3 AVG with showingPhone: NO + 1 POOR with showingPhone: NO (making 4 didntShowPhone, 10 AVG + 1 Bad)
+      ...Array.from({ length: 3 }, (_, i) =>
+        makeAuditRow({
+          id: `r205-a-pnoshow-${i + 1}`,
+          date: "10/14/2026",
+          marketName: "Dallas North",
+          storeName: "13191 HARBOR-IIG -785",
+          invoice: String(102184 + i),
+          cashTime: `4:${20 + i * 9}:00 PM`,
+          time: `4:${16 + i * 9}:00 PM`,
+          bdiTime: `4:${21 + i * 9}:00 PM`,
+          salesRep: "Azmeer Elijah",
+          transType: "Bill Payment",
+          clientType: "Non-Buyer",
+          nb: "NB",
+          invoiceAmount: "$40.00",
+          totalTaken: "$40.00",
+          paymentType: "Cash",
+          cash: "$40.00",
+          difference: "$0.00",
+          receipt: "YES",
+          pitchNb: "YES",
+          pitchQuality: "AVG",
+          showingPhone: "NO",
+        }),
+      ),
+      makeAuditRow({
+        id: "r205-a-pbad",
+        date: "10/14/2026",
+        marketName: "Dallas North",
+        storeName: "13191 HARBOR-IIG -785",
+        invoice: "102188",
+        cashTime: "5:28:00 PM",
+        time: "5:22:00 PM",
+        bdiTime: "5:29:00 PM",
+        salesRep: "Azmeer Elijah",
+        transType: "Bill Payment",
+        clientType: "Non-Buyer",
+        nb: "NB",
+        invoiceAmount: "$60.00",
+        totalTaken: "$60.00",
+        paymentType: "Cash",
+        cash: "$60.00",
+        difference: "$0.00",
+        receipt: "YES",
+        pitchNb: "YES",
+        pitchQuality: "POOR",
+        showingPhone: "NO",
+      }),
+      // Remaining 8 unpitched Non-Buying customers for Azmeer Elijah (11 pitched + 8 unpitched = 19)
+      ...Array.from({ length: 8 }, (_, i) =>
+        makeAuditRow({
+          id: `r205-a-unpitched-${i + 1}`,
+          date: "10/14/2026",
+          marketName: "Dallas North",
+          storeName: "13191 HARBOR-IIG -785",
+          invoice: String(102190 + i),
+          cashTime: `6:${12 + i * 6}:00 PM`,
+          time: `6:${8 + i * 6}:00 PM`,
+          bdiTime: `6:${13 + i * 6}:00 PM`,
+          salesRep: "Azmeer Elijah",
+          transType: "Bill Payment",
+          clientType: "Non-Buyer",
+          nb: "NB",
+          invoiceAmount: "$45.00",
+          totalTaken: "$45.00",
+          paymentType: "Cash",
+          cash: "$45.00",
+          difference: "$0.00",
+          receipt: "YES",
+          pitchNb: "NO",
+        }),
+      ),
+
+      // --- Walk-Out Miss Opportunity Event ---
+      makeAuditRow({
+        id: "r205-miss-1",
+        date: "10/14/2026",
+        marketName: "Dallas North",
+        storeName: "13191 HARBOR-IIG -785",
+        invoice: "-",
+        cashTime: "-",
+        time: "6:09:24 PM",
+        bdiTime: "-",
+        salesRep: "-",
+        transType: "Walk-in Inquiry",
+        clientType: "Non-Buyer",
+        nb: "NB",
+        invoiceAmount: "$0.00",
+        totalTaken: "$0.00",
+        difference: "$0.00",
+        receipt: "NO",
+        missOpportunity: "YES",
+        missOpportunityDetails:
+          "Customer came in the store all reps are busy with the customers, Customer wait 3 to 4 minutes and left the store.",
+        rowHighlight: "amber",
+      }),
+    ],
+    date: "2026-10-14",
+    marketName: "Dallas North",
+    storeName: "13191 HARBOR-IIG -785",
+    invoiceNo: "102151 – 102197 (31 Customers)",
+    cashTime: "10:42:00 AM",
+    time: "10:00:00 AM",
+    bdiTime: "10:44:00 AM",
+    salesRep: "Varun Kumar Bokam & Azmeer Elijah",
+    transType: "Full Shift Audit (31 Customers)",
+    clientType: "Buyer",
+    invoiceAmount: "$1,817.69",
+    totalTaken: "$1,782.69",
+    paymentMode: "Split",
+    difference: "-$2.12",
+    receipt: "Yes",
+    splitPayments: "No",
+    fraudTransactions: "Yes",
+    refundInvoice: "No",
+    missOpportunity: "Yes",
+    paymentFraud: "Yes",
+    aalSwap: "No",
+    mim: "No",
+    notes: "Full-day audit completed by QA Muhammad Saqlain.",
+    pitchNb: "Yes",
+    pitchQuality: "AVG",
+    pitchNotes: "16 non-buying pitches observed across shift.",
+    showingPhone: "Yes",
+    accOffered: "No",
+    maximize: "No",
+    flipping: "No",
+    bundleNb: "#of phone sold (2), #of tab sold (1)",
+    bundleStartB: "$347.91",
+    bundleEndB: "$347.91",
+    bundleAccGiven: "Yes",
+    portIn: "No",
+    nonUp: "No",
+    smartPayMentioned: "No",
+    aalBillSame: "No",
+    onlineRejectedPayment: "No",
+    nameOfRepLeaving: "Varun Kumar Bokam, Azmeer Elijah",
+    timeLeft: "3:21:00 PM",
+    timeReturned: "4:13:00 PM",
+    backRoomTimeIn: "11:07:00 AM",
+    backRoomTimeOut: "2:07:00 PM",
+    offline: "No",
+  },
 ];
 
-export const AVAILABLE_STORES = [
+export const DUMMY_SURVEILLANCE_AGENTS: SurveillanceAssignableAgent[] = [
   {
-    id: "store-101",
-    name: "Store #101 - Uptown Dallas",
-    number: "101",
-    market: "Dallas North",
-    district: "District 1",
-    address: "2401 McKinney Ave, Dallas, TX",
+    id: "agt-101",
+    fullName: "Alex Rivera",
+    email: "alex.rivera@techno-communications.com",
+    phone: "+1 (512) 555-0177",
+    role: "Surveillance Lead Specialist",
+    department: "Surveillance & Asset Protection",
+    activeAssignments: 0,
   },
   {
-    id: "store-102",
-    name: "Store #102 - Galleria Mall",
-    number: "102",
-    market: "Dallas North",
-    district: "District 1",
-    address: "13350 Dallas Pkwy, Dallas, TX",
+    id: "agt-102",
+    fullName: "Michael Sterling",
+    email: "m.sterling@techno-communications.com",
+    phone: "+1 (214) 555-0821",
+    role: "Asset Protection Auditor",
+    department: "Surveillance & Loss Prevention",
+    activeAssignments: 1,
   },
   {
-    id: "store-103",
-    name: "Store #103 - Downtown Houston",
-    number: "103",
-    market: "Houston Central",
-    district: "District 2",
-    address: "1200 Louisiana St, Houston, TX",
+    id: "agt-103",
+    fullName: "Jessica Taylor",
+    email: "j.taylor@techno-communications.com",
+    phone: "+1 (210) 555-0163",
+    role: "Field Security Inspector",
+    department: "Internal Audit",
+    activeAssignments: 0,
   },
   {
-    id: "store-104",
-    name: "Store #104 - The Woodlands",
-    number: "104",
-    market: "Houston Central",
-    district: "District 2",
-    address: "1201 Lake Woodlands Dr, The Woodlands, TX",
+    id: "agt-104",
+    fullName: "Omar Farooq",
+    email: "omar.farooq@techno-communications.com",
+    phone: "+1 (713) 555-0248",
+    role: "Surveillance Analyst",
+    department: "Surveillance & Asset Protection",
+    activeAssignments: 1,
   },
   {
-    id: "store-105",
-    name: "Store #105 - Domain Austin",
-    number: "105",
-    market: "Austin Metro",
-    district: "District 3",
-    address: "11410 Century Oaks Terrace, Austin, TX",
+    id: "agt-105",
+    fullName: "Hannah Brooks",
+    email: "hannah.brooks@techno-communications.com",
+    phone: "+1 (972) 555-0319",
+    role: "Senior Audit Specialist",
+    department: "Surveillance & Loss Prevention",
+    activeAssignments: 0,
   },
   {
-    id: "store-106",
-    name: "Store #106 - Riverwalk Center",
-    number: "106",
-    market: "San Antonio",
-    district: "District 4",
-    address: "849 E Commerce St, San Antonio, TX",
+    id: "agt-106",
+    fullName: "Daniel Mercer",
+    email: "d.mercer@techno-communications.com",
+    phone: "+1 (512) 555-0405",
+    role: "Surveillance Auditor",
+    department: "Internal Audit",
+    activeAssignments: 0,
   },
 ];
+
+export const INITIAL_VALIDATION_REQUESTS: SurveillanceValidationItem[] = [
+  {
+    id: "SRV-REQ-308",
+    storeId: "store-101",
+    storeName: "Store #101 - Uptown Dallas",
+    storeNumber: "101",
+    marketName: "Dallas North",
+    districtName: "District 1",
+    surveillanceDate: "2026-10-26",
+    priority: "high",
+    title: "Unreconciled $285 cash shortage at POS Register #2 closing count",
+    notes:
+      "Closing shift lead reported a $285 variance between BDI log and physical safe drop around 20:45. Please verify all cash bill payments and voids between 17:00 and 21:00.",
+    requestedBy: "David Kim",
+    requesterRole: "Market Manager",
+    requesterEmail: "david.kim@techno-communications.com",
+    requesterPhone: "+1 (214) 555-0192",
+    requesterDepartment: "Regional Store Operations",
+    createdAt: "2026-10-27T08:15:00Z",
+    validationStatus: "Unassigned",
+  },
+  {
+    id: "SRV-REQ-102",
+    storeId: "store-103",
+    storeName: "Store #103 - Downtown Houston",
+    storeNumber: "103",
+    marketName: "Houston Central",
+    districtName: "District 2",
+    surveillanceDate: "2026-10-25",
+    priority: "high",
+    title: "High-value accessory shelf missing 4 flagship wireless earbuds",
+    notes:
+      "Auditor noticed empty acrylic pegs on front row. Need review of customer traffic between 11:00 and 14:00.",
+    requestedBy: "Marcus Vance",
+    requesterRole: "District Manager",
+    requesterEmail: "marcus.vance@techno-communications.com",
+    requesterPhone: "+1 (713) 555-0144",
+    requesterDepartment: "District 2 Operations",
+    createdAt: "2026-10-25T14:40:00Z",
+    validationStatus: "Unassigned",
+  },
+  {
+    id: "SRV-REQ-306",
+    storeId: "store-105",
+    storeName: "Store #105 - Domain Austin",
+    storeNumber: "105",
+    marketName: "Austin Metro",
+    districtName: "District 3",
+    surveillanceDate: "2026-10-25",
+    priority: "medium",
+    title: "Late store opening and unattended sales floor check",
+    notes:
+      "Scheduled store opening was 10:00 AM, but alarm disarm log registered at 10:34 AM. Please review entrance timestamps and sales rep arrival.",
+    requestedBy: "Sarah Jenkins",
+    requesterRole: "State Manager",
+    requesterEmail: "sarah.jenkins@techno-communications.com",
+    requesterPhone: "+1 (512) 555-0188",
+    requesterDepartment: "Texas State Leadership",
+    createdAt: "2026-10-26T15:10:00Z",
+    validationStatus: "Unassigned",
+  },
+  {
+    id: "SRV-REQ-107",
+    storeId: "store-102",
+    storeName: "Store #102 - Galleria Mall",
+    storeNumber: "102",
+    marketName: "Dallas North",
+    districtName: "District 1",
+    surveillanceDate: "2026-10-26",
+    priority: "medium",
+    title: "Backroom inventory door propped open during afternoon shift",
+    notes:
+      "District walkthrough noted backroom security door left unlatched. Requesting full afternoon review of backroom entry/exit compliance.",
+    requestedBy: "Elena Rostova",
+    requesterRole: "District Manager",
+    requesterEmail: "elena.rostova@techno-communications.com",
+    requesterPhone: "+1 (214) 555-0133",
+    requesterDepartment: "District 1 Operations",
+    createdAt: "2026-10-26T15:05:00Z",
+    validationStatus: "Unassigned",
+  },
+  {
+    id: "SRV-REQ-303",
+    storeId: "store-106",
+    storeName: "Store #106 - Riverwalk Center",
+    storeNumber: "106",
+    marketName: "San Antonio",
+    districtName: "District 4",
+    surveillanceDate: "2026-10-23",
+    priority: "high",
+    title: "Split payment discrepancy across multiple AAL activations",
+    notes:
+      "Three consecutive AAL activations recorded mixed cash/card tenders with missing printed receipts.",
+    requestedBy: "Sarah Jenkins",
+    requesterRole: "State Manager",
+    requesterEmail: "sarah.jenkins@techno-communications.com",
+    requesterPhone: "+1 (512) 555-0188",
+    requesterDepartment: "Texas State Leadership",
+    createdAt: "2026-10-24T10:30:00Z",
+    validationStatus: "Assigned",
+    assignedAgentId: "agt-102",
+    assignedAgentName: "Michael Sterling",
+    assignedAgentEmail: "m.sterling@techno-communications.com",
+    assignedAgentPhone: "+1 (214) 555-0821",
+    assignedAgentRole: "Asset Protection Auditor",
+    assignedBy: "System Admin",
+    assignedAt: "2026-10-24T11:15:00Z",
+    adminInstructions:
+      "Cross-check all Mix Payment tenders between 13:00 and 18:00 against BDI activation timestamps and attach register screenshots.",
+  },
+  {
+    id: "SRV-REQ-302",
+    storeId: "store-105",
+    storeName: "Store #105 - Domain Austin",
+    storeNumber: "105",
+    marketName: "Austin Metro",
+    districtName: "District 3",
+    surveillanceDate: "2026-10-22",
+    priority: "medium",
+    title: "Full-day audit following sales rep shift handover dispute",
+    notes:
+      "Morning and evening reps reported conflicting cash drawer starting balances at 15:30 shift change.",
+    requestedBy: "David Kim",
+    requesterRole: "Market Manager",
+    requesterEmail: "david.kim@techno-communications.com",
+    requesterPhone: "+1 (214) 555-0192",
+    requesterDepartment: "Regional Store Operations",
+    createdAt: "2026-10-23T09:20:00Z",
+    validationStatus: "Assigned",
+    assignedAgentId: "agt-104",
+    assignedAgentName: "Omar Farooq",
+    assignedAgentEmail: "omar.farooq@techno-communications.com",
+    assignedAgentPhone: "+1 (713) 555-0248",
+    assignedAgentRole: "Surveillance Analyst",
+    assignedBy: "System Admin",
+    assignedAt: "2026-10-23T10:05:00Z",
+    adminInstructions:
+      "Audit full shift handover window (15:00 - 16:00) and verify physical drawer count on Camera #1.",
+  },
+  {
+    id: "SRV-REQ-101",
+    storeId: "store-101",
+    storeName: "Store #101 - Uptown Dallas",
+    storeNumber: "101",
+    marketName: "Dallas North",
+    districtName: "District 1",
+    surveillanceDate: "2026-10-18",
+    priority: "high",
+    title: "Discrepancy of $340 at Register #2 end of shift",
+    notes:
+      "Closing drawer count was short $340. Cashier stated multiple bill jams occurred around 20:30. Please inspect camera feeds focusing on the register and safe transfers.",
+    requestedBy: "David Kim",
+    requesterRole: "Market Manager",
+    requesterEmail: "david.kim@techno-communications.com",
+    requesterPhone: "+1 (214) 555-0192",
+    requesterDepartment: "Regional Store Operations",
+    createdAt: "2026-10-18T22:15:00Z",
+    validationStatus: "Pending Verification",
+    assignedAgentId: "agt-102",
+    assignedAgentName: "Michael Sterling",
+    assignedAgentEmail: "m.sterling@techno-communications.com",
+    assignedAgentPhone: "+1 (214) 555-0821",
+    assignedAgentRole: "Asset Protection Auditor",
+    assignedBy: "System Admin",
+    assignedAt: "2026-10-19T09:30:00Z",
+    linkedReportId: "SRV-REP-202",
+    reportSubmittedAt: "2026-10-20T14:10:00Z",
+    reportStatus: "Pending Review",
+  },
+  {
+    id: "SRV-REQ-105",
+    storeId: "store-102",
+    storeName: "Store #102 - Galleria Mall",
+    storeNumber: "102",
+    marketName: "Dallas North",
+    districtName: "District 1",
+    surveillanceDate: "2026-10-12",
+    priority: "medium",
+    title: "Slip and fall incident claim in entrance vestibule",
+    notes:
+      "Customer claimed floor mat was misaligned. Store staff reported warning cones were already in place.",
+    requestedBy: "Elena Rostova",
+    requesterRole: "District Manager",
+    requesterEmail: "elena.rostova@techno-communications.com",
+    requesterPhone: "+1 (214) 555-0133",
+    requesterDepartment: "District 1 Operations",
+    createdAt: "2026-10-12T16:20:00Z",
+    validationStatus: "Rejected",
+    assignedAgentId: "agt-103",
+    assignedAgentName: "Jessica Taylor",
+    assignedAgentEmail: "j.taylor@techno-communications.com",
+    assignedAgentPhone: "+1 (210) 555-0163",
+    assignedAgentRole: "Field Security Inspector",
+    assignedBy: "System Admin",
+    assignedAt: "2026-10-12T16:45:00Z",
+    linkedReportId: "SRV-REP-203",
+    reportSubmittedAt: "2026-10-12T18:10:00Z",
+    reportStatus: "Rejected",
+    reportReviewedBy: "System Admin",
+    reportReviewedAt: "2026-10-13T09:15:00Z",
+    rejectedBy: "System Admin",
+    rejectedAt: "2026-10-13T09:15:00Z",
+    rejectionReason:
+      "Submitted footage timestamps did not include the 15-minute window prior to the reported incident.",
+    managerComments:
+      "Submitted footage timestamps did not include the 15-minute window prior to the reported incident.",
+  },
+  {
+    id: "SRV-REQ-301",
+    storeId: "store-101",
+    storeName: "Store #101 - Uptown Dallas",
+    storeNumber: "101",
+    marketName: "Dallas North",
+    districtName: "District 1",
+    surveillanceDate: "2026-10-21",
+    priority: "low",
+    title: "Duplicate check request for parking lot exterior lighting",
+    notes: "Exterior landlord pole light flickering after 19:00.",
+    requestedBy: "Elena Rostova",
+    requesterRole: "District Manager",
+    requesterEmail: "elena.rostova@techno-communications.com",
+    requesterPhone: "+1 (214) 555-0133",
+    requesterDepartment: "District 1 Operations",
+    createdAt: "2026-10-22T08:00:00Z",
+    validationStatus: "Rejected",
+    rejectedBy: "System Admin",
+    rejectedAt: "2026-10-22T08:45:00Z",
+    rejectionReason:
+      "Outside surveillance audit scope — exterior landlord lighting maintenance should be logged in the Ticketing portal under Facilities.",
+  },
+  {
+    id: "SRV-REQ-103",
+    storeId: "store-105",
+    storeName: "Store #105 - Domain Austin",
+    storeNumber: "105",
+    marketName: "Austin Metro",
+    districtName: "District 3",
+    surveillanceDate: "2026-10-16",
+    priority: "medium",
+    title: "Full shift register & back delivery gate security verification",
+    notes:
+      "Night security officer flagged two individuals repeatedly checking back dock door handle; also verify full morning-to-afternoon register logs.",
+    requestedBy: "Sarah Jenkins",
+    requesterRole: "State Manager",
+    requesterEmail: "sarah.jenkins@techno-communications.com",
+    requesterPhone: "+1 (512) 555-0188",
+    requesterDepartment: "Texas State Leadership",
+    createdAt: "2026-10-15T23:50:00Z",
+    validationStatus: "Completed",
+    assignedAgentId: "agt-101",
+    assignedAgentName: "Alex Rivera",
+    assignedAgentEmail: "alex.rivera@techno-communications.com",
+    assignedAgentPhone: "+1 (512) 555-0177",
+    assignedAgentRole: "Surveillance Lead Specialist",
+    assignedBy: "Sarah Jenkins",
+    assignedAt: "2026-10-16T08:00:00Z",
+    linkedReportId: "SRV-REP-201",
+    reportSubmittedAt: "2026-10-16T11:45:00Z",
+    reportStatus: "Approved",
+    reportReviewedBy: "Sarah Jenkins",
+    reportReviewedAt: "2026-10-16T15:20:00Z",
+    managerRating: 5,
+    managerComments:
+      "Thorough review and precise footage timestamps. Excellent work providing actionable recommendations for dock security.",
+  },
+  {
+    id: "SRV-REQ-106",
+    storeId: "store-104",
+    storeName: "Store #104 - The Woodlands",
+    storeNumber: "104",
+    marketName: "Houston Central",
+    districtName: "District 2",
+    surveillanceDate: "2026-10-14",
+    priority: "low",
+    title: "Quarterly REVVL Tab promo pitch & safe drop compliance audit",
+    notes:
+      "Routine verification of promotional tablet pitch adherence and dual-custody safe drop procedures.",
+    requestedBy: "David Kim",
+    requesterRole: "Market Manager",
+    requesterEmail: "david.kim@techno-communications.com",
+    requesterPhone: "+1 (214) 555-0192",
+    requesterDepartment: "Regional Store Operations",
+    createdAt: "2026-10-14T09:15:00Z",
+    validationStatus: "Completed",
+    assignedAgentId: "agt-104",
+    assignedAgentName: "Omar Farooq",
+    assignedAgentEmail: "omar.farooq@techno-communications.com",
+    assignedAgentPhone: "+1 (713) 555-0248",
+    assignedAgentRole: "Surveillance Analyst",
+    assignedBy: "David Kim",
+    assignedAt: "2026-10-14T10:00:00Z",
+    linkedReportId: "SRV-REP-204",
+    reportSubmittedAt: "2026-10-14T16:40:00Z",
+    reportStatus: "Approved",
+    reportReviewedBy: "David Kim",
+    reportReviewedAt: "2026-10-15T09:05:00Z",
+    managerRating: 4,
+    managerComments: "Clear transaction breakdown and accurate verification of safe drop logs.",
+  },
+  {
+    id: "SRV-REQ-108",
+    storeId: "store-785",
+    storeName: "13191 HARBOR-IIG -785",
+    storeNumber: "785",
+    marketName: "Dallas North",
+    districtName: "District 1",
+    surveillanceDate: "2026-10-14",
+    priority: "high",
+    title: "Full-day customer pitch, bundle closing, floor presence & invoice compliance audit",
+    notes:
+      "Complete full-shift audit requested covering customer traffic, non-buying pitches, bundle conversions, floor presence intervals, Loomis/Safe visibility, and register invoice reconciliation.",
+    requestedBy: "Sarah Jenkins",
+    requesterRole: "State Manager",
+    requesterEmail: "sarah.jenkins@techno-communications.com",
+    requesterPhone: "+1 (512) 555-0188",
+    requesterDepartment: "Regional Store Operations",
+    createdAt: "2026-10-14T08:30:00Z",
+    validationStatus: "Completed",
+    assignedAgentId: "agt-107",
+    assignedAgentName: "Muhammad Saqlain",
+    assignedAgentEmail: "m.saqlain@techno-communications.com",
+    assignedAgentPhone: "+1 (214) 555-0490",
+    assignedAgentRole: "QA Surveillance Specialist",
+    assignedBy: "Sarah Jenkins",
+    assignedAt: "2026-10-14T09:00:00Z",
+    linkedReportId: "SRV-REP-205",
+    reportSubmittedAt: "2026-10-15T10:15:00Z",
+    reportStatus: "Approved",
+    reportReviewedBy: "Sarah Jenkins",
+    reportReviewedAt: "2026-10-15T14:00:00Z",
+    managerRating: 5,
+    managerComments:
+      "Comprehensive customer-by-customer audit with exact invoice and timestamp verification.",
+  },
+];
+
+// ============================================================================
+// In-Memory Static Data Store & Local MMKV Draft Helpers (Zero Backend APIs)
+// ============================================================================
+
+const surveillanceDraftMMKV = new MMKV({
+  id: "surveillance-audit-drafts",
+});
+
+const ACTIVE_SESSION_KEY = "active-session";
+
+let requestReportsStore: SurveillanceRequest[] = INITIAL_REQUEST_REPORTS.map((item) => ({
+  ...item,
+}));
+let agentRequestsStore: SurveillanceRequest[] = INITIAL_SURVEILLANCE_REQUESTS.map((item) => ({
+  ...item,
+}));
+let reportsStore: SurveillanceReport[] = INITIAL_SURVEILLANCE_REPORTS.map((rep) => ({
+  ...rep,
+  rows: rep.rows ? rep.rows.map((r) => ({ ...r })) : undefined,
+}));
+let validationQueueStore: SurveillanceValidationItem[] = INITIAL_VALIDATION_REQUESTS.map(
+  (item) => ({ ...item }),
+);
+const assignableAgentsStore: SurveillanceAssignableAgent[] = DUMMY_SURVEILLANCE_AGENTS.map(
+  (agent) => ({ ...agent }),
+);
+
+function getRowKey(requestId: string, rowId: string): string {
+  return `request:${requestId}:row:${rowId}`;
+}
+
+function getRequestIndexKey(requestId: string): string {
+  return `request:${requestId}:row-index`;
+}
+
+export function saveStaticDraftRow(
+  requestId: string,
+  row: SurveillanceAuditRow,
+  rowOrder: number,
+): SavedAuditRowRecord {
+  const savedAt = new Date().toISOString();
+  const record: SavedAuditRowRecord = {
+    requestId,
+    row: {
+      ...row,
+      otherDetails: row.otherDetails ? { ...row.otherDetails } : undefined,
+      attachments: row.attachments ? [...row.attachments] : undefined,
+    },
+    rowOrder,
+    savedAt,
+  };
+
+  surveillanceDraftMMKV.setJSON(getRowKey(requestId, row.id), record);
+
+  const indexKey = getRequestIndexKey(requestId);
+  const currentIds = surveillanceDraftMMKV.getJSON<string[]>(indexKey) || [];
+  if (!currentIds.includes(row.id)) {
+    currentIds.push(row.id);
+    surveillanceDraftMMKV.setJSON(indexKey, currentIds);
+  }
+
+  return record;
+}
+
+export function getStaticDraftRows(requestId: string): SavedAuditRowRecord[] {
+  const indexKey = getRequestIndexKey(requestId);
+  const indexedIds = surveillanceDraftMMKV.getJSON<string[]>(indexKey) || [];
+  const prefix = `request:${requestId}:row:`;
+
+  const allRowKeys = surveillanceDraftMMKV.getAllKeys().filter((k) => k.startsWith(prefix));
+
+  const orderedIds = Array.from(
+    new Set([...indexedIds, ...allRowKeys.map((k) => k.slice(prefix.length))]),
+  );
+
+  const records: SavedAuditRowRecord[] = [];
+  for (const rowId of orderedIds) {
+    const rec = surveillanceDraftMMKV.getJSON<SavedAuditRowRecord>(getRowKey(requestId, rowId));
+    if (rec && rec.row) {
+      records.push(rec);
+    }
+  }
+
+  return records.sort((a, b) => a.rowOrder - b.rowOrder);
+}
+
+export function removeStaticDraftRow(requestId: string, rowId: string): void {
+  surveillanceDraftMMKV.delete(getRowKey(requestId, rowId));
+  const indexKey = getRequestIndexKey(requestId);
+  const currentIds = surveillanceDraftMMKV.getJSON<string[]>(indexKey) || [];
+  const nextIds = currentIds.filter((id) => id !== rowId);
+  if (nextIds.length > 0) {
+    surveillanceDraftMMKV.setJSON(indexKey, nextIds);
+  } else {
+    surveillanceDraftMMKV.delete(indexKey);
+  }
+}
+
+export function clearStaticRequestDraft(requestId: string): void {
+  const prefix = `request:${requestId}:row:`;
+  for (const key of surveillanceDraftMMKV.getAllKeys()) {
+    if (key.startsWith(prefix)) {
+      surveillanceDraftMMKV.delete(key);
+    }
+  }
+  surveillanceDraftMMKV.delete(getRequestIndexKey(requestId));
+
+  const active = getStaticActiveDraftSession();
+  if (active?.requestId === requestId) {
+    clearStaticActiveDraftSession();
+  }
+}
+
+export function saveStaticActiveDraftSession(requestId: string, isEditing: boolean): void {
+  const session: ActiveSurveillanceDraftSession = {
+    requestId,
+    isEditing,
+    updatedAt: new Date().toISOString(),
+  };
+  surveillanceDraftMMKV.setJSON(ACTIVE_SESSION_KEY, session);
+}
+
+export function getStaticActiveDraftSession(): ActiveSurveillanceDraftSession | undefined {
+  return surveillanceDraftMMKV.getJSON<ActiveSurveillanceDraftSession>(ACTIVE_SESSION_KEY);
+}
+
+export function clearStaticActiveDraftSession(): void {
+  surveillanceDraftMMKV.delete(ACTIVE_SESSION_KEY);
+}
+
+export function getStaticStores(): StaticStoreOption[] {
+  return AVAILABLE_STORES.map((s) => ({ ...s }));
+}
+
+export function getStaticRequestReports(): SurveillanceRequest[] {
+  return requestReportsStore.map((r) => ({ ...r }));
+}
+
+export function createStaticRequestReport(
+  payload: CreateSurveillanceRequestPayload,
+  requester?: {
+    name?: string;
+    role?: string;
+    email?: string;
+    phone?: string;
+    department?: string;
+  },
+): SurveillanceRequest & { isDuplicate?: boolean } {
+  const duplicate = requestReportsStore.find(
+    (r) => r.storeId === payload.storeId && r.incidentDate.trim() === payload.incidentDate.trim(),
+  );
+  if (duplicate) {
+    return { ...duplicate, isDuplicate: true };
+  }
+
+  const createdAt = new Date().toISOString();
+  const nextNum = 400 + requestReportsStore.length + 1;
+  const newId = `SRV-REQ-${nextNum}`;
+
+  const created: SurveillanceRequest = {
+    id: newId,
+    storeId: payload.storeId,
+    storeName: payload.storeName,
+    storeNumber: payload.storeNumber,
+    marketName: payload.marketName,
+    districtName: payload.districtName,
+    incidentDate: payload.incidentDate,
+    shift: payload.shift,
+    investigationType: payload.investigationType,
+    priority: payload.priority,
+    title: payload.title,
+    requestedBy: requester?.name || "System Admin",
+    requestedById: "static-user",
+    requesterRole: requester?.role || "Manager",
+    requesterEmail: requester?.email || "manager@techno-communications.com",
+    requesterPhone: requester?.phone || "+1 (214) 555-0192",
+    requesterDepartment: requester?.department || "Store Operations",
+    areasToReview: payload.areasToReview,
+    notes: payload.notes,
+    status: "Pending",
+    createdAt,
+  };
+
+  requestReportsStore = [created, ...requestReportsStore];
+
+  // Also add to the static validation queue so it appears in Validate and Assign during UI testing
+  validationQueueStore = [
+    {
+      id: created.id,
+      storeId: created.storeId,
+      storeName: created.storeName,
+      storeNumber: created.storeNumber,
+      marketName: created.marketName,
+      districtName: created.districtName,
+      surveillanceDate: created.incidentDate,
+      priority: created.priority,
+      title: created.title,
+      notes: created.notes,
+      requestedBy: created.requestedBy,
+      requesterRole: created.requesterRole,
+      requesterEmail: created.requesterEmail || "manager@techno-communications.com",
+      requesterPhone: created.requesterPhone || "+1 (214) 555-0192",
+      requesterDepartment: created.requesterDepartment || "Store Operations",
+      createdAt: created.createdAt,
+      validationStatus: "Unassigned",
+    },
+    ...validationQueueStore,
+  ];
+
+  return { ...created };
+}
+
+export function getStaticAgentRequests(): SurveillanceRequest[] {
+  return agentRequestsStore.map((r) => ({ ...r }));
+}
+
+export function getStaticReports(): SurveillanceReport[] {
+  return reportsStore.map((r) => ({
+    ...r,
+    rows: r.rows ? r.rows.map((row) => ({ ...row })) : undefined,
+  }));
+}
+
+export function getStaticReportById(id: string): SurveillanceReport | null {
+  const found = reportsStore.find((r) => r.id === id);
+  if (!found) return null;
+  return {
+    ...found,
+    rows: found.rows ? found.rows.map((row) => ({ ...row })) : undefined,
+  };
+}
+
+export function getStaticRequestById(id: string): SurveillanceRequest | null {
+  const fromRequests = requestReportsStore.find((r) => r.id === id);
+  if (fromRequests) return { ...fromRequests };
+  const fromAgents = agentRequestsStore.find((r) => r.id === id);
+  if (fromAgents) return { ...fromAgents };
+  return null;
+}
+
+export function submitStaticAuditReport(
+  payload: CreateSurveillanceReportPayload,
+  submitter?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    role?: string;
+    department?: string;
+  },
+): SurveillanceReport {
+  const submittedAt = new Date().toISOString();
+  const reportId = `SRV-REP-${210 + reportsStore.length + 1}`;
+  const investigatorName = submitter?.name || "Michael Sterling";
+  const investigatorEmail = submitter?.email || "m.sterling@techno-communications.com";
+  const investigatorPhone = submitter?.phone || "+1 (214) 555-0821";
+  const investigatorRole = submitter?.role || "Asset Protection Auditor";
+  const investigatorDepartment = submitter?.department || "Surveillance & Loss Prevention";
+
+  const createdReport: SurveillanceReport = {
+    id: reportId,
+    requestId: payload.requestId,
+    investigatorName,
+    investigatorEmail,
+    investigatorPhone,
+    investigatorRole,
+    investigatorDepartment,
+    submittedAt,
+    status: "Report Received",
+    rows: payload.rows ? payload.rows.map((r) => ({ ...r })) : undefined,
+    date: payload.date,
+    marketName: payload.marketName,
+    storeName: payload.storeName,
+    invoiceNo: payload.invoiceNo,
+    cashTime: payload.cashTime,
+    time: payload.time,
+    bdiTime: payload.bdiTime,
+    salesRep: payload.salesRep,
+    transType: payload.transType,
+    transTypeDetails: payload.transTypeDetails,
+    clientType: payload.clientType,
+    clientTypeDetails: payload.clientTypeDetails,
+    invoiceAmount: payload.invoiceAmount,
+    totalTaken: payload.totalTaken,
+    paymentMode: payload.paymentMode,
+    difference: payload.difference,
+    receipt: payload.receipt,
+    receiptDetails: payload.receiptDetails,
+    splitPayments: payload.splitPayments,
+    fraudTransactions: payload.fraudTransactions,
+    fraudTransactionsDetails: payload.fraudTransactionsDetails,
+    refundInvoice: payload.refundInvoice,
+    missOpportunity: payload.missOpportunity,
+    missOpportunityDetails: payload.missOpportunityDetails,
+    paymentFraud: payload.paymentFraud,
+    paymentFraudDetails: payload.paymentFraudDetails,
+    aalSwap: payload.aalSwap,
+    aalSwapDetails: payload.aalSwapDetails,
+    mim: payload.mim,
+    mimDetails: payload.mimDetails,
+    notes: payload.notes,
+    pitchNb: payload.pitchNb,
+    pitchNbDetails: payload.pitchNbDetails,
+    pitchNotes: payload.pitchNotes,
+    pitchQuality: payload.pitchQuality,
+    pitchQualityDetails: payload.pitchQualityDetails,
+    showingPhone: payload.showingPhone,
+    showingPhoneDetails: payload.showingPhoneDetails,
+    accOffered: payload.accOffered,
+    accOfferedDetails: payload.accOfferedDetails,
+    maximize: payload.maximize,
+    maximizeDetails: payload.maximizeDetails,
+    flipping: payload.flipping,
+    flippingDetails: payload.flippingDetails,
+    bundleNb: payload.bundleNb,
+    bundleStartB: payload.bundleStartB,
+    bundleEndB: payload.bundleEndB,
+    bundleAccGiven: payload.bundleAccGiven,
+    bundleAccGivenDetails: payload.bundleAccGivenDetails,
+    portIn: payload.portIn,
+    portInDetails: payload.portInDetails,
+    nonUp: payload.nonUp,
+    nonUpDetails: payload.nonUpDetails,
+    smartPayMentioned: payload.smartPayMentioned,
+    smartPayMentionedDetails: payload.smartPayMentionedDetails,
+    aalBillSame: payload.aalBillSame,
+    aalBillSameDetails: payload.aalBillSameDetails,
+    onlineRejectedPayment: payload.onlineRejectedPayment,
+    onlineRejectedPaymentDetails: payload.onlineRejectedPaymentDetails,
+    nameOfRepLeaving: payload.nameOfRepLeaving,
+    timeLeft: payload.timeLeft,
+    timeReturned: payload.timeReturned,
+    backRoomTimeIn: payload.backRoomTimeIn,
+    backRoomTimeOut: payload.backRoomTimeOut,
+    offline: payload.offline,
+    offlineDetails: payload.offlineDetails,
+    attachments: payload.attachments,
+  };
+
+  reportsStore = [createdReport, ...reportsStore];
+
+  agentRequestsStore = agentRequestsStore.map((r) =>
+    r.id === payload.requestId
+      ? {
+          ...r,
+          status: "Report Received",
+          reportStatus: "Pending Review",
+          linkedReportId: reportId,
+          preparedBy: investigatorName,
+          preparedByEmail: investigatorEmail,
+          preparedByPhone: investigatorPhone,
+          preparedByRole: investigatorRole,
+          preparedByDepartment: investigatorDepartment,
+          preparedAt: submittedAt,
+        }
+      : r,
+  );
+
+  requestReportsStore = requestReportsStore.map((r) =>
+    r.id === payload.requestId
+      ? {
+          ...r,
+          status: "Pending",
+          reportStatus: "Pending Review",
+          linkedReportId: reportId,
+        }
+      : r,
+  );
+
+  validationQueueStore = validationQueueStore.map((item) =>
+    item.id === payload.requestId
+      ? {
+          ...item,
+          validationStatus: "Pending Verification",
+          linkedReportId: reportId,
+          reportSubmittedAt: submittedAt,
+          reportStatus: "Pending Review",
+          assignedAgentName: item.assignedAgentName || investigatorName,
+          assignedAgentEmail: item.assignedAgentEmail || investigatorEmail,
+          assignedAgentPhone: item.assignedAgentPhone || investigatorPhone,
+          assignedAgentRole: item.assignedAgentRole || investigatorRole,
+          rejectedBy: undefined,
+          rejectedAt: undefined,
+          rejectionReason: undefined,
+        }
+      : item,
+  );
+
+  return { ...createdReport };
+}
+
+export function reviewStaticReport(
+  reportId: string,
+  payload: {
+    action: "approve" | "reject";
+    comments?: string;
+    rating?: number;
+    reviewedBy: string;
+  },
+): SurveillanceReport {
+  const idx = reportsStore.findIndex((r) => r.id === reportId);
+  if (idx === -1) {
+    throw new Error("Surveillance report not found.");
+  }
+
+  const reviewedAt = new Date().toISOString();
+  const isApprove = payload.action === "approve";
+  const updatedReport: SurveillanceReport = {
+    ...reportsStore[idx],
+    status: isApprove ? "Approved" : "Rejected",
+    managerRating: payload.rating ?? reportsStore[idx].managerRating,
+    managerComments: payload.comments?.trim() || reportsStore[idx].managerComments,
+    reviewedBy: payload.reviewedBy,
+    reviewedAt,
+  };
+
+  reportsStore[idx] = updatedReport;
+
+  // Update matching Validate & Assign item ("Completed" on approval, "Rejected" on decline)
+  let matchedValidationItem: SurveillanceValidationItem | undefined;
+  validationQueueStore = validationQueueStore.map((item) => {
+    if (item.linkedReportId === reportId || item.id === updatedReport.requestId) {
+      const nextItem: SurveillanceValidationItem = {
+        ...item,
+        validationStatus: isApprove ? "Completed" : "Rejected",
+        linkedReportId: reportId,
+        reportStatus: isApprove ? "Approved" : "Rejected",
+        reportReviewedBy: payload.reviewedBy,
+        reportReviewedAt: reviewedAt,
+        managerRating: updatedReport.managerRating,
+        managerComments: updatedReport.managerComments,
+        rejectedBy: !isApprove ? payload.reviewedBy : undefined,
+        rejectedAt: !isApprove ? reviewedAt : undefined,
+        rejectionReason: !isApprove
+          ? updatedReport.managerComments || "Report declined during review."
+          : undefined,
+      };
+      matchedValidationItem = nextItem;
+      return nextItem;
+    }
+    return item;
+  });
+
+  // Update matching Request Reports item — once Completed, make report visible to Admin/Requester
+  let foundInRequestReports = false;
+  requestReportsStore = requestReportsStore.map((req) => {
+    if (req.linkedReportId === reportId || req.id === updatedReport.requestId) {
+      foundInRequestReports = true;
+      return {
+        ...req,
+        status: isApprove ? "Completed" : "Pending",
+        linkedReportId: reportId,
+        preparedBy: isApprove ? req.preparedBy || updatedReport.investigatorName : undefined,
+        preparedByEmail: isApprove
+          ? req.preparedByEmail || updatedReport.investigatorEmail
+          : undefined,
+        preparedByPhone: isApprove
+          ? req.preparedByPhone || updatedReport.investigatorPhone
+          : undefined,
+        preparedByRole: isApprove
+          ? req.preparedByRole || updatedReport.investigatorRole
+          : undefined,
+        preparedByDepartment: isApprove
+          ? req.preparedByDepartment || updatedReport.investigatorDepartment
+          : undefined,
+        preparedAt: isApprove ? req.preparedAt || updatedReport.submittedAt : undefined,
+        reportStatus: isApprove ? "Approved" : "Rejected",
+        reportApprovedBy: payload.reviewedBy,
+        reportApprovedAt: reviewedAt,
+        managerRating: updatedReport.managerRating,
+        managerComments: updatedReport.managerComments,
+        rejectionReason: !isApprove ? updatedReport.managerComments : undefined,
+      };
+    }
+    return req;
+  });
+
+  // Ensure completed report is always visible in Request Reports even if request originated in validation queue
+  if (isApprove && !foundInRequestReports && matchedValidationItem) {
+    requestReportsStore = [
+      {
+        id: matchedValidationItem.id,
+        storeId: matchedValidationItem.storeId,
+        storeName: matchedValidationItem.storeName,
+        storeNumber: matchedValidationItem.storeNumber,
+        marketName: matchedValidationItem.marketName,
+        districtName: matchedValidationItem.districtName,
+        incidentDate: matchedValidationItem.surveillanceDate,
+        shift: "Surveillance Review",
+        investigationType: "Store Audit & Surveillance",
+        priority: matchedValidationItem.priority,
+        title: matchedValidationItem.title,
+        requestedBy: matchedValidationItem.requestedBy,
+        requestedById: "static-requester",
+        requesterRole: matchedValidationItem.requesterRole,
+        requesterEmail: matchedValidationItem.requesterEmail,
+        requesterPhone: matchedValidationItem.requesterPhone,
+        requesterDepartment: matchedValidationItem.requesterDepartment,
+        areasToReview: ["POS Registers", "Sales Floor"],
+        notes: matchedValidationItem.notes,
+        status: "Completed",
+        createdAt: matchedValidationItem.createdAt,
+        approvedBy: matchedValidationItem.assignedBy,
+        approvedAt: matchedValidationItem.assignedAt,
+        linkedReportId: reportId,
+        preparedBy: matchedValidationItem.assignedAgentName || updatedReport.investigatorName,
+        preparedByEmail:
+          matchedValidationItem.assignedAgentEmail || updatedReport.investigatorEmail,
+        preparedByPhone:
+          matchedValidationItem.assignedAgentPhone || updatedReport.investigatorPhone,
+        preparedByRole: matchedValidationItem.assignedAgentRole || updatedReport.investigatorRole,
+        preparedByDepartment:
+          updatedReport.investigatorDepartment || "Surveillance & Loss Prevention",
+        preparedAt: updatedReport.submittedAt,
+        reportStatus: "Approved",
+        reportApprovedBy: payload.reviewedBy,
+        reportApprovedAt: reviewedAt,
+        managerRating: updatedReport.managerRating,
+        managerComments: updatedReport.managerComments,
+      },
+      ...requestReportsStore,
+    ];
+  }
+
+  // Update matching Surveillance Reports agent item
+  agentRequestsStore = agentRequestsStore.map((req) => {
+    if (req.linkedReportId === reportId || req.id === updatedReport.requestId) {
+      return {
+        ...req,
+        status: isApprove ? "Approved" : "Rejected",
+        reportStatus: isApprove ? "Approved" : "Rejected",
+        reportApprovedBy: payload.reviewedBy,
+        reportApprovedAt: reviewedAt,
+        managerRating: updatedReport.managerRating,
+        managerComments: updatedReport.managerComments,
+        rejectionReason: !isApprove ? updatedReport.managerComments : undefined,
+      };
+    }
+    return req;
+  });
+
+  return { ...updatedReport };
+}
+
+export function getStaticValidationQueue(): SurveillanceValidationItem[] {
+  return validationQueueStore.map((item) => ({ ...item }));
+}
+
+export function getStaticAssignableAgents(): SurveillanceAssignableAgent[] {
+  return assignableAgentsStore.map((agent) => {
+    const activeAssignments = validationQueueStore.filter(
+      (item) => item.assignedAgentId === agent.id && item.validationStatus === "Assigned",
+    ).length;
+    return {
+      ...agent,
+      activeAssignments,
+    };
+  });
+}
+
+export function validateAndAssignStaticRequest(
+  payload: ValidateAndAssignPayload,
+): SurveillanceValidationItem {
+  const targetIndex = validationQueueStore.findIndex((item) => item.id === payload.requestId);
+  if (targetIndex === -1) {
+    throw new Error("Surveillance request not found.");
+  }
+
+  const agent = assignableAgentsStore.find((a) => a.id === payload.agentId);
+  if (!agent) {
+    throw new Error("Selected surveillance agent not found.");
+  }
+
+  const existing = validationQueueStore[targetIndex];
+  const assignedAt = new Date().toISOString();
+
+  const updated: SurveillanceValidationItem = {
+    ...existing,
+    priority: payload.priority,
+    validationStatus: "Assigned",
+    assignedAgentId: agent.id,
+    assignedAgentName: agent.fullName,
+    assignedAgentEmail: agent.email,
+    assignedAgentPhone: agent.phone,
+    assignedAgentRole: agent.role,
+    assignedBy: payload.assignedBy,
+    assignedAt,
+    adminInstructions: payload.adminInstructions?.trim() || undefined,
+    rejectedBy: undefined,
+    rejectedAt: undefined,
+    rejectionReason: undefined,
+  };
+
+  validationQueueStore[targetIndex] = updated;
+
+  // Keep Request Reports item in "Pending" status until the report is completed
+  requestReportsStore = requestReportsStore.map((r) =>
+    r.id === existing.id
+      ? {
+          ...r,
+          status: r.status === "Completed" ? "Completed" : "Pending",
+        }
+      : r,
+  );
+
+  // Make validated request visible on Surveillance Reports for report preparation
+  if (!agentRequestsStore.some((r) => r.id === existing.id)) {
+    agentRequestsStore = [
+      {
+        id: existing.id,
+        storeId: existing.storeId,
+        storeName: existing.storeName,
+        storeNumber: existing.storeNumber,
+        marketName: existing.marketName,
+        districtName: existing.districtName,
+        incidentDate: existing.surveillanceDate,
+        shift: "Surveillance Review",
+        investigationType: "Store Audit & Surveillance",
+        priority: existing.priority,
+        title: existing.title,
+        requestedBy: existing.requestedBy,
+        requestedById: "static-requester",
+        requesterRole: existing.requesterRole,
+        requesterEmail: existing.requesterEmail,
+        requesterPhone: existing.requesterPhone,
+        requesterDepartment: existing.requesterDepartment,
+        areasToReview: ["POS Registers", "Sales Floor"],
+        notes: existing.notes,
+        status: "Report Requested",
+        createdAt: existing.createdAt,
+      },
+      ...agentRequestsStore,
+    ];
+  }
+
+  return { ...updated };
+}
+
+export function rejectStaticValidationRequest(
+  payload: RejectValidationPayload,
+): SurveillanceValidationItem {
+  const targetIndex = validationQueueStore.findIndex((item) => item.id === payload.requestId);
+  if (targetIndex === -1) {
+    throw new Error("Surveillance request not found.");
+  }
+
+  const existing = validationQueueStore[targetIndex];
+  const updated: SurveillanceValidationItem = {
+    ...existing,
+    validationStatus: "Rejected",
+    assignedAgentId: undefined,
+    assignedAgentName: undefined,
+    assignedAgentEmail: undefined,
+    assignedAgentPhone: undefined,
+    assignedAgentRole: undefined,
+    assignedBy: undefined,
+    assignedAt: undefined,
+    adminInstructions: undefined,
+    rejectedBy: payload.rejectedBy,
+    rejectedAt: new Date().toISOString(),
+    rejectionReason: payload.reason.trim(),
+  };
+
+  validationQueueStore[targetIndex] = updated;
+  return { ...updated };
+}

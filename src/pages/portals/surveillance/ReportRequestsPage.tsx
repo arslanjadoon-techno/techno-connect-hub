@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { DataTable, type Column } from "@/components/data-table";
 import { Button } from "@/components/ui/button";
@@ -17,155 +17,230 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { FilterReset } from "@/components/filter-reset";
 import {
   Plus,
-  CheckCircle2,
-  XCircle,
-  Video,
   Store as StoreIcon,
-  RotateCcw,
-  Check,
-  X,
   ArrowLeft,
   User as UserIcon,
   ShieldCheck,
-  FileText,
   Star,
   Phone,
   Mail,
-  Building,
+  Building2,
   Eye,
-  AlertCircle,
+  AlertTriangle,
   Calendar,
   Clock,
+  Search,
+  ChevronsUpDown,
+  MapPin,
+  MessageSquare,
+  UserPlus,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  AVAILABLE_STORES,
-  INITIAL_SURVEILLANCE_REQUESTS,
+  getStaticRequestReports,
+  createStaticRequestReport,
+  getStaticReports,
+  getStaticStores,
+  type StaticStoreOption,
 } from "./surveillance-data";
-import {
-  getSurveillanceRole,
-  canApproveSurveillance,
-  canRequestSurveillance,
-  type SurveillanceRequest,
-  type SurveillancePriority,
-  type SurveillanceRole,
-  type SurveillanceRequestStatus,
+import type {
+  SurveillanceRequest,
+  SurveillanceReport,
+  SurveillancePriority,
 } from "@/services/portals/surveillance/types";
 
-// Exactly 3 priorities: low, medium, high (urgent removed)
+type RequestReportPageStatus = "Pending" | "Completed";
+
 const PRIORITY_TONES: Record<SurveillancePriority, string> = {
   low: "bg-muted text-muted-foreground border-border",
   medium: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-400",
   high: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
 };
 
-// Exactly 4 statuses: Report Requested, Report Received, Approved, Rejected
-const STATUS_CONFIG: Record<
-  SurveillanceRequestStatus,
-  { label: string; tone: string }
+const REQUEST_STATUS_CONFIG: Record<
+  RequestReportPageStatus,
+  { label: string; tone: string; dotClass: string; textClass: string }
 > = {
-  "Report Requested": {
-    label: "Report Requested",
+  Pending: {
+    label: "Pending",
     tone: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
+    dotClass: "bg-amber-500",
+    textClass: "text-amber-900 dark:text-amber-100",
   },
-  "Report Received": {
-    label: "Report Received",
-    tone: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400",
-  },
-  Approved: {
-    label: "Approved",
+  Completed: {
+    label: "Completed",
     tone: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400",
-  },
-  Rejected: {
-    label: "Rejected",
-    tone: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400",
+    dotClass: "bg-emerald-500",
+    textClass: "text-emerald-800 dark:text-emerald-300",
   },
 };
 
-// Extract unique markets
-const MARKETS = Array.from(new Set(AVAILABLE_STORES.map((s) => s.market)));
+function normalizeRequestStatus(raw: string): RequestReportPageStatus {
+  if (raw === "Completed" || raw === "Approved") return "Completed";
+  return "Pending";
+}
+
+function formatPriorityLabel(priority: SurveillancePriority): string {
+  if (!priority) return "—";
+  return priority.charAt(0).toUpperCase() + priority.slice(1);
+}
+
+function formatDisplayDate(rawDate: string): string {
+  if (!rawDate) return "—";
+  const clean = rawDate.split(" - ")[0]?.trim() || rawDate;
+  const parts = clean.split("-");
+  if (parts.length === 3) {
+    const year = Number(parts[0]);
+    const monthIdx = Number(parts[1]) - 1;
+    const day = Number(parts[2]);
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
+    if (!Number.isNaN(year) && months[monthIdx] && !Number.isNaN(day)) {
+      return `${String(day).padStart(2, "0")} ${months[monthIdx]} ${year}`;
+    }
+  }
+  return clean;
+}
+
+function getInitials(name?: string): string {
+  if (!name) return "—";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "—";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+function formatDateTimeDisplay(isoString?: string): string {
+  if (!isoString) return "—";
+  const d = new Date(isoString);
+  if (Number.isNaN(d.getTime())) return isoString;
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+  const day = d.getDate();
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  const timeStr = d.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${day} ${month} ${year}, ${timeStr}`;
+}
 
 export default function ReportRequestsPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const detectedRole = useMemo(() => getSurveillanceRole(user), [user]);
 
-  // Active role selector for testing between Admin / State Mgr / Market Mgr (can approve) and District Mgr (view only)
-  const [activeRole, setActiveRole] = useState<SurveillanceRole>(() => {
-    return canRequestSurveillance(detectedRole) ? detectedRole : "admin";
-  });
+  const [requests, setRequests] = useState<SurveillanceRequest[]>([]);
+  const [reports, setReports] = useState<SurveillanceReport[]>([]);
+  const [stores, setStores] = useState<StaticStoreOption[]>([]);
 
-  const [requests, setRequests] = useState<SurveillanceRequest[]>(INITIAL_SURVEILLANCE_REQUESTS);
+  useEffect(() => {
+    setRequests(getStaticRequestReports());
+    setReports(getStaticReports());
+    setStores(getStaticStores());
+  }, []);
 
-  // Active drill-down detail view state (null = list view)
-  const [selectedDetail, setSelectedDetail] = useState<SurveillanceRequest | null>(null);
+  // Active drill-down detail view state synced with URL query param (?detail=...)
+  const selectedDetailId = searchParams.get("detail");
+  const setSelectedDetailId = (id: string | null) => {
+    const next = new URLSearchParams(searchParams);
+    if (id) {
+      next.set("detail", id);
+    } else {
+      next.delete("detail");
+    }
+    setSearchParams(next, { replace: true });
+  };
 
   // Filter states
   const [marketFilter, setMarketFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
 
-  // Create Request Modal state - strictly conforming to requested fields:
-  // 1. Market dropdown
-  // 2. Store dropdown (filtered by selected market)
-  // 3. Date interval (single day or multiple days)
-  // 4. Priority (default "low")
-  // 5. Investigation Reason / Incident Summary
-  // 6. Additional Context / Special Instructions (optional, no red star)
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [selectedMarket, setSelectedMarket] = useState(MARKETS[0]);
-  const [selectedStoreId, setSelectedStoreId] = useState(
-    AVAILABLE_STORES.find((s) => s.market === MARKETS[0])?.id || AVAILABLE_STORES[0].id,
+  const MARKETS = useMemo(
+    () => Array.from(new Set(stores.map((s) => s.market).filter(Boolean))).sort(),
+    [stores],
   );
+
+  // Create Request Modal state
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [selectedMarket, setSelectedMarket] = useState("");
+  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
+  const [storePickerOpen, setStorePickerOpen] = useState(false);
   const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
-  const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [priority, setPriority] = useState<SurveillancePriority>("low");
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
+  const [submittingRequest, setSubmittingRequest] = useState(false);
 
-  // Stores filtered by currently selected market in modal
   const storesForMarket = useMemo(() => {
-    return AVAILABLE_STORES.filter((s) => s.market === selectedMarket);
-  }, [selectedMarket]);
+    return stores.filter((s) => s.market === selectedMarket);
+  }, [stores, selectedMarket]);
 
-  // Market change handler in modal
+  const selectedStore = useMemo(
+    () => stores.find((s) => s.id === selectedStoreId) || null,
+    [stores, selectedStoreId],
+  );
+
   const handleMarketChange = (newMarket: string) => {
     setSelectedMarket(newMarket);
-    const storesInNewMarket = AVAILABLE_STORES.filter((s) => s.market === newMarket);
-    if (storesInNewMarket.length > 0) {
-      setSelectedStoreId(storesInNewMarket[0].id);
-    }
+    const storesInNewMarket = stores.filter((s) => s.market === newMarket);
+    setSelectedStoreId(storesInNewMarket[0]?.id ?? "");
   };
 
-  // Handlers for creating request
   const handleOpenCreate = () => {
     setTitle("");
     setNotes("");
-    const defaultMarket = MARKETS[0];
+    const defaultMarket = MARKETS[0] ?? "";
     setSelectedMarket(defaultMarket);
-    const firstStore = AVAILABLE_STORES.find((s) => s.market === defaultMarket) || AVAILABLE_STORES[0];
-    setSelectedStoreId(firstStore.id);
+    const firstStore = stores.find((s) => s.market === defaultMarket) || stores[0];
+    setSelectedStoreId(firstStore?.id ?? "");
     const today = new Date().toISOString().split("T")[0];
     setStartDate(today);
-    setEndDate(today);
     setPriority("low");
     setCreateModalOpen(true);
   };
@@ -180,7 +255,7 @@ export default function ReportRequestsPage() {
       return;
     }
     if (!startDate) {
-      toast.error("Please select a start date.");
+      toast.error("Please select a date.");
       return;
     }
     if (!title.trim()) {
@@ -188,108 +263,104 @@ export default function ReportRequestsPage() {
       return;
     }
 
-    const store = AVAILABLE_STORES.find((s) => s.id === selectedStoreId) || AVAILABLE_STORES[0];
-    const newId = `SRV-REQ-${Math.floor(106 + requests.length)}`;
+    const store = stores.find((s) => s.id === selectedStoreId);
+    if (!store) {
+      toast.error("Please select a store location.");
+      return;
+    }
 
-    const requesterRoleLabel =
-      activeRole === "admin"
-        ? "Admin"
-        : activeRole === "state_manager"
-          ? "State Manager"
-          : activeRole === "market_manager"
-            ? "Market Manager"
-            : "District Manager";
+    setSubmittingRequest(true);
+    try {
+      const result = createStaticRequestReport(
+        {
+          storeId: store.id,
+          storeName: store.name,
+          storeNumber: store.number,
+          marketName: store.market,
+          districtName: store.district,
+          incidentDate: startDate,
+          shift: "Surveillance Review",
+          investigationType: "Store Audit & Surveillance",
+          priority,
+          title: title.trim(),
+          areasToReview: ["POS Registers", "Sales Floor", "Backroom / Cash Safe"],
+          notes: notes.trim() || undefined,
+        },
+        {
+          name: user?.fullName || "David Kim",
+          role: user?.roleName || "Market Manager",
+          email: user?.email || "david.kim@techno-communications.com",
+        },
+      );
 
-    const formattedDateRange = endDate && endDate !== startDate ? `${startDate} - ${endDate}` : startDate;
+      if (result.isDuplicate) {
+        toast.error(
+          `A surveillance request for this store and date already exists (requested by ${result.requestedBy}).`,
+        );
+        return;
+      }
 
-    const newRequest: SurveillanceRequest = {
-      id: newId,
-      storeId: store.id,
-      storeName: store.name,
-      storeNumber: store.number,
-      marketName: store.market,
-      districtName: store.district,
-      incidentDate: formattedDateRange,
-      shift: "Surveillance Review",
-      investigationType: "Store Audit & Surveillance",
-      priority,
-      title: title.trim(),
-      requestedBy: user?.fullName || "Current User",
-      requestedById: user?.id || "u-1",
-      requesterRole: requesterRoleLabel,
-      requesterEmail: user?.email || "user@techno.com",
-      requesterPhone: user?.phone || "+1 (555) 012-3456",
-      requesterDepartment: user?.department?.name || "Operations",
-      areasToReview: ["POS Registers", "Sales Floor", "Backroom / Cash Safe"],
-      notes: notes.trim() || undefined,
-      status: "Report Requested",
-      createdAt: new Date().toISOString(),
-    };
-
-    setRequests((prev) => [newRequest, ...prev]);
-    toast.success("Surveillance report request submitted successfully!");
-    setCreateModalOpen(false);
+      setRequests(getStaticRequestReports());
+      toast.success("Surveillance report request submitted successfully.");
+      setCreateModalOpen(false);
+    } finally {
+      setSubmittingRequest(false);
+    }
   };
 
   // Filtered requests
   const filteredRequests = useMemo(() => {
     return requests.filter((r) => {
+      const normalizedStatus = normalizeRequestStatus(r.status);
       if (marketFilter !== "all" && r.marketName !== marketFilter) return false;
-      if (statusFilter !== "all" && r.status !== statusFilter) return false;
+      if (statusFilter !== "all" && normalizedStatus !== statusFilter) return false;
       if (priorityFilter !== "all" && r.priority !== priorityFilter) return false;
       return true;
     });
   }, [requests, marketFilter, statusFilter, priorityFilter]);
 
-  // Metrics: 4 summary cards — Total Requests, Received (Report Received, Approved, Rejected), Pending (Report Requested), and Approved
+  // Strictly 3 KPI summary cards: Total Requests (Pending + Completed), Pending, and Completed
   const metrics = useMemo(() => {
+    const pending = requests.filter((r) => normalizeRequestStatus(r.status) === "Pending").length;
+    const completed = requests.filter(
+      (r) => normalizeRequestStatus(r.status) === "Completed",
+    ).length;
     return {
-      total: requests.length,
-      received: requests.filter(
-        (r) =>
-          r.status === "Report Received" ||
-          r.status === "Approved" ||
-          r.status === "Rejected",
-      ).length,
-      pending: requests.filter((r) => r.status === "Report Requested").length,
-      approved: requests.filter((r) => r.status === "Approved").length,
+      total: pending + completed,
+      pending,
+      completed,
     };
   }, [requests]);
 
-  // Columns: Single information per column, no dual text / subtitles!
-  // Columns: Store, Market, Investigation Reason, Priority, Requested By, Prepared by, Status.
   const columns: Column<SurveillanceRequest>[] = useMemo(
     () => [
       {
         key: "store",
         header: "Store",
         searchValue: (r) => r.storeName,
-        accessor: (r) => (
-          <span className="font-medium text-foreground text-sm">{r.storeName}</span>
-        ),
+        accessor: (r) => <span className="font-medium text-foreground text-sm">{r.storeName}</span>,
       },
       {
         key: "market",
         header: "Market",
         searchValue: (r) => r.marketName,
-        accessor: (r) => (
-          <span className="text-foreground text-sm">{r.marketName}</span>
-        ),
+        accessor: (r) => <span className="text-foreground text-sm">{r.marketName}</span>,
       },
       {
         key: "investigation",
         header: "Investigation Reason",
         searchValue: (r) => r.title,
-        accessor: (r) => (
-          <span className="text-foreground text-sm line-clamp-1">{r.title}</span>
-        ),
+        accessor: (r) => <span className="text-foreground text-sm line-clamp-1">{r.title}</span>,
       },
       {
         key: "priority",
         header: "Priority",
         searchValue: (r) => r.priority,
         accessor: (r) => (
-          <Badge variant="outline" className={`capitalize text-xs font-medium ${PRIORITY_TONES[r.priority]}`}>
+          <Badge
+            variant="outline"
+            className={`capitalize text-xs font-medium ${PRIORITY_TONES[r.priority]}`}
+          >
             {r.priority}
           </Badge>
         ),
@@ -298,27 +369,26 @@ export default function ReportRequestsPage() {
         key: "requestedBy",
         header: "Requested By",
         searchValue: (r) => r.requestedBy,
-        accessor: (r) => (
-          <span className="text-foreground text-sm">{r.requestedBy}</span>
-        ),
+        accessor: (r) => <span className="text-foreground text-sm">{r.requestedBy}</span>,
       },
       {
         key: "preparedBy",
         header: "Prepared by",
-        searchValue: (r) => r.preparedBy || "-",
+        searchValue: (r) =>
+          normalizeRequestStatus(r.status) === "Completed" ? r.preparedBy || "-" : "-",
         accessor: (r) => (
-          <span className="text-foreground text-sm">{r.preparedBy || "-"}</span>
+          <span className="text-foreground text-sm">
+            {normalizeRequestStatus(r.status) === "Completed" ? r.preparedBy || "-" : "-"}
+          </span>
         ),
       },
       {
         key: "status",
         header: "Status",
-        searchValue: (r) => r.status,
+        searchValue: (r) => normalizeRequestStatus(r.status),
         accessor: (r) => {
-          const cfg = STATUS_CONFIG[r.status] || {
-            label: r.status,
-            tone: "border-border text-foreground",
-          };
+          const normalized = normalizeRequestStatus(r.status);
+          const cfg = REQUEST_STATUS_CONFIG[normalized];
           return (
             <Badge variant="outline" className={`text-xs font-semibold ${cfg.tone}`}>
               {cfg.label}
@@ -330,320 +400,456 @@ export default function ReportRequestsPage() {
     [],
   );
 
-  // If a detail row is selected, render the dedicated Detail Page
+  const selectedDetail = useMemo(
+    () => (selectedDetailId ? requests.find((r) => r.id === selectedDetailId) || null : null),
+    [requests, selectedDetailId],
+  );
+
+  // REQUESTED REPORT DETAILS PAGE (Consistent UI format matching Request Details)
   if (selectedDetail) {
-    const item =
-      requests.find((r) => r.id === selectedDetail.id) ||
-      INITIAL_SURVEILLANCE_REQUESTS.find((r) => r.id === selectedDetail.id) ||
-      selectedDetail;
+    const item = selectedDetail;
+    const normalizedStatus = normalizeRequestStatus(item.status);
+    const isCompleted = normalizedStatus === "Completed";
+    const showPreparedBy = isCompleted && Boolean(item.preparedBy);
+    const statusCfg = REQUEST_STATUS_CONFIG[normalizedStatus];
 
-    const isPending = item.status === "Report Requested";
-    const reportExists = Boolean(
-      item.linkedReportId ||
-      item.preparedBy ||
-      item.status === "Report Received" ||
-      item.status === "Approved" ||
-      item.status === "Rejected",
+    const linkedReport = reports.find(
+      (rep) => rep.id === item.linkedReportId || rep.requestId === item.id,
     );
-
-    const targetReportId = item.linkedReportId || (item.id === "SRV-REQ-101" ? "SRV-REP-202" : "SRV-REP-201");
+    const targetReportId = item.linkedReportId || linkedReport?.id;
+    const givenRating = item.managerRating ?? linkedReport?.managerRating;
+    const ratingReviewer = item.reportApprovedBy || linkedReport?.reviewedBy;
 
     return (
-      <div className="space-y-6 animate-fade-in">
-        {/* Top Header / Back Bar */}
-        <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
+      <div className="space-y-5 animate-fade-in">
+        {/* Top Bar */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-3.5">
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setSelectedDetail(null)}
-              className="h-8 gap-1.5 px-2.5 text-xs font-medium"
+              onClick={() => setSelectedDetailId(null)}
+              className="h-9 gap-1.5 rounded-xl px-3.5 text-xs font-medium bg-background shadow-xs whitespace-nowrap shrink-0"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Back to Reports
+              Back to Request Reports
             </Button>
-            <div className="flex items-center gap-2">
-              <h1 className="font-display text-xl font-bold tracking-tight text-foreground">
-                Report Details
+            <div>
+              <p className="text-[11px] font-medium text-muted-foreground leading-tight">
+                Request Reports
+              </p>
+              <h1 className="font-display text-2xl font-bold tracking-tight text-foreground leading-tight">
+                Requested Report Details
               </h1>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {/* View Report Button -> Only when status is NOT 'Report Requested' and report exists */}
-            {item.status !== "Report Requested" && reportExists && (
-              <Button
-                onClick={() => navigate(`/surveillance/reports/${targetReportId}`)}
-                className="gap-2 bg-primary text-primary-foreground shadow-xs font-medium text-xs h-9"
-              >
-                <Eye className="h-4 w-4" />
-                View Report
-                {item.status === "Approved" && (
-                  <Badge variant="secondary" className="ml-1 text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-                    Approved
-                  </Badge>
-                )}
-                {item.status === "Rejected" && (
-                  <Badge variant="secondary" className="ml-1 text-[10px] bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300">
-                    Rejected
-                  </Badge>
-                )}
-              </Button>
+          <div className="flex flex-wrap items-center gap-2.5">
+            {normalizedStatus === "Completed" && Boolean(targetReportId) && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate(`/surveillance/requests/summary/${targetReportId}`)}
+                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold border-blue-200 bg-blue-50/70 text-blue-700 hover:bg-blue-100/80 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70 shadow-xs whitespace-nowrap shrink-0"
+                >
+                  <FileText className="h-4 w-4" />
+                  View Summary
+                </Button>
+                <Button
+                  onClick={() => navigate(`/surveillance/requests/report/${targetReportId}`)}
+                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
+                >
+                  <Eye className="h-4 w-4" />
+                  View Report
+                </Button>
+              </>
             )}
           </div>
         </div>
 
-        {/* Top Banner Overview */}
-        <Card className="p-4 bg-muted/20 border-border/80">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <StoreIcon className="h-4 w-4 text-primary" />
-                <span className="font-semibold text-base text-foreground">
-                  {item.storeName}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  • {item.marketName}
-                </span>
-              </div>
-              <h2 className="mt-1 text-sm font-medium text-foreground">
-                {item.title}
-              </h2>
+        {/* Store Header + 6 Distinctly Colored Summary Cards */}
+        <Card className="p-6 rounded-2xl border-border/70 shadow-xs space-y-5">
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-900/50 shrink-0">
+              <StoreIcon className="h-5 w-5" />
             </div>
+            <h2 className="font-display text-lg font-bold text-foreground tracking-tight">
+              {item.storeName}
+            </h2>
+          </div>
 
-            {/* Middle: Prominent Report Status */}
-            <div className="flex flex-col items-center justify-center px-5 py-2 rounded-lg border bg-card shadow-xs">
-              <span className="text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">
-                Report Status
-              </span>
-              <div className="mt-0.5 flex items-center gap-2">
-                <span
-                  className={`h-2.5 w-2.5 rounded-full ${
-                    item.status === "Approved"
-                      ? "bg-emerald-500"
-                      : item.status === "Rejected"
-                        ? "bg-rose-500"
-                        : item.status === "Report Received"
-                          ? "bg-blue-500"
-                          : "bg-amber-500"
-                  }`}
-                />
-                <span className="text-base font-bold text-foreground">
-                  {STATUS_CONFIG[item.status]?.label || item.status}
-                </span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {/* 1. Market Card - Blue */}
+            <div className="flex items-start gap-3.5 rounded-xl border border-blue-200/80 bg-blue-50/60 p-4 dark:border-blue-900/50 dark:bg-blue-950/25">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-blue-600 border border-blue-100 shadow-2xs dark:bg-blue-950 dark:text-blue-400 dark:border-blue-900 shrink-0">
+                <MapPin className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[11px] font-medium text-blue-700/80 dark:text-blue-300/80">
+                  Market
+                </div>
+                <div className="text-sm font-bold text-blue-950 dark:text-blue-100 truncate mt-0.5">
+                  {item.marketName}
+                </div>
+                {item.districtName && (
+                  <div className="text-[11px] text-blue-700/70 dark:text-blue-300/70 mt-0.5">
+                    {item.districtName}
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <Badge variant="outline" className={`capitalize text-xs font-semibold px-2.5 py-1 ${PRIORITY_TONES[item.priority]}`}>
-                Priority: {item.priority}
-              </Badge>
+            {/* 2. Priority Card - Orange */}
+            <div className="flex items-start gap-3.5 rounded-xl border border-orange-200/80 bg-orange-50/60 p-4 dark:border-orange-900/50 dark:bg-orange-950/25">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-orange-600 border border-orange-100 shadow-2xs dark:bg-orange-950 dark:text-orange-400 dark:border-orange-900 shrink-0">
+                <AlertTriangle className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[11px] font-medium text-orange-700/80 dark:text-orange-300/80">
+                  Priority
+                </div>
+                <div className="text-sm font-bold text-orange-950 dark:text-orange-100 capitalize mt-0.5">
+                  {formatPriorityLabel(item.priority)}
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Current Status Card - Amber */}
+            <div className="flex items-start gap-3.5 rounded-xl border border-amber-200/80 bg-amber-50/60 p-4 dark:border-amber-900/50 dark:bg-amber-950/25">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white border border-amber-100 shadow-2xs dark:bg-amber-950 dark:border-amber-900 shrink-0">
+                <span className={`h-2.5 w-2.5 rounded-full ${statusCfg.dotClass}`} />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[11px] font-medium text-amber-800/80 dark:text-amber-300/80">
+                  Current status
+                </div>
+                <div className={`text-sm font-bold mt-0.5 ${statusCfg.textClass}`}>
+                  {statusCfg.label}
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Surveillance Date Card - Purple */}
+            <div className="flex items-start gap-3.5 rounded-xl border border-purple-200/80 bg-purple-50/60 p-4 dark:border-purple-900/50 dark:bg-purple-950/25">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-purple-600 border border-purple-100 shadow-2xs dark:bg-purple-950 dark:text-purple-400 dark:border-purple-900 shrink-0">
+                <Calendar className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[11px] font-medium text-purple-700/80 dark:text-purple-300/80">
+                  Surveillance date
+                </div>
+                <div className="text-sm font-bold text-purple-950 dark:text-purple-100 tabular-nums mt-0.5">
+                  {formatDisplayDate(item.incidentDate)}
+                </div>
+              </div>
+            </div>
+
+            {/* 5. Requested By Card - Cyan */}
+            <div className="flex items-start gap-3.5 rounded-xl border border-cyan-200/80 bg-cyan-50/60 p-4 dark:border-cyan-900/50 dark:bg-cyan-950/25">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-cyan-600 border border-cyan-100 shadow-2xs dark:bg-cyan-950 dark:text-cyan-400 dark:border-cyan-900 shrink-0">
+                <UserIcon className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[11px] font-medium text-cyan-700/80 dark:text-cyan-300/80">
+                  Requested by
+                </div>
+                <div className="text-sm font-bold text-cyan-950 dark:text-cyan-100 truncate mt-0.5">
+                  {item.requestedBy}
+                </div>
+              </div>
+            </div>
+
+            {/* 6. Prepared By Card - Emerald */}
+            <div className="flex items-start gap-3.5 rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/25">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-emerald-600 border border-emerald-100 shadow-2xs dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-900 shrink-0">
+                <UserPlus className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[11px] font-medium text-emerald-700/80 dark:text-emerald-300/80">
+                  Prepared by
+                </div>
+                <div className="text-sm font-bold text-emerald-950 dark:text-emerald-100 truncate mt-0.5">
+                  {showPreparedBy ? item.preparedBy : "-"}
+                </div>
+              </div>
             </div>
           </div>
         </Card>
 
-        {/* 2-Column Section: Requested By & Prepared By with distinct colors */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Requested By Profile Card (Blue Accent Tone) */}
-          <Card className="p-4 border-blue-200/80 bg-blue-50/40 dark:bg-blue-950/25 dark:border-blue-900/50 space-y-3">
-            <div className="flex items-center justify-between border-b pb-2">
-              <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
-                <UserIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <span>Requested By</span>
-              </div>
-              <Badge variant="outline" className="text-xs border-blue-300 text-blue-800 dark:text-blue-300">
-                {item.requesterRole}
-              </Badge>
+        {/* Investigation Scope Section */}
+        <Card className="p-6 rounded-2xl border-border/70 shadow-xs space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-900/50 shrink-0">
+              <Search className="h-4 w-4" />
             </div>
+            <h3 className="font-display text-base font-bold text-foreground">
+              Investigation scope
+            </h3>
+          </div>
 
-            <div className="space-y-2 text-xs">
-              <div className="grid grid-cols-3 gap-2">
-                <span className="text-muted-foreground font-medium">Full Name:</span>
-                <span className="col-span-2 font-semibold text-foreground">
-                  {item.requestedBy}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <span className="text-muted-foreground font-medium">Email:</span>
-                <span className="col-span-2 text-foreground flex items-center gap-1.5 font-mono">
-                  <Mail className="h-3 w-3 text-muted-foreground" />
-                  {item.requesterEmail || "david.kim@techno.com"}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <span className="text-muted-foreground font-medium">Phone:</span>
-                <span className="col-span-2 text-foreground flex items-center gap-1.5 font-mono">
-                  <Phone className="h-3 w-3 text-muted-foreground" />
-                  {item.requesterPhone || "+1 (214) 555-0192"}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <span className="text-muted-foreground font-medium">Department:</span>
-                <span className="col-span-2 text-foreground flex items-center gap-1.5">
-                  <Building className="h-3 w-3 text-muted-foreground" />
-                  {item.requesterDepartment || "Regional Operations"}
-                </span>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2">
-                <span className="text-muted-foreground font-medium">Request Date:</span>
-                <span className="col-span-2 text-muted-foreground">
-                  {new Date(item.createdAt).toLocaleString()}
-                </span>
-              </div>
+          <div className="space-y-1">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              REASON / INCIDENT SUMMARY
             </div>
-          </Card>
+            <div className="text-base font-bold text-foreground">{item.title}</div>
+          </div>
 
-          {/* Prepared By Profile Card (Purple Accent Tone, without Assigned & Active tag) */}
-          <Card className="p-4 border-purple-200/80 bg-purple-50/40 dark:bg-purple-950/25 dark:border-purple-900/50 space-y-3">
-            <div className="flex items-center justify-between border-b pb-2">
-              <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
-                <ShieldCheck className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                <span>Prepared By (Submitter / Auditor)</span>
-              </div>
+          <div className="space-y-2 pt-1">
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              SPECIAL INSTRUCTIONS FROM REQUESTER
             </div>
-
-            {item.preparedBy ? (
-              <div className="space-y-2 text-xs">
-                <div className="grid grid-cols-3 gap-2">
-                  <span className="text-muted-foreground font-medium">Auditor Name:</span>
-                  <span className="col-span-2 font-semibold text-foreground">
-                    {item.preparedBy}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <span className="text-muted-foreground font-medium">Role:</span>
-                  <span className="col-span-2 text-foreground">
-                    {item.preparedByRole || "Surveillance Auditor"}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <span className="text-muted-foreground font-medium">Email:</span>
-                  <span className="col-span-2 text-foreground flex items-center gap-1.5 font-mono">
-                    <Mail className="h-3 w-3 text-muted-foreground" />
-                    {item.preparedByEmail || "investigator@techno.com"}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <span className="text-muted-foreground font-medium">Phone:</span>
-                  <span className="col-span-2 text-foreground flex items-center gap-1.5 font-mono">
-                    <Phone className="h-3 w-3 text-muted-foreground" />
-                    {item.preparedByPhone || "+1 (214) 555-0821"}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <span className="text-muted-foreground font-medium">Submitted At:</span>
-                  <span className="col-span-2 text-muted-foreground">
-                    {item.preparedAt ? new Date(item.preparedAt).toLocaleString() : "Recently submitted"}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="py-4 text-center text-xs text-muted-foreground space-y-1">
-                <p className="font-medium text-foreground">No Surveillance Report Submitted Yet</p>
-                <p>Once an auditor submits the surveillance audit form, their complete report will appear here.</p>
-              </div>
-            )}
-          </Card>
-        </div>
-
-        {/* Rejection / Declined Reason Section (Displayed when the report or request is rejected) */}
-        {(item.status === "Rejected" ||
-          item.reportStatus === "Rejected" ||
-          Boolean(item.rejectionReason || (item.status !== "Approved" && item.managerComments))) && (
-          <Card className="p-4 border-rose-200/90 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/60 space-y-3">
-            <div className="flex items-center justify-between border-b border-rose-200/80 dark:border-rose-900/40 pb-2">
-              <div className="flex items-center gap-2 text-rose-900 dark:text-rose-200 font-semibold text-sm">
-                <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
-                <span>Rejection Reason</span>
-              </div>
-              <Badge
-                variant="outline"
-                className="border-rose-300 bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 text-xs font-semibold"
-              >
-                Rejected
-              </Badge>
+            <div className="flex items-start gap-3 rounded-xl border border-indigo-100 bg-indigo-50/45 p-4 text-xs text-foreground leading-relaxed dark:border-indigo-900/40 dark:bg-indigo-950/25">
+              <MessageSquare className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
+              <p className="whitespace-pre-wrap">
+                {item.notes ||
+                  "No additional context or special instructions were provided by the requester."}
+              </p>
             </div>
+          </div>
+        </Card>
 
-            <div className="space-y-2 text-xs">
-              <div className="p-3.5 rounded-lg border border-rose-200/90 bg-white/90 dark:bg-card text-foreground leading-relaxed whitespace-pre-wrap text-xs shadow-xs font-medium">
-                {item.rejectionReason ||
-                  item.managerComments ||
-                  "This report was declined during management review."}
+        {/* Read-Only Report Rating Banner (Displayed when Completed with a rating) */}
+        {normalizedStatus === "Completed" && Boolean(givenRating && givenRating > 0) && (
+          <Card className="p-5 rounded-2xl border-amber-200/90 bg-amber-50/40 dark:bg-amber-950/20 dark:border-amber-900/50 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <Star className="h-4 w-4 fill-amber-400 text-amber-400 shrink-0" />
+                  <span>Report Rating</span>
+                  <Badge
+                    variant="outline"
+                    className="border-amber-300 bg-amber-100/70 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 text-[10px] font-medium"
+                  >
+                    View Only
+                  </Badge>
+                </div>
+                {ratingReviewer && (
+                  <p className="text-xs text-muted-foreground">
+                    Rated by{" "}
+                    <strong className="font-semibold text-foreground">{ratingReviewer}</strong>
+                  </p>
+                )}
               </div>
 
-              {(item.reportApprovedBy || item.approvedBy) && (
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground pt-1 px-0.5">
-                  <span>
-                    Reviewed by:{" "}
-                    <strong className="text-foreground font-semibold">
-                      {item.reportApprovedBy || item.approvedBy}
-                    </strong>
-                  </span>
-                  {(item.reportApprovedAt || item.approvedAt) && (
-                    <span>
-                      Date:{" "}
-                      {new Date(
-                        item.reportApprovedAt || item.approvedAt || "",
-                      ).toLocaleString()}
-                    </span>
-                  )}
+              <div className="flex items-center gap-1.5 select-none pointer-events-none">
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      className={`h-4 w-4 ${
+                        s <= (givenRating || 0)
+                          ? "fill-amber-400 text-amber-400"
+                          : "text-muted-foreground/30"
+                      }`}
+                    />
+                  ))}
                 </div>
-              )}
+                <span className="ml-1 text-xs font-semibold text-foreground">
+                  {givenRating} / 5
+                </span>
+              </div>
             </div>
           </Card>
         )}
 
-        {/* Investigation Parameters: Strictly Investigation Reason, Surveillance Date, and Additional Context */}
-        <Card className="p-4 border-border/80 space-y-3">
-          <div className="border-b pb-2">
-            <h3 className="text-sm font-semibold text-foreground">
-              Investigation Parameters
-            </h3>
-          </div>
+        {/* Bottom 2-Column Section: "Requested by" & "Prepared by" with Distinct Colors */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
+          {/* Left Card: Requested by (Blue Tint) */}
+          <Card className="p-6 rounded-2xl border-blue-200/80 bg-blue-50/35 dark:bg-blue-950/20 dark:border-blue-900/50 shadow-xs flex flex-col justify-between space-y-5">
+            <div className="space-y-5">
+              <div className="text-xs font-bold uppercase tracking-wider text-blue-900/80 dark:text-blue-300">
+                Requested by
+              </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div>
-              <span className="text-muted-foreground block font-medium">Investigation Reason:</span>
-              <div className="font-semibold text-foreground mt-0.5 text-sm">{item.title}</div>
-            </div>
-            <div>
-              <span className="text-muted-foreground block font-medium">Surveillance Date:</span>
-              <div className="font-semibold text-foreground mt-0.5 text-sm">{item.incidentDate}</div>
-            </div>
-          </div>
+              <div className="flex items-center gap-3.5 border-b border-blue-200/60 dark:border-blue-900/50 pb-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-600 text-white font-display text-sm font-bold shadow-xs shrink-0">
+                  {getInitials(item.requestedBy)}
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <div className="text-base font-bold text-foreground truncate">
+                    {item.requestedBy}
+                  </div>
+                  <span className="inline-flex items-center rounded-md bg-blue-100/90 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-900/60 dark:text-blue-200">
+                    {item.requesterRole}
+                  </span>
+                </div>
+              </div>
 
-          <div className="pt-2 border-t">
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block mb-1">
-              Additional Context / Special Instructions
-            </span>
-            <div className="p-3 rounded-lg border bg-card text-foreground text-xs leading-relaxed whitespace-pre-wrap">
-              {item.notes || "No additional context or special instructions provided."}
+              <div className="space-y-3.5 text-xs">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/90 text-blue-600 border border-blue-100 dark:bg-blue-950/60 dark:text-blue-400 dark:border-blue-900 shrink-0">
+                    <Mail className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] text-muted-foreground">Email</div>
+                    <div className="font-medium text-blue-700 dark:text-blue-300 break-all">
+                      {item.requesterEmail || "—"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/90 text-blue-600 border border-blue-100 dark:bg-blue-950/60 dark:text-blue-400 dark:border-blue-900 shrink-0">
+                    <Phone className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] text-muted-foreground">Phone</div>
+                    <div className="font-medium text-blue-700 dark:text-blue-300 tabular-nums">
+                      {item.requesterPhone || "—"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/90 text-blue-600 border border-blue-100 dark:bg-blue-950/60 dark:text-blue-400 dark:border-blue-900 shrink-0">
+                    <Building2 className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] text-muted-foreground">Department</div>
+                    <div className="font-medium text-foreground">
+                      {item.requesterDepartment || "—"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/90 text-blue-600 border border-blue-100 dark:bg-blue-950/60 dark:text-blue-400 dark:border-blue-900 shrink-0">
+                    <Clock className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] text-muted-foreground">Request received at</div>
+                    <div className="font-medium text-foreground tabular-nums">
+                      {formatDateTimeDisplay(item.createdAt)}
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+
+          {/* Right Card: Prepared by (Emerald Tint) */}
+          <Card className="p-6 rounded-2xl border-emerald-200/80 bg-emerald-50/35 dark:bg-emerald-950/20 dark:border-emerald-900/50 shadow-xs flex flex-col justify-between space-y-5">
+            <div className="space-y-5">
+              <div className="text-xs font-bold uppercase tracking-wider text-emerald-900/80 dark:text-emerald-300">
+                Prepared by
+              </div>
+
+              <div className="flex items-center gap-3.5 border-b border-emerald-200/60 dark:border-emerald-900/50 pb-4">
+                {showPreparedBy ? (
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white font-display text-sm font-bold shadow-xs shrink-0">
+                    {getInitials(item.preparedBy)}
+                  </div>
+                ) : (
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full border border-dashed border-emerald-300 bg-white/80 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 shrink-0">
+                    <UserIcon className="h-5 w-5" />
+                  </div>
+                )}
+
+                <div className="min-w-0 space-y-1">
+                  <div className="text-base font-bold text-foreground truncate">
+                    {showPreparedBy ? item.preparedBy : "-"}
+                  </div>
+
+                  {showPreparedBy && (
+                    <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100/90 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
+                      {item.preparedByRole || "Surveillance Auditor"}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-3.5 text-xs">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/90 text-emerald-600 border border-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-900 shrink-0">
+                    <Mail className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] text-muted-foreground">Email</div>
+                    <div className="font-medium text-foreground break-all">
+                      {showPreparedBy ? item.preparedByEmail || "-" : "-"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/90 text-emerald-600 border border-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-900 shrink-0">
+                    <Phone className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] text-muted-foreground">Phone</div>
+                    <div className="font-medium text-foreground tabular-nums">
+                      {showPreparedBy ? item.preparedByPhone || "-" : "-"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/90 text-emerald-600 border border-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-900 shrink-0">
+                    <Building2 className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] text-muted-foreground">Department</div>
+                    <div className="font-medium text-foreground">
+                      {showPreparedBy
+                        ? item.preparedByDepartment || "Surveillance & Loss Prevention"
+                        : "-"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/90 text-emerald-600 border border-emerald-100 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-900 shrink-0">
+                    <Clock className="h-3.5 w-3.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[11px] text-muted-foreground">Submitted at</div>
+                    <div className="font-medium text-foreground tabular-nums">
+                      {showPreparedBy && item.preparedAt
+                        ? formatDateTimeDisplay(item.preparedAt)
+                        : "-"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {normalizedStatus === "Completed" ? (
+              <div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-100/60 p-3.5 text-xs text-emerald-900 dark:border-emerald-800/60 dark:bg-emerald-950/50 dark:text-emerald-200">
+                <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+                <span>
+                  Surveillance audit report completed and verified. Click{" "}
+                  <strong>View Summary</strong> or <strong>View Report</strong> above to inspect the
+                  audit findings.
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/90 p-3.5 text-xs text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
+                <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <span>
+                  Audit report preparation and validation review in progress. The report will become
+                  visible once marked as completed.
+                </span>
+              </div>
+            )}
+          </Card>
+        </div>
       </div>
     );
   }
 
-  // DEFAULT VIEW: "Reports" List Table View
+  // DEFAULT VIEW: "Request Reports" List Table View
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-4 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2.5">
-            <h1 className="font-display text-2xl font-semibold tracking-tight">
-              Reports
-            </h1>
-            <Badge variant="outline" className="border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">
+            <h1 className="font-display text-2xl font-semibold tracking-tight">Request Reports</h1>
+            <Badge
+              variant="outline"
+              className="border-indigo-300 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300"
+            >
               Surveillance
             </Badge>
           </div>
@@ -660,50 +866,70 @@ export default function ReportRequestsPage() {
         </div>
       </div>
 
-      {/* KPI Cards: 4 cards with distinct colors — Total Requests, Received, Pending, and Approved */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {/* KPI Cards: Strictly 3 cards — Total Requests (Pending + Completed), Pending, and Completed */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {/* Card 1: Total Requests (Blue tone) */}
-        <Card className="p-4 border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900/50">
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setStatusFilter("all")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setStatusFilter("all");
+          }}
+          className={`p-4 cursor-pointer transition-all border-blue-200 bg-blue-50/50 hover:bg-blue-50/80 dark:bg-blue-950/20 dark:border-blue-900/50 ${
+            statusFilter === "all" ? "ring-2 ring-blue-500/70 shadow-xs" : ""
+          }`}
+        >
           <div className="text-xs text-blue-800 dark:text-blue-300 font-medium uppercase tracking-wider">
             Total Requests
           </div>
-          <div className="mt-1 text-2xl font-bold font-display text-blue-950 dark:text-blue-100">
+          <div className="mt-1 text-2xl font-bold font-display text-blue-950 dark:text-blue-100 tabular-nums">
             {metrics.total}
           </div>
         </Card>
 
-        {/* Card 2: Received (Report Received, Approved, and Rejected) (Purple tone) */}
-        <Card className="p-4 border-purple-300/80 bg-purple-50/50 dark:bg-purple-950/20 dark:border-purple-900/50">
-          <div className="text-xs text-purple-800 dark:text-purple-300 font-medium uppercase tracking-wider">
-            Received
-          </div>
-          <div className="mt-1 text-2xl font-bold font-display text-purple-950 dark:text-purple-100">
-            {metrics.received}
-          </div>
-        </Card>
-
-        {/* Card 3: Pending (Report Requested) (Amber tone) */}
-        <Card className="p-4 border-amber-300/80 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/50">
+        {/* Card 2: Pending (Amber tone) */}
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setStatusFilter("Pending")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setStatusFilter("Pending");
+          }}
+          className={`p-4 cursor-pointer transition-all border-amber-300/80 bg-amber-50/50 hover:bg-amber-50/80 dark:bg-amber-950/20 dark:border-amber-900/50 ${
+            statusFilter === "Pending" ? "ring-2 ring-amber-500/70 shadow-xs" : ""
+          }`}
+        >
           <div className="text-xs text-amber-800 dark:text-amber-300 font-medium uppercase tracking-wider">
             Pending
           </div>
-          <div className="mt-1 text-2xl font-bold text-amber-950 dark:text-amber-100 font-display">
+          <div className="mt-1 text-2xl font-bold font-display text-amber-950 dark:text-amber-100 tabular-nums">
             {metrics.pending}
           </div>
         </Card>
 
-        {/* Card 4: Approved (Approved) (Emerald tone) */}
-        <Card className="p-4 border-emerald-300/80 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/50">
+        {/* Card 3: Completed (Emerald tone) */}
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setStatusFilter("Completed")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setStatusFilter("Completed");
+          }}
+          className={`p-4 cursor-pointer transition-all border-emerald-300/80 bg-emerald-50/50 hover:bg-emerald-50/80 dark:bg-emerald-950/20 dark:border-emerald-900/50 ${
+            statusFilter === "Completed" ? "ring-2 ring-emerald-500/70 shadow-xs" : ""
+          }`}
+        >
           <div className="text-xs text-emerald-800 dark:text-emerald-300 font-medium uppercase tracking-wider">
-            Approved
+            Completed
           </div>
-          <div className="mt-1 text-2xl font-bold text-emerald-950 dark:text-emerald-100 font-display">
-            {metrics.approved}
+          <div className="mt-1 text-2xl font-bold font-display text-emerald-950 dark:text-emerald-100 tabular-nums">
+            {metrics.completed}
           </div>
         </Card>
       </div>
 
-      {/* Toolbar filters: Market (1st), Status, Priority */}
+      {/* Toolbar filters: Market, Status (Pending, Completed), Priority */}
       <div className="flex flex-wrap items-center gap-2">
         <Select value={marketFilter} onValueChange={setMarketFilter}>
           <SelectTrigger className="h-9 w-[170px]">
@@ -725,10 +951,8 @@ export default function ReportRequestsPage() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="Report Requested">Report Requested</SelectItem>
-            <SelectItem value="Report Received">Report Received</SelectItem>
-            <SelectItem value="Approved">Approved</SelectItem>
-            <SelectItem value="Rejected">Rejected</SelectItem>
+            <SelectItem value="Pending">Pending</SelectItem>
+            <SelectItem value="Completed">Completed</SelectItem>
           </SelectContent>
         </Select>
 
@@ -744,33 +968,26 @@ export default function ReportRequestsPage() {
           </SelectContent>
         </Select>
 
-        {(statusFilter !== "all" || priorityFilter !== "all" || marketFilter !== "all") && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setMarketFilter("all");
-              setStatusFilter("all");
-              setPriorityFilter("all");
-            }}
-            className="h-9 px-2 text-xs text-muted-foreground hover:text-foreground gap-1 border border-dashed"
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            Reset Filters
-          </Button>
-        )}
+        <FilterReset
+          active={statusFilter !== "all" || priorityFilter !== "all" || marketFilter !== "all"}
+          onReset={() => {
+            setMarketFilter("all");
+            setStatusFilter("all");
+            setPriorityFilter("all");
+          }}
+        />
       </div>
 
-      {/* Table: strictly 7 columns, single info per column, no actions column, row click opens detail page */}
+      {/* Clickable DataTable */}
       <DataTable
         rows={filteredRequests}
         columns={columns}
         rowKey={(r) => r.id}
         searchPlaceholder="Search by Store, Market, Reason, or Requester..."
-        onRowClick={(r) => setSelectedDetail(r)}
+        onRowClick={(r) => setSelectedDetailId(r.id)}
       />
 
-      {/* CREATE REQUEST DIALOG - STRICTLY USER-REQUESTED FIELDS ONLY */}
+      {/* CREATE REQUEST DIALOG */}
       <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -781,7 +998,7 @@ export default function ReportRequestsPage() {
           </DialogHeader>
 
           <div className="space-y-4 pt-2 text-xs">
-            {/* 1. Market Dropdown (First Field) */}
+            {/* 1. Market Dropdown */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">
                 Market <span className="text-destructive">*</span>
@@ -800,57 +1017,63 @@ export default function ReportRequestsPage() {
               </Select>
             </div>
 
-            {/* 2. Store Name List Dropdown (Filtered by Selected Market) */}
+            {/* 2. Store Picker */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">
                 Store <span className="text-destructive">*</span>
               </Label>
-              <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select store" />
-                </SelectTrigger>
-                <SelectContent>
-                  {storesForMarket.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={storePickerOpen} onOpenChange={setStorePickerOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background px-3 text-xs text-foreground hover:bg-accent"
+                  >
+                    <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="flex-1 text-left truncate">
+                      {selectedStore
+                        ? `${selectedStore.name}${selectedStore.number ? ` (#${selectedStore.number})` : ""}`
+                        : "Select or type a store name..."}
+                    </span>
+                    <ChevronsUpDown className="h-3.5 w-3.5 opacity-50 shrink-0" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Type a store name..." />
+                    <CommandList>
+                      <CommandEmpty>No stores found in this market.</CommandEmpty>
+                      <CommandGroup>
+                        {storesForMarket.map((s) => (
+                          <CommandItem
+                            key={s.id}
+                            value={`${s.name} ${s.number}`}
+                            onSelect={() => {
+                              setSelectedStoreId(s.id);
+                              setStorePickerOpen(false);
+                            }}
+                          >
+                            {s.name}
+                            {s.number ? ` (#${s.number})` : ""}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
-            {/* 3. Date Interval (Single day or multiple days) */}
+            {/* 3. Date */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">
                 Date <span className="text-destructive">*</span>
               </Label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <span className="text-[11px] text-muted-foreground block">Start Date</span>
-                  <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => {
-                      setStartDate(e.target.value);
-                      if (!endDate || e.target.value > endDate) {
-                        setEndDate(e.target.value);
-                      }
-                    }}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <span className="text-[11px] text-muted-foreground block">End Date</span>
-                  <Input
-                    type="date"
-                    value={endDate}
-                    min={startDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
-                </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Pick the same start and end date for a single day, or different dates for an interval range.
-              </p>
+              <Input
+                type="date"
+                required
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
             </div>
 
             {/* 4. Priority */}
@@ -858,7 +1081,10 @@ export default function ReportRequestsPage() {
               <Label className="text-xs font-semibold">
                 Priority <span className="text-destructive">*</span>
               </Label>
-              <Select value={priority} onValueChange={(v) => setPriority(v as SurveillancePriority)}>
+              <Select
+                value={priority}
+                onValueChange={(v) => setPriority(v as SurveillancePriority)}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -882,7 +1108,7 @@ export default function ReportRequestsPage() {
               />
             </div>
 
-            {/* 6. Additional Context / Special Instructions (Optional: no red star) */}
+            {/* 6. Additional Context / Special Instructions */}
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold">
                 Additional Context / Special Instructions
@@ -900,7 +1126,9 @@ export default function ReportRequestsPage() {
             <Button variant="outline" onClick={() => setCreateModalOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleCreateRequest}>Submit Request</Button>
+            <Button onClick={handleCreateRequest} disabled={submittingRequest}>
+              {submittingRequest ? "Submitting..." : "Submit Request"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

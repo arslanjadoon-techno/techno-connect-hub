@@ -71,12 +71,20 @@ import ApproveLeavePage from "@/pages/portals/leave-management/ApproveLeave";
 
 // ---------- Surveillance Portal ---------- //
 import ReportRequestsPage from "@/pages/portals/surveillance/ReportRequestsPage";
+import ValidateAndAssignPage from "@/pages/portals/surveillance/ValidateAndAssignPage";
+import SurveillanceAgentsPage from "@/pages/portals/surveillance/SurveillanceAgentsPage";
 import SurveillanceReportsPage from "@/pages/portals/surveillance/SurveillanceReportsPage";
-import SurveillanceReportDetailPage from "@/pages/portals/surveillance/SurveillanceReportDetailPage";
+import RequestedSurveillanceReportPage from "@/pages/portals/surveillance/RequestedSurveillanceReportPage";
+import RequestedSurveillanceSummaryPage from "@/pages/portals/surveillance/RequestedSurveillanceSummaryPage";
+import SubmittedSurveillanceReportPage from "@/pages/portals/surveillance/SubmittedSurveillanceReportPage";
+import SurveillanceReportReviewPage from "@/pages/portals/surveillance/SurveillanceReportReviewPage";
+import SurveillanceNoAccessPage from "@/pages/portals/surveillance/SurveillanceNoAccessPage";
 import {
   getSurveillanceRole,
   canRequestSurveillance,
-  isSurveillanceUserRole,
+  canValidateSurveillance,
+  canAccessSurveillanceReports,
+  getSurveillanceDefaultRoute,
 } from "@/services/portals/surveillance/types";
 
 // ---------- User manager ---------- //
@@ -186,33 +194,32 @@ function SurveillanceRequestsOnly({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const role = getSurveillanceRole(user);
   if (!canRequestSurveillance(role)) {
-    return (
-      <Navigate to={isSurveillanceUserRole(user) ? "/surveillance/reports" : "/ai-chat"} replace />
-    );
+    return <Navigate to={getSurveillanceDefaultRoute(user)} replace />;
   }
   return <>{children}</>;
 }
 
-function SurveillanceUserOnly({ children }: { children: ReactNode }) {
+function SurveillanceReportsAccessOnly({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  if (!isSurveillanceUserRole(user)) {
-    const role = getSurveillanceRole(user);
-    return (
-      <Navigate to={canRequestSurveillance(role) ? "/surveillance/requests" : "/ai-chat"} replace />
-    );
+  const role = getSurveillanceRole(user);
+  if (!canAccessSurveillanceReports(role)) {
+    return <Navigate to={getSurveillanceDefaultRoute(user)} replace />;
+  }
+  return <>{children}</>;
+}
+
+function SurveillanceValidateOnly({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const role = getSurveillanceRole(user);
+  if (!canValidateSurveillance(role)) {
+    return <Navigate to={getSurveillanceDefaultRoute(user)} replace />;
   }
   return <>{children}</>;
 }
 
 function SurveillanceRedirect() {
   const { user } = useAuth();
-  if (isSurveillanceUserRole(user)) {
-    return <Navigate to="/surveillance/reports" replace />;
-  }
-  const role = getSurveillanceRole(user);
-  return (
-    <Navigate to={canRequestSurveillance(role) ? "/surveillance/requests" : "/ai-chat"} replace />
-  );
+  return <Navigate to={getSurveillanceDefaultRoute(user)} replace />;
 }
 
 function UserManagementOnly({ children }: { children: ReactNode }) {
@@ -762,12 +769,82 @@ export function AppRoutes() {
           }
         />
         <Route
+          path="/surveillance/requests/summary/:id"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceRequestsOnly>
+                <RequestedSurveillanceSummaryPage />
+              </SurveillanceRequestsOnly>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/surveillance/requests/report/:id"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceRequestsOnly>
+                <RequestedSurveillanceReportPage />
+              </SurveillanceRequestsOnly>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/surveillance/validate-and-assign"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceValidateOnly>
+                <ValidateAndAssignPage />
+              </SurveillanceValidateOnly>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/surveillance/validate-and-assign/agents"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceValidateOnly>
+                <SurveillanceAgentsPage />
+              </SurveillanceValidateOnly>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/surveillance/validate-and-assign/summary/:id"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceValidateOnly>
+                <RequestedSurveillanceSummaryPage />
+              </SurveillanceValidateOnly>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/surveillance/validate-and-assign/review/:id"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceValidateOnly>
+                <SurveillanceReportReviewPage />
+              </SurveillanceValidateOnly>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
           path="/surveillance/reports"
           element={
             <PortalRouteGuard portalKey="surveillance">
-              <SurveillanceUserOnly>
+              <SurveillanceReportsAccessOnly>
                 <SurveillanceReportsPage />
-              </SurveillanceUserOnly>
+              </SurveillanceReportsAccessOnly>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/surveillance/reports/submitted/:id"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceReportsAccessOnly>
+                <SubmittedSurveillanceReportPage />
+              </SurveillanceReportsAccessOnly>
             </PortalRouteGuard>
           }
         />
@@ -775,7 +852,17 @@ export function AppRoutes() {
           path="/surveillance/reports/:id"
           element={
             <PortalRouteGuard portalKey="surveillance">
-              <SurveillanceReportDetailPage />
+              <SurveillanceReportsAccessOnly>
+                <SubmittedSurveillanceReportPage />
+              </SurveillanceReportsAccessOnly>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/surveillance/no-access"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceNoAccessPage />
             </PortalRouteGuard>
           }
         />
