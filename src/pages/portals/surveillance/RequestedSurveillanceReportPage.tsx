@@ -551,18 +551,24 @@ export default function RequestedSurveillanceReportPage() {
     if (isFieldCustomInRow(row, key)) {
       return formatCellValue(getRowFieldDetail(row, key));
     }
-    return formatCellValue(row[key]);
+    const baseVal = formatCellValue(row[key]);
+    const detailVal = getRowFieldDetail(row, key);
+    if (detailVal && baseVal !== "-") {
+      return `${baseVal} — ${detailVal}`;
+    }
+    return baseVal;
   };
 
   const activeAuditFields = useMemo(() => {
     return AUDIT_DATA_FIELDS.map((field) => {
       const hasCustom = allRows.some((r) => isFieldCustomInRow(r, field.key));
+      const hasDetails = allRows.some((r) => Boolean(getRowFieldDetail(r, field.key)));
       const cleanBaseLabel = field.label.replace(/\?+$/, "").trim();
       return {
         baseKey: field.key,
         colKey: hasCustom ? `${field.key}Details` : field.key,
         header: hasCustom ? `${cleanBaseLabel} Details` : field.label,
-        hasCustom,
+        hasCustom: hasCustom || hasDetails,
       };
     });
   }, [allRows]);

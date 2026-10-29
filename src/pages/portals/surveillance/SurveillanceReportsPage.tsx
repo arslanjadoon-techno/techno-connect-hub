@@ -221,10 +221,14 @@ const CLIENT_TYPE_OPTIONS = [
   { value: "Non-Buyer", label: "Non-Buyer" },
 ];
 
-const PAYMENT_TYPE_OPTIONS = [
+const REP_NAME_OPTIONS = [
   { value: "__empty__", label: "-" },
-  { value: "Card", label: "Card" },
+  ...SALES_REP_NAMES.map((rep) => ({ value: rep, label: rep })),
+];
+
+const PAYMENT_TYPE_OPTIONS = [
   { value: "Cash", label: "Cash" },
+  { value: "Card", label: "Card" },
   { value: "Mix Payment", label: "Mix Payment" },
 ];
 
@@ -234,6 +238,94 @@ const PITCH_QUALITY_OPTIONS = [
   { value: "Average", label: "Average" },
   { value: "Poor", label: "Poor" },
 ];
+
+type FraudCheckboxFieldKey =
+  | "missOpportunity"
+  | "paymentFraud"
+  | "aalSwap"
+  | "mim"
+  | "onlineRejectedPayment"
+  | "flipping"
+  | "portIn"
+  | "nonUp"
+  | "smartPayMentioned"
+  | "aalBillSame";
+
+const FRAUD_VERIFICATION_ITEMS: {
+  key: FraudCheckboxFieldKey;
+  detailKey: `${FraudCheckboxFieldKey}Details`;
+  label: string;
+  notesPlaceholder: string;
+}[] = [
+  {
+    key: "missOpportunity",
+    detailKey: "missOpportunityDetails",
+    label: "Miss Opportunity",
+    notesPlaceholder: "Miss Opportunity notes",
+  },
+  {
+    key: "paymentFraud",
+    detailKey: "paymentFraudDetails",
+    label: "Payment Fraud",
+    notesPlaceholder: "Payment Fraud notes",
+  },
+  {
+    key: "aalSwap",
+    detailKey: "aalSwapDetails",
+    label: "AAL Swap",
+    notesPlaceholder: "AAL Swap notes",
+  },
+  {
+    key: "mim",
+    detailKey: "mimDetails",
+    label: "MIM",
+    notesPlaceholder: "MIM notes",
+  },
+  {
+    key: "onlineRejectedPayment",
+    detailKey: "onlineRejectedPaymentDetails",
+    label: "Online/Rejected Payment",
+    notesPlaceholder: "Online/Rejected Payment notes",
+  },
+  {
+    key: "flipping",
+    detailKey: "flippingDetails",
+    label: "Flipping",
+    notesPlaceholder: "Flipping notes",
+  },
+  {
+    key: "portIn",
+    detailKey: "portInDetails",
+    label: "Port In",
+    notesPlaceholder: "Port In notes",
+  },
+  {
+    key: "nonUp",
+    detailKey: "nonUpDetails",
+    label: "Non-Up",
+    notesPlaceholder: "Non-Up notes",
+  },
+  {
+    key: "smartPayMentioned",
+    detailKey: "smartPayMentionedDetails",
+    label: "SmartPay Mentioned",
+    notesPlaceholder: "SmartPay Mentioned notes",
+  },
+  {
+    key: "aalBillSame",
+    detailKey: "aalBillSameDetails",
+    label: "AAL Bill Same",
+    notesPlaceholder: "AAL Bill Same notes",
+  },
+];
+
+function hasAnyActiveFraudItem(row: SurveillanceAuditRow): boolean {
+  return FRAUD_VERIFICATION_ITEMS.some(
+    (item) =>
+      (row[item.key] || "").trim().toUpperCase() === "YES" ||
+      Boolean((row[item.detailKey] || "").trim()),
+  );
+}
 
 type CustomDetailFieldKey =
   | "transType"
@@ -336,7 +428,7 @@ function createEmptyAdditionalInvoice(): SurveillanceAdditionalInvoice {
     invoiceAmount: "",
     totalTaken: "",
     difference: "$0.00",
-    paymentType: "",
+    paymentType: "Cash",
     cash: "",
     card: "",
     receipt: "",
@@ -511,6 +603,64 @@ function calculateDifferenceDisplay(invoiceAmountRaw: string, totalTakenRaw: str
   if (Math.abs(diff) < 0.005) return "$0.00";
   if (diff < 0) return `-$${Math.abs(diff).toFixed(2)}`;
   return `$${diff.toFixed(2)}`;
+}
+
+function normalizePaymentTypeSelection(
+  paymentType?: string,
+  cash?: string,
+  card?: string,
+): "Cash" | "Card" | "Mix Payment" {
+  const pt = (paymentType || "").trim();
+  if (pt === "Card" || pt === "Cash" || pt === "Mix Payment") {
+    return pt;
+  }
+  const hasCard = Boolean(card && card.trim() && card.trim().toLowerCase() !== "card");
+  const hasCash = Boolean(cash && cash.trim() && cash.trim().toLowerCase() !== "cash");
+  if (hasCard && hasCash) return "Mix Payment";
+  if (hasCard) return "Card";
+  return "Cash";
+}
+
+function sanitizePaymentInputValue(
+  raw: string | undefined,
+  fallbackTotalTaken?: string,
+): string {
+  const trimmed = (raw || "").trim();
+  if (!trimmed) return "";
+  if (trimmed.toLowerCase() === "cash" || trimmed.toLowerCase() === "card") {
+    return (fallbackTotalTaken || "").trim();
+  }
+  return trimmed;
+}
+
+function computeTotalTakenFromPayments(
+  paymentType: string | undefined,
+  cashRaw: string | undefined,
+  cardRaw: string | undefined,
+): string {
+  const pt = normalizePaymentTypeSelection(paymentType, cashRaw, cardRaw);
+  const cashParsed = parseCurrencyNumber(cashRaw);
+  const cardParsed = parseCurrencyNumber(cardRaw);
+  if (pt === "Card") {
+    return cardParsed.valid ? `$${cardParsed.value.toFixed(2)}` : "";
+  }
+  if (pt === "Mix Payment") {
+    if (!cashParsed.valid && !cardParsed.valid) return "";
+    const sum =
+      (cashParsed.valid ? cashParsed.value : 0) + (cardParsed.valid ? cardParsed.value : 0);
+    return `$${sum.toFixed(2)}`;
+  }
+  return cashParsed.valid ? `$${cashParsed.value.toFixed(2)}` : "";
+}
+
+function calculatePaymentDifferenceDisplay(
+  invoiceAmountRaw: string | undefined,
+  paymentType: string | undefined,
+  cashRaw: string | undefined,
+  cardRaw: string | undefined,
+): string {
+  const totalTakenStr = computeTotalTakenFromPayments(paymentType, cashRaw, cardRaw);
+  return calculateDifferenceDisplay(invoiceAmountRaw || "", totalTakenStr);
 }
 
 const HOURS_12 = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
@@ -800,12 +950,11 @@ function createEmptyRepTimingRow(): RepTimingRow {
   };
 }
 
-// All dropdowns (Yes/No/-, Sales Rep, Client Type, Payment Type, Pitch Quality) default to "" ("-")
+// Dropdowns default to "" ("-"), except Payment Type which defaults to "Cash"
 function createEmptyAuditRow(
   storeName: string,
   marketName: string,
   defaultDate?: string,
-  defaultSalesRep?: string,
 ): SurveillanceAuditRow {
   return {
     id: `row-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -817,7 +966,7 @@ function createEmptyAuditRow(
     cashTime: "",
     time: "",
     bdiTime: "",
-    salesRep: defaultSalesRep || "",
+    salesRep: "",
     transType: "",
     transTypeDetails: "",
     clientType: "",
@@ -826,7 +975,7 @@ function createEmptyAuditRow(
     b: "",
     invoiceAmount: "",
     totalTaken: "",
-    paymentType: "",
+    paymentType: "Cash",
     cash: "",
     card: "",
     difference: "$0.00",
@@ -1029,15 +1178,9 @@ export default function SurveillanceReportsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
 
-  // Top header fields (Store Open / Store Close Settings)
+  // Top / bottom store open & close time fields
   const [headerStoreOpenTime, setHeaderStoreOpenTime] = useState<string>("");
-  const [headerSalesRep, setHeaderSalesRep] = useState<string>(
-    SALES_REP_NAMES[0] || "Abdul Razzak",
-  );
   const [headerStoreCloseTime, setHeaderStoreCloseTime] = useState<string>("");
-  const [headerStoreCloseSalesRep, setHeaderStoreCloseSalesRep] = useState<string>(
-    SALES_REP_NAMES[0] || "Abdul Razzak",
-  );
 
   // Standalone Floor Presence & Rep Timings rows
   const [repTimingRows, setRepTimingRows] = useState<RepTimingRow[]>([
@@ -1106,25 +1249,51 @@ export default function SurveillanceReportsPage() {
     const savedRecords = getStaticDraftRows(targetReq.id);
     if (savedRecords.length === 0) return;
 
-    const restoredRows = savedRecords.map((rec) =>
-      hydrateAuditRowDetails({
+    const restoredRows = savedRecords.map((rec) => {
+      const resolvedPt = normalizePaymentTypeSelection(
+        rec.row.paymentType,
+        rec.row.cash,
+        rec.row.card,
+      );
+      const cleanCash = sanitizePaymentInputValue(
+        rec.row.cash,
+        resolvedPt === "Cash" ? rec.row.totalTaken : "",
+      );
+      const cleanCard = sanitizePaymentInputValue(
+        rec.row.card,
+        resolvedPt === "Card" ? rec.row.totalTaken : "",
+      );
+      const computedTaken = computeTotalTakenFromPayments(resolvedPt, cleanCash, cleanCard);
+      return hydrateAuditRowDetails({
         ...rec.row,
         date: formatSurveillanceDate(rec.row.date || targetReq.incidentDate),
         marketName: rec.row.marketName?.trim() || targetReq.marketName || "",
         storeName: rec.row.storeName?.trim() || targetReq.storeName || "",
         clientType: normalizeClientType(rec.row.clientType, rec.row.b, rec.row.nb),
-        paymentType:
-          rec.row.paymentType === "Custom" || rec.row.paymentType === "Other"
-            ? ""
-            : rec.row.paymentType,
+        paymentType: resolvedPt,
+        cash: cleanCash,
+        card: cleanCard,
+        totalTaken: computedTaken,
+        difference: calculatePaymentDifferenceDisplay(
+          rec.row.invoiceAmount,
+          resolvedPt,
+          cleanCash,
+          cleanCard,
+        ),
         attachments: rec.row.attachments ? [...rec.row.attachments] : [],
-      }),
-    );
+      });
+    });
     const timestamps: Record<string, string> = {};
     const expanded: Record<string, boolean> = {};
+    const initialFraudOpen: Record<string, boolean> = {};
     for (const rec of savedRecords) {
       timestamps[rec.row.id] = rec.savedAt;
       expanded[rec.row.id] = true;
+    }
+    for (const r of restoredRows) {
+      if (hasAnyActiveFraudItem(r)) {
+        initialFraudOpen[r.id] = true;
+      }
     }
 
     setSelectedDetail(targetReq);
@@ -1132,6 +1301,7 @@ export default function SurveillanceReportsPage() {
     setSavedRowTimestamps(timestamps);
     setDirtyRowIds({});
     setExpandedRowIds(expanded);
+    setFraudSectionEnabledByRow(initialFraudOpen);
     setIsEditingReport(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataLoaded]);
@@ -1140,25 +1310,51 @@ export default function SurveillanceReportsPage() {
     // 1. Check MMKV storage first for previously saved row-by-row draft entries
     const savedRecords = getStaticDraftRows(reqItem.id);
     if (savedRecords.length > 0) {
-      const restoredRows = savedRecords.map((rec) =>
-        hydrateAuditRowDetails({
+      const restoredRows = savedRecords.map((rec) => {
+        const resolvedPt = normalizePaymentTypeSelection(
+          rec.row.paymentType,
+          rec.row.cash,
+          rec.row.card,
+        );
+        const cleanCash = sanitizePaymentInputValue(
+          rec.row.cash,
+          resolvedPt === "Cash" ? rec.row.totalTaken : "",
+        );
+        const cleanCard = sanitizePaymentInputValue(
+          rec.row.card,
+          resolvedPt === "Card" ? rec.row.totalTaken : "",
+        );
+        const computedTaken = computeTotalTakenFromPayments(resolvedPt, cleanCash, cleanCard);
+        return hydrateAuditRowDetails({
           ...rec.row,
           date: formatSurveillanceDate(rec.row.date || reqItem.incidentDate),
           marketName: rec.row.marketName?.trim() || reqItem.marketName || "",
           storeName: rec.row.storeName?.trim() || reqItem.storeName || "",
           clientType: normalizeClientType(rec.row.clientType, rec.row.b, rec.row.nb),
-          paymentType:
-            rec.row.paymentType === "Custom" || rec.row.paymentType === "Other"
-              ? ""
-              : rec.row.paymentType,
+          paymentType: resolvedPt,
+          cash: cleanCash,
+          card: cleanCard,
+          totalTaken: computedTaken,
+          difference: calculatePaymentDifferenceDisplay(
+            rec.row.invoiceAmount,
+            resolvedPt,
+            cleanCash,
+            cleanCard,
+          ),
           attachments: rec.row.attachments ? [...rec.row.attachments] : [],
-        }),
-      );
+        });
+      });
       const timestamps: Record<string, string> = {};
       const expanded: Record<string, boolean> = {};
+      const initialFraudOpen: Record<string, boolean> = {};
       for (const rec of savedRecords) {
         timestamps[rec.row.id] = rec.savedAt;
         expanded[rec.row.id] = true;
+      }
+      for (const r of restoredRows) {
+        if (hasAnyActiveFraudItem(r)) {
+          initialFraudOpen[r.id] = true;
+        }
       }
 
       setEditableRows(restoredRows);
@@ -1166,7 +1362,7 @@ export default function SurveillanceReportsPage() {
       setDirtyRowIds({});
       setExpandedRowIds(expanded);
       setIsFloorPresenceEnabled(false);
-      setFraudSectionEnabledByRow({});
+      setFraudSectionEnabledByRow(initialFraudOpen);
       setSalesPitchSectionEnabledByRow({});
       saveStaticActiveDraftSession(reqItem.id, true);
       setIsEditingReport(true);
@@ -1191,13 +1387,7 @@ export default function SurveillanceReportsPage() {
 
     if (existingReport) {
       setHeaderStoreOpenTime(existingReport.cashTime || existingReport.time || "");
-      setHeaderSalesRep(
-        existingReport.salesRep?.split(",")[0]?.trim() || SALES_REP_NAMES[0] || "Abdul Razzak",
-      );
       setHeaderStoreCloseTime(existingReport.timeReturned || "");
-      setHeaderStoreCloseSalesRep(
-        existingReport.nameOfRepLeaving?.trim() || SALES_REP_NAMES[0] || "Abdul Razzak",
-      );
       setHeaderGeneralNotes(existingReport.notes || "");
       if (existingReport.nameOfRepLeaving || existingReport.timeLeft) {
         setRepTimingRows([
@@ -1217,45 +1407,88 @@ export default function SurveillanceReportsPage() {
       }
     } else {
       setHeaderStoreOpenTime("");
-      setHeaderSalesRep(SALES_REP_NAMES[0] || "Abdul Razzak");
       setHeaderStoreCloseTime("");
-      setHeaderStoreCloseSalesRep(SALES_REP_NAMES[0] || "Abdul Razzak");
       setHeaderGeneralNotes("");
       setRepTimingRows([createEmptyRepTimingRow()]);
     }
 
     if (existingReport && existingReport.rows && existingReport.rows.length > 0) {
-      const cloned = existingReport.rows.map((r, idx) =>
-        hydrateAuditRowDetails(
+      const cloned = existingReport.rows.map((r, idx) => {
+        const resolvedPt = normalizePaymentTypeSelection(r.paymentType, r.cash, r.card);
+        const cleanCash = sanitizePaymentInputValue(
+          r.cash,
+          resolvedPt === "Cash" ? r.totalTaken : "",
+        );
+        const cleanCard = sanitizePaymentInputValue(
+          r.card,
+          resolvedPt === "Card" ? r.totalTaken : "",
+        );
+        const computedTaken = computeTotalTakenFromPayments(resolvedPt, cleanCash, cleanCard);
+        return hydrateAuditRowDetails(
           {
             ...r,
             date: formatSurveillanceDate(r.date || initialDate),
             marketName: r.marketName?.trim() || reqItem.marketName || "",
             storeName: r.storeName?.trim() || reqItem.storeName || "",
             clientType: normalizeClientType(r.clientType, r.b, r.nb),
-            paymentType:
-              r.paymentType && r.paymentType !== "Custom" && r.paymentType !== "Other"
-                ? r.paymentType
-                : r.card?.trim() && r.cash?.trim()
-                  ? "Mix Payment"
-                  : r.card?.trim()
-                    ? "Card"
-                    : r.cash?.trim()
-                      ? "Cash"
-                      : "",
-            difference: calculateDifferenceDisplay(r.invoiceAmount, r.totalTaken),
+            paymentType: resolvedPt,
+            cash: cleanCash,
+            card: cleanCard,
+            totalTaken: computedTaken,
+            difference: calculatePaymentDifferenceDisplay(
+              r.invoiceAmount,
+              resolvedPt,
+              cleanCash,
+              cleanCard,
+            ),
             attachments: r.attachments ? [...r.attachments] : [],
           },
           idx === 0 ? existingReport : undefined,
-        ),
-      );
+        );
+      });
+      const initialFraudOpen: Record<string, boolean> = {};
+      for (const r of cloned) {
+        if (hasAnyActiveFraudItem(r)) {
+          initialFraudOpen[r.id] = true;
+        }
+      }
+      setFraudSectionEnabledByRow(initialFraudOpen);
       setEditableRows(cloned);
       setExpandedRowIds({ [cloned[0].id]: true });
     } else if (existingReport) {
+      const fallbackRaw = buildFallbackRowFromReport(existingReport, reqItem.marketName);
+      const resolvedPt = normalizePaymentTypeSelection(
+        fallbackRaw.paymentType,
+        fallbackRaw.cash,
+        fallbackRaw.card,
+      );
+      const cleanCash = sanitizePaymentInputValue(
+        fallbackRaw.cash,
+        resolvedPt === "Cash" ? fallbackRaw.totalTaken : "",
+      );
+      const cleanCard = sanitizePaymentInputValue(
+        fallbackRaw.card,
+        resolvedPt === "Card" ? fallbackRaw.totalTaken : "",
+      );
       const fallbackRow = hydrateAuditRowDetails(
-        buildFallbackRowFromReport(existingReport, reqItem.marketName),
+        {
+          ...fallbackRaw,
+          paymentType: resolvedPt,
+          cash: cleanCash,
+          card: cleanCard,
+          totalTaken: computeTotalTakenFromPayments(resolvedPt, cleanCash, cleanCard),
+          difference: calculatePaymentDifferenceDisplay(
+            fallbackRaw.invoiceAmount,
+            resolvedPt,
+            cleanCash,
+            cleanCard,
+          ),
+        },
         existingReport,
       );
+      if (hasAnyActiveFraudItem(fallbackRow)) {
+        setFraudSectionEnabledByRow({ [fallbackRow.id]: true });
+      }
       setEditableRows([fallbackRow]);
       setExpandedRowIds({ [fallbackRow.id]: true });
     } else {
@@ -1306,40 +1539,39 @@ export default function SurveillanceReportsPage() {
           updated.nb = ct === "Non-Buyer" || ct === "Non Billable" ? "NB" : "";
         }
 
-        // Keep card / cash synchronized with Payment Type dropdown
+        // Keep card / cash / totalTaken / difference synchronized with Payment Type & payment inputs
         if (field === "paymentType") {
-          const pt = String(value || "");
-          const amt = (updated.totalTaken || "").trim();
+          const pt = normalizePaymentTypeSelection(String(value || "Cash"));
+          updated.paymentType = pt;
           if (pt === "Card") {
-            updated.card = amt || "Card";
             updated.cash = "";
           } else if (pt === "Cash") {
-            updated.cash = amt || "Cash";
-            updated.card = "";
-          } else if (pt === "Mix Payment") {
-            if (updated.card === "Card") updated.card = "";
-            if (updated.cash === "Cash") updated.cash = "";
-          } else {
-            updated.card = "";
-            updated.cash = "";
-          }
-        } else if (field === "totalTaken") {
-          const pt = updated.paymentType || "";
-          const amt = String(value || "").trim();
-          if (pt === "Card") {
-            updated.card = amt || "Card";
-            updated.cash = "";
-          } else if (pt === "Cash") {
-            updated.cash = amt || "Cash";
             updated.card = "";
           }
         }
 
-        // Auto-calculate Difference whenever Invoice Amount or Total Taken changes
-        if (field === "invoiceAmount" || field === "totalTaken") {
-          updated.difference = calculateDifferenceDisplay(
+        if (
+          field === "invoiceAmount" ||
+          field === "paymentType" ||
+          field === "cash" ||
+          field === "card"
+        ) {
+          const activePt = normalizePaymentTypeSelection(
+            updated.paymentType,
+            updated.cash,
+            updated.card,
+          );
+          updated.paymentType = activePt;
+          updated.totalTaken = computeTotalTakenFromPayments(
+            activePt,
+            updated.cash,
+            updated.card,
+          );
+          updated.difference = calculatePaymentDifferenceDisplay(
             updated.invoiceAmount,
-            updated.totalTaken,
+            activePt,
+            updated.cash,
+            updated.card,
           );
         }
 
@@ -1348,14 +1580,28 @@ export default function SurveillanceReportsPage() {
     );
   };
 
+  const handleToggleFraudCheckbox = (
+    rowId: string,
+    fieldKey: FraudCheckboxFieldKey,
+    detailKey: `${FraudCheckboxFieldKey}Details`,
+    checked: boolean,
+  ) => {
+    setDirtyRowIds((prev) => ({ ...prev, [rowId]: true }));
+    setEditableRows((prev) =>
+      prev.map((row) => {
+        if (row.id !== rowId) return row;
+        return {
+          ...row,
+          [fieldKey]: checked ? "YES" : "",
+          [detailKey]: checked ? row[detailKey] || "" : "",
+        };
+      }),
+    );
+  };
+
   // Adds a fresh audit row
   const handleAddAuditRow = (storeName: string, marketName: string, defaultDate?: string) => {
-    const nextRow = createEmptyAuditRow(
-      storeName,
-      marketName,
-      defaultDate,
-      headerSalesRep || SALES_REP_NAMES[0] || "Abdul Razzak",
-    );
+    const nextRow = createEmptyAuditRow(storeName, marketName, defaultDate);
     setEditableRows((prev) => [...prev, nextRow]);
     setExpandedRowIds((prev) => ({ ...prev, [nextRow.id]: true }));
     setFraudSectionEnabledByRow((prev) => ({ ...prev, [nextRow.id]: false }));
@@ -1409,36 +1655,36 @@ export default function SurveillanceReportsPage() {
           if (item.id !== addInvId) return item;
           const updated: SurveillanceAdditionalInvoice = { ...item, [field]: value };
           if (field === "paymentType") {
-            const pt = String(value || "");
-            const amt = (updated.totalTaken || "").trim();
+            const pt = normalizePaymentTypeSelection(String(value || "Cash"));
+            updated.paymentType = pt;
             if (pt === "Card") {
-              updated.card = amt || "Card";
               updated.cash = "";
             } else if (pt === "Cash") {
-              updated.cash = amt || "Cash";
-              updated.card = "";
-            } else if (pt === "Mix Payment") {
-              if (updated.card === "Card") updated.card = "";
-              if (updated.cash === "Cash") updated.cash = "";
-            } else {
-              updated.card = "";
-              updated.cash = "";
-            }
-          } else if (field === "totalTaken") {
-            const pt = updated.paymentType || "";
-            const amt = String(value || "").trim();
-            if (pt === "Card") {
-              updated.card = amt || "Card";
-              updated.cash = "";
-            } else if (pt === "Cash") {
-              updated.cash = amt || "Cash";
               updated.card = "";
             }
           }
-          if (field === "invoiceAmount" || field === "totalTaken") {
-            updated.difference = calculateDifferenceDisplay(
+          if (
+            field === "invoiceAmount" ||
+            field === "paymentType" ||
+            field === "cash" ||
+            field === "card"
+          ) {
+            const activePt = normalizePaymentTypeSelection(
+              updated.paymentType,
+              updated.cash,
+              updated.card,
+            );
+            updated.paymentType = activePt;
+            updated.totalTaken = computeTotalTakenFromPayments(
+              activePt,
+              updated.cash,
+              updated.card,
+            );
+            updated.difference = calculatePaymentDifferenceDisplay(
               updated.invoiceAmount,
-              updated.totalTaken,
+              activePt,
+              updated.cash,
+              updated.card,
             );
           }
           return updated;
@@ -1593,10 +1839,10 @@ export default function SurveillanceReportsPage() {
         toast.error(`Store Name is required for Row #${rowNum}.`);
         return false;
       }
-      const effectiveSalesRep = (r.salesRep || headerSalesRep || "").trim();
+      const effectiveSalesRep = (r.salesRep || "").trim();
       if (!effectiveSalesRep) {
         setExpandedRowIds((prev) => ({ ...prev, [r.id]: true }));
-        toast.error(`Please select a Sales Rep for Row #${rowNum} before submitting.`);
+        toast.error(`Please select a Rep Name for Row #${rowNum} before submitting.`);
         return false;
       }
       if (!r.transType || !r.transType.trim()) {
@@ -1665,12 +1911,29 @@ export default function SurveillanceReportsPage() {
       groupId?: string,
     ): SurveillanceAuditRow => {
       const normalizedClientType = normalizeClientType(r.clientType, r.b, r.nb);
-      const normalizedPaymentType =
-        r.paymentType === "Custom" || r.paymentType === "Other" ? "" : r.paymentType || "";
+      const normalizedPaymentType = normalizePaymentTypeSelection(r.paymentType, r.cash, r.card);
+      const computedTaken = computeTotalTakenFromPayments(normalizedPaymentType, r.cash, r.card);
       const normOpt = (v?: string) => normalizeCustomOption(v);
       const fraudEnabled = Boolean(fraudSectionEnabledByRow[r.id]);
       const pitchEnabled = Boolean(salesPitchSectionEnabledByRow[r.id]);
-      const resolvedSalesRep = (r.salesRep || headerSalesRep || "").trim();
+      const resolvedSalesRep = (r.salesRep || "").trim();
+
+      const resolveFraudFlag = (key: FraudCheckboxFieldKey): string =>
+        fraudEnabled && (r[key] || "").trim().toUpperCase() === "YES" ? "YES" : "";
+
+      const resolveFraudNotes = (
+        key: FraudCheckboxFieldKey,
+        detailKey: `${FraudCheckboxFieldKey}Details`,
+      ): string =>
+        fraudEnabled && (r[key] || "").trim().toUpperCase() === "YES"
+          ? (r[detailKey] || "").trim()
+          : "";
+
+      const anyFraudChecked =
+        fraudEnabled &&
+        FRAUD_VERIFICATION_ITEMS.some(
+          (item) => (r[item.key] || "").trim().toUpperCase() === "YES",
+        );
 
       return {
         id: r.id,
@@ -1690,36 +1953,36 @@ export default function SurveillanceReportsPage() {
         nb: r.nb,
         b: r.b,
         invoiceAmount: r.invoiceAmount,
-        totalTaken: r.totalTaken,
+        totalTaken: computedTaken,
         paymentType: normalizedPaymentType,
-        cash: r.cash,
-        card: r.card,
-        difference: calculateDifferenceDisplay(r.invoiceAmount, r.totalTaken),
+        cash: normalizedPaymentType === "Card" ? "" : r.cash,
+        card: normalizedPaymentType === "Cash" ? "" : r.card,
+        difference: calculatePaymentDifferenceDisplay(
+          r.invoiceAmount,
+          normalizedPaymentType,
+          r.cash,
+          r.card,
+        ),
         refundInvoice: r.refundInvoice,
         receipt: normOpt(r.receipt),
         receiptDetails: resolveCustomDetailValue(r, "receipt", r.receipt),
         splitPayments: normalizedPaymentType === "Mix Payment" ? "YES" : "NO",
-        fraudTransactions: fraudEnabled ? normOpt(r.fraudTransactions) : "",
-        fraudTransactionsDetails: fraudEnabled
-          ? resolveCustomDetailValue(r, "fraudTransactions", r.fraudTransactions)
-          : "",
-        missOpportunity: fraudEnabled ? normOpt(r.missOpportunity) : "",
-        missOpportunityDetails: fraudEnabled
-          ? resolveCustomDetailValue(r, "missOpportunity", r.missOpportunity)
-          : "",
-        paymentFraud: fraudEnabled ? normOpt(r.paymentFraud) : "",
-        paymentFraudDetails: fraudEnabled
-          ? resolveCustomDetailValue(r, "paymentFraud", r.paymentFraud)
-          : "",
-        aalSwap: fraudEnabled ? normOpt(r.aalSwap) : "",
-        aalSwapDetails: fraudEnabled ? resolveCustomDetailValue(r, "aalSwap", r.aalSwap) : "",
-        mim: fraudEnabled ? normOpt(r.mim) : "",
-        mimDetails: fraudEnabled ? resolveCustomDetailValue(r, "mim", r.mim) : "",
-        onlineRejectedPayment: fraudEnabled ? normOpt(r.onlineRejectedPayment) : "",
-        onlineRejectedPaymentDetails: fraudEnabled
-          ? resolveCustomDetailValue(r, "onlineRejectedPayment", r.onlineRejectedPayment)
-          : "",
-        notes: fraudEnabled ? r.notes : "",
+        fraudTransactions: fraudEnabled ? (anyFraudChecked ? "YES" : "NO") : "",
+        fraudTransactionsDetails: "",
+        missOpportunity: resolveFraudFlag("missOpportunity"),
+        missOpportunityDetails: resolveFraudNotes("missOpportunity", "missOpportunityDetails"),
+        paymentFraud: resolveFraudFlag("paymentFraud"),
+        paymentFraudDetails: resolveFraudNotes("paymentFraud", "paymentFraudDetails"),
+        aalSwap: resolveFraudFlag("aalSwap"),
+        aalSwapDetails: resolveFraudNotes("aalSwap", "aalSwapDetails"),
+        mim: resolveFraudFlag("mim"),
+        mimDetails: resolveFraudNotes("mim", "mimDetails"),
+        onlineRejectedPayment: resolveFraudFlag("onlineRejectedPayment"),
+        onlineRejectedPaymentDetails: resolveFraudNotes(
+          "onlineRejectedPayment",
+          "onlineRejectedPaymentDetails",
+        ),
+        notes: "",
         pitchNb: pitchEnabled ? normOpt(r.pitchNb) : "",
         pitchNbDetails: pitchEnabled ? resolveCustomDetailValue(r, "pitchNb", r.pitchNb) : "",
         pitchNotes: pitchEnabled ? r.pitchNotes : "",
@@ -1737,8 +2000,8 @@ export default function SurveillanceReportsPage() {
           : "",
         maximize: pitchEnabled ? normOpt(r.maximize) : "",
         maximizeDetails: pitchEnabled ? resolveCustomDetailValue(r, "maximize", r.maximize) : "",
-        flipping: fraudEnabled ? normOpt(r.flipping) : "",
-        flippingDetails: fraudEnabled ? resolveCustomDetailValue(r, "flipping", r.flipping) : "",
+        flipping: resolveFraudFlag("flipping"),
+        flippingDetails: resolveFraudNotes("flipping", "flippingDetails"),
         bundleNb: pitchEnabled ? r.bundleNb : "",
         bundleStartB: pitchEnabled ? r.bundleStartB : "",
         bundleEndB: pitchEnabled ? r.bundleEndB : "",
@@ -1746,18 +2009,17 @@ export default function SurveillanceReportsPage() {
         bundleAccGivenDetails: pitchEnabled
           ? resolveCustomDetailValue(r, "bundleAccGiven", r.bundleAccGiven)
           : "",
-        portIn: fraudEnabled ? normOpt(r.portIn) : "",
-        portInDetails: fraudEnabled ? resolveCustomDetailValue(r, "portIn", r.portIn) : "",
-        nonUp: fraudEnabled ? normOpt(r.nonUp) : "",
-        nonUpDetails: fraudEnabled ? resolveCustomDetailValue(r, "nonUp", r.nonUp) : "",
-        smartPayMentioned: fraudEnabled ? normOpt(r.smartPayMentioned) : "",
-        smartPayMentionedDetails: fraudEnabled
-          ? resolveCustomDetailValue(r, "smartPayMentioned", r.smartPayMentioned)
-          : "",
-        aalBillSame: fraudEnabled ? normOpt(r.aalBillSame) : "",
-        aalBillSameDetails: fraudEnabled
-          ? resolveCustomDetailValue(r, "aalBillSame", r.aalBillSame)
-          : "",
+        portIn: resolveFraudFlag("portIn"),
+        portInDetails: resolveFraudNotes("portIn", "portInDetails"),
+        nonUp: resolveFraudFlag("nonUp"),
+        nonUpDetails: resolveFraudNotes("nonUp", "nonUpDetails"),
+        smartPayMentioned: resolveFraudFlag("smartPayMentioned"),
+        smartPayMentionedDetails: resolveFraudNotes(
+          "smartPayMentioned",
+          "smartPayMentionedDetails",
+        ),
+        aalBillSame: resolveFraudFlag("aalBillSame"),
+        aalBillSameDetails: resolveFraudNotes("aalBillSame", "aalBillSameDetails"),
         nameOfRepLeaving: isFloorPresenceEnabled
           ? repTimingRows[0]?.repName || r.nameOfRepLeaving
           : "",
@@ -1788,8 +2050,8 @@ export default function SurveillanceReportsPage() {
         return [baseSerialized];
       }
       const extraSerialized: SurveillanceAuditRow[] = addList.map((inv, idx) => {
-        const normalizedPt =
-          inv.paymentType === "Custom" || inv.paymentType === "Other" ? "" : inv.paymentType || "";
+        const normalizedPt = normalizePaymentTypeSelection(inv.paymentType, inv.cash, inv.card);
+        const invTaken = computeTotalTakenFromPayments(normalizedPt, inv.cash, inv.card);
         return {
           ...baseSerialized,
           id: `${r.id}-inv-${idx + 2}`,
@@ -1799,21 +2061,16 @@ export default function SurveillanceReportsPage() {
           transType: normalizeTransTypeString(inv.transType),
           transTypeDetails: "",
           invoiceAmount: inv.invoiceAmount,
-          totalTaken: inv.totalTaken,
-          difference: calculateDifferenceDisplay(inv.invoiceAmount, inv.totalTaken),
+          totalTaken: invTaken,
+          difference: calculatePaymentDifferenceDisplay(
+            inv.invoiceAmount,
+            normalizedPt,
+            inv.cash,
+            inv.card,
+          ),
           paymentType: normalizedPt,
-          cash:
-            normalizedPt === "Cash"
-              ? (inv.totalTaken || "").trim() || "Cash"
-              : normalizedPt === "Mix Payment"
-                ? inv.cash || ""
-                : "",
-          card:
-            normalizedPt === "Card"
-              ? (inv.totalTaken || "").trim() || "Card"
-              : normalizedPt === "Mix Payment"
-                ? inv.card || ""
-                : "",
+          cash: normalizedPt === "Card" ? "" : inv.cash || "",
+          card: normalizedPt === "Cash" ? "" : inv.card || "",
           splitPayments: normalizedPt === "Mix Payment" ? "YES" : "NO",
           receipt: normalizeCustomOption(inv.receipt),
           receiptDetails: "",
@@ -1823,6 +2080,7 @@ export default function SurveillanceReportsPage() {
     });
 
     const combinedAttachments = editableRows.flatMap((r) => r.attachments || []);
+    const primarySerialized = flattenedAuditRows[0] || serializeAuditRowWithGroup(primaryRow);
     const primaryClientType = normalizeClientType(
       primaryRow.clientType,
       primaryRow.b,
@@ -1839,10 +2097,10 @@ export default function SurveillanceReportsPage() {
         flattenedAuditRows.length > 1
           ? `${primaryRow.invoice || "Audit"} (${flattenedAuditRows.length} Rows)`
           : primaryRow.invoice || "-",
-      cashTime: primaryRow.cashTime,
+      cashTime: headerStoreOpenTime || primaryRow.cashTime,
       time: primaryRow.time,
       bdiTime: primaryRow.bdiTime,
-      salesRep: (primaryRow.salesRep || headerSalesRep || "").trim(),
+      salesRep: (primaryRow.salesRep || "").trim(),
       transType:
         editableRows.length > 1
           ? `Shift Audit (${editableRows.length} Entries)`
@@ -1855,102 +2113,66 @@ export default function SurveillanceReportsPage() {
             ? "Non-Buyer"
             : "Buyer",
       clientTypeDetails: resolveCustomDetailValue(primaryRow, "clientType", primaryClientType),
-      invoiceAmount: primaryRow.invoiceAmount || "$0.00",
-      totalTaken: primaryRow.totalTaken || "$0.00",
+      invoiceAmount: primarySerialized.invoiceAmount || "$0.00",
+      totalTaken: primarySerialized.totalTaken || "$0.00",
       paymentMode:
-        primaryRow.paymentType === "Mix Payment"
+        primarySerialized.paymentType === "Mix Payment"
           ? "Split"
-          : primaryRow.paymentType === "Cash"
-            ? "Cash"
-            : "Card",
-      difference: calculateDifferenceDisplay(primaryRow.invoiceAmount, primaryRow.totalTaken),
+          : primarySerialized.paymentType === "Card"
+            ? "Card"
+            : "Cash",
+      difference: primarySerialized.difference,
       refundInvoice: primaryRow.refundInvoice?.trim() || "No",
       receipt: resolveYesNoValue(primaryRow.receipt),
       receiptDetails: resolveCustomDetailValue(primaryRow, "receipt", primaryRow.receipt),
-      splitPayments: primaryRow.paymentType === "Mix Payment" ? "Yes" : "No",
-      fraudTransactions: resolveYesNoValue(primaryRow.fraudTransactions),
-      fraudTransactionsDetails: resolveCustomDetailValue(
-        primaryRow,
-        "fraudTransactions",
-        primaryRow.fraudTransactions,
-      ),
-      missOpportunity: resolveYesNoValue(primaryRow.missOpportunity),
-      missOpportunityDetails: resolveCustomDetailValue(
-        primaryRow,
-        "missOpportunity",
-        primaryRow.missOpportunity,
-      ),
-      paymentFraud: resolveYesNoValue(primaryRow.paymentFraud),
-      paymentFraudDetails: resolveCustomDetailValue(
-        primaryRow,
-        "paymentFraud",
-        primaryRow.paymentFraud,
-      ),
-      aalSwap: resolveYesNoValue(primaryRow.aalSwap),
-      aalSwapDetails: resolveCustomDetailValue(primaryRow, "aalSwap", primaryRow.aalSwap),
-      mim: resolveYesNoValue(primaryRow.mim),
-      mimDetails: resolveCustomDetailValue(primaryRow, "mim", primaryRow.mim),
-      onlineRejectedPayment: resolveYesNoValue(primaryRow.onlineRejectedPayment),
-      onlineRejectedPaymentDetails: resolveCustomDetailValue(
-        primaryRow,
-        "onlineRejectedPayment",
-        primaryRow.onlineRejectedPayment,
-      ),
-      notes: primaryRow.notes,
-      pitchNb: resolveYesNoValue(primaryRow.pitchNb),
-      pitchNbDetails: resolveCustomDetailValue(primaryRow, "pitchNb", primaryRow.pitchNb),
-      pitchNotes: primaryRow.pitchNotes,
+      splitPayments: primarySerialized.paymentType === "Mix Payment" ? "Yes" : "No",
+      fraudTransactions: resolveYesNoValue(primarySerialized.fraudTransactions),
+      fraudTransactionsDetails: "",
+      missOpportunity: resolveYesNoValue(primarySerialized.missOpportunity),
+      missOpportunityDetails: primarySerialized.missOpportunityDetails || "",
+      paymentFraud: resolveYesNoValue(primarySerialized.paymentFraud),
+      paymentFraudDetails: primarySerialized.paymentFraudDetails || "",
+      aalSwap: resolveYesNoValue(primarySerialized.aalSwap),
+      aalSwapDetails: primarySerialized.aalSwapDetails || "",
+      mim: resolveYesNoValue(primarySerialized.mim),
+      mimDetails: primarySerialized.mimDetails || "",
+      onlineRejectedPayment: resolveYesNoValue(primarySerialized.onlineRejectedPayment),
+      onlineRejectedPaymentDetails: primarySerialized.onlineRejectedPaymentDetails || "",
+      notes: headerGeneralNotes.trim(),
+      pitchNb: resolveYesNoValue(primarySerialized.pitchNb),
+      pitchNbDetails: primarySerialized.pitchNbDetails || "",
+      pitchNotes: primarySerialized.pitchNotes,
       pitchQuality:
-        primaryRow.pitchQuality === "Custom" || primaryRow.pitchQuality === "Other"
+        primarySerialized.pitchQuality === "Custom" || primarySerialized.pitchQuality === "Other"
           ? "Custom"
-          : primaryRow.pitchQuality?.trim() || "Not Observed",
-      pitchQualityDetails: resolveCustomDetailValue(
-        primaryRow,
-        "pitchQuality",
-        primaryRow.pitchQuality,
-      ),
-      showingPhone: resolveYesNoValue(primaryRow.showingPhone),
-      showingPhoneDetails: resolveCustomDetailValue(
-        primaryRow,
-        "showingPhone",
-        primaryRow.showingPhone,
-      ),
-      accOffered: resolveYesNoValue(primaryRow.accOffered),
-      accOfferedDetails: resolveCustomDetailValue(primaryRow, "accOffered", primaryRow.accOffered),
-      maximize: resolveYesNoValue(primaryRow.maximize),
-      maximizeDetails: resolveCustomDetailValue(primaryRow, "maximize", primaryRow.maximize),
-      flipping: resolveYesNoValue(primaryRow.flipping),
-      flippingDetails: resolveCustomDetailValue(primaryRow, "flipping", primaryRow.flipping),
-      bundleNb: primaryRow.bundleNb,
-      bundleStartB: primaryRow.bundleStartB,
-      bundleEndB: primaryRow.bundleEndB,
-      bundleAccGiven: resolveYesNoValue(primaryRow.bundleAccGiven),
-      bundleAccGivenDetails: resolveCustomDetailValue(
-        primaryRow,
-        "bundleAccGiven",
-        primaryRow.bundleAccGiven,
-      ),
-      portIn: resolveYesNoValue(primaryRow.portIn),
-      portInDetails: resolveCustomDetailValue(primaryRow, "portIn", primaryRow.portIn),
-      nonUp: resolveYesNoValue(primaryRow.nonUp),
-      nonUpDetails: resolveCustomDetailValue(primaryRow, "nonUp", primaryRow.nonUp),
-      smartPayMentioned: resolveYesNoValue(primaryRow.smartPayMentioned),
-      smartPayMentionedDetails: resolveCustomDetailValue(
-        primaryRow,
-        "smartPayMentioned",
-        primaryRow.smartPayMentioned,
-      ),
-      aalBillSame: resolveYesNoValue(primaryRow.aalBillSame),
-      aalBillSameDetails: resolveCustomDetailValue(
-        primaryRow,
-        "aalBillSame",
-        primaryRow.aalBillSame,
-      ),
-      nameOfRepLeaving: primaryRow.nameOfRepLeaving,
-      timeLeft: primaryRow.timeLeft,
-      timeReturned: primaryRow.timeReturned,
-      backRoomTimeIn: primaryRow.backRoomTimeIn,
-      backRoomTimeOut: primaryRow.backRoomTimeOut,
+          : primarySerialized.pitchQuality?.trim() || "Not Observed",
+      pitchQualityDetails: primarySerialized.pitchQualityDetails || "",
+      showingPhone: resolveYesNoValue(primarySerialized.showingPhone),
+      showingPhoneDetails: primarySerialized.showingPhoneDetails || "",
+      accOffered: resolveYesNoValue(primarySerialized.accOffered),
+      accOfferedDetails: primarySerialized.accOfferedDetails || "",
+      maximize: resolveYesNoValue(primarySerialized.maximize),
+      maximizeDetails: primarySerialized.maximizeDetails || "",
+      flipping: resolveYesNoValue(primarySerialized.flipping),
+      flippingDetails: primarySerialized.flippingDetails || "",
+      bundleNb: primarySerialized.bundleNb,
+      bundleStartB: primarySerialized.bundleStartB,
+      bundleEndB: primarySerialized.bundleEndB,
+      bundleAccGiven: resolveYesNoValue(primarySerialized.bundleAccGiven),
+      bundleAccGivenDetails: primarySerialized.bundleAccGivenDetails || "",
+      portIn: resolveYesNoValue(primarySerialized.portIn),
+      portInDetails: primarySerialized.portInDetails || "",
+      nonUp: resolveYesNoValue(primarySerialized.nonUp),
+      nonUpDetails: primarySerialized.nonUpDetails || "",
+      smartPayMentioned: resolveYesNoValue(primarySerialized.smartPayMentioned),
+      smartPayMentionedDetails: primarySerialized.smartPayMentionedDetails || "",
+      aalBillSame: resolveYesNoValue(primarySerialized.aalBillSame),
+      aalBillSameDetails: primarySerialized.aalBillSameDetails || "",
+      nameOfRepLeaving: primarySerialized.nameOfRepLeaving,
+      timeLeft: primarySerialized.timeLeft,
+      timeReturned: headerStoreCloseTime || primarySerialized.timeReturned,
+      backRoomTimeIn: primarySerialized.backRoomTimeIn,
+      backRoomTimeOut: primarySerialized.backRoomTimeOut,
       offline: resolveYesNoValue(primaryRow.offline),
       offlineDetails: resolveCustomDetailValue(primaryRow, "offline", primaryRow.offline),
       attachments: combinedAttachments.length > 0 ? combinedAttachments : undefined,
@@ -2128,45 +2350,18 @@ export default function SurveillanceReportsPage() {
           </Badge>
         </div>
 
-        {/* 2. Store Opener Section */}
-        <Card className="p-4 border-border/80 shadow-2xs bg-card space-y-3">
-          <div className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2 border-b pb-2">
-            <Clock className="h-4 w-4 text-primary" />
-            Store Opener Section
+        {/* 2. Store Open Time (Compact borderless inline row) */}
+        <div className="flex flex-wrap items-center gap-3 py-1">
+          <span className="text-xs font-bold text-foreground whitespace-nowrap">
+            Store Open Time:
+          </span>
+          <div className="w-44">
+            <AmPmTimePicker
+              value={headerStoreOpenTime}
+              onChange={(val) => setHeaderStoreOpenTime(val)}
+            />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label className="text-xs font-semibold text-foreground">
-                Store Open Time <span className="text-destructive">*</span>
-              </Label>
-              <AmPmTimePicker
-                value={headerStoreOpenTime}
-                onChange={(val) => setHeaderStoreOpenTime(val)}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs font-semibold text-foreground">
-                Sales Rep <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={toSelectVal(headerSalesRep)}
-                onValueChange={(v) => setHeaderSalesRep(fromSelectVal(v))}
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue placeholder="Select Sales Rep" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SALES_REP_NAMES.map((rep) => (
-                    <SelectItem key={rep} value={rep} className="text-xs">
-                      {rep}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </Card>
+        </div>
 
         {/* 3. Add Audit Row Section & Cards */}
         <div className="space-y-4">
@@ -2206,9 +2401,16 @@ export default function SurveillanceReportsPage() {
               const rowSavedAt = savedRowTimestamps[row.id];
               const isRowDirty = Boolean(dirtyRowIds[row.id]);
               const isRowSavedClean = Boolean(rowSavedAt && !isRowDirty);
-              const computedDifference = calculateDifferenceDisplay(
+              const activePaymentType = normalizePaymentTypeSelection(
+                row.paymentType,
+                row.cash,
+                row.card,
+              );
+              const computedDifference = calculatePaymentDifferenceDisplay(
                 row.invoiceAmount,
-                row.totalTaken,
+                activePaymentType,
+                row.cash,
+                row.card,
               );
 
               return (
@@ -2224,7 +2426,7 @@ export default function SurveillanceReportsPage() {
                         Row #{index + 1}
                       </Badge>
                       <span className="text-sm font-semibold text-foreground">
-                        {headerSalesRep || "Audit Entry"}
+                        {row.salesRep.trim() || "Audit Entry"}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         {row.invoice.trim() ? `• Invoice No: ${row.invoice}` : ""}
@@ -2320,6 +2522,14 @@ export default function SurveillanceReportsPage() {
                             />
                           </div>
 
+                          <StandardSelect
+                            label="Rep Name"
+                            required
+                            options={REP_NAME_OPTIONS}
+                            value={row.salesRep}
+                            onValueChange={(val) => handleUpdateRowField(row.id, "salesRep", val)}
+                          />
+
                           <div className="space-y-1 sm:col-span-2">
                             <Label className="text-[11px] font-semibold">
                               Transaction Type <span className="text-destructive">*</span>
@@ -2350,33 +2560,13 @@ export default function SurveillanceReportsPage() {
                               placeholder="$0.00"
                             />
                           </div>
-                          <div className="space-y-1">
-                            <Label className="text-[11px] font-semibold">Total Taken</Label>
-                            <Input
-                              value={row.totalTaken}
-                              onChange={(e) =>
-                                handleUpdateRowField(row.id, "totalTaken", e.target.value)
-                              }
-                              placeholder="$0.00"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-[11px] font-semibold">Difference</Label>
-                            <Input
-                              value={computedDifference}
-                              readOnly
-                              tabIndex={-1}
-                              className="bg-muted/30 font-semibold text-foreground cursor-default select-none focus-visible:ring-0"
-                              placeholder="$0.00"
-                            />
-                          </div>
 
                           <div className="space-y-1">
                             <Label className="text-[11px] font-semibold">Payment Type</Label>
                             <Select
-                              value={toSelectVal(row.paymentType)}
+                              value={activePaymentType}
                               onValueChange={(v) =>
-                                handleUpdateRowField(row.id, "paymentType", fromSelectVal(v))
+                                handleUpdateRowField(row.id, "paymentType", v)
                               }
                             >
                               <SelectTrigger>
@@ -2392,30 +2582,44 @@ export default function SurveillanceReportsPage() {
                             </Select>
                           </div>
 
-                          {row.paymentType === "Mix Payment" && (
-                            <>
-                              <div className="space-y-1">
-                                <Label className="text-[11px] font-semibold">Cash Payment</Label>
-                                <Input
-                                  value={row.cash}
-                                  onChange={(e) =>
-                                    handleUpdateRowField(row.id, "cash", e.target.value)
-                                  }
-                                  placeholder="$0.00"
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <Label className="text-[11px] font-semibold">Card Payment</Label>
-                                <Input
-                                  value={row.card}
-                                  onChange={(e) =>
-                                    handleUpdateRowField(row.id, "card", e.target.value)
-                                  }
-                                  placeholder="$0.00"
-                                />
-                              </div>
-                            </>
+                          {(activePaymentType === "Cash" ||
+                            activePaymentType === "Mix Payment") && (
+                            <div className="space-y-1">
+                              <Label className="text-[11px] font-semibold">Cash Payment</Label>
+                              <Input
+                                value={row.cash}
+                                onChange={(e) =>
+                                  handleUpdateRowField(row.id, "cash", e.target.value)
+                                }
+                                placeholder="$0.00"
+                              />
+                            </div>
                           )}
+
+                          {(activePaymentType === "Card" ||
+                            activePaymentType === "Mix Payment") && (
+                            <div className="space-y-1">
+                              <Label className="text-[11px] font-semibold">Card Payment</Label>
+                              <Input
+                                value={row.card}
+                                onChange={(e) =>
+                                  handleUpdateRowField(row.id, "card", e.target.value)
+                                }
+                                placeholder="$0.00"
+                              />
+                            </div>
+                          )}
+
+                          <div className="space-y-1">
+                            <Label className="text-[11px] font-semibold">Difference</Label>
+                            <Input
+                              value={computedDifference}
+                              readOnly
+                              tabIndex={-1}
+                              className="bg-muted/30 font-semibold text-foreground cursor-default select-none focus-visible:ring-0"
+                              placeholder="$0.00"
+                            />
+                          </div>
 
                           <StandardSelect
                             label="Receipt"
@@ -2429,9 +2633,16 @@ export default function SurveillanceReportsPage() {
                         {row.additionalInvoices && row.additionalInvoices.length > 0 && (
                           <div className="space-y-3 pt-2 border-t border-dashed border-border/80">
                             {row.additionalInvoices.map((addInv, invIdx) => {
-                              const addInvDiff = calculateDifferenceDisplay(
+                              const addInvPt = normalizePaymentTypeSelection(
+                                addInv.paymentType,
+                                addInv.cash,
+                                addInv.card,
+                              );
+                              const addInvDiff = calculatePaymentDifferenceDisplay(
                                 addInv.invoiceAmount,
-                                addInv.totalTaken,
+                                addInvPt,
+                                addInv.cash,
+                                addInv.card,
                               );
                               return (
                                 <div
@@ -2528,47 +2739,16 @@ export default function SurveillanceReportsPage() {
 
                                     <div className="space-y-1">
                                       <Label className="text-[11px] font-semibold">
-                                        Total Taken
-                                      </Label>
-                                      <Input
-                                        value={addInv.totalTaken}
-                                        onChange={(e) =>
-                                          handleUpdateAdditionalInvoiceField(
-                                            row.id,
-                                            addInv.id,
-                                            "totalTaken",
-                                            e.target.value,
-                                          )
-                                        }
-                                        placeholder="$0.00"
-                                      />
-                                    </div>
-
-                                    <div className="space-y-1">
-                                      <Label className="text-[11px] font-semibold">
-                                        Difference
-                                      </Label>
-                                      <Input
-                                        value={addInvDiff}
-                                        readOnly
-                                        tabIndex={-1}
-                                        className="bg-muted/30 font-semibold text-foreground cursor-default select-none focus-visible:ring-0"
-                                        placeholder="$0.00"
-                                      />
-                                    </div>
-
-                                    <div className="space-y-1">
-                                      <Label className="text-[11px] font-semibold">
                                         Payment Type
                                       </Label>
                                       <Select
-                                        value={toSelectVal(addInv.paymentType)}
+                                        value={addInvPt}
                                         onValueChange={(v) =>
                                           handleUpdateAdditionalInvoiceField(
                                             row.id,
                                             addInv.id,
                                             "paymentType",
-                                            fromSelectVal(v),
+                                            v,
                                           )
                                         }
                                       >
@@ -2585,44 +2765,58 @@ export default function SurveillanceReportsPage() {
                                       </Select>
                                     </div>
 
-                                    {addInv.paymentType === "Mix Payment" && (
-                                      <>
-                                        <div className="space-y-1">
-                                          <Label className="text-[11px] font-semibold">
-                                            Cash Payment
-                                          </Label>
-                                          <Input
-                                            value={addInv.cash || ""}
-                                            onChange={(e) =>
-                                              handleUpdateAdditionalInvoiceField(
-                                                row.id,
-                                                addInv.id,
-                                                "cash",
-                                                e.target.value,
-                                              )
-                                            }
-                                            placeholder="$0.00"
-                                          />
-                                        </div>
-                                        <div className="space-y-1">
-                                          <Label className="text-[11px] font-semibold">
-                                            Card Payment
-                                          </Label>
-                                          <Input
-                                            value={addInv.card || ""}
-                                            onChange={(e) =>
-                                              handleUpdateAdditionalInvoiceField(
-                                                row.id,
-                                                addInv.id,
-                                                "card",
-                                                e.target.value,
-                                              )
-                                            }
-                                            placeholder="$0.00"
-                                          />
-                                        </div>
-                                      </>
+                                    {(addInvPt === "Cash" || addInvPt === "Mix Payment") && (
+                                      <div className="space-y-1">
+                                        <Label className="text-[11px] font-semibold">
+                                          Cash Payment
+                                        </Label>
+                                        <Input
+                                          value={addInv.cash || ""}
+                                          onChange={(e) =>
+                                            handleUpdateAdditionalInvoiceField(
+                                              row.id,
+                                              addInv.id,
+                                              "cash",
+                                              e.target.value,
+                                            )
+                                          }
+                                          placeholder="$0.00"
+                                        />
+                                      </div>
                                     )}
+
+                                    {(addInvPt === "Card" || addInvPt === "Mix Payment") && (
+                                      <div className="space-y-1">
+                                        <Label className="text-[11px] font-semibold">
+                                          Card Payment
+                                        </Label>
+                                        <Input
+                                          value={addInv.card || ""}
+                                          onChange={(e) =>
+                                            handleUpdateAdditionalInvoiceField(
+                                              row.id,
+                                              addInv.id,
+                                              "card",
+                                              e.target.value,
+                                            )
+                                          }
+                                          placeholder="$0.00"
+                                        />
+                                      </div>
+                                    )}
+
+                                    <div className="space-y-1">
+                                      <Label className="text-[11px] font-semibold">
+                                        Difference
+                                      </Label>
+                                      <Input
+                                        value={addInvDiff}
+                                        readOnly
+                                        tabIndex={-1}
+                                        className="bg-muted/30 font-semibold text-foreground cursor-default select-none focus-visible:ring-0"
+                                        placeholder="$0.00"
+                                      />
+                                    </div>
 
                                     <StandardSelect
                                       label="Receipt"
@@ -2648,66 +2842,103 @@ export default function SurveillanceReportsPage() {
                       {/* 2. Fraud & Compliance Verification */}
                       <div className="space-y-3 rounded-lg border p-3.5">
                         <div
-                          className={`flex items-center gap-2.5 font-semibold text-foreground text-xs uppercase tracking-wide ${
+                          className={`flex flex-wrap items-center justify-between gap-2 ${
                             fraudSectionEnabledByRow[row.id] ? "border-b pb-2" : ""
                           }`}
                         >
-                          <Switch
-                            checked={Boolean(fraudSectionEnabledByRow[row.id])}
-                            onCheckedChange={(checked) =>
-                              setFraudSectionEnabledByRow((prev) => ({
-                                ...prev,
-                                [row.id]: checked,
-                              }))
-                            }
-                            aria-label="Toggle Fraud & Compliance Verification"
-                          />
-                          <ShieldAlert className="h-4 w-4 text-rose-600" />
-                          <span>2. Fraud & Compliance Verification</span>
+                          <div className="flex items-center gap-2 font-semibold text-foreground text-xs uppercase tracking-wide">
+                            <ShieldAlert className="h-4 w-4 text-rose-600" />
+                            <span>2. Fraud & Compliance Verification</span>
+                          </div>
+
+                          {!fraudSectionEnabledByRow[row.id] ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                setFraudSectionEnabledByRow((prev) => ({
+                                  ...prev,
+                                  [row.id]: true,
+                                }))
+                              }
+                              className="h-7 gap-1.5 px-2.5 text-xs font-semibold"
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              Add Fraud
+                            </Button>
+                          ) : (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                setFraudSectionEnabledByRow((prev) => ({
+                                  ...prev,
+                                  [row.id]: false,
+                                }))
+                              }
+                              className="h-7 gap-1 px-2 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                              Remove
+                            </Button>
+                          )}
                         </div>
 
                         {Boolean(fraudSectionEnabledByRow[row.id]) && (
-                          <>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                              {(
-                                [
-                                  { key: "fraudTransactions", label: "Fraud Transactions" },
-                                  { key: "missOpportunity", label: "Miss Opportunity" },
-                                  { key: "paymentFraud", label: "Payment fraud" },
-                                  { key: "aalSwap", label: "AAL Swap" },
-                                  { key: "mim", label: "MIM" },
-                                  { key: "onlineRejectedPayment", label: "Online/Rejected Payment" },
-                                  { key: "flipping", label: "Flipping" },
-                                  { key: "portIn", label: "Port In" },
-                                  { key: "nonUp", label: "Non-Up" },
-                                  { key: "smartPayMentioned", label: "SmartPay Mentioned" },
-                                  { key: "aalBillSame", label: "AAL Bill Same" },
-                                ] as const
-                              ).map((field) => (
-                                <StandardSelect
-                                  key={field.key}
-                                  label={field.label}
-                                  options={YES_NO_OPTIONS}
-                                  value={row[field.key]}
-                                  onValueChange={(val) =>
-                                    handleUpdateRowField(row.id, field.key, val)
-                                  }
-                                />
-                              ))}
-                            </div>
+                          <div className="space-y-2.5 pt-0.5">
+                            {FRAUD_VERIFICATION_ITEMS.map((item) => {
+                              const isChecked =
+                                (row[item.key] || "").trim().toUpperCase() === "YES";
+                              const checkboxId = `${row.id}-fraud-${item.key}`;
+                              return (
+                                <div
+                                  key={item.key}
+                                  className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3"
+                                >
+                                  <div className="flex items-center gap-2.5 sm:w-56 shrink-0">
+                                    <Checkbox
+                                      id={checkboxId}
+                                      checked={isChecked}
+                                      onCheckedChange={(checked) =>
+                                        handleToggleFraudCheckbox(
+                                          row.id,
+                                          item.key,
+                                          item.detailKey,
+                                          Boolean(checked),
+                                        )
+                                      }
+                                    />
+                                    <Label
+                                      htmlFor={checkboxId}
+                                      className="text-xs font-semibold text-foreground cursor-pointer select-none"
+                                    >
+                                      {item.label}
+                                    </Label>
+                                  </div>
 
-                            <div className="space-y-1 pt-1">
-                              <Label className="text-[11px] font-semibold">Notes</Label>
-                              <Textarea
-                                value={row.notes}
-                                onChange={(e) =>
-                                  handleUpdateRowField(row.id, "notes", e.target.value)
-                                }
-                                placeholder="Document transaction observations, cash handling, or compliance notes..."
-                                rows={2}
-                              />
-                            </div>
-                          </>
+                                  <div className="flex-1">
+                                    <Input
+                                      value={row[item.detailKey] || ""}
+                                      disabled={!isChecked}
+                                      onChange={(e) =>
+                                        handleUpdateRowField(
+                                          row.id,
+                                          item.detailKey,
+                                          e.target.value,
+                                        )
+                                      }
+                                      placeholder={item.notesPlaceholder}
+                                      className={
+                                        !isChecked ? "bg-muted/40 opacity-60 cursor-not-allowed" : ""
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
                         )}
                       </div>
 
@@ -3046,45 +3277,18 @@ export default function SurveillanceReportsPage() {
           )}
         </Card>
 
-        {/* 5. Store Closed Section */}
-        <Card className="p-4 border-border/80 shadow-2xs bg-card space-y-3">
-          <div className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2 border-b pb-2">
-            <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            Store Closed Section
+        {/* 5. Store Close Time (Compact borderless inline row) */}
+        <div className="flex flex-wrap items-center gap-3 py-1">
+          <span className="text-xs font-bold text-foreground whitespace-nowrap">
+            Store Close Time:
+          </span>
+          <div className="w-44">
+            <AmPmTimePicker
+              value={headerStoreCloseTime}
+              onChange={(val) => setHeaderStoreCloseTime(val)}
+            />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label className="text-xs font-semibold text-foreground">
-                Store Close Time
-              </Label>
-              <AmPmTimePicker
-                value={headerStoreCloseTime}
-                onChange={(val) => setHeaderStoreCloseTime(val)}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs font-semibold text-foreground">
-                Sales Rep
-              </Label>
-              <Select
-                value={toSelectVal(headerStoreCloseSalesRep)}
-                onValueChange={(v) => setHeaderStoreCloseSalesRep(fromSelectVal(v))}
-              >
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue placeholder="Select Sales Rep" />
-                </SelectTrigger>
-                <SelectContent>
-                  {SALES_REP_NAMES.map((rep) => (
-                    <SelectItem key={rep} value={rep} className="text-xs">
-                      {rep}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </Card>
+        </div>
 
         {/* 6. General Notes Section */}
         <Card className="p-4 border-border/80 shadow-2xs bg-card space-y-2">
