@@ -154,20 +154,15 @@ export const COMMISSION_ENGINE_API_PATHS = {
   getPlans: "/api/CommissionEngine/GetPlans",
   getPlan: (planId: number) => `/api/CommissionEngine/GetPlan/${planId}`,
   createPlan: "/api/CommissionEngine/CreatePlan",
-  saveSettings: (planId: number) => `/api/CommissionEngine/SaveSettings/${planId}`,
   saveRules: (planId: number) => `/api/CommissionEngine/SaveRules/${planId}`,
-  saveComponents: (planId: number) => `/api/CommissionEngine/SaveComponents/${planId}`,
+  saveTypes: (planId: number) => `/api/CommissionEngine/SaveTypes/${planId}`,
   getSourceFields: "/api/CommissionEngine/GetSourceFields",
   getFieldValues: "/api/CommissionEngine/GetFieldValues",
-  getMetrics: (planId: number) => `/api/CommissionEngine/GetMetrics/${planId}`,
-  uploadMetric: (planId: number, metricCode: string) =>
-    `/api/CommissionEngine/UploadMetric/${planId}?metricCode=${encodeURIComponent(metricCode)}`,
-  importMetricsFromRaw: (planId: number) => `/api/CommissionEngine/ImportMetricsFromRaw/${planId}`,
-  getAdjustments: (planId: number) => `/api/CommissionEngine/GetAdjustments/${planId}`,
-  uploadAdjustments: (planId: number, typeCode: string) =>
-    `/api/CommissionEngine/UploadAdjustments/${planId}?typeCode=${encodeURIComponent(typeCode)}`,
-  deleteAdjustment: (planId: number, adjustmentId: number) =>
-    `/api/CommissionEngine/DeleteAdjustment/${planId}/${adjustmentId}`,
+  getUploads: (planId: number) => `/api/CommissionEngine/GetUploads/${planId}`,
+  upload: (planId: number, uploadType: string) =>
+    `/api/CommissionEngine/Upload/${planId}?uploadType=${encodeURIComponent(uploadType)}`,
+  deleteUpload: (planId: number, uploadId: number) =>
+    `/api/CommissionEngine/DeleteUpload/${planId}/${uploadId}`,
   run: (planId: number, tillDate: string | null) =>
     `/api/CommissionEngine/Run/${planId}${tillDate ? `?tillDate=${tillDate}` : ""}`,
   getRuns: (planId: number) => `/api/CommissionEngine/GetRuns/${planId}`,

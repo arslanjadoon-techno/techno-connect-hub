@@ -9,15 +9,6 @@ export interface CePlanSummary {
   lastRunAt: string | null;
 }
 
-export interface CeSettings {
-  alwaysEligibleMarkets: string[];
-  totalBoxExclude: string[];
-  eligibilityMetric: string;
-  activeStatusMetric: string;
-  eligibleListMetric: string;
-  retentionMetric: string;
-}
-
 export interface CeCondition {
   field: string;
   op: string;
@@ -35,30 +26,25 @@ export interface CeRule {
   note: string | null;
 }
 
-export interface CeTier {
-  min: number | null;
-  max: number | null;
-  amount: number | null;
-  percent: number | null;
+export interface CeFilter {
+  criteria: string | null;
+  minValue: number | null;
+  maxValue: number | null;
+  commissionPayout: number;
+  payTypeId: number;
 }
 
-export interface CeComponent {
+export interface CeType {
   id: number;
-  code: string;
   name: string;
+  source: string;
+  categories: string | null;
+  basis: string | null;
   reportGroup: string;
   sortOrder: number;
-  kind: string;
-  source: string | null;
-  categories: string | null;
-  calc: string | null;
-  rate: number | null;
-  tierBasis: string | null;
-  tierMetric: string | null;
-  tiers: CeTier[];
-  gateMetric: string | null;
-  gateMin: number | null;
   inGross: boolean;
+  inBox: boolean;
+  filters: CeFilter[];
 }
 
 export interface CePlan {
@@ -66,9 +52,8 @@ export interface CePlan {
   year: number;
   month: number;
   name: string;
-  settings: CeSettings;
   rules: CeRule[];
-  components: CeComponent[];
+  types: CeType[];
 }
 
 export interface CeField {
@@ -82,17 +67,12 @@ export interface CeFieldValue {
   count: number;
 }
 
-export interface CeMetricSummary {
-  metricCode: string;
-  count: number;
-}
-
-export interface CeAdjustment {
+export interface CeUpload {
   id: number;
-  typeCode: string;
+  uploadType: string;
   ntid: string;
   market: string | null;
-  amount: number;
+  value: number;
   note: string | null;
 }
 
@@ -163,16 +143,12 @@ export class CommissionEngineService {
     return res.data;
   }
 
-  async saveSettings(planId: number, settings: CeSettings): Promise<void> {
-    await http.put<boolean>(COMMISSION_ENGINE_API_PATHS.saveSettings(planId), settings);
-  }
-
   async saveRules(planId: number, rules: CeRule[]): Promise<void> {
     await http.put<boolean>(COMMISSION_ENGINE_API_PATHS.saveRules(planId), rules);
   }
 
-  async saveComponents(planId: number, components: CeComponent[]): Promise<void> {
-    await http.put<boolean>(COMMISSION_ENGINE_API_PATHS.saveComponents(planId), components);
+  async saveTypes(planId: number, types: CeType[]): Promise<void> {
+    await http.put<boolean>(COMMISSION_ENGINE_API_PATHS.saveTypes(planId), types);
   }
 
   async getSourceFields(source: string): Promise<CeField[]> {
@@ -188,31 +164,17 @@ export class CommissionEngineService {
     return res.data ?? [];
   }
 
-  async getMetrics(planId: number): Promise<CeMetricSummary[]> {
-    const res = await http.get<CeMetricSummary[]>(COMMISSION_ENGINE_API_PATHS.getMetrics(planId));
+  async getUploads(planId: number): Promise<CeUpload[]> {
+    const res = await http.get<CeUpload[]>(COMMISSION_ENGINE_API_PATHS.getUploads(planId));
     return res.data ?? [];
   }
 
-  async uploadMetric(planId: number, metricCode: string, file: File): Promise<string> {
-    return this.upload(COMMISSION_ENGINE_API_PATHS.uploadMetric(planId, metricCode), file);
+  async uploadFile(planId: number, uploadType: string, file: File): Promise<string> {
+    return this.upload(COMMISSION_ENGINE_API_PATHS.upload(planId, uploadType), file);
   }
 
-  async importMetricsFromRaw(planId: number): Promise<string> {
-    const res = await http.post<number>(COMMISSION_ENGINE_API_PATHS.importMetricsFromRaw(planId));
-    return res.message;
-  }
-
-  async getAdjustments(planId: number): Promise<CeAdjustment[]> {
-    const res = await http.get<CeAdjustment[]>(COMMISSION_ENGINE_API_PATHS.getAdjustments(planId));
-    return res.data ?? [];
-  }
-
-  async uploadAdjustments(planId: number, typeCode: string, file: File): Promise<string> {
-    return this.upload(COMMISSION_ENGINE_API_PATHS.uploadAdjustments(planId, typeCode), file);
-  }
-
-  async deleteAdjustment(planId: number, adjustmentId: number): Promise<void> {
-    await http.delete<boolean>(COMMISSION_ENGINE_API_PATHS.deleteAdjustment(planId, adjustmentId));
+  async deleteUpload(planId: number, uploadId: number): Promise<void> {
+    await http.delete<boolean>(COMMISSION_ENGINE_API_PATHS.deleteUpload(planId, uploadId));
   }
 
   async run(planId: number, tillDate: string | null): Promise<CeRunResult> {
@@ -231,7 +193,9 @@ export class CommissionEngineService {
   }
 
   async getLatestRun(planId: number): Promise<CeRunResult | null> {
-    const res = await http.get<CeRunResult | null>(COMMISSION_ENGINE_API_PATHS.getLatestRun(planId));
+    const res = await http.get<CeRunResult | null>(
+      COMMISSION_ENGINE_API_PATHS.getLatestRun(planId),
+    );
     return res.data ?? null;
   }
 
