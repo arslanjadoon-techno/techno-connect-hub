@@ -150,6 +150,31 @@ export const DAILY_COMMISSION_FILTER_API_PATHS = {
   refreshDailyCommissionSummary: "/api/DailyCommission/RefreshDailyCommissionSummary",
 } as const;
 
+export const COMMISSION_ENGINE_API_PATHS = {
+  getPlans: "/api/CommissionEngine/GetPlans",
+  getPlan: (planId: number) => `/api/CommissionEngine/GetPlan/${planId}`,
+  createPlan: "/api/CommissionEngine/CreatePlan",
+  saveSettings: (planId: number) => `/api/CommissionEngine/SaveSettings/${planId}`,
+  saveRules: (planId: number) => `/api/CommissionEngine/SaveRules/${planId}`,
+  saveComponents: (planId: number) => `/api/CommissionEngine/SaveComponents/${planId}`,
+  getSourceFields: "/api/CommissionEngine/GetSourceFields",
+  getFieldValues: "/api/CommissionEngine/GetFieldValues",
+  getMetrics: (planId: number) => `/api/CommissionEngine/GetMetrics/${planId}`,
+  uploadMetric: (planId: number, metricCode: string) =>
+    `/api/CommissionEngine/UploadMetric/${planId}?metricCode=${encodeURIComponent(metricCode)}`,
+  importMetricsFromRaw: (planId: number) => `/api/CommissionEngine/ImportMetricsFromRaw/${planId}`,
+  getAdjustments: (planId: number) => `/api/CommissionEngine/GetAdjustments/${planId}`,
+  uploadAdjustments: (planId: number, typeCode: string) =>
+    `/api/CommissionEngine/UploadAdjustments/${planId}?typeCode=${encodeURIComponent(typeCode)}`,
+  deleteAdjustment: (planId: number, adjustmentId: number) =>
+    `/api/CommissionEngine/DeleteAdjustment/${planId}/${adjustmentId}`,
+  run: (planId: number, tillDate: string | null) =>
+    `/api/CommissionEngine/Run/${planId}${tillDate ? `?tillDate=${tillDate}` : ""}`,
+  getRuns: (planId: number) => `/api/CommissionEngine/GetRuns/${planId}`,
+  getRun: (runId: number) => `/api/CommissionEngine/GetRun/${runId}`,
+  getLatestRun: (planId: number) => `/api/CommissionEngine/GetLatestRun/${planId}`,
+} as const;
+
 export const LEAVE_API_PATHS = {
   getAll: "/api/leave/get-all",
   myLeaves: "/api/leave/my-leaves",

@@ -35,6 +35,7 @@ import ReportingDashboard from "@/pages/portals/reporting/Dashboard";
 import CommissionDashboardPage from "@/pages/portals/commission/DashboardPage";
 import CommissionPage from "@/pages/portals/commission/CommissionPage";
 import DailyCommissionFilterPage from "@/pages/portals/commission/DailyCommissionFilterPage";
+import CommissionEnginePage from "@/pages/portals/commission/CommissionEnginePage";
 import Support from "@/pages/portals/commission/Support";
 import Privacy from "@/pages/portals/commission/Privacy";
 import HousesPage from "@/pages/portals/commission/HousesPage";
@@ -443,6 +444,16 @@ export function AppRoutes() {
           element={
             <PortalRouteGuard portalKey="commission">
               <CommissionPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/commission/engine"
+          element={
+            <PortalRouteGuard portalKey="commission">
+              <CommissionAdminOnly>
+                <CommissionEnginePage />
+              </CommissionAdminOnly>
             </PortalRouteGuard>
           }
         />
