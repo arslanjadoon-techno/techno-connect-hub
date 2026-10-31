@@ -53,20 +53,25 @@ import {
   MessageSquare,
   UserPlus,
   FileText,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  getStaticRequestReports,
-  createStaticRequestReport,
-  getStaticReports,
-  getStaticStores,
-  type StaticStoreOption,
-} from "./surveillance-data";
+import { surveillanceService } from "@/services/portals/surveillance/surveillance.service";
+import { storesService } from "@/services/user-manager/stores.service";
 import type {
   SurveillanceRequest,
   SurveillanceReport,
   SurveillancePriority,
 } from "@/services/portals/surveillance/types";
+
+interface StaticStoreOption {
+  id: string;
+  name: string;
+  number: string;
+  market: string;
+  district: string;
+  address: string;
+}
 
 type RequestReportPageStatus = "Pending" | "Completed";
 
@@ -177,11 +182,49 @@ export default function ReportRequestsPage() {
   const [requests, setRequests] = useState<SurveillanceRequest[]>([]);
   const [reports, setReports] = useState<SurveillanceReport[]>([]);
   const [stores, setStores] = useState<StaticStoreOption[]>([]);
+  // Full-screen blocking overlay shown while the list is loading or a
+  // backend call (submit request) is in flight.
+  const [blockingMessage, setBlockingMessage] = useState<string | null>(
+    "Loading surveillance requests...",
+  );
+  const blockingOverlay = blockingMessage ? (
+    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-xl bg-background/30 backdrop-blur-[2px]">
+      <Loader2 className="h-9 w-9 animate-spin text-primary" />
+      <p className="text-sm font-semibold text-foreground drop-shadow-sm">{blockingMessage}</p>
+    </div>
+  ) : null;
+
+  const loadRequests = async () => {
+    try {
+      setRequests(await surveillanceService.getRequests());
+    } catch (error) {
+      toast.error(`Failed to load surveillance requests: ${(error as Error).message}`);
+    }
+  };
 
   useEffect(() => {
-    setRequests(getStaticRequestReports());
-    setReports(getStaticReports());
-    setStores(getStaticStores());
+    Promise.allSettled([
+      loadRequests(),
+      surveillanceService
+        .getReports()
+        .then(setReports)
+        .catch((error) => toast.error(`Failed to load surveillance reports: ${(error as Error).message}`)),
+      storesService
+        .getAll({ size: 2000 })
+        .then((res) =>
+          setStores(
+            (res.data || []).map((s) => ({
+              id: String(s.id),
+              name: s.name,
+              number: s.number || "",
+              market: s.market?.name || "",
+              district: s.district?.name || "",
+              address: s.address || "",
+            })),
+          ),
+        )
+        .catch((error) => toast.error(`Failed to load stores: ${(error as Error).message}`)),
+    ]).finally(() => setBlockingMessage(null));
   }, []);
 
   // Active drill-down detail view state synced with URL query param (?detail=...)
@@ -245,7 +288,7 @@ export default function ReportRequestsPage() {
     setCreateModalOpen(true);
   };
 
-  const handleCreateRequest = () => {
+  const handleCreateRequest = async () => {
     if (!selectedMarket) {
       toast.error("Please select a market.");
       return;
@@ -270,41 +313,38 @@ export default function ReportRequestsPage() {
     }
 
     setSubmittingRequest(true);
+    setBlockingMessage("Submitting surveillance request...");
     try {
-      const result = createStaticRequestReport(
-        {
-          storeId: store.id,
-          storeName: store.name,
-          storeNumber: store.number,
-          marketName: store.market,
-          districtName: store.district,
-          incidentDate: startDate,
-          shift: "Surveillance Review",
-          investigationType: "Store Audit & Surveillance",
-          priority,
-          title: title.trim(),
-          areasToReview: ["POS Registers", "Sales Floor", "Backroom / Cash Safe"],
-          notes: notes.trim() || undefined,
-        },
-        {
-          name: user?.fullName || "David Kim",
-          role: user?.roleName || "Market Manager",
-          email: user?.email || "david.kim@techno-communications.com",
-        },
-      );
+      const result = await surveillanceService.createRequest({
+        storeId: store.id,
+        storeName: store.name,
+        storeNumber: store.number,
+        marketName: store.market,
+        districtName: store.district,
+        incidentDate: startDate,
+        shift: "Surveillance Review",
+        investigationType: "Store Audit & Surveillance",
+        priority,
+        title: title.trim(),
+        areasToReview: ["POS Registers", "Sales Floor", "Backroom / Cash Safe"],
+        notes: notes.trim() || undefined,
+      });
 
       if (result.isDuplicate) {
         toast.error(
-          `A surveillance request for this store and date already exists (requested by ${result.requestedBy}).`,
+          `A surveillance request for this store and date already exists (requested by ${result.duplicateRequestedBy || result.requestedBy}).`,
         );
         return;
       }
 
-      setRequests(getStaticRequestReports());
+      await loadRequests();
       toast.success("Surveillance report request submitted successfully.");
       setCreateModalOpen(false);
+    } catch (error) {
+      toast.error(`Failed to submit request: ${(error as Error).message}`);
     } finally {
       setSubmittingRequest(false);
+      setBlockingMessage(null);
     }
   };
 
@@ -421,7 +461,8 @@ export default function ReportRequestsPage() {
     const ratingReviewer = item.reportApprovedBy || linkedReport?.reviewedBy;
 
     return (
-      <div className="space-y-5 animate-fade-in">
+      <div className="relative space-y-5 animate-fade-in">
+        {blockingOverlay}
         {/* Top Bar */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-3.5">
@@ -840,7 +881,8 @@ export default function ReportRequestsPage() {
 
   // DEFAULT VIEW: "Request Reports" List Table View
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6">
+      {blockingOverlay}
       {/* Header */}
       <div className="flex flex-col gap-4 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>

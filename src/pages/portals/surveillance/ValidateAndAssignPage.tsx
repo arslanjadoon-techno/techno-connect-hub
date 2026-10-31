@@ -56,13 +56,10 @@ import {
   UserPlus,
   Users,
   XCircle,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  getStaticValidationQueue,
-  getStaticAssignableAgents,
-  validateAndAssignStaticRequest,
-} from "./surveillance-data";
+import { surveillanceService } from "@/services/portals/surveillance/surveillance.service";
 import {
   canValidateSurveillance,
   getSurveillanceDefaultRoute,
@@ -192,7 +189,12 @@ export default function ValidateAndAssignPage() {
   const canAccessValidatePage = useMemo(() => canValidateSurveillance(userRole), [userRole]);
 
   const [requests, setRequests] = useState<SurveillanceValidationItem[]>([]);
-  const [agents, setAgents] = useState<SurveillanceAssignableAgent[]>([]);
+  // Search results for the "Assign to User / Agent" picker only - fetched
+  // on demand as the validator types (search-as-you-type), never the full
+  // user roster up front.
+  const [agentSearchResults, setAgentSearchResults] = useState<SurveillanceAssignableAgent[]>([]);
+  const [agentSearchQuery, setAgentSearchQuery] = useState("");
+  const [agentSearchLoading, setAgentSearchLoading] = useState(false);
 
   // Drill-down detail state & status filter synced with URL search params
   const selectedDetailId = searchParams.get("detail");
@@ -230,10 +232,50 @@ export default function ValidateAndAssignPage() {
   const [agentPickerOpen, setAgentPickerOpen] = useState(false);
   const [submittingAssign, setSubmittingAssign] = useState(false);
 
+  // Full-screen blocking overlay shown while the queue is loading or an
+  // assign/reject action is in flight.
+  const [blockingMessage, setBlockingMessage] = useState<string | null>(
+    "Loading validation queue...",
+  );
+  const blockingOverlay = blockingMessage ? (
+    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-xl bg-background/30 backdrop-blur-[2px]">
+      <Loader2 className="h-9 w-9 animate-spin text-primary" />
+      <p className="text-sm font-semibold text-foreground drop-shadow-sm">{blockingMessage}</p>
+    </div>
+  ) : null;
+
+  const loadQueue = async () => {
+    try {
+      setRequests(await surveillanceService.getValidationQueue());
+    } catch (error) {
+      toast.error(`Failed to load validation queue: ${(error as Error).message}`);
+    }
+  };
+
   useEffect(() => {
-    setRequests(getStaticValidationQueue());
-    setAgents(getStaticAssignableAgents());
+    loadQueue().finally(() => setBlockingMessage(null));
   }, []);
+
+  // Debounced search-as-you-type for the "Assign to User / Agent" picker -
+  // only queries the backend once the validator has typed 2+ characters, and
+  // only while the modal is actually open.
+  useEffect(() => {
+    if (!agentPickerOpen) return;
+    const query = agentSearchQuery.trim();
+    if (query.length < 2) {
+      setAgentSearchResults([]);
+      return;
+    }
+    setAgentSearchLoading(true);
+    const timer = setTimeout(() => {
+      surveillanceService
+        .getAssignableAgents(query)
+        .then(setAgentSearchResults)
+        .catch((error) => toast.error(`Agent search failed: ${(error as Error).message}`))
+        .finally(() => setAgentSearchLoading(false));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [agentSearchQuery, agentPickerOpen]);
 
   const markets = useMemo(
     () => Array.from(new Set(requests.map((r) => r.marketName).filter(Boolean))).sort(),
@@ -278,8 +320,8 @@ export default function ValidateAndAssignPage() {
   }, [requests, statusFilter, marketFilter, priorityFilter, agentFilter]);
 
   const selectedAgent = useMemo(
-    () => agents.find((a) => a.id === selectedAgentId) || null,
-    [agents, selectedAgentId],
+    () => agentSearchResults.find((a) => a.id === selectedAgentId) || null,
+    [agentSearchResults, selectedAgentId],
   );
 
   const selectedDetail = useMemo(
@@ -287,19 +329,28 @@ export default function ValidateAndAssignPage() {
     [requests, selectedDetailId],
   );
 
-  const selectedDetailAssignedAgent = useMemo(() => {
-    if (!selectedDetail?.assignedAgentId) return null;
-    return agents.find((a) => a.id === selectedDetail.assignedAgentId) || null;
-  }, [agents, selectedDetail]);
+  // Assigned-agent options for the toolbar filter, derived from the queue
+  // itself (already loaded) rather than a separate full-roster fetch.
+  const assignedAgentOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const r of requests) {
+      if (r.assignedAgentId && r.assignedAgentName && !seen.has(r.assignedAgentId)) {
+        seen.set(r.assignedAgentId, r.assignedAgentName);
+      }
+    }
+    return Array.from(seen.entries()).map(([id, fullName]) => ({ id, fullName }));
+  }, [requests]);
 
   const openAssignModal = useCallback((item: SurveillanceValidationItem) => {
     if (item.validationStatus !== "Unassigned") return;
     setTargetAssignItem(item);
     setSelectedAgentId("");
+    setAgentSearchQuery("");
+    setAgentSearchResults([]);
     setAssignModalOpen(true);
   }, []);
 
-  const handleConfirmAssign = () => {
+  const handleConfirmAssign = async () => {
     if (!targetAssignItem) return;
     if (!selectedAgentId) {
       toast.error("Please select a user or agent to assign this request.");
@@ -307,23 +358,22 @@ export default function ValidateAndAssignPage() {
     }
 
     setSubmittingAssign(true);
+    setBlockingMessage("Validating and assigning request...");
     try {
-      const adminName = user?.fullName || "System Admin";
-      const updated = validateAndAssignStaticRequest({
+      const updated = await surveillanceService.validateAndAssignRequest({
         requestId: targetAssignItem.id,
         agentId: selectedAgentId,
         priority: targetAssignItem.priority,
-        assignedBy: adminName,
       });
 
-      setRequests(getStaticValidationQueue());
-      setAgents(getStaticAssignableAgents());
+      await loadQueue();
       setAssignModalOpen(false);
       toast.success(`Request validated and assigned to ${updated.assignedAgentName}.`);
     } catch (error) {
       toast.error(`Assignment failed: ${(error as Error).message}`);
     } finally {
       setSubmittingAssign(false);
+      setBlockingMessage(null);
     }
   };
 
@@ -429,7 +479,8 @@ export default function ValidateAndAssignPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="relative space-y-6 animate-fade-in">
+      {blockingOverlay}
       {selectedDetail ? (
         /* DRILL-DOWN REQUEST VALIDATION & ASSIGNMENT VIEW */
         <div className="space-y-5">
@@ -818,9 +869,7 @@ export default function ValidateAndAssignPage() {
                     {selectedDetail.assignedAgentName ? (
                       <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100/90 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200">
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
-                        {selectedDetail.assignedAgentRole ||
-                          selectedDetailAssignedAgent?.role ||
-                          "Surveillance Agent"}
+                        {selectedDetail.assignedAgentRole || "Surveillance Agent"}
                       </span>
                     ) : selectedDetail.validationStatus === "Rejected" ? (
                       <span className="inline-flex items-center gap-1.5 rounded-md bg-rose-100/90 px-2.5 py-0.5 text-[11px] font-semibold text-rose-800 dark:bg-rose-900/60 dark:text-rose-200">
@@ -858,9 +907,7 @@ export default function ValidateAndAssignPage() {
                       <div className="text-[11px] text-muted-foreground">Phone</div>
                       <div className="font-medium text-foreground tabular-nums">
                         {selectedDetail.assignedAgentName
-                          ? selectedDetail.assignedAgentPhone ||
-                            selectedDetailAssignedAgent?.phone ||
-                            "—"
+                          ? selectedDetail.assignedAgentPhone || "—"
                           : "—"}
                       </div>
                     </div>
@@ -873,10 +920,7 @@ export default function ValidateAndAssignPage() {
                     <div className="min-w-0">
                       <div className="text-[11px] text-muted-foreground">Department</div>
                       <div className="font-medium text-foreground">
-                        {selectedDetail.assignedAgentName
-                          ? selectedDetailAssignedAgent?.department ||
-                            "Surveillance & Loss Prevention"
-                          : "—"}
+                        {selectedDetail.assignedAgentName ? "Surveillance & Loss Prevention" : "—"}
                       </div>
                     </div>
                   </div>
@@ -1144,7 +1188,7 @@ export default function ValidateAndAssignPage() {
               <SelectContent>
                 <SelectItem value="all">All Agents</SelectItem>
                 <SelectItem value="unassigned">Unassigned Only</SelectItem>
-                {agents.map((agent) => (
+                {assignedAgentOptions.map((agent) => (
                   <SelectItem key={agent.id} value={agent.id}>
                     {agent.fullName}
                   </SelectItem>
@@ -1248,12 +1292,22 @@ export default function ValidateAndAssignPage() {
                     </button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Search by name or email..." />
+                    <Command shouldFilter={false}>
+                      <CommandInput
+                        placeholder="Type 2+ characters to search by name or email..."
+                        value={agentSearchQuery}
+                        onValueChange={setAgentSearchQuery}
+                      />
                       <CommandList>
-                        <CommandEmpty>No matching users found.</CommandEmpty>
+                        <CommandEmpty>
+                          {agentSearchLoading
+                            ? "Searching..."
+                            : agentSearchQuery.trim().length < 2
+                              ? "Type at least 2 characters to search."
+                              : "No matching users found."}
+                        </CommandEmpty>
                         <CommandGroup>
-                          {agents.map((agent) => {
+                          {agentSearchResults.map((agent) => {
                             const isSelected = agent.id === selectedAgentId;
                             return (
                               <CommandItem
