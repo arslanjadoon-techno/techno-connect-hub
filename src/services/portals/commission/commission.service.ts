@@ -276,6 +276,7 @@ export class CommissionService {
       page: page - 1,
       size: pageSize,
       market: params.market && params.market !== "all" ? params.market : undefined,
+      search: params.search?.trim() || undefined,
     });
 
     const url = `${LEASING_COMMISSION_API_BASE_URL}${COMMISSION_API_PATHS.getDailyCommission}${query}`;

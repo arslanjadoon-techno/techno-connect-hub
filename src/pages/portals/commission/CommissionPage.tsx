@@ -221,6 +221,14 @@ export default function CommissionPage() {
   // Server pagination states (for manager/admin table)
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(100);
+
+  // Search runs on the server across all pages; searchTerm is the debounced value
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState<string>("");
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchTerm(searchQuery.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
   const [paginationInfo, setPaginationInfo] = useState<{
     totalRecords: number;
     totalPages: number;
@@ -271,12 +279,14 @@ export default function CommissionPage() {
       //   pageSize,
       //   market: selectedMarket !== "all" ? selectedMarket : undefined,
       // });
+      // While searching, load every match once; the table pages through them itself
       const res = await commissionService.getDailyCommission({
         fromDate: selectedDate,
         toDate: selectedDate,
-        page,
-        pageSize,
+        page: searchTerm ? 1 : page,
+        pageSize: searchTerm ? 5000 : pageSize,
         market: selectedMarket !== "all" ? selectedMarket : undefined,
+        search: searchTerm || undefined,
       });
 
       setRows(res.data);
@@ -298,7 +308,7 @@ export default function CommissionPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedDate, selectedMarket, page, pageSize, isManagerOrAdmin]);
+  }, [selectedDate, selectedMarket, page, pageSize, searchTerm, isManagerOrAdmin]);
 
   // Fetch single employee commission data for standard User by their NTID (without OTP)
   const fetchUserCommissionData = useCallback(async () => {
@@ -852,6 +862,10 @@ export default function CommissionPage() {
             }}
             isLoading={loading}
             onRowClick={(row) => setSelectedEmployee(row)}
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            serverSearch={Boolean(searchTerm)}
+            isSearching={loading && Boolean(searchQuery.trim())}
           />
         </Card>
       </TabsContent>
@@ -872,6 +886,10 @@ export default function CommissionPage() {
             }}
             isLoading={loading}
             onRowClick={(row) => setSelectedEmployee(row)}
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            serverSearch={Boolean(searchTerm)}
+            isSearching={loading && Boolean(searchQuery.trim())}
           />
         </Card>
       </TabsContent>
