@@ -657,7 +657,8 @@ function computeSummaryFromReport(
     loomisLink: meta.loomisLink || "",
     safeLockerVisible: meta.safeLockerVisible || "Yes",
     safeLockerLink: meta.safeLockerLink || "",
-    generalOtherNotes: meta.generalOtherNotes || "No",
+    generalOtherNotes:
+      meta.generalOtherNotes || (isMeaningfulText(report.notes) ? report.notes!.trim() : "No"),
     amountDifference,
     reasonForDifference,
     qaName: meta.qaName || report.investigatorName || linkedRequest?.preparedBy || "—",

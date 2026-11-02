@@ -321,6 +321,29 @@ function hasAnyActiveFraudItem(row: SurveillanceAuditRow): boolean {
   );
 }
 
+// Mirrors hasAnyActiveFraudItem for the "Sales Pitch & Bundle Verification"
+// section - a row restored (from MMKV or the real backend) with any of these
+// fields already filled in should reopen the toggle, not show it disabled
+// while still holding the saved values underneath.
+function hasAnyActiveSalesPitchItem(row: SurveillanceAuditRow): boolean {
+  const isYes = (val?: string) => (val || "").trim().toUpperCase() === "YES";
+  const nonEmpty = (val?: string) => {
+    const s = (val || "").trim();
+    return Boolean(s) && s !== "__empty__";
+  };
+  return (
+    nonEmpty(row.pitchQuality) ||
+    isYes(row.showingPhone) ||
+    isYes(row.accOffered) ||
+    isYes(row.maximize) ||
+    isYes(row.bundleAccGiven) ||
+    nonEmpty(row.bundleNb) ||
+    nonEmpty(row.bundleStartB) ||
+    nonEmpty(row.bundleEndB) ||
+    nonEmpty(row.pitchNotes)
+  );
+}
+
 type CustomDetailFieldKey =
   | "transType"
   | "clientType"
@@ -1514,6 +1537,7 @@ export default function SurveillanceReportsPage() {
     const timestamps: Record<string, string> = {};
     const expanded: Record<string, boolean> = {};
     const initialFraudOpen: Record<string, boolean> = {};
+    const initialPitchOpen: Record<string, boolean> = {};
     for (const rec of savedRecords) {
       timestamps[rec.row.id] = rec.savedAt;
       expanded[rec.row.id] = true;
@@ -1521,6 +1545,9 @@ export default function SurveillanceReportsPage() {
     for (const r of restoredRows) {
       if (hasAnyActiveFraudItem(r)) {
         initialFraudOpen[r.id] = true;
+      }
+      if (hasAnyActiveSalesPitchItem(r)) {
+        initialPitchOpen[r.id] = true;
       }
     }
 
@@ -1547,6 +1574,7 @@ export default function SurveillanceReportsPage() {
     setDirtyRowIds({});
     setExpandedRowIds(expanded);
     setFraudSectionEnabledByRow(initialFraudOpen);
+    setSalesPitchSectionEnabledByRow(initialPitchOpen);
     setIsEditingReport(true);
 
     // Reconnect to the real backend report (if progress was already synced
@@ -1588,10 +1616,12 @@ export default function SurveillanceReportsPage() {
       const timestamps: Record<string, string> = {};
       const expanded: Record<string, boolean> = {};
       const initialFraudOpen: Record<string, boolean> = {};
+      const initialPitchOpen: Record<string, boolean> = {};
       for (const r of restoredRows) {
         timestamps[r.id] = dbReport.submittedAt;
         expanded[r.id] = true;
         if (hasAnyActiveFraudItem(r)) initialFraudOpen[r.id] = true;
+        if (hasAnyActiveSalesPitchItem(r)) initialPitchOpen[r.id] = true;
       }
 
       setDraftReportId(dbReport.id);
@@ -1600,7 +1630,7 @@ export default function SurveillanceReportsPage() {
       setDirtyRowIds({});
       setExpandedRowIds(expanded);
       setFraudSectionEnabledByRow(initialFraudOpen);
-      setSalesPitchSectionEnabledByRow({});
+      setSalesPitchSectionEnabledByRow(initialPitchOpen);
       setHeaderStoreOpenTime(dbReport.storeOpenTime || "");
       setHeaderStoreCloseTime(dbReport.storeCloseTime || "");
       setHeaderGeneralNotes(dbReport.notes || "");
@@ -1680,6 +1710,7 @@ export default function SurveillanceReportsPage() {
       const timestamps: Record<string, string> = {};
       const expanded: Record<string, boolean> = {};
       const initialFraudOpen: Record<string, boolean> = {};
+      const initialPitchOpen: Record<string, boolean> = {};
       for (const rec of savedRecords) {
         timestamps[rec.row.id] = rec.savedAt;
         expanded[rec.row.id] = true;
@@ -1687,6 +1718,9 @@ export default function SurveillanceReportsPage() {
       for (const r of restoredRows) {
         if (hasAnyActiveFraudItem(r)) {
           initialFraudOpen[r.id] = true;
+        }
+        if (hasAnyActiveSalesPitchItem(r)) {
+          initialPitchOpen[r.id] = true;
         }
       }
 
@@ -1723,7 +1757,7 @@ export default function SurveillanceReportsPage() {
       setDirtyRowIds({});
       setExpandedRowIds(expanded);
       setFraudSectionEnabledByRow(initialFraudOpen);
-      setSalesPitchSectionEnabledByRow({});
+      setSalesPitchSectionEnabledByRow(initialPitchOpen);
       surveillanceService.saveActiveDraftSession(reqItem.id, true);
       setIsEditingReport(true);
       toast.info(
@@ -1829,12 +1863,17 @@ export default function SurveillanceReportsPage() {
         );
       });
       const initialFraudOpen: Record<string, boolean> = {};
+      const initialPitchOpen: Record<string, boolean> = {};
       for (const r of cloned) {
         if (hasAnyActiveFraudItem(r)) {
           initialFraudOpen[r.id] = true;
         }
+        if (hasAnyActiveSalesPitchItem(r)) {
+          initialPitchOpen[r.id] = true;
+        }
       }
       setFraudSectionEnabledByRow(initialFraudOpen);
+      setSalesPitchSectionEnabledByRow(initialPitchOpen);
       setEditableRows(cloned);
       setExpandedRowIds({ [cloned[0].id]: true });
     } else if (existingReport) {
@@ -1870,6 +1909,9 @@ export default function SurveillanceReportsPage() {
       );
       if (hasAnyActiveFraudItem(fallbackRow)) {
         setFraudSectionEnabledByRow({ [fallbackRow.id]: true });
+      }
+      if (hasAnyActiveSalesPitchItem(fallbackRow)) {
+        setSalesPitchSectionEnabledByRow({ [fallbackRow.id]: true });
       }
       setEditableRows([fallbackRow]);
       setExpandedRowIds({ [fallbackRow.id]: true });
