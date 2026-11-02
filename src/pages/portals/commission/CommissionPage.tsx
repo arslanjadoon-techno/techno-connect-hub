@@ -147,7 +147,11 @@ const getTodayDate = (): string => {
   return `${year}-${month}-${day}`;
 };
 
-export default function CommissionPage() {
+// "legacy" = old commission API, "daily" = dailyCommission (view based) API
+type CommissionSource = "legacy" | "daily";
+
+export default function CommissionPage({ source = "legacy" }: { source?: CommissionSource }) {
+  const isDaily = source === "daily";
   // Check user role & extract NTID accurately from stored session (supports email, ntid, or username)
   const userAuthInfo = useMemo(() => {
     try {
@@ -272,22 +276,23 @@ export default function CommissionPage() {
     if (!selectedDate || !isManagerOrAdmin) return;
     try {
       setLoading(true);
-      // const res = await commissionService.getAllEmployeeCommissionMarketWiseWithPagination({
-      //   fromDate: selectedDate,
-      //   toDate: selectedDate,
-      //   page,
-      //   pageSize,
-      //   market: selectedMarket !== "all" ? selectedMarket : undefined,
-      // });
-      // While searching, load every match once; the table pages through them itself
-      const res = await commissionService.getDailyCommission({
-        fromDate: selectedDate,
-        toDate: selectedDate,
-        page: searchTerm ? 1 : page,
-        pageSize: searchTerm ? 5000 : pageSize,
-        market: selectedMarket !== "all" ? selectedMarket : undefined,
-        search: searchTerm || undefined,
-      });
+      // Daily: while searching, load every match once; the table pages through them itself
+      const res = isDaily
+        ? await commissionService.getDailyCommission({
+            fromDate: selectedDate,
+            toDate: selectedDate,
+            page: searchTerm ? 1 : page,
+            pageSize: searchTerm ? 5000 : pageSize,
+            market: selectedMarket !== "all" ? selectedMarket : undefined,
+            search: searchTerm || undefined,
+          })
+        : await commissionService.getAllEmployeeCommissionMarketWiseWithPagination({
+            fromDate: selectedDate,
+            toDate: selectedDate,
+            page,
+            pageSize,
+            market: selectedMarket !== "all" ? selectedMarket : undefined,
+          });
 
       setRows(res.data);
       setPaginationInfo({
@@ -308,7 +313,7 @@ export default function CommissionPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedDate, selectedMarket, page, pageSize, searchTerm, isManagerOrAdmin]);
+  }, [selectedDate, selectedMarket, page, pageSize, searchTerm, isManagerOrAdmin, isDaily]);
 
   // Fetch single employee commission data for standard User by their NTID (without OTP)
   const fetchUserCommissionData = useCallback(async () => {
@@ -794,12 +799,24 @@ export default function CommissionPage() {
     </div>
   );
 
+  // Server search across all pages is only on the daily commission API
+  const dailySearchProps = isDaily
+    ? {
+        searchValue: searchQuery,
+        onSearchChange: setSearchQuery,
+        serverSearch: Boolean(searchTerm),
+        isSearching: loading && Boolean(searchQuery.trim()),
+      }
+    : {};
+
   return (
     <Tabs defaultValue="summary" className="w-full space-y-5 animate-fade-in pb-8">
       {/* Top Line: Title & Subtitle + Tabs */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-semibold">Commission</h1>
+          <h1 className="font-display text-2xl font-semibold">
+            {isDaily ? "Daily Commission" : "Commission"}
+          </h1>
           <p className="text-sm text-muted-foreground">
             View commission breakdowns per market and employee.
           </p>
@@ -829,20 +846,22 @@ export default function CommissionPage() {
               </strong>
             </span>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onExport}
-            disabled={exporting || loading || paginationInfo.totalRecords === 0}
-            className="h-8 text-xs"
-          >
-            {exporting ? (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Download className="mr-1.5 h-3.5 w-3.5" />
-            )}
-            Export Excel
-          </Button>
+          {isDaily && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onExport}
+              disabled={exporting || loading || paginationInfo.totalRecords === 0}
+              className="h-8 text-xs"
+            >
+              {exporting ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              Export Excel
+            </Button>
+          )}
         </div>
       </div>
 
@@ -862,10 +881,7 @@ export default function CommissionPage() {
             }}
             isLoading={loading}
             onRowClick={(row) => setSelectedEmployee(row)}
-            searchValue={searchQuery}
-            onSearchChange={setSearchQuery}
-            serverSearch={Boolean(searchTerm)}
-            isSearching={loading && Boolean(searchQuery.trim())}
+            {...dailySearchProps}
           />
         </Card>
       </TabsContent>
@@ -886,10 +902,7 @@ export default function CommissionPage() {
             }}
             isLoading={loading}
             onRowClick={(row) => setSelectedEmployee(row)}
-            searchValue={searchQuery}
-            onSearchChange={setSearchQuery}
-            serverSearch={Boolean(searchTerm)}
-            isSearching={loading && Boolean(searchQuery.trim())}
+            {...dailySearchProps}
           />
         </Card>
       </TabsContent>
