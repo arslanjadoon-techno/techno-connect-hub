@@ -204,15 +204,19 @@ function formatDateTimeDisplay(raw?: string): string {
 }
 
 const TRANSACTION_TYPE_OPTIONS = [
-  "ACC",
-  "ACT Pay",
-  "Bill Payment",
+  "Phone",
+  "Tablet",
+  "HINT",
+  "Accessories",
+  "Activation",
+  "LOA",
   "Client",
   "FEA",
-  "LOA",
-  "Refunded ACC",
-  "REVVL Tab",
-  "2 Magenta in Metro",
+  "MIM",
+  "Phone Refund",
+  "Tablet Refund",
+  "HINT Refund",
+  "Accessories Refund",
 ];
 
 const YES_NO_OPTIONS = [
@@ -672,7 +676,10 @@ function RepNameCombobox({
             <ChevronsUpDown className="h-3.5 w-3.5 opacity-50 shrink-0" />
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <PopoverContent
+          className="w-(--radix-popover-trigger-width) min-w-(--radix-popover-trigger-width) p-0"
+          align="start"
+        >
           <Command shouldFilter={false}>
             <CommandInput
               placeholder="Type 2+ characters to search..."

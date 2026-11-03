@@ -48,6 +48,7 @@ import {
   MapPin,
   MessageSquare,
   Phone,
+  RefreshCw,
   Search,
   ShieldCheck,
   Star,
@@ -202,26 +203,18 @@ export default function ValidateAndAssignPage() {
   const [agentSearchQuery, setAgentSearchQuery] = useState("");
   const [agentSearchLoading, setAgentSearchLoading] = useState(false);
 
-  // Drill-down detail state & status filter synced with URL search params
+  // Drill-down detail state synced with URL search params; statusFilter defaults to "all"
+  // ("Total Requests Received") on every page mount / browser refresh.
   const selectedDetailId = searchParams.get("detail");
-  const statusFilter = searchParams.get("status") || "Unassigned";
+  const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const setSelectedDetailId = (id: string | null) => {
     const next = new URLSearchParams(searchParams);
+    next.delete("status");
     if (id) {
       next.set("detail", id);
     } else {
       next.delete("detail");
-    }
-    setSearchParams(next, { replace: true });
-  };
-
-  const setStatusFilter = (status: string) => {
-    const next = new URLSearchParams(searchParams);
-    if (status && status !== "Unassigned") {
-      next.set("status", status);
-    } else {
-      next.delete("status");
     }
     setSearchParams(next, { replace: true });
   };
@@ -265,6 +258,11 @@ export default function ValidateAndAssignPage() {
   };
 
   useEffect(() => {
+    if (searchParams.has("status")) {
+      const next = new URLSearchParams(searchParams);
+      next.delete("status");
+      setSearchParams(next, { replace: true });
+    }
     Promise.all([loadQueue(), loadMarkets()]).finally(() => {
       setInitialLoading(false);
       setBlockingMessage(null);
@@ -359,8 +357,10 @@ export default function ValidateAndAssignPage() {
     return Array.from(seen.entries()).map(([id, fullName]) => ({ id, fullName }));
   }, [requests]);
 
+  const isReassignModal = targetAssignItem?.validationStatus === "Assigned";
+
   const openAssignModal = useCallback((item: SurveillanceValidationItem) => {
-    if (item.validationStatus !== "Unassigned") return;
+    if (item.validationStatus !== "Unassigned" && item.validationStatus !== "Assigned") return;
     setTargetAssignItem(item);
     setSelectedAgentId("");
     setAgentSearchQuery("");
@@ -374,9 +374,18 @@ export default function ValidateAndAssignPage() {
       toast.error("Please select a user or agent to assign this request.");
       return;
     }
+    const isReassigning = targetAssignItem.validationStatus === "Assigned";
+    if (isReassigning && targetAssignItem.assignedAgentId === selectedAgentId) {
+      toast.error("Please select a different user or agent to reassign this request.");
+      return;
+    }
 
     setSubmittingAssign(true);
-    setBlockingMessage("Validating and assigning request...");
+    setBlockingMessage(
+      isReassigning
+        ? "Reassigning request to new agent..."
+        : "Validating and assigning request...",
+    );
     try {
       const updated = await surveillanceService.validateAndAssignRequest({
         requestId: targetAssignItem.id,
@@ -386,9 +395,15 @@ export default function ValidateAndAssignPage() {
 
       await loadQueue();
       setAssignModalOpen(false);
-      toast.success(`Request validated and assigned to ${updated.assignedAgentName}.`);
+      toast.success(
+        isReassigning
+          ? `Request reassigned to ${updated.assignedAgentName}.`
+          : `Request validated and assigned to ${updated.assignedAgentName}.`,
+      );
     } catch (error) {
-      toast.error(`Assignment failed: ${(error as Error).message}`);
+      toast.error(
+        `${isReassigning ? "Reassignment" : "Assignment"} failed: ${(error as Error).message}`,
+      );
     } finally {
       setSubmittingAssign(false);
       setBlockingMessage(null);
@@ -397,7 +412,7 @@ export default function ValidateAndAssignPage() {
 
   const hasActiveFilters =
     marketFilter !== "all" ||
-    statusFilter !== "Unassigned" ||
+    statusFilter !== "all" ||
     priorityFilter !== "all" ||
     agentFilter !== "all";
 
@@ -548,9 +563,20 @@ export default function ValidateAndAssignPage() {
                 </Button>
               )}
 
+              {selectedDetail.validationStatus === "Assigned" && (
+                <Button
+                  onClick={() => openAssignModal(selectedDetail)}
+                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Reassign
+                </Button>
+              )}
+
               {Boolean(selectedDetail.linkedReportId) && (
                 <>
-                  {selectedDetail.validationStatus === "Completed" && (
+                  {(selectedDetail.validationStatus === "Completed" ||
+                    selectedDetail.validationStatus === "Pending Verification") && (
                     <Button
                       variant="outline"
                       onClick={() =>
@@ -1263,7 +1289,7 @@ export default function ValidateAndAssignPage() {
               active={hasActiveFilters}
               onReset={() => {
                 setMarketFilter("all");
-                setStatusFilter("Unassigned");
+                setStatusFilter("all");
                 setPriorityFilter("all");
                 setAgentFilter("all");
               }}
@@ -1281,14 +1307,19 @@ export default function ValidateAndAssignPage() {
         </>
       )}
 
-      {/* VALIDATE & ASSIGN SURVEILLANCE REQUEST MODAL */}
+      {/* VALIDATE & ASSIGN / REASSIGN SURVEILLANCE REQUEST MODAL */}
       <Dialog open={assignModalOpen} onOpenChange={setAssignModalOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Validate & Assign Surveillance Request</DialogTitle>
+            <DialogTitle>
+              {isReassignModal
+                ? "Reassign Surveillance Request"
+                : "Validate & Assign Surveillance Request"}
+            </DialogTitle>
             <DialogDescription>
-              Review the requested surveillance parameters and assign this request to an agent for
-              audit preparation.
+              {isReassignModal
+                ? "Select a new user or agent to replace the currently assigned agent for this surveillance request."
+                : "Review the requested surveillance parameters and assign this request to an agent for audit preparation."}
             </DialogDescription>
           </DialogHeader>
 
@@ -1330,10 +1361,29 @@ export default function ValidateAndAssignPage() {
                 />
               </div>
 
+              {/* Currently Assigned Agent (shown when reassigning) */}
+              {isReassignModal && targetAssignItem.assignedAgentName && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Currently Assigned To</Label>
+                  <Input
+                    type="text"
+                    readOnly
+                    tabIndex={-1}
+                    value={
+                      targetAssignItem.assignedAgentEmail
+                        ? `${targetAssignItem.assignedAgentName} (${targetAssignItem.assignedAgentEmail})`
+                        : targetAssignItem.assignedAgentName
+                    }
+                    className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
+                  />
+                </div>
+              )}
+
               {/* 4. Assign to User / Agent * (Required searchable dropdown showing ONLY Name and Email) */}
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">
-                  Assign to User / Agent <span className="text-destructive">*</span>
+                  {isReassignModal ? "Reassign to New User / Agent" : "Assign to User / Agent"}{" "}
+                  <span className="text-destructive">*</span>
                 </Label>
                 <Popover open={agentPickerOpen} onOpenChange={setAgentPickerOpen}>
                   <PopoverTrigger asChild>
@@ -1349,13 +1399,18 @@ export default function ValidateAndAssignPage() {
                       >
                         {selectedAgent
                           ? selectedAgent.fullName
-                          : "Select or search user / agent..."}
+                          : isReassignModal
+                            ? "Select or search new user / agent..."
+                            : "Select or search user / agent..."}
                       </span>
                       <ChevronsUpDown className="h-3.5 w-3.5 opacity-50 shrink-0" />
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command shouldFilter={false}>
+                  <PopoverContent
+                    className="w-(--radix-popover-trigger-width) min-w-(--radix-popover-trigger-width) p-0"
+                    align="start"
+                  >
+                    <Command className="w-full" shouldFilter={false}>
                       <CommandInput
                         placeholder="Type 2+ characters to search by name or email..."
                         value={agentSearchQuery}
@@ -1372,11 +1427,15 @@ export default function ValidateAndAssignPage() {
                         <CommandGroup>
                           {agentSearchResults.map((agent) => {
                             const isSelected = agent.id === selectedAgentId;
+                            const isCurrentAgent =
+                              isReassignModal && agent.id === targetAssignItem.assignedAgentId;
                             return (
                               <CommandItem
                                 key={agent.id}
                                 value={`${agent.fullName} ${agent.email}`}
+                                disabled={isCurrentAgent}
                                 onSelect={() => {
+                                  if (isCurrentAgent) return;
                                   setSelectedAgentId(agent.id);
                                   setAgentPickerOpen(false);
                                 }}
@@ -1390,8 +1449,12 @@ export default function ValidateAndAssignPage() {
                                     {agent.email}
                                   </div>
                                 </div>
-                                {isSelected && (
-                                  <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                                {isCurrentAgent ? (
+                                  <span className="text-[10px] font-medium text-muted-foreground shrink-0">
+                                    Currently Assigned
+                                  </span>
+                                ) : (
+                                  isSelected && <Check className="h-3.5 w-3.5 text-primary shrink-0" />
                                 )}
                               </CommandItem>
                             );
@@ -1457,7 +1520,13 @@ export default function ValidateAndAssignPage() {
               Cancel
             </Button>
             <Button onClick={handleConfirmAssign} disabled={submittingAssign || !selectedAgentId}>
-              {submittingAssign ? "Assigning..." : "Validate & Assign"}
+              {submittingAssign
+                ? isReassignModal
+                  ? "Reassigning..."
+                  : "Assigning..."
+                : isReassignModal
+                  ? "Reassign"
+                  : "Validate & Assign"}
             </Button>
           </DialogFooter>
         </DialogContent>

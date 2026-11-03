@@ -1015,6 +1015,15 @@ export default function RequestedSurveillanceSummaryPage() {
                   Completed
                 </Badge>
               )}
+              {report.status === "Report Received" && (
+                <Badge
+                  variant="outline"
+                  className="border-violet-300 bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300 text-xs font-semibold gap-1"
+                >
+                  <Clock className="h-3.5 w-3.5" />
+                  Pending Verification
+                </Badge>
+              )}
               {report.status === "Rejected" && (
                 <Badge
                   variant="outline"
@@ -1059,7 +1068,9 @@ export default function RequestedSurveillanceSummaryPage() {
             className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white"
           >
             <Eye className="h-3.5 w-3.5" />
-            View Report
+            {isFromValidateAndAssign && report.status === "Report Received"
+              ? "Review Report"
+              : "View Report"}
           </Button>
         </div>
       </div>
