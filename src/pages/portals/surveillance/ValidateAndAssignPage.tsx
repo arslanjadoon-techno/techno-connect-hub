@@ -65,6 +65,7 @@ import {
   getSurveillanceDefaultRoute,
   getSurveillanceRole,
   type SurveillanceAssignableAgent,
+  type SurveillanceMarketOption,
   type SurveillancePriority,
   type SurveillanceValidationItem,
   type SurveillanceValidationStatus,
@@ -193,6 +194,7 @@ export default function ValidateAndAssignPage() {
   const canAccessValidatePage = useMemo(() => canValidateSurveillance(userRole), [userRole]);
 
   const [requests, setRequests] = useState<SurveillanceValidationItem[]>([]);
+  const [marketOptions, setMarketOptions] = useState<SurveillanceMarketOption[]>([]);
   // Search results for the "Assign to User / Agent" picker only - fetched
   // on demand as the validator types (search-as-you-type), never the full
   // user roster up front.
@@ -254,8 +256,16 @@ export default function ValidateAndAssignPage() {
     }
   };
 
+  const loadMarkets = async () => {
+    try {
+      setMarketOptions(await surveillanceService.getMarkets(0, 500));
+    } catch (error) {
+      toast.error(`Failed to load markets: ${(error as Error).message}`);
+    }
+  };
+
   useEffect(() => {
-    loadQueue().finally(() => {
+    Promise.all([loadQueue(), loadMarkets()]).finally(() => {
       setInitialLoading(false);
       setBlockingMessage(null);
     });
@@ -283,8 +293,11 @@ export default function ValidateAndAssignPage() {
   }, [agentSearchQuery, agentPickerOpen]);
 
   const markets = useMemo(
-    () => Array.from(new Set(requests.map((r) => r.marketName).filter(Boolean))).sort(),
-    [requests],
+    () =>
+      Array.from(
+        new Set(marketOptions.map((m) => m.name?.trim()).filter((n): n is string => Boolean(n))),
+      ).sort(),
+    [marketOptions],
   );
 
   const metrics = useMemo(() => {
@@ -485,7 +498,7 @@ export default function ValidateAndAssignPage() {
 
   if (initialLoading) {
     return selectedDetailId ? (
-      <SurveillanceDetailPageSkeleton />
+      <SurveillanceDetailPageSkeleton summaryCardCount={8} />
     ) : (
       <SurveillanceListPageSkeleton
         kpiCount={6}
@@ -569,7 +582,7 @@ export default function ValidateAndAssignPage() {
             </div>
           </div>
 
-          {/* Store Header + 6 Distinctly Colored Summary Cards */}
+          {/* Store Header + 8 Distinctly Colored Summary Cards */}
           <Card className="p-6 rounded-2xl border-border/70 shadow-xs space-y-5">
             <div className="flex items-center gap-3.5">
               <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-900/50 shrink-0">
@@ -580,7 +593,7 @@ export default function ValidateAndAssignPage() {
               </h2>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
               {/* 1. Market Card - Blue */}
               <div className="flex items-start gap-3.5 rounded-xl border border-blue-200/80 bg-blue-50/60 p-4 dark:border-blue-900/50 dark:bg-blue-950/25">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-blue-600 border border-blue-100 shadow-2xs dark:bg-blue-950 dark:text-blue-400 dark:border-blue-900 shrink-0">
@@ -680,6 +693,38 @@ export default function ValidateAndAssignPage() {
                   </div>
                   <div className="text-sm font-bold text-emerald-950 dark:text-emerald-100 truncate mt-0.5">
                     {selectedDetail.assignedAgentName || "—"}
+                  </div>
+                </div>
+              </div>
+
+              {/* 7. Request Received At Card - Indigo */}
+              <div className="flex items-start gap-3.5 rounded-xl border border-indigo-200/80 bg-indigo-50/60 p-4 dark:border-indigo-900/50 dark:bg-indigo-950/25">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-indigo-600 border border-indigo-100 shadow-2xs dark:bg-indigo-950 dark:text-indigo-400 dark:border-indigo-900 shrink-0">
+                  <Clock className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-medium text-indigo-700/80 dark:text-indigo-300/80">
+                    Request received at
+                  </div>
+                  <div className="text-sm font-bold text-indigo-950 dark:text-indigo-100 tabular-nums mt-0.5">
+                    {formatDateTimeDisplay(selectedDetail.createdAt)}
+                  </div>
+                </div>
+              </div>
+
+              {/* 8. Assigned At Card - Teal */}
+              <div className="flex items-start gap-3.5 rounded-xl border border-teal-200/80 bg-teal-50/60 p-4 dark:border-teal-900/50 dark:bg-teal-950/25">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-teal-600 border border-teal-100 shadow-2xs dark:bg-teal-950 dark:text-teal-400 dark:border-teal-900 shrink-0">
+                  <Clock className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[11px] font-medium text-teal-700/80 dark:text-teal-300/80">
+                    Assigned at
+                  </div>
+                  <div className="text-sm font-bold text-teal-950 dark:text-teal-100 tabular-nums mt-0.5">
+                    {selectedDetail.assignedAt
+                      ? formatDateTimeDisplay(selectedDetail.assignedAt)
+                      : "—"}
                   </div>
                 </div>
               </div>

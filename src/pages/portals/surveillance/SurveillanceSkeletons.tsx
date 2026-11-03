@@ -84,7 +84,11 @@ export function SurveillanceListPageSkeleton({
 /**
  * Reusable Skeleton Loader for Surveillance Portal Request / Report Detail views.
  */
-export function SurveillanceDetailPageSkeleton() {
+export function SurveillanceDetailPageSkeleton({
+  summaryCardCount = 6,
+}: {
+  summaryCardCount?: number;
+} = {}) {
   return (
     <div className="space-y-5 animate-fade-in">
       {/* Top Bar */}
@@ -101,14 +105,18 @@ export function SurveillanceDetailPageSkeleton() {
         </div>
       </div>
 
-      {/* Store & 6 Summary Metadata Cards */}
+      {/* Store & Summary Metadata Cards */}
       <Card className="p-6 rounded-2xl border-border/70 space-y-5">
         <div className="flex items-center gap-3.5">
           <Skeleton className="h-11 w-11 rounded-xl" />
           <Skeleton className="h-6 w-52" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {Array.from({ length: 6 }).map((_, idx) => (
+        <div
+          className={`grid grid-cols-1 sm:grid-cols-2 ${
+            summaryCardCount === 8 ? "lg:grid-cols-4" : "lg:grid-cols-3"
+          } gap-3.5`}
+        >
+          {Array.from({ length: summaryCardCount }).map((_, idx) => (
             <div key={idx} className="flex items-start gap-3.5 rounded-xl border border-border/60 p-4">
               <Skeleton className="h-9 w-9 rounded-lg shrink-0" />
               <div className="space-y-2 flex-1">

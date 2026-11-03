@@ -86,6 +86,7 @@ import {
   type SurveillanceAttachment,
   type SurveillanceAuditRow,
   type SurveillanceAdditionalInvoice,
+  type SurveillanceMarketOption,
   type SurveillancePriority,
   type SurveillanceRequestStatus,
 } from "@/services/portals/surveillance";
@@ -1326,6 +1327,7 @@ export default function SurveillanceReportsPage() {
 
   const [requests, setRequests] = useState<SurveillanceRequest[]>([]);
   const [reports, setReports] = useState<SurveillanceReport[]>([]);
+  const [marketOptions, setMarketOptions] = useState<SurveillanceMarketOption[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
 
   // Drill-down state: null = main table, non-null = Report Detail view
@@ -1425,8 +1427,11 @@ export default function SurveillanceReportsPage() {
   ]);
 
   const markets = useMemo(
-    () => Array.from(new Set(requests.map((r) => r.marketName).filter(Boolean))).sort(),
-    [requests],
+    () =>
+      Array.from(
+        new Set(marketOptions.map((m) => m.name?.trim()).filter((n): n is string => Boolean(n))),
+      ).sort(),
+    [marketOptions],
   );
 
   const metrics = useMemo(() => {
@@ -1482,11 +1487,19 @@ export default function SurveillanceReportsPage() {
     }
   };
 
-  // Load agent requests + reports from the backend on mount. The "Rep Name"
-  // picker searches on demand (RepNameCombobox) rather than loading the
-  // whole user roster here.
+  const reloadMarkets = async () => {
+    try {
+      setMarketOptions(await surveillanceService.getMarkets(0, 500));
+    } catch (error) {
+      toast.error(`Failed to load markets: ${(error as Error).message}`);
+    }
+  };
+
+  // Load agent requests, reports, and markets from the backend on mount. The
+  // "Rep Name" picker searches on demand (RepNameCombobox) rather than loading
+  // the whole user roster here.
   useEffect(() => {
-    Promise.all([reloadAgentRequests(), reloadReports()]).finally(() => {
+    Promise.all([reloadAgentRequests(), reloadReports(), reloadMarkets()]).finally(() => {
       setDataLoaded(true);
       setBlockingMessage(null);
     });

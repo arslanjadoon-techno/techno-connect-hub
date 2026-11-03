@@ -61,6 +61,7 @@ import { storesService } from "@/services/user-manager/stores.service";
 import type {
   SurveillanceRequest,
   SurveillanceReport,
+  SurveillanceMarketOption,
   SurveillancePriority,
 } from "@/services/portals/surveillance/types";
 import {
@@ -186,6 +187,7 @@ export default function ReportRequestsPage() {
   const [requests, setRequests] = useState<SurveillanceRequest[]>([]);
   const [reports, setReports] = useState<SurveillanceReport[]>([]);
   const [stores, setStores] = useState<StaticStoreOption[]>([]);
+  const [marketOptions, setMarketOptions] = useState<SurveillanceMarketOption[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   // Full-screen blocking overlay shown while a backend mutation (submit request) is in flight.
   const [blockingMessage, setBlockingMessage] = useState<string | null>(null);
@@ -211,6 +213,10 @@ export default function ReportRequestsPage() {
         .getReports()
         .then(setReports)
         .catch((error) => toast.error(`Failed to load surveillance reports: ${(error as Error).message}`)),
+      surveillanceService
+        .getMarkets(0, 500)
+        .then(setMarketOptions)
+        .catch((error) => toast.error(`Failed to load markets: ${(error as Error).message}`)),
       storesService
         .getAll({ size: 2000 })
         .then((res) =>
@@ -250,8 +256,11 @@ export default function ReportRequestsPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
 
   const MARKETS = useMemo(
-    () => Array.from(new Set(stores.map((s) => s.market).filter(Boolean))).sort(),
-    [stores],
+    () =>
+      Array.from(
+        new Set(marketOptions.map((m) => m.name?.trim()).filter((n): n is string => Boolean(n))),
+      ).sort(),
+    [marketOptions],
   );
 
   // Create Request Modal state

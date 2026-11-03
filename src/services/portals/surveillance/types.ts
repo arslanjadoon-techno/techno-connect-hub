@@ -611,6 +611,17 @@ export interface SurveillanceAssignableAgent {
   activeAssignments: number;
 }
 
+export interface SurveillanceMarketOption {
+  id: number;
+  name: string;
+  state?: {
+    id: number;
+    name: string;
+    symbol?: string;
+  };
+  storeCount?: number;
+}
+
 export interface SurveillanceValidationItem {
   id: string;
   storeId: string;
