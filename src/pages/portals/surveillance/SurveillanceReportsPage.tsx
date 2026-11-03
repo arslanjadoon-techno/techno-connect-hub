@@ -73,7 +73,9 @@ import {
   Video,
   Loader2,
   ChevronsUpDown,
+  Link2,
 } from "lucide-react";
+import { FilterReset } from "@/components/filter-reset";
 import { toast } from "sonner";
 import {
   canAccessSurveillanceReports,
@@ -88,6 +90,10 @@ import {
   type SurveillanceRequestStatus,
 } from "@/services/portals/surveillance";
 import { surveillanceService } from "@/services/portals/surveillance/surveillance.service";
+import {
+  SurveillanceAuditFormSkeleton,
+  SurveillanceListPageSkeleton,
+} from "./SurveillanceSkeletons";
 
 const PRIORITY_TONES: Record<SurveillancePriority, string> = {
   low: "bg-muted text-muted-foreground border-border",
@@ -833,35 +839,35 @@ function calculatePaymentDifferenceDisplay(
   return calculateDifferenceDisplay(invoiceAmountRaw || "", totalTakenStr);
 }
 
-const HOURS_12 = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+const HOURS_24 = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
 const MINUTES_60 = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
 
-function parseAmPmValue(raw: string | undefined): {
+function parse24HourValue(raw: string | undefined): {
   hour: string;
   minute: string;
-  period: "AM" | "PM";
   hasValue: boolean;
 } {
   if (!raw || !raw.trim()) {
-    return { hour: "10", minute: "00", period: "AM", hasValue: false };
+    return { hour: "09", minute: "00", hasValue: false };
   }
   const str = raw.trim();
   const match12 = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$/i);
   if (match12) {
-    const h = String(Math.max(1, Math.min(12, parseInt(match12[1], 10))));
+    let h = parseInt(match12[1], 10);
     const m = match12[2];
-    const p = match12[3].toUpperCase() === "PM" ? "PM" : "AM";
-    return { hour: h, minute: m, period: p, hasValue: true };
+    const p = match12[3].toUpperCase();
+    if (p === "PM" && h < 12) h += 12;
+    if (p === "AM" && h === 12) h = 0;
+    const hStr = String(Math.max(0, Math.min(23, h))).padStart(2, "0");
+    return { hour: hStr, minute: m, hasValue: true };
   }
   const match24 = str.match(/^(\d{1,2}):(\d{2})/);
   if (match24) {
-    let h24 = parseInt(match24[1], 10);
+    const h24 = Math.max(0, Math.min(23, parseInt(match24[1], 10)));
     const m = match24[2];
-    const p: "AM" | "PM" = h24 >= 12 ? "PM" : "AM";
-    h24 = h24 % 12 || 12;
-    return { hour: String(h24), minute: m, period: p, hasValue: true };
+    return { hour: String(h24).padStart(2, "0"), minute: m, hasValue: true };
   }
-  return { hour: "10", minute: "00", period: "AM", hasValue: false };
+  return { hour: "09", minute: "00", hasValue: false };
 }
 
 function AmPmTimePicker({
@@ -872,10 +878,10 @@ function AmPmTimePicker({
   onChange: (nextVal: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const parsed = parseAmPmValue(value);
+  const parsed = parse24HourValue(value);
 
-  const commitTime = (h: string, m: string, p: "AM" | "PM") => {
-    onChange(`${h}:${m} ${p}`);
+  const commitTime = (h: string, m: string) => {
+    onChange(`${h}:${m}`);
   };
 
   return (
@@ -887,8 +893,10 @@ function AmPmTimePicker({
         >
           <span className="flex items-center gap-2 truncate">
             <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            {value && value.trim() ? (
-              <span className="font-medium text-foreground">{value}</span>
+            {parsed.hasValue ? (
+              <span className="font-mono font-medium text-foreground">
+                {`${parsed.hour}:${parsed.minute}`}
+              </span>
             ) : (
               <span className="text-muted-foreground font-mono font-medium">--:--</span>
             )}
@@ -919,12 +927,12 @@ function AmPmTimePicker({
       </PopoverTrigger>
 
       <PopoverContent align="start" className="w-[272px] p-3 space-y-3">
-        {/* Live Preview Header */}
+        {/* Live Preview Header (24-Hour Format) */}
         <div className="flex items-center justify-between border-b pb-2">
           <div className="flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5 text-primary" />
-            <span className="text-xs font-semibold text-foreground">
-              {parsed.hasValue ? `${parsed.hour}:${parsed.minute} ${parsed.period}` : "Select Time"}
+            <span className="text-xs font-semibold font-mono text-foreground">
+              {parsed.hasValue ? `${parsed.hour}:${parsed.minute}` : "Select Time (24h)"}
             </span>
           </div>
           {parsed.hasValue && (
@@ -938,22 +946,22 @@ function AmPmTimePicker({
           )}
         </div>
 
-        {/* Hour / Minute / AM-PM Selector */}
-        <div className="grid grid-cols-12 gap-2">
-          {/* Hours (1-12) */}
-          <div className="col-span-5 space-y-1">
+        {/* 24-Hour (00-23) & Minute (00-59) Selector */}
+        <div className="grid grid-cols-12 gap-2.5">
+          {/* Hours (00-23) */}
+          <div className="col-span-7 space-y-1">
             <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Hour
+              Hour (00–23)
             </div>
-            <div className="grid grid-cols-3 gap-1">
-              {HOURS_12.map((h) => {
+            <div className="grid grid-cols-4 gap-1 max-h-[156px] overflow-y-auto pr-1">
+              {HOURS_24.map((h) => {
                 const selected = parsed.hasValue && parsed.hour === h;
                 return (
                   <button
                     key={h}
                     type="button"
-                    onClick={() => commitTime(h, parsed.minute, parsed.period)}
-                    className={`h-7 rounded text-xs font-medium transition-colors ${
+                    onClick={() => commitTime(h, parsed.minute)}
+                    className={`h-7 rounded text-xs font-mono font-medium transition-colors ${
                       selected
                         ? "bg-primary text-primary-foreground shadow-xs"
                         : "border border-border/60 bg-card hover:bg-accent text-foreground"
@@ -967,18 +975,18 @@ function AmPmTimePicker({
           </div>
 
           {/* Minutes (00-59 scrollable) */}
-          <div className="col-span-4 space-y-1">
+          <div className="col-span-5 space-y-1">
             <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Minute
             </div>
-            <div className="grid grid-cols-2 gap-1 max-h-[124px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 gap-1 max-h-[156px] overflow-y-auto pr-1">
               {MINUTES_60.map((m) => {
                 const selected = parsed.hasValue && parsed.minute === m;
                 return (
                   <button
                     key={m}
                     type="button"
-                    onClick={() => commitTime(parsed.hour, m, parsed.period)}
+                    onClick={() => commitTime(parsed.hour, m)}
                     className={`h-7 rounded text-xs font-mono font-medium transition-colors ${
                       selected
                         ? "bg-primary text-primary-foreground shadow-xs"
@@ -986,32 +994,6 @@ function AmPmTimePicker({
                     }`}
                   >
                     {m}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* AM / PM Period */}
-          <div className="col-span-3 space-y-1">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              AM/PM
-            </div>
-            <div className="flex flex-col gap-1.5">
-              {(["AM", "PM"] as const).map((p) => {
-                const selected = parsed.hasValue && parsed.period === p;
-                return (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => commitTime(parsed.hour, parsed.minute, p)}
-                    className={`h-9 rounded-md text-xs font-semibold transition-colors ${
-                      selected
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "border border-border bg-card hover:bg-accent text-foreground"
-                    }`}
-                  >
-                    {p}
                   </button>
                 );
               })}
@@ -1362,12 +1344,11 @@ export default function SurveillanceReportsPage() {
   // Status "Draft"). Required before Floor Presence / Camera Uptime can be
   // saved to the server.
   const [draftReportId, setDraftReportId] = useState<string | undefined>(undefined);
-  // Full-screen blocking overlay shown while any backend call on this page
-  // is in flight (row save, rep timing/camera log save, submit, resume
-  // fetch) so the agent can't interact with the form mid-request.
-  const [blockingMessage, setBlockingMessage] = useState<string | null>(
-    "Loading surveillance reports...",
-  );
+  // Full-screen blocking overlay shown while any backend mutation on this page
+  // is in flight (row save, rep timing/camera log save, submit). Initial page
+  // load and form load use dedicated Skeleton Loaders instead.
+  const [blockingMessage, setBlockingMessage] = useState<string | null>(null);
+  const [loadingAuditForm, setLoadingAuditForm] = useState<boolean>(false);
   const blockingOverlay = blockingMessage ? (
     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-xl bg-background/30 backdrop-blur-[2px]">
       <Loader2 className="h-9 w-9 animate-spin text-primary" />
@@ -1375,9 +1356,19 @@ export default function SurveillanceReportsPage() {
     </div>
   ) : null;
 
+  // Submit Report list view filters (Market + Clickable KPI Card filter)
+  const [marketFilter, setMarketFilter] = useState<string>("all");
+  const [cardFilter, setCardFilter] = useState<
+    "all" | "submitted" | "pending" | "rejected" | "approved"
+  >("all");
+
   // Top / bottom store open & close time fields
   const [headerStoreOpenTime, setHeaderStoreOpenTime] = useState<string>("");
   const [headerStoreCloseTime, setHeaderStoreCloseTime] = useState<string>("");
+
+  // Loomis Machine & Safe Locker URL fields
+  const [loomisMachineUrl, setLoomisMachineUrl] = useState<string>("");
+  const [safeLockerUrl, setSafeLockerUrl] = useState<string>("");
 
   // Standalone Floor Presence & Rep Timings rows
   const [repTimingRows, setRepTimingRows] = useState<RepTimingRow[]>([
@@ -1403,7 +1394,7 @@ export default function SurveillanceReportsPage() {
   >({});
   const [headerGeneralNotes, setHeaderGeneralNotes] = useState<string>("");
 
-  // Autosave header fields + Floor Presence / Camera Uptime sections to
+  // Autosave header fields + Floor Presence / Camera Uptime + Loomis / Safe Locker URLs to
   // MMKV so pausing mid-audit (closing the form, coming back later) doesn't
   // lose anything beyond the audit rows, which saveDraftRow already covers.
   useEffect(() => {
@@ -1412,6 +1403,8 @@ export default function SurveillanceReportsPage() {
       headerStoreOpenTime,
       headerStoreCloseTime,
       headerGeneralNotes,
+      loomisMachineUrl,
+      safeLockerUrl,
       repTimingRows,
       cameraUptimeRows,
       isFloorPresenceEnabled,
@@ -1423,11 +1416,18 @@ export default function SurveillanceReportsPage() {
     headerStoreOpenTime,
     headerStoreCloseTime,
     headerGeneralNotes,
+    loomisMachineUrl,
+    safeLockerUrl,
     repTimingRows,
     cameraUptimeRows,
     isFloorPresenceEnabled,
     isCameraUptimeEnabled,
   ]);
+
+  const markets = useMemo(
+    () => Array.from(new Set(requests.map((r) => r.marketName).filter(Boolean))).sort(),
+    [requests],
+  );
 
   const metrics = useMemo(() => {
     return {
@@ -1442,6 +1442,29 @@ export default function SurveillanceReportsPage() {
       approved: requests.filter((r) => r.status === "Approved").length,
     };
   }, [requests]);
+
+  const filteredRequests = useMemo(() => {
+    return requests.filter((r) => {
+      if (marketFilter !== "all" && r.marketName !== marketFilter) {
+        return false;
+      }
+      if (cardFilter === "submitted") {
+        return (
+          r.status === "Report Received" || r.status === "Approved" || r.status === "Rejected"
+        );
+      }
+      if (cardFilter === "pending") {
+        return r.status === "Report Requested";
+      }
+      if (cardFilter === "rejected") {
+        return r.status === "Rejected" || r.reportStatus === "Rejected";
+      }
+      if (cardFilter === "approved") {
+        return r.status === "Approved";
+      }
+      return true;
+    });
+  }, [requests, marketFilter, cardFilter]);
 
   const reloadAgentRequests = async () => {
     try {
@@ -1556,6 +1579,8 @@ export default function SurveillanceReportsPage() {
       setHeaderStoreOpenTime(sessionMeta.headerStoreOpenTime || "");
       setHeaderStoreCloseTime(sessionMeta.headerStoreCloseTime || "");
       setHeaderGeneralNotes(sessionMeta.headerGeneralNotes || "");
+      setLoomisMachineUrl(sessionMeta.loomisMachineUrl || "");
+      setSafeLockerUrl(sessionMeta.safeLockerUrl || "");
       setRepTimingRows(
         sessionMeta.repTimingRows.length > 0 ? sessionMeta.repTimingRows : [createEmptyRepTimingRow()],
       );
@@ -1590,9 +1615,10 @@ export default function SurveillanceReportsPage() {
     // 0. Real DB first - progress saved from any browser/device for this
     // request, not just this browser's local storage. If it exists, it's
     // authoritative; MMKV below is only the pre-first-save fallback.
-    setBlockingMessage("Loading surveillance audit...");
+    setIsEditingReport(true);
+    setLoadingAuditForm(true);
     const dbReport = await surveillanceService.getReportByRequestId(reqItem.id);
-    setBlockingMessage(null);
+    setLoadingAuditForm(false);
     if (dbReport) {
       const restoredRows = (dbReport.rows || []).map((row) => {
         const resolvedPt = normalizePaymentTypeSelection(row.paymentType, row.cash, row.card);
@@ -1631,9 +1657,16 @@ export default function SurveillanceReportsPage() {
       setExpandedRowIds(expanded);
       setFraudSectionEnabledByRow(initialFraudOpen);
       setSalesPitchSectionEnabledByRow(initialPitchOpen);
+      const localSessionMeta = surveillanceService.getSessionMeta(reqItem.id);
       setHeaderStoreOpenTime(dbReport.storeOpenTime || "");
       setHeaderStoreCloseTime(dbReport.storeCloseTime || "");
       setHeaderGeneralNotes(dbReport.notes || "");
+      setLoomisMachineUrl(
+        dbReport.summaryMeta?.loomisLink || localSessionMeta?.loomisMachineUrl || "",
+      );
+      setSafeLockerUrl(
+        dbReport.summaryMeta?.safeLockerLink || localSessionMeta?.safeLockerUrl || "",
+      );
       const dbRepTimings = dbReport.repTimings || [];
       setRepTimingRows(
         dbRepTimings.length > 0
@@ -1729,6 +1762,8 @@ export default function SurveillanceReportsPage() {
         setHeaderStoreOpenTime(sessionMeta.headerStoreOpenTime || "");
         setHeaderStoreCloseTime(sessionMeta.headerStoreCloseTime || "");
         setHeaderGeneralNotes(sessionMeta.headerGeneralNotes || "");
+        setLoomisMachineUrl(sessionMeta.loomisMachineUrl || "");
+        setSafeLockerUrl(sessionMeta.safeLockerUrl || "");
         setRepTimingRows(
           sessionMeta.repTimingRows.length > 0
             ? sessionMeta.repTimingRows
@@ -1745,6 +1780,8 @@ export default function SurveillanceReportsPage() {
         setHeaderStoreOpenTime("");
         setHeaderStoreCloseTime("");
         setHeaderGeneralNotes("");
+        setLoomisMachineUrl("");
+        setSafeLockerUrl("");
         setRepTimingRows([createEmptyRepTimingRow()]);
         setCameraUptimeRows([createEmptyCameraUptimeRow()]);
         setIsFloorPresenceEnabled(false);
@@ -1786,6 +1823,8 @@ export default function SurveillanceReportsPage() {
       setHeaderStoreOpenTime(sessionMeta.headerStoreOpenTime || "");
       setHeaderStoreCloseTime(sessionMeta.headerStoreCloseTime || "");
       setHeaderGeneralNotes(sessionMeta.headerGeneralNotes || "");
+      setLoomisMachineUrl(sessionMeta.loomisMachineUrl || "");
+      setSafeLockerUrl(sessionMeta.safeLockerUrl || "");
       setRepTimingRows(
         sessionMeta.repTimingRows.length > 0 ? sessionMeta.repTimingRows : [createEmptyRepTimingRow()],
       );
@@ -1805,6 +1844,8 @@ export default function SurveillanceReportsPage() {
       setHeaderStoreOpenTime(existingReport.cashTime || existingReport.time || "");
       setHeaderStoreCloseTime(existingReport.timeReturned || "");
       setHeaderGeneralNotes(existingReport.notes || "");
+      setLoomisMachineUrl(existingReport.summaryMeta?.loomisLink || "");
+      setSafeLockerUrl(existingReport.summaryMeta?.safeLockerLink || "");
       if (existingReport.nameOfRepLeaving || existingReport.timeLeft) {
         setRepTimingRows([
           {
@@ -1824,6 +1865,8 @@ export default function SurveillanceReportsPage() {
       setHeaderStoreOpenTime("");
       setHeaderStoreCloseTime("");
       setHeaderGeneralNotes("");
+      setLoomisMachineUrl("");
+      setSafeLockerUrl("");
       setRepTimingRows([createEmptyRepTimingRow()]);
       setCameraUptimeRows([createEmptyCameraUptimeRow()]);
     }
@@ -1961,6 +2004,15 @@ export default function SurveillanceReportsPage() {
           storeOpenTime: headerStoreOpenTime || undefined,
           storeCloseTime: headerStoreCloseTime || undefined,
           notes: headerGeneralNotes || undefined,
+          summaryMeta:
+            loomisMachineUrl.trim() || safeLockerUrl.trim()
+              ? {
+                  loomisMachineVisible: loomisMachineUrl.trim() ? "Yes" : undefined,
+                  loomisLink: loomisMachineUrl.trim() || undefined,
+                  safeLockerVisible: safeLockerUrl.trim() ? "Yes" : undefined,
+                  safeLockerLink: safeLockerUrl.trim() || undefined,
+                }
+              : undefined,
           row,
         });
         setDraftReportId(saved.id);
@@ -2547,7 +2599,7 @@ export default function SurveillanceReportsPage() {
           "onlineRejectedPayment",
           "onlineRejectedPaymentDetails",
         ),
-        notes: "",
+        notes: (r.notes || "").trim(),
         pitchNb:
           pitchEnabled && normalizePitchQualitySelectValue(r.pitchQuality) ? "YES" : "",
         pitchNbDetails: "",
@@ -2699,6 +2751,15 @@ export default function SurveillanceReportsPage() {
           onlineTime: c.onlineTime,
           offlineTime: c.offlineTime,
         })),
+      summaryMeta:
+        loomisMachineUrl.trim() || safeLockerUrl.trim()
+          ? {
+              loomisMachineVisible: loomisMachineUrl.trim() ? "Yes" : undefined,
+              loomisLink: loomisMachineUrl.trim() || undefined,
+              safeLockerVisible: safeLockerUrl.trim() ? "Yes" : undefined,
+              safeLockerLink: safeLockerUrl.trim() || undefined,
+            }
+          : undefined,
       date: formatSurveillanceDate(primaryRow.date || reqItem.incidentDate),
       marketName: (primaryRow.marketName || reqItem.marketName || "").trim(),
       storeName: (primaryRow.storeName || reqItem.storeName || "").trim(),
@@ -2907,8 +2968,22 @@ export default function SurveillanceReportsPage() {
     return <Navigate to={getSurveillanceDefaultRoute(user)} replace />;
   }
 
+  if (!dataLoaded) {
+    return (
+      <SurveillanceListPageSkeleton
+        kpiCount={5}
+        kpiGridClassName="grid-cols-1 sm:grid-cols-2 lg:grid-cols-5"
+        filterCount={1}
+      />
+    );
+  }
+
   // VIEW 3: EDITABLE SURVEILLANCE AUDIT REPORT FORM (Opened when clicking "Submit Report" inside Report Details)
   if (selectedDetail && isEditingReport) {
+    if (loadingAuditForm) {
+      return <SurveillanceAuditFormSkeleton />;
+    }
+
     const activeItem = requests.find((r) => r.id === selectedDetail.id) || selectedDetail;
 
     const defaultDate = formatSurveillanceDate(activeItem.incidentDate);
@@ -3480,6 +3555,19 @@ export default function SurveillanceReportsPage() {
                             })}
                           </div>
                         )}
+
+                        {/* Shared Transaction Notes (stays below all primary & additional invoices) */}
+                        <div className="space-y-1 pt-2 border-t border-border/60">
+                          <Label className="text-[11px] font-semibold">Transaction Notes</Label>
+                          <Input
+                            value={row.notes || ""}
+                            onChange={(e) =>
+                              handleUpdateRowField(row.id, "notes", e.target.value)
+                            }
+                            placeholder="Enter transaction-related notes for all invoices in this row..."
+                            className="w-full"
+                          />
+                        </div>
                       </div>
 
                       {/* 2. Fraud & Compliance Verification */}
@@ -3995,7 +4083,43 @@ export default function SurveillanceReportsPage() {
           )}
         </Card>
 
-        {/* 5. Store Close Time (Compact borderless inline row) */}
+        {/* 6. Loomis Machine & Safe Locker URL Section */}
+        <Card className="p-4 border-border/80 shadow-2xs bg-card space-y-3">
+          <div className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2 border-b pb-2.5">
+            <Link2 className="h-4 w-4 text-primary" />
+            <span>Loomis Machine &amp; Safe Locker</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-[11px] font-semibold text-foreground">
+                Loomis Machine
+              </Label>
+              <Input
+                type="url"
+                value={loomisMachineUrl}
+                onChange={(e) => setLoomisMachineUrl(e.target.value)}
+                placeholder="Paste Loomis Machine footage / verification URL (e.g. https://...)"
+                className="h-9 w-full text-xs font-mono"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[11px] font-semibold text-foreground">
+                Safe Locker
+              </Label>
+              <Input
+                type="url"
+                value={safeLockerUrl}
+                onChange={(e) => setSafeLockerUrl(e.target.value)}
+                placeholder="Paste Safe Locker footage / verification URL (e.g. https://...)"
+                className="h-9 w-full text-xs font-mono"
+              />
+            </div>
+          </div>
+        </Card>
+
+        {/* 7. Store Close Time (Compact borderless inline row) */}
         <div className="flex flex-wrap items-center gap-3 py-1">
           <span className="text-xs font-bold text-foreground whitespace-nowrap">
             Store Close Time:
@@ -4577,62 +4701,137 @@ export default function SurveillanceReportsPage() {
         </p>
       </div>
 
-      {/* Top Dashboard Summary Cards (5 Distinct Colors) */}
+      {/* Top Dashboard Summary Cards (5 Distinct Colors — Clickable to filter rows) */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {/* Card 1: Total Requests Received (Blue tone) */}
-        <Card className="p-4 border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900/50">
+        {/* Card 1: Total Requests Received (Blue tone — Default selected) */}
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setCardFilter("all")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setCardFilter("all");
+          }}
+          className={`p-4 cursor-pointer transition-all border-blue-200 bg-blue-50/50 hover:bg-blue-50/80 dark:bg-blue-950/20 dark:border-blue-900/50 ${
+            cardFilter === "all" ? "ring-2 ring-blue-500/70 shadow-xs" : ""
+          }`}
+        >
           <div className="text-xs text-blue-800 dark:text-blue-300 font-medium uppercase tracking-wider">
             Total Requests Received
           </div>
-          <div className="mt-1 text-2xl font-bold font-display text-blue-950 dark:text-blue-100">
+          <div className="mt-1 text-2xl font-bold font-display text-blue-950 dark:text-blue-100 tabular-nums">
             {metrics.total}
           </div>
         </Card>
 
         {/* Card 2: Total Submitted (Purple tone) */}
-        <Card className="p-4 border-purple-300/80 bg-purple-50/50 dark:bg-purple-950/20 dark:border-purple-900/50">
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setCardFilter("submitted")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setCardFilter("submitted");
+          }}
+          className={`p-4 cursor-pointer transition-all border-purple-300/80 bg-purple-50/50 hover:bg-purple-50/80 dark:bg-purple-950/20 dark:border-purple-900/50 ${
+            cardFilter === "submitted" ? "ring-2 ring-purple-500/70 shadow-xs" : ""
+          }`}
+        >
           <div className="text-xs text-purple-800 dark:text-purple-300 font-medium uppercase tracking-wider">
             Total Submitted
           </div>
-          <div className="mt-1 text-2xl font-bold font-display text-purple-950 dark:text-purple-100">
+          <div className="mt-1 text-2xl font-bold font-display text-purple-950 dark:text-purple-100 tabular-nums">
             {metrics.submitted}
           </div>
         </Card>
 
         {/* Card 3: Pending (Amber tone) */}
-        <Card className="p-4 border-amber-300/80 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/50">
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setCardFilter("pending")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setCardFilter("pending");
+          }}
+          className={`p-4 cursor-pointer transition-all border-amber-300/80 bg-amber-50/50 hover:bg-amber-50/80 dark:bg-amber-950/20 dark:border-amber-900/50 ${
+            cardFilter === "pending" ? "ring-2 ring-amber-500/70 shadow-xs" : ""
+          }`}
+        >
           <div className="text-xs text-amber-800 dark:text-amber-300 font-medium uppercase tracking-wider">
             Pending
           </div>
-          <div className="mt-1 text-2xl font-bold font-display text-amber-950 dark:text-amber-100">
+          <div className="mt-1 text-2xl font-bold font-display text-amber-950 dark:text-amber-100 tabular-nums">
             {metrics.pending}
           </div>
         </Card>
 
         {/* Card 4: Rejected (Rose tone) */}
-        <Card className="p-4 border-rose-300/80 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/50">
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setCardFilter("rejected")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setCardFilter("rejected");
+          }}
+          className={`p-4 cursor-pointer transition-all border-rose-300/80 bg-rose-50/50 hover:bg-rose-50/80 dark:bg-rose-950/20 dark:border-rose-900/50 ${
+            cardFilter === "rejected" ? "ring-2 ring-rose-500/70 shadow-xs" : ""
+          }`}
+        >
           <div className="text-xs text-rose-800 dark:text-rose-300 font-medium uppercase tracking-wider">
             Rejected
           </div>
-          <div className="mt-1 text-2xl font-bold font-display text-rose-950 dark:text-rose-100">
+          <div className="mt-1 text-2xl font-bold font-display text-rose-950 dark:text-rose-100 tabular-nums">
             {metrics.rejected}
           </div>
         </Card>
 
         {/* Card 5: Approved (Emerald tone) */}
-        <Card className="p-4 border-emerald-300/80 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/50">
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setCardFilter("approved")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setCardFilter("approved");
+          }}
+          className={`p-4 cursor-pointer transition-all border-emerald-300/80 bg-emerald-50/50 hover:bg-emerald-50/80 dark:bg-emerald-950/20 dark:border-emerald-900/50 ${
+            cardFilter === "approved" ? "ring-2 ring-emerald-500/70 shadow-xs" : ""
+          }`}
+        >
           <div className="text-xs text-emerald-800 dark:text-emerald-300 font-medium uppercase tracking-wider">
             Approved
           </div>
-          <div className="mt-1 text-2xl font-bold font-display text-emerald-950 dark:text-emerald-100">
+          <div className="mt-1 text-2xl font-bold font-display text-emerald-950 dark:text-emerald-100 tabular-nums">
             {metrics.approved}
           </div>
         </Card>
       </div>
 
+      {/* Market Filter + Reset Button Toolbar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={marketFilter} onValueChange={setMarketFilter}>
+          <SelectTrigger className="h-9 w-[170px]">
+            <SelectValue placeholder="Market" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Markets</SelectItem>
+            {markets.map((m) => (
+              <SelectItem key={m} value={m}>
+                {m}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <FilterReset
+          active={marketFilter !== "all" || cardFilter !== "all"}
+          onReset={() => {
+            setMarketFilter("all");
+            setCardFilter("all");
+          }}
+        />
+      </div>
+
       {/* Standard DataTable with only the 5 requested columns */}
       <DataTable
-        rows={requests}
+        rows={filteredRequests}
         columns={columns}
         rowKey={(r) => r.id}
         searchPlaceholder="Search by Store Name, Market, Requested By, or Status..."

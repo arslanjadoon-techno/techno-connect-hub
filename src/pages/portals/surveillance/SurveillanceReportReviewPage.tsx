@@ -46,6 +46,7 @@ import {
   type SurveillanceAttachment,
 } from "@/services/portals/surveillance";
 import { surveillanceService } from "@/services/portals/surveillance/surveillance.service";
+import { SurveillanceReportTableSkeleton } from "./SurveillanceSkeletons";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -335,7 +336,7 @@ const AUDIT_DATA_FIELDS: AuditDataField[] = [
   { key: "paymentFraud", label: "Payment fraud" },
   { key: "aalSwap", label: "AAL Swap" },
   { key: "mim", label: "MIM" },
-  { key: "notes", label: "Notes" },
+  { key: "notes", label: "Transaction Notes" },
   { key: "pitchNb", label: "Pitch NB" },
   { key: "pitchQuality", label: "Pitch Quality" },
   { key: "pitchNotes", label: "Pitch Notes" },
@@ -723,7 +724,7 @@ export default function SurveillanceReportReviewPage() {
   };
 
   if (loading) {
-    return <div className="p-8 text-center text-sm text-muted-foreground">Loading report...</div>;
+    return <SurveillanceReportTableSkeleton />;
   }
 
   if (!report) {

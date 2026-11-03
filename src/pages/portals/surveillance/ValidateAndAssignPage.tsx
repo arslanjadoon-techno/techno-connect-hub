@@ -69,6 +69,10 @@ import {
   type SurveillanceValidationItem,
   type SurveillanceValidationStatus,
 } from "@/services/portals/surveillance/types";
+import {
+  SurveillanceDetailPageSkeleton,
+  SurveillanceListPageSkeleton,
+} from "./SurveillanceSkeletons";
 
 const PRIORITY_TONES: Record<SurveillancePriority, string> = {
   low: "bg-muted text-muted-foreground border-border",
@@ -232,11 +236,9 @@ export default function ValidateAndAssignPage() {
   const [agentPickerOpen, setAgentPickerOpen] = useState(false);
   const [submittingAssign, setSubmittingAssign] = useState(false);
 
-  // Full-screen blocking overlay shown while the queue is loading or an
-  // assign/reject action is in flight.
-  const [blockingMessage, setBlockingMessage] = useState<string | null>(
-    "Loading validation queue...",
-  );
+  const [initialLoading, setInitialLoading] = useState(true);
+  // Full-screen blocking overlay shown while an assign/reject action is in flight.
+  const [blockingMessage, setBlockingMessage] = useState<string | null>(null);
   const blockingOverlay = blockingMessage ? (
     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-xl bg-background/30 backdrop-blur-[2px]">
       <Loader2 className="h-9 w-9 animate-spin text-primary" />
@@ -253,7 +255,10 @@ export default function ValidateAndAssignPage() {
   };
 
   useEffect(() => {
-    loadQueue().finally(() => setBlockingMessage(null));
+    loadQueue().finally(() => {
+      setInitialLoading(false);
+      setBlockingMessage(null);
+    });
   }, []);
 
   // Debounced search-as-you-type for the "Assign to User / Agent" picker -
@@ -476,6 +481,19 @@ export default function ValidateAndAssignPage() {
   // Safeguard: Allow Admin, State Manager, and Market Manager
   if (!canAccessValidatePage) {
     return <Navigate to={getSurveillanceDefaultRoute(user)} replace />;
+  }
+
+  if (initialLoading) {
+    return selectedDetailId ? (
+      <SurveillanceDetailPageSkeleton />
+    ) : (
+      <SurveillanceListPageSkeleton
+        kpiCount={6}
+        kpiGridClassName="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
+        filterCount={4}
+        showHeaderAction
+      />
+    );
   }
 
   return (

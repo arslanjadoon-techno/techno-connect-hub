@@ -63,6 +63,10 @@ import type {
   SurveillanceReport,
   SurveillancePriority,
 } from "@/services/portals/surveillance/types";
+import {
+  SurveillanceDetailPageSkeleton,
+  SurveillanceListPageSkeleton,
+} from "./SurveillanceSkeletons";
 
 interface StaticStoreOption {
   id: string;
@@ -182,11 +186,9 @@ export default function ReportRequestsPage() {
   const [requests, setRequests] = useState<SurveillanceRequest[]>([]);
   const [reports, setReports] = useState<SurveillanceReport[]>([]);
   const [stores, setStores] = useState<StaticStoreOption[]>([]);
-  // Full-screen blocking overlay shown while the list is loading or a
-  // backend call (submit request) is in flight.
-  const [blockingMessage, setBlockingMessage] = useState<string | null>(
-    "Loading surveillance requests...",
-  );
+  const [initialLoading, setInitialLoading] = useState(true);
+  // Full-screen blocking overlay shown while a backend mutation (submit request) is in flight.
+  const [blockingMessage, setBlockingMessage] = useState<string | null>(null);
   const blockingOverlay = blockingMessage ? (
     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-xl bg-background/30 backdrop-blur-[2px]">
       <Loader2 className="h-9 w-9 animate-spin text-primary" />
@@ -224,7 +226,10 @@ export default function ReportRequestsPage() {
           ),
         )
         .catch((error) => toast.error(`Failed to load stores: ${(error as Error).message}`)),
-    ]).finally(() => setBlockingMessage(null));
+    ]).finally(() => {
+      setInitialLoading(false);
+      setBlockingMessage(null);
+    });
   }, []);
 
   // Active drill-down detail view state synced with URL query param (?detail=...)
@@ -444,6 +449,19 @@ export default function ReportRequestsPage() {
     () => (selectedDetailId ? requests.find((r) => r.id === selectedDetailId) || null : null),
     [requests, selectedDetailId],
   );
+
+  if (initialLoading) {
+    return selectedDetailId ? (
+      <SurveillanceDetailPageSkeleton />
+    ) : (
+      <SurveillanceListPageSkeleton
+        kpiCount={3}
+        kpiGridClassName="grid-cols-1 sm:grid-cols-3"
+        filterCount={3}
+        showHeaderAction
+      />
+    );
+  }
 
   // REQUESTED REPORT DETAILS PAGE (Consistent UI format matching Request Details)
   if (selectedDetail) {

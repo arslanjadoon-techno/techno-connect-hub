@@ -212,6 +212,8 @@ export interface SurveillanceAuditSessionMeta {
   headerStoreOpenTime: string;
   headerStoreCloseTime: string;
   headerGeneralNotes: string;
+  loomisMachineUrl?: string;
+  safeLockerUrl?: string;
   repTimingRows: SurveillanceSessionRepTimingRow[];
   cameraUptimeRows: SurveillanceSessionCameraUptimeRow[];
   isFloorPresenceEnabled: boolean;
@@ -381,6 +383,7 @@ export interface CreateSurveillanceReportPayload {
   rows?: SurveillanceAuditRow[];
   repTimings?: SurveillanceRepTiming[];
   cameraLogs?: SurveillanceCameraLog[];
+  summaryMeta?: SurveillanceReportSummaryMeta;
   date: string;
   marketName?: string;
   storeName: string;
@@ -463,6 +466,7 @@ export interface SaveReportProgressPayload {
   storeOpenTime?: string;
   storeCloseTime?: string;
   notes?: string;
+  summaryMeta?: SurveillanceReportSummaryMeta;
   row: SurveillanceAuditRow;
 }
 

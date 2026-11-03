@@ -33,6 +33,7 @@ import {
   type SurveillanceRequest,
 } from "@/services/portals/surveillance";
 import { surveillanceService } from "@/services/portals/surveillance/surveillance.service";
+import { SurveillanceSummaryPageSkeleton } from "./SurveillanceSkeletons";
 
 function padTwo(num: number): string {
   if (num < 0) return String(num);
@@ -933,11 +934,7 @@ export default function RequestedSurveillanceSummaryPage() {
   }, [report, linkedRequest]);
 
   if (loading) {
-    return (
-      <div className="p-8 text-center text-sm text-muted-foreground">
-        Loading surveillance summary...
-      </div>
-    );
+    return <SurveillanceSummaryPageSkeleton />;
   }
 
   if (!report || !summary) {
