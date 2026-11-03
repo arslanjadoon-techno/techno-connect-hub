@@ -1086,24 +1086,83 @@ function formatSurveillanceDate(raw?: string): string {
   return str;
 }
 
+export type RepTimingType = "Store Left" | "Back Room";
+
 export interface RepTimingRow {
   id: string;
   repName: string;
+  timingType: RepTimingType;
+  timeIn: string;
+  timeOut: string;
   timeLeft: string;
   timeReturned: string;
   backRoomTimeIn: string;
   backRoomTimeOut: string;
 }
 
-function createEmptyRepTimingRow(): RepTimingRow {
+function syncRepTimingDerivedFields(
+  base: Pick<RepTimingRow, "id" | "repName" | "timingType" | "timeIn" | "timeOut">,
+): RepTimingRow {
+  const isBackRoom = base.timingType === "Back Room";
   return {
+    id: base.id,
+    repName: base.repName,
+    timingType: base.timingType,
+    timeIn: base.timeIn,
+    timeOut: base.timeOut,
+    timeLeft: isBackRoom ? "" : base.timeIn,
+    timeReturned: isBackRoom ? "" : base.timeOut,
+    backRoomTimeIn: isBackRoom ? base.timeIn : "",
+    backRoomTimeOut: isBackRoom ? base.timeOut : "",
+  };
+}
+
+function hydrateRepTimingRow(raw: {
+  id?: string;
+  repName?: string;
+  timingType?: RepTimingType;
+  timeIn?: string;
+  timeOut?: string;
+  timeLeft?: string;
+  timeReturned?: string;
+  backRoomTimeIn?: string;
+  backRoomTimeOut?: string;
+}): RepTimingRow {
+  const id = raw.id || `rep-timing-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const repName = raw.repName || "";
+  const hasBackRoom = Boolean(
+    (raw.backRoomTimeIn && raw.backRoomTimeIn.trim()) ||
+      (raw.backRoomTimeOut && raw.backRoomTimeOut.trim()),
+  );
+  const timingType: RepTimingType =
+    raw.timingType === "Back Room" || raw.timingType === "Store Left"
+      ? raw.timingType
+      : hasBackRoom
+        ? "Back Room"
+        : "Store Left";
+  const timeIn =
+    raw.timeIn !== undefined
+      ? raw.timeIn
+      : timingType === "Back Room"
+        ? raw.backRoomTimeIn || ""
+        : raw.timeLeft || "";
+  const timeOut =
+    raw.timeOut !== undefined
+      ? raw.timeOut
+      : timingType === "Back Room"
+        ? raw.backRoomTimeOut || ""
+        : raw.timeReturned || "";
+  return syncRepTimingDerivedFields({ id, repName, timingType, timeIn, timeOut });
+}
+
+function createEmptyRepTimingRow(): RepTimingRow {
+  return syncRepTimingDerivedFields({
     id: `rep-timing-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     repName: "",
-    timeLeft: "",
-    timeReturned: "",
-    backRoomTimeIn: "",
-    backRoomTimeOut: "",
-  };
+    timingType: "Store Left",
+    timeIn: "",
+    timeOut: "",
+  });
 }
 
 export interface CameraUptimeRow {
@@ -1602,7 +1661,9 @@ export default function SurveillanceReportsPage() {
       setLoomisMachineUrl(sessionMeta.loomisMachineUrl || "");
       setSafeLockerUrl(sessionMeta.safeLockerUrl || "");
       setRepTimingRows(
-        sessionMeta.repTimingRows.length > 0 ? sessionMeta.repTimingRows : [createEmptyRepTimingRow()],
+        sessionMeta.repTimingRows.length > 0
+          ? sessionMeta.repTimingRows.map(hydrateRepTimingRow)
+          : [createEmptyRepTimingRow()],
       );
       setCameraUptimeRows(
         sessionMeta.cameraUptimeRows.length > 0
@@ -1690,14 +1751,7 @@ export default function SurveillanceReportsPage() {
       const dbRepTimings = dbReport.repTimings || [];
       setRepTimingRows(
         dbRepTimings.length > 0
-          ? dbRepTimings.map((t) => ({
-              id: t.id,
-              repName: t.repName || "",
-              timeLeft: t.timeLeft || "",
-              timeReturned: t.timeReturned || "",
-              backRoomTimeIn: t.backRoomTimeIn || "",
-              backRoomTimeOut: t.backRoomTimeOut || "",
-            }))
+          ? dbRepTimings.map(hydrateRepTimingRow)
           : [createEmptyRepTimingRow()],
       );
       setIsFloorPresenceEnabled(dbRepTimings.length > 0);
@@ -1786,7 +1840,7 @@ export default function SurveillanceReportsPage() {
         setSafeLockerUrl(sessionMeta.safeLockerUrl || "");
         setRepTimingRows(
           sessionMeta.repTimingRows.length > 0
-            ? sessionMeta.repTimingRows
+            ? sessionMeta.repTimingRows.map(hydrateRepTimingRow)
             : [createEmptyRepTimingRow()],
         );
         setCameraUptimeRows(
@@ -1846,7 +1900,9 @@ export default function SurveillanceReportsPage() {
       setLoomisMachineUrl(sessionMeta.loomisMachineUrl || "");
       setSafeLockerUrl(sessionMeta.safeLockerUrl || "");
       setRepTimingRows(
-        sessionMeta.repTimingRows.length > 0 ? sessionMeta.repTimingRows : [createEmptyRepTimingRow()],
+        sessionMeta.repTimingRows.length > 0
+          ? sessionMeta.repTimingRows.map(hydrateRepTimingRow)
+          : [createEmptyRepTimingRow()],
       );
       setCameraUptimeRows(
         sessionMeta.cameraUptimeRows.length > 0
@@ -1866,16 +1922,23 @@ export default function SurveillanceReportsPage() {
       setHeaderGeneralNotes(existingReport.notes || "");
       setLoomisMachineUrl(existingReport.summaryMeta?.loomisLink || "");
       setSafeLockerUrl(existingReport.summaryMeta?.safeLockerLink || "");
-      if (existingReport.nameOfRepLeaving || existingReport.timeLeft) {
+      if (existingReport.repTimings && existingReport.repTimings.length > 0) {
+        setRepTimingRows(existingReport.repTimings.map(hydrateRepTimingRow));
+      } else if (
+        existingReport.nameOfRepLeaving ||
+        existingReport.timeLeft ||
+        existingReport.backRoomTimeIn ||
+        existingReport.backRoomTimeOut
+      ) {
         setRepTimingRows([
-          {
+          hydrateRepTimingRow({
             id: `rep-timing-${Date.now()}`,
             repName: existingReport.nameOfRepLeaving?.trim() || "",
             timeLeft: existingReport.timeLeft || "",
             timeReturned: existingReport.timeReturned || "",
             backRoomTimeIn: existingReport.backRoomTimeIn || "",
             backRoomTimeOut: existingReport.backRoomTimeOut || "",
-          },
+          }),
         ]);
       } else {
         setRepTimingRows([createEmptyRepTimingRow()]);
@@ -2287,7 +2350,9 @@ export default function SurveillanceReportsPage() {
     setRepTimingRows((prev) => prev.filter((r) => r.id !== id));
   };
 
-  const handleUpdateRepTimingField = <K extends keyof RepTimingRow>(
+  const handleUpdateRepTimingField = <
+    K extends "repName" | "timingType" | "timeIn" | "timeOut",
+  >(
     id: string,
     field: K,
     value: RepTimingRow[K],
@@ -2295,7 +2360,11 @@ export default function SurveillanceReportsPage() {
     setIsTimingSectionDirty(true);
     setIsTimingSectionSaved(false);
     setRepTimingRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)),
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const nextBase = { ...r, [field]: value };
+        return syncRepTimingDerivedFields(nextBase);
+      }),
     );
   };
 
@@ -2303,13 +2372,7 @@ export default function SurveillanceReportsPage() {
     for (let i = 0; i < repTimingRows.length; i++) {
       const row = repTimingRows[i];
       const rowNum = i + 1;
-      const hasAnyTime = [
-        row.timeLeft,
-        row.timeReturned,
-        row.backRoomTimeIn,
-        row.backRoomTimeOut,
-      ].some((t) => t && t.trim());
-
+      const hasAnyTime = [row.timeIn, row.timeOut].some((t) => t && t.trim());
       const hasRepName = Boolean(row.repName && row.repName.trim());
 
       if (hasAnyTime && !hasRepName) {
@@ -2317,7 +2380,7 @@ export default function SurveillanceReportsPage() {
         return;
       }
       if (hasRepName && !hasAnyTime) {
-        toast.error(`Please enter at least one time entry for Timing Row #${rowNum}.`);
+        toast.error(`Please select Time In or Time Out for Timing Row #${rowNum}.`);
         return;
       }
     }
@@ -2750,29 +2813,35 @@ export default function SurveillanceReportsPage() {
       primaryRow.nb,
     );
 
+    const activeRepTimingRows = isFloorPresenceEnabled
+      ? repTimingRows.filter(
+          (r) => r.repName?.trim() || r.timeIn?.trim() || r.timeOut?.trim(),
+        )
+      : [];
+
     const payload = {
       requestId: reqItem.id,
       rows: flattenedAuditRows,
-      repTimings: repTimingRows
-        .filter((r) => r.repName?.trim() || r.timeLeft?.trim() || r.timeReturned?.trim() || r.backRoomTimeIn?.trim() || r.backRoomTimeOut?.trim())
-        .map((r) => ({
-          id: r.id,
-          repName: r.repName,
-          timeLeft: r.timeLeft,
-          timeReturned: r.timeReturned,
-          backRoomTimeIn: r.backRoomTimeIn,
-          backRoomTimeOut: r.backRoomTimeOut,
-        })),
-      cameraLogs: cameraUptimeRows
-        .filter((c) => c.cameraName.trim() || c.onlineTime.trim() || c.offlineTime.trim())
-        .map((c) => ({
-          id: c.id,
-          cameraName: c.cameraName,
-          onlineTime: c.onlineTime,
-          offlineTime: c.offlineTime,
-        })),
+      repTimings: activeRepTimingRows.map((r) => ({
+        id: r.id,
+        repName: r.repName,
+        timeLeft: r.timingType === "Store Left" ? r.timeIn : "",
+        timeReturned: r.timingType === "Store Left" ? r.timeOut : "",
+        backRoomTimeIn: r.timingType === "Back Room" ? r.timeIn : "",
+        backRoomTimeOut: r.timingType === "Back Room" ? r.timeOut : "",
+      })),
+      cameraLogs: isCameraUptimeEnabled
+        ? cameraUptimeRows
+            .filter((c) => c.cameraName.trim() || c.onlineTime.trim() || c.offlineTime.trim())
+            .map((c) => ({
+              id: c.id,
+              cameraName: c.cameraName,
+              onlineTime: c.onlineTime,
+              offlineTime: c.offlineTime,
+            }))
+        : [],
       summaryMeta:
-        loomisMachineUrl.trim() || safeLockerUrl.trim()
+        loomisMachineUrl.trim() || safeLockerUrl.trim() || activeRepTimingRows.length > 0
           ? {
               loomisMachineVisible: loomisMachineUrl.trim() ? "Yes" : undefined,
               loomisLink: loomisMachineUrl.trim() || undefined,
@@ -3901,8 +3970,8 @@ export default function SurveillanceReportsPage() {
                   key={timingRow.id}
                   className="py-2.5 first:pt-1 last:pb-1 flex items-end gap-2.5"
                 >
-                  <div className="grid flex-1 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 min-w-0">
-                    {/* Name of Rep Leaving */}
+                  <div className="grid flex-1 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 min-w-0 items-end">
+                    {/* 1. Name of Rep Leaving */}
                     <div className="min-w-0">
                       <RepNameCombobox
                         label="Name of Rep Leaving"
@@ -3913,52 +3982,67 @@ export default function SurveillanceReportsPage() {
                       />
                     </div>
 
-                    {/* Time Left */}
+                    {/* 2. Store Left / Back Room Radio Selection */}
                     <div className="min-w-0 space-y-1">
-                      <Label className="text-[11px] font-semibold text-foreground">Time Left</Label>
+                      <Label className="text-[11px] font-semibold text-foreground">
+                        Movement Type
+                      </Label>
+                      <RadioGroup
+                        value={timingRow.timingType}
+                        onValueChange={(val) =>
+                          handleUpdateRepTimingField(
+                            timingRow.id,
+                            "timingType",
+                            val as RepTimingType,
+                          )
+                        }
+                        className="flex h-9 items-center gap-4 rounded-md border border-input bg-transparent px-3 shadow-xs"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <RadioGroupItem
+                            value="Store Left"
+                            id={`${timingRow.id}-store-left`}
+                          />
+                          <Label
+                            htmlFor={`${timingRow.id}-store-left`}
+                            className="text-xs font-medium cursor-pointer select-none whitespace-nowrap"
+                          >
+                            Store Left
+                          </Label>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <RadioGroupItem
+                            value="Back Room"
+                            id={`${timingRow.id}-back-room`}
+                          />
+                          <Label
+                            htmlFor={`${timingRow.id}-back-room`}
+                            className="text-xs font-medium cursor-pointer select-none whitespace-nowrap"
+                          >
+                            Back Room
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    {/* 3. Time In */}
+                    <div className="min-w-0 space-y-1">
+                      <Label className="text-[11px] font-semibold text-foreground">Time In</Label>
                       <AmPmTimePicker
-                        value={timingRow.timeLeft}
+                        value={timingRow.timeIn}
                         onChange={(val) =>
-                          handleUpdateRepTimingField(timingRow.id, "timeLeft", val)
+                          handleUpdateRepTimingField(timingRow.id, "timeIn", val)
                         }
                       />
                     </div>
 
-                    {/* Time Returned */}
+                    {/* 4. Time Out */}
                     <div className="min-w-0 space-y-1">
-                      <Label className="text-[11px] font-semibold text-foreground">
-                        Time Returned
-                      </Label>
+                      <Label className="text-[11px] font-semibold text-foreground">Time Out</Label>
                       <AmPmTimePicker
-                        value={timingRow.timeReturned}
+                        value={timingRow.timeOut}
                         onChange={(val) =>
-                          handleUpdateRepTimingField(timingRow.id, "timeReturned", val)
-                        }
-                      />
-                    </div>
-
-                    {/* Back Room Time - In */}
-                    <div className="min-w-0 space-y-1">
-                      <Label className="text-[11px] font-semibold text-foreground">
-                        Back Room - In
-                      </Label>
-                      <AmPmTimePicker
-                        value={timingRow.backRoomTimeIn}
-                        onChange={(val) =>
-                          handleUpdateRepTimingField(timingRow.id, "backRoomTimeIn", val)
-                        }
-                      />
-                    </div>
-
-                    {/* Back Room Time - Out */}
-                    <div className="min-w-0 space-y-1">
-                      <Label className="text-[11px] font-semibold text-foreground">
-                        Back Room - Out
-                      </Label>
-                      <AmPmTimePicker
-                        value={timingRow.backRoomTimeOut}
-                        onChange={(val) =>
-                          handleUpdateRepTimingField(timingRow.id, "backRoomTimeOut", val)
+                          handleUpdateRepTimingField(timingRow.id, "timeOut", val)
                         }
                       />
                     </div>

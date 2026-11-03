@@ -69,7 +69,6 @@ import {
   type SurveillanceMarketOption,
   type SurveillancePriority,
   type SurveillanceValidationItem,
-  type SurveillanceValidationStatus,
 } from "@/services/portals/surveillance/types";
 import {
   SurveillanceDetailPageSkeleton,
@@ -82,8 +81,16 @@ const PRIORITY_TONES: Record<SurveillancePriority, string> = {
   high: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
 };
 
+type ValidationDisplayStatus =
+  | "Unassigned"
+  | "Assigned"
+  | "Request Rejected"
+  | "Pending Verification"
+  | "Report Rejected"
+  | "Completed";
+
 const VALIDATION_STATUS_CONFIG: Record<
-  SurveillanceValidationStatus,
+  ValidationDisplayStatus,
   { label: string; tone: string; dotClass: string; textClass: string }
 > = {
   Unassigned: {
@@ -98,14 +105,20 @@ const VALIDATION_STATUS_CONFIG: Record<
     dotClass: "bg-sky-500",
     textClass: "text-sky-800 dark:text-sky-300",
   },
+  "Request Rejected": {
+    label: "Request Rejected",
+    tone: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400",
+    dotClass: "bg-orange-500",
+    textClass: "text-orange-800 dark:text-orange-300",
+  },
   "Pending Verification": {
     label: "Pending Verification",
     tone: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-400",
     dotClass: "bg-violet-500",
     textClass: "text-violet-800 dark:text-violet-300",
   },
-  Rejected: {
-    label: "Rejected",
+  "Report Rejected": {
+    label: "Report Rejected",
     tone: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400",
     dotClass: "bg-rose-500",
     textClass: "text-rose-700 dark:text-rose-300",
@@ -117,6 +130,28 @@ const VALIDATION_STATUS_CONFIG: Record<
     textClass: "text-emerald-700 dark:text-emerald-300",
   },
 };
+
+function resolveValidationDisplayStatus(
+  item: SurveillanceValidationItem,
+): ValidationDisplayStatus {
+  const raw = String(item.validationStatus || "");
+  if (raw === "Request Rejected") return "Request Rejected";
+  if (raw === "Report Rejected") return "Report Rejected";
+  if (raw === "Rejected") {
+    return item.linkedReportId || item.reportStatus === "Rejected"
+      ? "Report Rejected"
+      : "Request Rejected";
+  }
+  if (
+    raw === "Unassigned" ||
+    raw === "Assigned" ||
+    raw === "Pending Verification" ||
+    raw === "Completed"
+  ) {
+    return raw;
+  }
+  return "Unassigned";
+}
 
 function formatPriorityLabel(priority: SurveillancePriority): string {
   if (!priority) return "—";
@@ -231,6 +266,12 @@ export default function ValidateAndAssignPage() {
   const [agentPickerOpen, setAgentPickerOpen] = useState(false);
   const [submittingAssign, setSubmittingAssign] = useState(false);
 
+  // Reject Request modal state
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [targetRejectItem, setTargetRejectItem] = useState<SurveillanceValidationItem | null>(null);
+  const [rejectReason, setRejectReason] = useState<string>("");
+  const [submittingReject, setSubmittingReject] = useState(false);
+
   const [initialLoading, setInitialLoading] = useState(true);
   // Full-screen blocking overlay shown while an assign/reject action is in flight.
   const [blockingMessage, setBlockingMessage] = useState<string | null>(null);
@@ -299,20 +340,38 @@ export default function ValidateAndAssignPage() {
   );
 
   const metrics = useMemo(() => {
+    let unassigned = 0;
+    let assigned = 0;
+    let requestRejected = 0;
+    let pendingVerification = 0;
+    let reportRejected = 0;
+    let completed = 0;
+
+    for (const r of requests) {
+      const displayStatus = resolveValidationDisplayStatus(r);
+      if (displayStatus === "Unassigned") unassigned += 1;
+      else if (displayStatus === "Assigned") assigned += 1;
+      else if (displayStatus === "Request Rejected") requestRejected += 1;
+      else if (displayStatus === "Pending Verification") pendingVerification += 1;
+      else if (displayStatus === "Report Rejected") reportRejected += 1;
+      else if (displayStatus === "Completed") completed += 1;
+    }
+
     return {
       total: requests.length,
-      unassigned: requests.filter((r) => r.validationStatus === "Unassigned").length,
-      assigned: requests.filter((r) => r.validationStatus === "Assigned").length,
-      pendingVerification: requests.filter((r) => r.validationStatus === "Pending Verification")
-        .length,
-      rejected: requests.filter((r) => r.validationStatus === "Rejected").length,
-      completed: requests.filter((r) => r.validationStatus === "Completed").length,
+      unassigned,
+      assigned,
+      requestRejected,
+      pendingVerification,
+      reportRejected,
+      completed,
     };
   }, [requests]);
 
   const filteredRequests = useMemo(() => {
     return requests.filter((r) => {
-      if (statusFilter !== "all" && r.validationStatus !== statusFilter) {
+      const displayStatus = resolveValidationDisplayStatus(r);
+      if (statusFilter !== "all" && displayStatus !== statusFilter) {
         return false;
       }
       if (marketFilter !== "all" && r.marketName !== marketFilter) {
@@ -345,6 +404,11 @@ export default function ValidateAndAssignPage() {
     [requests, selectedDetailId],
   );
 
+  const selectedDetailDisplayStatus = useMemo(
+    () => (selectedDetail ? resolveValidationDisplayStatus(selectedDetail) : null),
+    [selectedDetail],
+  );
+
   // Assigned-agent options for the toolbar filter, derived from the queue
   // itself (already loaded) rather than a separate full-roster fetch.
   const assignedAgentOptions = useMemo(() => {
@@ -357,10 +421,12 @@ export default function ValidateAndAssignPage() {
     return Array.from(seen.entries()).map(([id, fullName]) => ({ id, fullName }));
   }, [requests]);
 
-  const isReassignModal = targetAssignItem?.validationStatus === "Assigned";
+  const isReassignModal =
+    targetAssignItem !== null && resolveValidationDisplayStatus(targetAssignItem) === "Assigned";
 
   const openAssignModal = useCallback((item: SurveillanceValidationItem) => {
-    if (item.validationStatus !== "Unassigned" && item.validationStatus !== "Assigned") return;
+    const status = resolveValidationDisplayStatus(item);
+    if (status !== "Unassigned" && status !== "Assigned") return;
     setTargetAssignItem(item);
     setSelectedAgentId("");
     setAgentSearchQuery("");
@@ -368,13 +434,46 @@ export default function ValidateAndAssignPage() {
     setAssignModalOpen(true);
   }, []);
 
+  const openRejectModal = useCallback((item: SurveillanceValidationItem) => {
+    if (resolveValidationDisplayStatus(item) !== "Unassigned") return;
+    setTargetRejectItem(item);
+    setRejectReason("");
+    setRejectModalOpen(true);
+  }, []);
+
+  const handleConfirmReject = async () => {
+    if (!targetRejectItem) return;
+    const trimmedReason = rejectReason.trim();
+    if (!trimmedReason) {
+      toast.error("Please enter a reason for rejecting this surveillance request.");
+      return;
+    }
+
+    setSubmittingReject(true);
+    setBlockingMessage("Rejecting surveillance request...");
+    try {
+      await surveillanceService.rejectValidationRequest({
+        requestId: targetRejectItem.id,
+        reason: trimmedReason,
+      });
+      await loadQueue();
+      setRejectModalOpen(false);
+      toast.success("Surveillance request rejected successfully.");
+    } catch (error) {
+      toast.error(`Failed to reject request: ${(error as Error).message}`);
+    } finally {
+      setSubmittingReject(false);
+      setBlockingMessage(null);
+    }
+  };
+
   const handleConfirmAssign = async () => {
     if (!targetAssignItem) return;
     if (!selectedAgentId) {
       toast.error("Please select a user or agent to assign this request.");
       return;
     }
-    const isReassigning = targetAssignItem.validationStatus === "Assigned";
+    const isReassigning = resolveValidationDisplayStatus(targetAssignItem) === "Assigned";
     if (isReassigning && targetAssignItem.assignedAgentId === selectedAgentId) {
       toast.error("Please select a different user or agent to reassign this request.");
       return;
@@ -489,9 +588,9 @@ export default function ValidateAndAssignPage() {
       {
         key: "status",
         header: "Status",
-        searchValue: (r) => VALIDATION_STATUS_CONFIG[r.validationStatus].label,
+        searchValue: (r) => VALIDATION_STATUS_CONFIG[resolveValidationDisplayStatus(r)].label,
         accessor: (r) => {
-          const cfg = VALIDATION_STATUS_CONFIG[r.validationStatus];
+          const cfg = VALIDATION_STATUS_CONFIG[resolveValidationDisplayStatus(r)];
           return (
             <Badge
               variant="outline"
@@ -516,8 +615,8 @@ export default function ValidateAndAssignPage() {
       <SurveillanceDetailPageSkeleton summaryCardCount={8} />
     ) : (
       <SurveillanceListPageSkeleton
-        kpiCount={6}
-        kpiGridClassName="grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6"
+        kpiCount={7}
+        kpiGridClassName="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7"
         filterCount={4}
         showHeaderAction
       />
@@ -527,7 +626,7 @@ export default function ValidateAndAssignPage() {
   return (
     <div className="relative space-y-6 animate-fade-in">
       {blockingOverlay}
-      {selectedDetail ? (
+      {selectedDetail && selectedDetailDisplayStatus ? (
         /* DRILL-DOWN REQUEST VALIDATION & ASSIGNMENT VIEW */
         <div className="space-y-5">
           {/* Top Bar */}
@@ -553,17 +652,27 @@ export default function ValidateAndAssignPage() {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
-              {selectedDetail.validationStatus === "Unassigned" && (
-                <Button
-                  onClick={() => openAssignModal(selectedDetail)}
-                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
-                >
-                  <UserPlus className="h-4 w-4" />
-                  Validate & Assign
-                </Button>
+              {selectedDetailDisplayStatus === "Unassigned" && (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => openRejectModal(selectedDetail)}
+                    className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold border-rose-200 bg-rose-50/70 text-rose-700 hover:bg-rose-100/80 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/70 shadow-xs whitespace-nowrap shrink-0"
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Reject Request
+                  </Button>
+                  <Button
+                    onClick={() => openAssignModal(selectedDetail)}
+                    className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
+                  >
+                    <UserPlus className="h-4 w-4" />
+                    Validate & Assign
+                  </Button>
+                </>
               )}
 
-              {selectedDetail.validationStatus === "Assigned" && (
+              {selectedDetailDisplayStatus === "Assigned" && (
                 <Button
                   onClick={() => openAssignModal(selectedDetail)}
                   className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
@@ -575,8 +684,8 @@ export default function ValidateAndAssignPage() {
 
               {Boolean(selectedDetail.linkedReportId) && (
                 <>
-                  {(selectedDetail.validationStatus === "Completed" ||
-                    selectedDetail.validationStatus === "Pending Verification") && (
+                  {(selectedDetailDisplayStatus === "Completed" ||
+                    selectedDetailDisplayStatus === "Pending Verification") && (
                     <Button
                       variant="outline"
                       onClick={() =>
@@ -599,7 +708,7 @@ export default function ValidateAndAssignPage() {
                     className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
                   >
                     <Eye className="h-4 w-4" />
-                    {selectedDetail.validationStatus === "Pending Verification"
+                    {selectedDetailDisplayStatus === "Pending Verification"
                       ? "Review Report"
                       : "View Report"}
                   </Button>
@@ -660,7 +769,7 @@ export default function ValidateAndAssignPage() {
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white border border-amber-100 shadow-2xs dark:bg-amber-950 dark:border-amber-900 shrink-0">
                   <span
                     className={`h-2.5 w-2.5 rounded-full ${
-                      VALIDATION_STATUS_CONFIG[selectedDetail.validationStatus].dotClass
+                      VALIDATION_STATUS_CONFIG[selectedDetailDisplayStatus].dotClass
                     }`}
                   />
                 </div>
@@ -670,10 +779,10 @@ export default function ValidateAndAssignPage() {
                   </div>
                   <div
                     className={`text-sm font-bold mt-0.5 ${
-                      VALIDATION_STATUS_CONFIG[selectedDetail.validationStatus].textClass
+                      VALIDATION_STATUS_CONFIG[selectedDetailDisplayStatus].textClass
                     }`}
                   >
-                    {VALIDATION_STATUS_CONFIG[selectedDetail.validationStatus].label}
+                    {VALIDATION_STATUS_CONFIG[selectedDetailDisplayStatus].label}
                   </div>
                 </div>
               </div>
@@ -835,21 +944,24 @@ export default function ValidateAndAssignPage() {
             </Card>
           )}
 
-          {/* Rejection / Cancellation Reason Banner (when Rejected) */}
-          {selectedDetail.validationStatus === "Rejected" && (
+          {/* Rejection Reason Banner (when Request Rejected or Report Rejected) */}
+          {(selectedDetailDisplayStatus === "Request Rejected" ||
+            selectedDetailDisplayStatus === "Report Rejected") && (
             <Card className="p-5 rounded-2xl border-rose-200/90 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/60 space-y-2.5">
               <div className="flex items-center gap-2 text-rose-900 dark:text-rose-200 font-semibold text-sm">
                 <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
                 <span>
-                  {selectedDetail.linkedReportId
+                  {selectedDetailDisplayStatus === "Report Rejected"
                     ? "Report Rejection Reason"
-                    : "Rejection / Cancellation Reason"}
+                    : "Request Rejection Reason"}
                 </span>
               </div>
               <div className="p-3.5 rounded-xl border border-rose-200/80 bg-background text-foreground text-xs leading-relaxed whitespace-pre-wrap">
                 {selectedDetail.rejectionReason ||
                   selectedDetail.managerComments ||
-                  "Request rejected during review."}
+                  (selectedDetailDisplayStatus === "Report Rejected"
+                    ? "Submitted report was declined during review."
+                    : "Surveillance request was rejected during validation.")}
               </div>
             </Card>
           )}
@@ -960,10 +1072,10 @@ export default function ValidateAndAssignPage() {
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" />
                         {selectedDetail.assignedAgentRole || "Surveillance Agent"}
                       </span>
-                    ) : selectedDetail.validationStatus === "Rejected" ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-md bg-rose-100/90 px-2.5 py-0.5 text-[11px] font-semibold text-rose-800 dark:bg-rose-900/60 dark:text-rose-200">
-                        <span className="h-1.5 w-1.5 rounded-full bg-rose-600" />
-                        Rejected during validation
+                    ) : selectedDetailDisplayStatus === "Request Rejected" ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-md bg-orange-100/90 px-2.5 py-0.5 text-[11px] font-semibold text-orange-800 dark:bg-orange-900/60 dark:text-orange-200">
+                        <span className="h-1.5 w-1.5 rounded-full bg-orange-600" />
+                        Request rejected
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-100/90 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
@@ -1031,7 +1143,7 @@ export default function ValidateAndAssignPage() {
               </div>
 
               {/* Visibility Status Callout Footer */}
-              {selectedDetail.validationStatus === "Completed" ? (
+              {selectedDetailDisplayStatus === "Completed" ? (
                 <div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 bg-emerald-100/60 p-3.5 text-xs text-emerald-900 dark:border-emerald-800/60 dark:bg-emerald-950/50 dark:text-emerald-200">
                   <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                   <span>
@@ -1040,7 +1152,7 @@ export default function ValidateAndAssignPage() {
                     visible to the admin and requester.
                   </span>
                 </div>
-              ) : selectedDetail.validationStatus === "Pending Verification" ? (
+              ) : selectedDetailDisplayStatus === "Pending Verification" ? (
                 <div className="flex items-start gap-2.5 rounded-xl border border-violet-200 bg-violet-50/90 p-3.5 text-xs text-violet-900 dark:border-violet-800/60 dark:bg-violet-950/40 dark:text-violet-200">
                   <Clock className="h-4 w-4 text-violet-600 dark:text-violet-400 shrink-0 mt-0.5" />
                   <span>
@@ -1049,7 +1161,7 @@ export default function ValidateAndAssignPage() {
                     <strong>Review Report</strong> above to mark as completed or decline.
                   </span>
                 </div>
-              ) : selectedDetail.validationStatus === "Assigned" ? (
+              ) : selectedDetailDisplayStatus === "Assigned" ? (
                 <div className="flex items-start gap-2.5 rounded-xl border border-sky-200 bg-sky-50/90 p-3.5 text-xs text-sky-900 dark:border-sky-800/60 dark:bg-sky-950/40 dark:text-sky-200">
                   <ShieldCheck className="h-4 w-4 text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />
                   <span>
@@ -1057,18 +1169,24 @@ export default function ValidateAndAssignPage() {
                     Visible to assigned agent for audit report preparation.
                   </span>
                 </div>
-              ) : selectedDetail.validationStatus === "Rejected" ? (
+              ) : selectedDetailDisplayStatus === "Report Rejected" ? (
                 <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-100/60 p-3.5 text-xs text-rose-900 dark:border-rose-800/60 dark:bg-rose-950/50 dark:text-rose-200">
                   <EyeOff className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                   <span>
-                    Rejected by{" "}
+                    Report rejected by{" "}
                     <strong>
-                      {selectedDetail.rejectedBy || selectedDetail.reportReviewedBy || "Validator"}
+                      {selectedDetail.reportReviewedBy || selectedDetail.rejectedBy || "Validator"}
                     </strong>
-                    .{" "}
-                    {selectedDetail.linkedReportId
-                      ? "Submitted report was declined during review."
-                      : "Hidden from all surveillance users and agents."}
+                    . Submitted report was declined during review.
+                  </span>
+                </div>
+              ) : selectedDetailDisplayStatus === "Request Rejected" ? (
+                <div className="flex items-start gap-2.5 rounded-xl border border-orange-200 bg-orange-100/60 p-3.5 text-xs text-orange-900 dark:border-orange-800/60 dark:bg-orange-950/50 dark:text-orange-200">
+                  <EyeOff className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0 mt-0.5" />
+                  <span>
+                    Request rejected by{" "}
+                    <strong>{selectedDetail.rejectedBy || "Validator"}</strong>. Hidden from all
+                    surveillance agents and marked as Rejected for the requester.
                   </span>
                 </div>
               ) : (
@@ -1109,8 +1227,8 @@ export default function ValidateAndAssignPage() {
             </div>
           </div>
 
-          {/* 6 KPI Summary Cards (Clickable to filter by status) */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+          {/* 7 KPI Summary Cards (Clickable to filter by status) */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
             {/* 1. Total Requests Received */}
             <Card
               role="button"
@@ -1169,7 +1287,27 @@ export default function ValidateAndAssignPage() {
               </div>
             </Card>
 
-            {/* 4. Pending Verification */}
+            {/* 4. Request Rejected */}
+            <Card
+              role="button"
+              tabIndex={0}
+              onClick={() => setStatusFilter("Request Rejected")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") setStatusFilter("Request Rejected");
+              }}
+              className={`p-4 cursor-pointer transition-all border-orange-300/80 bg-orange-50/50 hover:bg-orange-50/80 dark:bg-orange-950/20 dark:border-orange-900/50 ${
+                statusFilter === "Request Rejected" ? "ring-2 ring-orange-500/70 shadow-xs" : ""
+              }`}
+            >
+              <div className="text-xs text-orange-800 dark:text-orange-300 font-medium">
+                Request Rejected
+              </div>
+              <div className="mt-1 text-2xl font-bold font-display text-orange-950 dark:text-orange-100 tabular-nums">
+                {metrics.requestRejected}
+              </div>
+            </Card>
+
+            {/* 5. Pending Verification */}
             <Card
               role="button"
               tabIndex={0}
@@ -1189,25 +1327,27 @@ export default function ValidateAndAssignPage() {
               </div>
             </Card>
 
-            {/* 5. Rejected */}
+            {/* 6. Report Rejected */}
             <Card
               role="button"
               tabIndex={0}
-              onClick={() => setStatusFilter("Rejected")}
+              onClick={() => setStatusFilter("Report Rejected")}
               onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") setStatusFilter("Rejected");
+                if (e.key === "Enter" || e.key === " ") setStatusFilter("Report Rejected");
               }}
               className={`p-4 cursor-pointer transition-all border-rose-300/80 bg-rose-50/50 hover:bg-rose-50/80 dark:bg-rose-950/20 dark:border-rose-900/50 ${
-                statusFilter === "Rejected" ? "ring-2 ring-rose-500/70 shadow-xs" : ""
+                statusFilter === "Report Rejected" ? "ring-2 ring-rose-500/70 shadow-xs" : ""
               }`}
             >
-              <div className="text-xs text-rose-800 dark:text-rose-300 font-medium">Rejected</div>
+              <div className="text-xs text-rose-800 dark:text-rose-300 font-medium">
+                Report Rejected
+              </div>
               <div className="mt-1 text-2xl font-bold font-display text-rose-950 dark:text-rose-100 tabular-nums">
-                {metrics.rejected}
+                {metrics.reportRejected}
               </div>
             </Card>
 
-            {/* 6. Completed */}
+            {/* 7. Completed */}
             <Card
               role="button"
               tabIndex={0}
@@ -1252,8 +1392,9 @@ export default function ValidateAndAssignPage() {
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="Unassigned">Unassigned</SelectItem>
                 <SelectItem value="Assigned">Assigned</SelectItem>
+                <SelectItem value="Request Rejected">Request Rejected</SelectItem>
                 <SelectItem value="Pending Verification">Pending Verification</SelectItem>
-                <SelectItem value="Rejected">Rejected</SelectItem>
+                <SelectItem value="Report Rejected">Report Rejected</SelectItem>
                 <SelectItem value="Completed">Completed</SelectItem>
               </SelectContent>
             </Select>
@@ -1527,6 +1668,88 @@ export default function ValidateAndAssignPage() {
                 : isReassignModal
                   ? "Reassign"
                   : "Validate & Assign"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* REJECT SURVEILLANCE REQUEST MODAL */}
+      <Dialog open={rejectModalOpen} onOpenChange={setRejectModalOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Reject Surveillance Request</DialogTitle>
+            <DialogDescription>
+              Provide a clear reason for rejecting this incoming surveillance request. The requester
+              will see this status and reason under Rejected requests.
+            </DialogDescription>
+          </DialogHeader>
+
+          {targetRejectItem && (
+            <div className="space-y-3.5 pt-1 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Store Name</Label>
+                  <Input
+                    type="text"
+                    readOnly
+                    tabIndex={-1}
+                    value={targetRejectItem.storeName}
+                    className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Surveillance Date</Label>
+                  <Input
+                    type="text"
+                    readOnly
+                    tabIndex={-1}
+                    value={formatDisplayDate(targetRejectItem.surveillanceDate)}
+                    className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0 tabular-nums"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">
+                  Investigation Reason / Incident Summary
+                </Label>
+                <Input
+                  type="text"
+                  readOnly
+                  tabIndex={-1}
+                  value={targetRejectItem.title}
+                  className="bg-muted/30 text-foreground cursor-default focus-visible:ring-0"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">
+                  Rejection Reason <span className="text-destructive">*</span>
+                </Label>
+                <Textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Enter the reason for rejecting this surveillance request..."
+                  rows={4}
+                />
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="mt-2">
+            <Button
+              variant="outline"
+              onClick={() => setRejectModalOpen(false)}
+              disabled={submittingReject}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmReject}
+              disabled={submittingReject || !rejectReason.trim()}
+            >
+              {submittingReject ? "Rejecting..." : "Reject Request"}
             </Button>
           </DialogFooter>
         </DialogContent>

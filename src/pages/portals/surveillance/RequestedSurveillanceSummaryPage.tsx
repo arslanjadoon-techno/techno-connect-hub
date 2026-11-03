@@ -7,13 +7,12 @@ import { Card } from "@/components/ui/card";
 import {
   ArrowLeft,
   CheckCircle2,
-  ClipboardCopy,
   Clock,
   DollarSign,
+  Download,
   ExternalLink,
   Eye,
   FileText,
-  Printer,
   ShieldAlert,
   ShieldCheck,
   ShoppingBag,
@@ -23,7 +22,6 @@ import {
   Users,
   XCircle,
 } from "lucide-react";
-import { toast } from "sonner";
 import {
   getSurveillanceRole,
   type SurveillanceAuditRow,
@@ -514,6 +512,21 @@ function computeSummaryFromReport(
     if (meta.repLeavingLogs && meta.repLeavingLogs.length > 0) {
       return meta.repLeavingLogs;
     }
+    if (report.repTimings && report.repTimings.length > 0) {
+      const map = new Map<string, Array<{ start: string; end: string }>>();
+      report.repTimings.forEach((t) => {
+        const left = (t.timeLeft || "").trim();
+        const ret = (t.timeReturned || "").trim();
+        if (!isMeaningfulText(left) && !isMeaningfulText(ret)) return;
+        const rep = (isMeaningfulText(t.repName) ? t.repName! : "Representative").trim();
+        const list = map.get(rep) || [];
+        list.push({ start: left || "—", end: ret || "—" });
+        map.set(rep, list);
+      });
+      if (map.size > 0) {
+        return Array.from(map.entries()).map(([repName, intervals]) => ({ repName, intervals }));
+      }
+    }
     const map = new Map<string, Array<{ start: string; end: string }>>();
     rawRows.forEach((r) => {
       const left = (r.timeLeft || "").trim();
@@ -532,6 +545,21 @@ function computeSummaryFromReport(
   const backroomLogs: SurveillanceRepIntervalLog[] = (() => {
     if (meta.backroomLogs && meta.backroomLogs.length > 0) {
       return meta.backroomLogs;
+    }
+    if (report.repTimings && report.repTimings.length > 0) {
+      const map = new Map<string, Array<{ start: string; end: string }>>();
+      report.repTimings.forEach((t) => {
+        const timeIn = (t.backRoomTimeIn || "").trim();
+        const timeOut = (t.backRoomTimeOut || "").trim();
+        if (!isMeaningfulText(timeIn) && !isMeaningfulText(timeOut)) return;
+        const rep = (isMeaningfulText(t.repName) ? t.repName! : "Representative").trim();
+        const list = map.get(rep) || [];
+        list.push({ start: timeIn || "—", end: timeOut || "—" });
+        map.set(rep, list);
+      });
+      if (map.size > 0) {
+        return Array.from(map.entries()).map(([repName, intervals]) => ({ repName, intervals }));
+      }
     }
     const map = new Map<string, Array<{ start: string; end: string }>>();
     rawRows.forEach((r) => {
@@ -666,215 +694,7 @@ function computeSummaryFromReport(
   };
 }
 
-function buildPlainTextSummary(s: ComputedSurveillanceSummary): string {
-  const lines: string[] = [];
-  lines.push(`Date: ${s.dateDisplay}`);
-  lines.push(`Store name: ${s.storeName}`);
-  lines.push(`Rep name: ${s.repNamesJoined}`);
-  lines.push("");
 
-  lines.push(`Total Customers: ${padTwo(s.totalCustomers)}`);
-  lines.push(`Non-Buying: ${padTwo(s.totalNonBuying)}`);
-  lines.push(`Buying: ${padTwo(s.totalBuying)}`);
-  lines.push("");
-
-  s.repStats.forEach((rep) => {
-    lines.push(`Rep Name: ${rep.repName}`);
-    lines.push(`Total Customer: ${padTwo(rep.totalCustomers)}`);
-    lines.push(`Non-Buying: ${padTwo(rep.nonBuying)}`);
-    lines.push(`Buying: ${padTwo(rep.buying)}`);
-    lines.push("");
-  });
-
-  lines.push(`Total Customers closed: ${padTwo(s.totalClosed)}`);
-  lines.push(`Non-Buying: ${padTwo(s.totalClosedNonBuying)}`);
-  lines.push(`Buying: ${padTwo(s.totalClosedBuying)}`);
-  lines.push("");
-
-  s.repStats.forEach((rep) => {
-    lines.push(`Rep Name: ${rep.repName}`);
-    lines.push(`Total Customers closed: ${padTwo(rep.closedTotal)}`);
-    lines.push(`Non-Buying: ${padTwo(rep.closedNonBuying)}`);
-    lines.push(`Buying: ${padTwo(rep.closedBuying)}`);
-    lines.push("");
-  });
-
-  lines.push(`Pitch amount non-buying: ${padTwo(s.totalPitchNonBuying)}`);
-  lines.push(`Showed phone: ${padTwo(s.totalShowedPhone)}`);
-  lines.push(`Didn’t show phone: ${padTwo(s.totalDidntShowPhone)}`);
-  lines.push("");
-
-  s.repStats.forEach((rep) => {
-    lines.push(`Rep Name: ${rep.repName}`);
-    lines.push(`Pitch amount non-buying: ${padTwo(rep.pitchNonBuying)}`);
-    lines.push(`Showed phone: ${padTwo(rep.showedPhone)}`);
-    lines.push(`Didn’t show phone: ${padTwo(rep.didntShowPhone)}`);
-    lines.push("");
-  });
-
-  lines.push("Quality:");
-  s.repStats.forEach((rep) => {
-    lines.push(
-      `${padTwo(rep.qualityBad)} Bad, ${padTwo(rep.qualityAverage)} Average, ${padTwo(rep.qualityGood)} Good (${rep.repName})`,
-    );
-  });
-  lines.push("");
-
-  s.repStats.forEach((rep) => {
-    if (rep.pitchNotes.length > 0) {
-      lines.push("Pitch notes:");
-      rep.pitchNotes.forEach((n) => lines.push(`• ${n}`));
-      lines.push("");
-    }
-  });
-
-  lines.push("Bad Pitch Link");
-  if (s.badPitchItems.length === 0) {
-    lines.push("• No");
-    lines.push("Link: ");
-  } else {
-    s.badPitchItems.forEach((bp) => {
-      lines.push(`• ${bp.description}`);
-      lines.push(`Link: ${bp.link || ""}`);
-    });
-  }
-  lines.push("");
-
-  lines.push("Bundle buying customer:");
-  if (s.bundleBuying.length === 0) {
-    lines.push("No");
-    lines.push("");
-  } else {
-    s.bundleBuying.forEach((b) => {
-      lines.push(`Invoice#${b.invoice}`);
-      lines.push(b.itemSummary);
-      lines.push(`Starting amount: ${b.startingAmount}`);
-      lines.push(`Ending amount: ${b.endingAmount}`);
-      lines.push("");
-    });
-  }
-
-  lines.push("Bundle Non-buying customer:");
-  if (s.bundleNonBuying.length === 0) {
-    lines.push("No");
-    lines.push("");
-  } else {
-    s.bundleNonBuying.forEach((b) => {
-      lines.push(`Invoice#${b.invoice}`);
-      lines.push(b.itemSummary);
-      lines.push(`Starting amount: ${b.startingAmount}`);
-      lines.push(`Ending amount: ${b.endingAmount}`);
-      lines.push("");
-    });
-  }
-
-  lines.push(`Accessories Offered: ${s.totalAccessoriesOffered}/${s.totalCustomers}`);
-  s.repStats.forEach((rep) => {
-    lines.push(`${rep.repName} : ${rep.accessoriesOffered}/${rep.totalCustomers}`);
-  });
-  lines.push("");
-
-  lines.push(`Maximizing: ${s.maximizing}`);
-  lines.push(`Flipping: ${s.flipping}`);
-  lines.push(`SmartPay: ${s.smartPay}`);
-  lines.push("");
-
-  lines.push(`Payments made online: ${s.paymentsMadeOnline}`);
-  lines.push(`Payments rejected: ${s.paymentsRejected}`);
-  lines.push(`Split Payments: ${s.splitPayments}`);
-  lines.push("");
-
-  lines.push(`AAL Swap: ${s.aalSwap}`);
-  lines.push(`AAL Bill Same: ${s.aalBillSame}`);
-  lines.push("");
-
-  lines.push(`Miss Opportunity: ${padTwo(s.missOpportunities.length)}`);
-  s.missOpportunities.forEach((mo) => {
-    lines.push(`Time: ${mo.time}`);
-    lines.push(`Description: ${mo.description}`);
-  });
-  lines.push("");
-
-  lines.push(`Port IN: ${s.portIn}`);
-  lines.push(`Magenta In Metro: ${s.magentaInMetro}`);
-  lines.push("");
-
-  lines.push("Reps leaving Store:");
-  if (s.repLeavingLogs.length === 0) {
-    lines.push("No");
-    lines.push("");
-  } else {
-    lines.push("");
-    s.repLeavingLogs.forEach((log) => {
-      lines.push(`Rep Name: ${log.repName}`);
-      log.intervals.forEach((iv) => {
-        lines.push(`* ${iv.start}\t${iv.end}`);
-      });
-      lines.push("");
-    });
-  }
-
-  lines.push("Backroom In & Out:");
-  if (s.backroomLogs.length === 0) {
-    lines.push("No");
-    lines.push("");
-  } else {
-    lines.push("");
-    s.backroomLogs.forEach((log) => {
-      lines.push(`Rep Name: ${log.repName}`);
-      log.intervals.forEach((iv) => {
-        lines.push(`* ${iv.start}\t${iv.end}`);
-      });
-      lines.push("");
-    });
-  }
-
-  lines.push(`Fraud Transaction: ${padTwo(s.fraudTransactions.length)}`);
-  s.fraudTransactions.forEach((ft) => {
-    lines.push(`• Invoice#${ft.invoice}`);
-    lines.push(`Description: ${ft.description}`);
-    lines.push("");
-  });
-  if (s.fraudTransactions.length === 0) lines.push("");
-
-  lines.push(`Payment Fraud: ${padTwo(s.paymentFrauds.length)}`);
-  s.paymentFrauds.forEach((pf) => {
-    lines.push(`• Invoice#${pf.invoice}`);
-    lines.push(`Description: ${pf.description}`);
-    lines.push("");
-  });
-  if (s.paymentFrauds.length === 0) lines.push("");
-
-  lines.push(
-    `Refund Invoice: ${s.refundInvoices.length > 0 ? s.refundInvoices.join(", ") : "No"}`,
-  );
-  lines.push(
-    `Receipt Buying Customers: ${
-      s.receiptBuyingCustomers.length > 0
-        ? s.receiptBuyingCustomers.map((r) => `Invoice#${r.invoice}-${r.status}`).join(", ")
-        : "No"
-    }`,
-  );
-  lines.push(
-    `Accessories Given Bundle Customer: ${
-      s.accessoriesGivenBundles.length > 0 ? s.accessoriesGivenBundles.join(", ") : "No"
-    }`,
-  );
-  lines.push("");
-
-  lines.push(`Loomis Machine Visible: (${s.loomisVisible})`);
-  lines.push(`Link: ${s.loomisLink}`);
-  lines.push(`Safe Locker Visible: (${s.safeLockerVisible})`);
-  lines.push(`Link: ${s.safeLockerLink}`);
-  lines.push("");
-
-  lines.push(`General other notes: ${s.generalOtherNotes}`);
-  lines.push(`Amount difference: ${s.amountDifference}`);
-  lines.push(`Reason for difference: ${s.reasonForDifference}`);
-  lines.push(`QA: ${s.qaName}`);
-
-  return lines.join("\n");
-}
 
 function FlagStatusPill({ value }: { value: "Yes" | "No" }) {
   const isYes = value === "Yes";
@@ -970,17 +790,7 @@ export default function RequestedSurveillanceSummaryPage() {
     );
   }
 
-  const handleCopySummary = async () => {
-    try {
-      const text = buildPlainTextSummary(summary);
-      await navigator.clipboard.writeText(text);
-      toast.success("Surveillance summary copied to clipboard.");
-    } catch {
-      toast.error("Unable to copy summary to clipboard.");
-    }
-  };
-
-  const handlePrint = () => {
+  const handleExportPdf = () => {
     window.print();
   };
 
@@ -1041,20 +851,11 @@ export default function RequestedSurveillanceSummaryPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleCopySummary}
+            onClick={handleExportPdf}
             className="h-9 gap-1.5 rounded-xl px-3.5 text-xs font-medium"
           >
-            <ClipboardCopy className="h-3.5 w-3.5" />
-            Copy Summary
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePrint}
-            className="h-9 gap-1.5 rounded-xl px-3.5 text-xs font-medium"
-          >
-            <Printer className="h-3.5 w-3.5" />
-            Print
+            <Download className="h-3.5 w-3.5" />
+            Export PDF
           </Button>
           <Button
             size="sm"

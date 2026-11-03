@@ -184,9 +184,14 @@ export interface SavedAuditRowRecord {
   savedAt: string;
 }
 
+export type SurveillanceRepTimingType = "Store Left" | "Back Room";
+
 export interface SurveillanceSessionRepTimingRow {
   id: string;
   repName: string;
+  timingType?: SurveillanceRepTimingType;
+  timeIn?: string;
+  timeOut?: string;
   timeLeft: string;
   timeReturned: string;
   backRoomTimeIn: string;
@@ -593,7 +598,13 @@ export function getSurveillanceDefaultRoute(user: any): string {
 }
 
 export type SurveillanceValidationStatus =
-  "Unassigned" | "Assigned" | "Pending Verification" | "Rejected" | "Completed";
+  | "Unassigned"
+  | "Assigned"
+  | "Request Rejected"
+  | "Pending Verification"
+  | "Report Rejected"
+  | "Rejected"
+  | "Completed";
 
 export interface SurveillanceSalesRep {
   ntid: string;
