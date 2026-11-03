@@ -20,7 +20,6 @@ import {
   getChatSettingsService,
   getChatStatusService,
   getChatUsersService,
-  updateChatSettingsService,
   updateChatStatusService,
 } from "@/services/Team-chat/chat.service";
 import { getStoredUser } from "@/lib/api/client";
@@ -41,7 +40,6 @@ type ChatDataOptions = {
   setBuddies: (value: any) => void;
   setChannels: (value: any) => void;
   setCurrentStatus: (value: any) => void;
-  setEnterToSend: (value: any) => void;
   setLoadError: (value: any) => void;
   setLoading: (value: any) => void;
   setMentionNotifications: (value: any) => void;
@@ -95,7 +93,6 @@ export function useChatData({
   setBuddies,
   setChannels,
   setCurrentStatus,
-  setEnterToSend,
   setLoadError,
   setLoading,
   setMentionNotifications,
@@ -123,8 +120,6 @@ export function useChatData({
 
       const requestClearVersion = chatClearVersionsRef.current.get(chatKey) || 0;
 
-      loadedChatHistoryRef.current.add(chatKey);
-
       clearUnreadForChat({
         chatId: chat.chatId,
         userId: chat.id,
@@ -133,7 +128,11 @@ export function useChatData({
 
       try {
         const chatId = chat.chatId || null;
+        // A new direct chat has no conversation ID until its first message.
+        // Do not mark it as loaded or a later history retry will be skipped.
         if (!chatId) return;
+
+        loadedChatHistoryRef.current.add(chatKey);
 
         setSelectedChat((prev: ChatRecord | null) =>
           prev?.id === chat.id ? { ...prev, chatId } : prev,
@@ -296,17 +295,6 @@ export function useChatData({
       if (typeof persistedSettings.desktopNotifications === "boolean") {
         setDesktopNotifications(persistedSettings.desktopNotifications);
         setChatNotificationsEnabled(persistedSettings.desktopNotifications);
-      }
-
-      if (typeof persistedSettings.enterToSend === "boolean") {
-        const savedEnterToSend = localStorage.getItem("chat_enter_to_send");
-        const restoredEnterToSend =
-          savedEnterToSend === "true" ||
-          (savedEnterToSend !== "false" && persistedSettings.enterToSend);
-        setEnterToSend(restoredEnterToSend);
-        if (savedEnterToSend === "true" && !persistedSettings.enterToSend) {
-          updateChatSettingsService({ enterToSend: true }).catch(() => {});
-        }
       }
 
       if (typeof persistedSettings.mentionNotifications === "boolean") {
@@ -517,12 +505,11 @@ export function useChatData({
     id,
     isCurrentUserRecord,
     isSelfConversation,
-    selectedChat?.id, // ← stable primitive, not whole object
+    selectedChat,
     setBlockedUserIds,
     setBuddies,
     setChannels,
     setCurrentStatus,
-    setEnterToSend,
     setLoadError,
     setLoading,
     setMentionNotifications,

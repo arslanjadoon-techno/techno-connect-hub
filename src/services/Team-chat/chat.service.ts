@@ -128,6 +128,12 @@ const apiRequest = async <T>(
     }
 
     if (!response.ok) {
+      if (response.status === 401) {
+        // A logout, token refresh, or login in another part of the app may
+        // have changed storage since the cached token was read.
+        invalidateChatTokenCache();
+      }
+
       const message =
         payload?.error ??
         payload?.message ??
@@ -214,9 +220,6 @@ export const getChatStatusService = () => api.get("/api/v1/chat/users/me", CHAT_
 export const getChatUsersService = (params: ChatParams = {}) =>
   api.get("/api/v1/chat/users", chatConfig({ limit: 50, ...params }));
 
-export const getChatUserProfileService = (userId: ChatId) =>
-  api.get(`/api/v1/chat/users/${encodeURIComponent(userId)}`, CHAT_HEADERS);
-
 export const updateChatStatusService = (presence: string) =>
   api.patch("/api/v1/chat/users/me/presence", { presence }, CHAT_HEADERS);
 
@@ -238,6 +241,12 @@ export const getChatSettingsService = () =>
 
 export const updateChatSettingsService = (settings: ChatPayload) =>
   api.put("/api/v1/chat/preferences/settings", settings, CHAT_HEADERS);
+
+export const muteConversationService = (chatId: ChatId) =>
+  api.post(`/api/v1/chat/preferences/mute/${encodeURIComponent(chatId)}`, {}, CHAT_HEADERS);
+
+export const unmuteConversationService = (chatId: ChatId) =>
+  api.delete(`/api/v1/chat/preferences/mute/${encodeURIComponent(chatId)}`, CHAT_HEADERS);
 
 // ==================================================================
 //  Notes

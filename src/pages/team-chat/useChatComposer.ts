@@ -1,11 +1,7 @@
 import { useRef, useState, type ChangeEvent } from "react";
-import { updateChatSettingsService } from "@/services/Team-chat/chat.service";
 
 export function useChatComposer() {
   const [inputValue, setInputValue] = useState("");
-  const [enterToSend, setEnterToSend] = useState(
-    () => localStorage.getItem("chat_enter_to_send") === "true",
-  );
   const [replyToMessage, setReplyToMessage] = useState<any>(null);
   const [editingMessage, setEditingMessage] = useState<any>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -30,14 +26,6 @@ export function useChatComposer() {
     if (!file || !selectedChat) return;
     setPendingFiles((previous) => [...previous, file]);
     setSendError("");
-  };
-
-  const handleEnterToSendChange = (enabled: boolean) => {
-    setEnterToSend(enabled);
-    localStorage.setItem("chat_enter_to_send", String(enabled));
-    updateChatSettingsService({ enterToSend: enabled }).catch(() => {
-      setSendError("Enter-to-send setting could not be saved.");
-    });
   };
 
   const handleReplyToMessage = (message: any) => {
@@ -66,8 +54,6 @@ export function useChatComposer() {
   return {
     inputValue,
     setInputValue,
-    enterToSend,
-    setEnterToSend,
     replyToMessage,
     setReplyToMessage,
     editingMessage,
@@ -84,7 +70,6 @@ export function useChatComposer() {
     handleFileUpload,
     removePendingFile,
     handleVoiceMessage,
-    handleEnterToSendChange,
     handleReplyToMessage,
     handleEditMessage,
     handleCancelComposerMode,

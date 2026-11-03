@@ -3,7 +3,7 @@ import {
   leaveGroupConversationService,
   removeGroupMemberService,
   transferGroupOwnershipService,
-  updateChatSettingsService,
+  unmuteConversationService,
 } from "@/services/Team-chat/chat.service";
 import { getBuddySendId, getChannelId, normalizeChatError } from "./chatHealper";
 import { CHAT_APP_BASE_PATH } from "./chatRoutes";
@@ -30,11 +30,8 @@ export function useChatGroupActions({
         delete next[String(chatId)];
         return next;
       });
-      setMutedChatIds((prev: string[]) => {
-        const next = prev.filter((id) => id !== String(chatId));
-        updateChatSettingsService({ mutedChatIds: next }).catch(() => {});
-        return next;
-      });
+      setMutedChatIds((prev: string[]) => prev.filter((id) => id !== String(chatId)));
+      void unmuteConversationService(chatId).catch(() => undefined);
       setSelectedChat(null);
       navigate(CHAT_APP_BASE_PATH);
     } catch (error) {
@@ -54,11 +51,8 @@ export function useChatGroupActions({
         delete next[String(chatId)];
         return next;
       });
-      setMutedChatIds((prev: string[]) => {
-        const next = prev.filter((id) => id !== String(chatId));
-        updateChatSettingsService({ mutedChatIds: next }).catch(() => {});
-        return next;
-      });
+      setMutedChatIds((prev: string[]) => prev.filter((id) => id !== String(chatId)));
+      void unmuteConversationService(chatId).catch(() => undefined);
       setSelectedChat(null);
       navigate(CHAT_APP_BASE_PATH);
     } catch (error) {

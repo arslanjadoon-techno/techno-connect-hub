@@ -9,7 +9,15 @@ import {
   type KeyboardEvent,
   type RefObject,
 } from "react";
-import { getBuddyEmail, getBuddyName, getBuddySendId } from "../chatHealper";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  getAvailability,
+  getBuddyEmail,
+  getBuddyName,
+  getBuddySendId,
+  getImageUrl,
+} from "../chatHealper";
 import { EmptyChatState } from "./ChatWindowStates";
 import { PinnedMessageBanner } from "./ChatWindowPanels";
 import InternalCallPanel from "../calls/InternalCallPanel";
@@ -194,6 +202,8 @@ export default function ChatWindow({
   const [searchResults, setSearchResults] = useState<MessageRecord[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const [viewedUser, setViewedUser] = useState<ChatRecord | null>(null);
+  const [profileImageOpen, setProfileImageOpen] = useState(false);
 
   const chatMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -546,6 +556,10 @@ export default function ChatWindow({
   if (!selectedChat) return <EmptyChatState />;
 
   const title = getChatTitle(selectedChat);
+  const viewedUserName = viewedUser ? getBuddyName(viewedUser) : "Chat user";
+  const viewedUserEmail = viewedUser ? getBuddyEmail(viewedUser) : "";
+  const viewedUserImage = getImageUrl(viewedUser);
+  const viewedUserAvailability = getAvailability(viewedUser);
 
   return (
     <section className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-background text-foreground">
@@ -580,6 +594,7 @@ export default function ChatWindow({
           onSearchMessages,
           onToggleGroupMute,
           onTransferOwnership,
+          onViewUser: (user: ChatRecord) => setViewedUser(user),
           selectedChat,
           selectedUserBlocked,
           setChatMenuOpen,
@@ -623,6 +638,7 @@ export default function ChatWindow({
           handlePinMessage,
           handleReaction,
           handleReplyToMessage,
+          onViewUser: (user: ChatRecord) => setViewedUser(user),
           hasOlderMessages,
           highlightedMessageId,
           loadingOlderMessages,
@@ -641,6 +657,65 @@ export default function ChatWindow({
           setSelectedMessageIds,
         }}
       />
+      <Dialog
+        open={Boolean(viewedUser)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setViewedUser(null);
+            setProfileImageOpen(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>User profile</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center text-center">
+            <button
+              type="button"
+              disabled={!viewedUserImage}
+              aria-label={`Open ${viewedUserName}'s profile picture`}
+              title={viewedUserImage ? "Open profile picture" : undefined}
+              onClick={() => setProfileImageOpen(true)}
+              className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+            >
+              <Avatar className="h-24 w-24 bg-primary/10 text-primary">
+                <AvatarImage src={viewedUserImage} />
+                <AvatarFallback className="text-2xl">
+                  {viewedUserName.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </button>
+            <p className="mt-3 text-lg font-semibold">{viewedUserName}</p>
+            {viewedUserEmail && <p className="text-sm text-muted-foreground">{viewedUserEmail}</p>}
+            <p className="mt-2 inline-flex items-center gap-2 text-sm">
+              <span
+                aria-hidden="true"
+                className="inline-block h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: viewedUserAvailability.color }}
+              />
+              {viewedUserAvailability.label}
+            </p>
+            {viewedUser?.designation && (
+              <p className="mt-1 text-sm text-muted-foreground">{viewedUser.designation}</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={profileImageOpen} onOpenChange={setProfileImageOpen}>
+        <DialogContent className="max-w-[min(94vw,960px)] border-0 bg-transparent p-2 shadow-none">
+          <DialogHeader>
+            <DialogTitle className="sr-only">{viewedUserName}&apos;s profile picture</DialogTitle>
+          </DialogHeader>
+          <div className="flex max-h-[85vh] justify-center overflow-hidden rounded-lg bg-black/80 p-2">
+            <img
+              src={viewedUserImage}
+              alt={`${viewedUserName}'s profile picture`}
+              className="max-h-[82vh] max-w-full object-contain"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
       <ChatComposerPanel
         {...{
           actionsMessage,

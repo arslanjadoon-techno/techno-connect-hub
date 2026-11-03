@@ -26,6 +26,7 @@ export default function ChatMessageList(props: Record<string, any>) {
     handlePinMessage,
     handleReaction,
     handleReplyToMessage,
+    onViewUser,
     hasOlderMessages = false,
     highlightedMessageId,
     loadingOlderMessages = false,
@@ -44,8 +45,6 @@ export default function ChatMessageList(props: Record<string, any>) {
   const olderMessagesSentinelRef = useRef<HTMLDivElement | null>(null);
   const loadingOlderRef = useRef(false);
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  console.log(selectedChat, "selected");
-
   // Keep the loading guard synchronized with the parent loading state.
   useEffect(() => {
     loadingOlderRef.current = loadingOlderMessages;
@@ -114,9 +113,8 @@ export default function ChatMessageList(props: Record<string, any>) {
 
     if (!container) return;
 
-    const target = Array.from(container.querySelectorAll<HTMLElement>("[data-message-id]")).find(
-      (element) => element.dataset.messageId === messageId,
-    );
+    const elements = container.querySelectorAll("[data-message-id]") as NodeListOf<HTMLElement>;
+    const target = Array.from(elements).find((element) => element.dataset.messageId === messageId);
 
     if (!target) {
       console.warn("Message is not currently rendered:", messageId);
@@ -259,6 +257,7 @@ export default function ChatMessageList(props: Record<string, any>) {
                 onPin={handlePinMessage}
                 onReact={(item: ChatMessage, emoji: string) => handleReaction?.(item.id, emoji)}
                 onReply={handleReplyToMessage}
+                onViewUser={onViewUser}
                 selectionMode={selectedMessageIds.length > 0}
                 selected={selectedMessageIds.includes(messageId)}
                 onSelect={(selectedMessage: ChatMessage) => {

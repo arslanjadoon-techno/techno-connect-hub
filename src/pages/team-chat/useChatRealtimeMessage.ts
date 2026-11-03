@@ -56,7 +56,20 @@ export function useChatRealtimeMessage({
   const messageKeysRef = handledRealtimeMessageKeysRef || fallbackHandledMessageKeysRef;
 
   const handleRealtimeMessage = useCallback(
-    ({ chatId, message }: { chatId: string | number; message: ChatRecord }) => {
+    (payload: ChatRecord = {}) => {
+      // Accept both the wrapped notification shape and a raw message DTO so
+      // clients remain compatible with every chat notification producer.
+      const wrappedMessage = payload?.message;
+      const message =
+        wrappedMessage && typeof wrappedMessage === "object" ? wrappedMessage : payload;
+      const chatId =
+        payload?.chatId ??
+        payload?.chat_id ??
+        message?.chatId ??
+        message?.chat_id ??
+        message?.conversationId ??
+        message?.conversation_id;
+
       if (!chatId || !message) return;
 
       const senderId = getMessageSenderId(message);

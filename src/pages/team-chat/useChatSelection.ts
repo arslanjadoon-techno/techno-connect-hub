@@ -36,7 +36,7 @@ export function useChatSelection({
     const sendId = getBuddySendId(buddy);
     if (!sendId) return;
 
-    let directConversationId = buddy?.directConversationId || buddy?.chat_id || buddy?.chatId;
+    const directConversationId = buddy?.directConversationId || buddy?.chat_id || buddy?.chatId;
     const chat = {
       type: "person",
       source: "local",

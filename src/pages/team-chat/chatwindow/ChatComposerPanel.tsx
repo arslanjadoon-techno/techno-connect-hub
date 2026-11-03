@@ -23,6 +23,12 @@ import { canRequestOtp as userCanRequestOtp } from "@/lib/otp-access";
 const MAX_INPUT_HEIGHT = 224; // px, about 9 lines; scrolls after this
 // Planned chat controls; keep the implementation in place but do not expose them yet.
 const SHOW_CHAT_AUDIT_ANNOUNCEMENTS = false;
+type MentionCandidate = {
+  member: Record<string, any>;
+  email: string;
+  name: string;
+  isSelf: boolean;
+};
 
 export default function ChatComposerPanel(props: Record<string, any>) {
   const {
@@ -79,7 +85,7 @@ export default function ChatComposerPanel(props: Record<string, any>) {
   const canSend = !busy && (inputValue.trim().length > 0 || pendingFiles.length > 0);
   const canRequestOtp = userCanRequestOtp(currentUser);
 
-  const mentionCandidates = useMemo(() => {
+  const mentionCandidates = useMemo<MentionCandidate[]>(() => {
     if (selectedChat?.type !== "channel" && selectedChat?.type !== "group") {
       return [];
     }
@@ -125,7 +131,7 @@ export default function ChatComposerPanel(props: Record<string, any>) {
     });
   }, [groupMembers, currentUser, selectedChat?.type]);
 
-  const filteredMentionMembers = useMemo(() => {
+  const filteredMentionMembers = useMemo<MentionCandidate[]>(() => {
     if (mentionQuery === null) return [];
 
     const query = mentionQuery.toLowerCase();

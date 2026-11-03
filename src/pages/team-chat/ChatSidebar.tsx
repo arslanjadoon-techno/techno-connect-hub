@@ -167,20 +167,15 @@ export default function ChatSidebar({
   };
 
   const handleToggleMentionNotifications = async (enabled: boolean) => {
+    // The current backend does not persist mentionNotifications. Keep this
+    // preference local and avoid reporting a false server save success.
     try {
-      await updateChatSettingsService({ mentionNotifications: enabled });
-      try {
-        localStorage.setItem("chat_mention_notifications", String(enabled));
-      } catch {
-        // Storage can be unavailable; the server value is the source of truth.
-      }
-      onMentionNotificationsChange?.(enabled);
-      setSettingsNotice(
-        enabled ? "Mention notifications are on." : "Mention notifications are off.",
-      );
+      localStorage.setItem("chat_mention_notifications", String(enabled));
     } catch {
-      setSettingsNotice("Mention notification setting could not be saved.");
+      // Storage can be unavailable; the in-memory state still updates.
     }
+    onMentionNotificationsChange?.(enabled);
+    setSettingsNotice(enabled ? "Mention notifications are on." : "Mention notifications are off.");
   };
 
   // The test button only shows a sample alert. It never changes the saved setting.

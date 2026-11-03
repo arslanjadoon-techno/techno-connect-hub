@@ -9,7 +9,20 @@ export function useChatRealtimeMessageUpdate({
   setMessagesByChat,
 }: any) {
   return useCallback(
-    ({ chatId, message }: any) => {
+    (payload: any = {}) => {
+      // Accept both wrapped notifications and raw message DTOs from realtime
+      // producers during deployments and system-message fanout.
+      const wrappedMessage = payload?.message;
+      const message =
+        wrappedMessage && typeof wrappedMessage === "object" ? wrappedMessage : payload;
+      const chatId =
+        payload?.chatId ??
+        payload?.chat_id ??
+        message?.chatId ??
+        message?.chat_id ??
+        message?.conversationId ??
+        message?.conversation_id;
+
       if (!chatId || !message) return;
 
       const localKey = resolveLocalChatKey({ chatId, channels, buddies, currentUserId });

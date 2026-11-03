@@ -46,7 +46,6 @@ export default function ChatSystemView(props: Record<string, any>) {
     deleteNote,
     desktopNotifications,
     editingMessage,
-    enterToSend,
     fetchChatData,
     filteredItems,
     groupDialogOpen,
@@ -67,7 +66,6 @@ export default function ChatSystemView(props: Record<string, any>) {
     handleDeleteGroup,
     handleEditMessage,
     handleEndActiveCall,
-    handleEnterToSendChange,
     handleFileUpload,
     handleForwardMessage,
     handleLeaveGroup,
@@ -153,12 +151,10 @@ export default function ChatSystemView(props: Record<string, any>) {
           <ChatSidebar
             avatarUploading={avatarUploading}
             currentStatus={currentStatus}
-            enterToSend={enterToSend}
             mentionNotifications={mentionNotifications}
             onMentionNotificationsChange={setMentionNotifications}
             desktopNotifications={desktopNotifications}
             onDesktopNotificationsChange={onDesktopNotificationsChange}
-            onEnterToSendChange={handleEnterToSendChange}
             filteredItems={filteredItems}
             loadError={loadError}
             loading={loading}
@@ -274,7 +270,6 @@ export default function ChatSystemView(props: Record<string, any>) {
             currentUser={currentUser}
             messageInfoVersions={messageInfoVersions}
             editingMessage={editingMessage}
-            enterToSend={enterToSend}
             currentMessages={currentMessages}
             typingUser={typingUsersByChat[String(selectedChat?.chatId || selectedChat?.id)]}
             onTyping={(typing) =>

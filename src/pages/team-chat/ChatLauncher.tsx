@@ -4,7 +4,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { CHAT_APP_BASE_PATH } from "./chatRoutes";
-import PinglyMark from "./PinglyMark";
 import { getStoredUser } from "@/lib/api/client";
 import {
   getArrayPayload,
@@ -121,7 +120,6 @@ export default function ChatLauncher() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <PinglyMark size={28} />
             <DialogTitle className="sr-only">People and groups</DialogTitle>
           </DialogHeader>
           <div className="max-h-[70vh] overflow-y-auto">

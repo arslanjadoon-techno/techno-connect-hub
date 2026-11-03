@@ -45,6 +45,7 @@ interface MessageRowProps {
   onPin?: (message: RecordValue) => void;
   onReact?: (message: RecordValue, emoji: string) => void;
   onReply?: (message: RecordValue) => void;
+  onViewUser?: (user: RecordValue) => void;
   onJumpToMessage?: (messageId: string) => void;
   onOpenReactionPicker?: (message: RecordValue, element: HTMLElement) => void;
   onSelect?: (message: RecordValue) => void;
@@ -142,6 +143,7 @@ function MessageRow({
   onPin,
   onReact,
   onReply,
+  onViewUser,
   onJumpToMessage,
   onOpenReactionPicker,
   onSelect,
@@ -170,6 +172,12 @@ function MessageRow({
     message.authorAvatarUrl ||
     getImageUrl(message.sender) ||
     (String(message.authorId || "") === currentUserIdentity ? getImageUrl(currentUser) : "");
+  const messageUser = {
+    ...(isMe ? currentUser : message.sender || {}),
+    id: (isMe ? currentUser?.id : message.sender?.id) || message.authorId,
+    name: isMe ? getBuddyName(currentUser) : name,
+    avatarUrl,
+  };
 
   const attachments = Array.isArray(message.attachments) ? message.attachments : [];
   const reply = message.repliedMessage || message.replyToMessage;
@@ -354,10 +362,21 @@ function MessageRow({
 
         {!isMe &&
           (showAvatar ? (
-            <Avatar className="mt-0.5 h-8 w-8 shrink-0 bg-primary/10 text-xs text-primary">
-              <AvatarImage key={avatarUrl} src={avatarUrl} />
-              <AvatarFallback>{name.charAt(0)}</AvatarFallback>
-            </Avatar>
+            <button
+              type="button"
+              className="mt-0.5 shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={`View ${name}`}
+              title={`View ${name}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onViewUser?.(messageUser);
+              }}
+            >
+              <Avatar className="h-8 w-8 bg-primary/10 text-xs text-primary">
+                <AvatarImage key={avatarUrl} src={avatarUrl} />
+                <AvatarFallback>{name.charAt(0)}</AvatarFallback>
+              </Avatar>
+            </button>
           ) : (
             <div className="w-8 shrink-0" />
           ))}
@@ -391,7 +410,18 @@ function MessageRow({
               </button>
             )}
 
-            {!isMe && showAvatar && <p className="mb-0.5 pr-6 text-[13px] text-primary">{name}</p>}
+            {!isMe && showAvatar && (
+              <button
+                type="button"
+                className="mb-0.5 block max-w-full truncate pr-6 text-left text-[13px] text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onViewUser?.(messageUser);
+                }}
+              >
+                {name}
+              </button>
+            )}
 
             {isForwarded && <Tag icon={<Forward className="h-3.5 w-3.5" />}>Forwarded</Tag>}
             {message.metadata?.pinned && <Tag icon={<Pin className="h-3 w-3" />}>Pinned</Tag>}
