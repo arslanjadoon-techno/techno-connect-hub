@@ -41,6 +41,16 @@ export interface PdfImport {
   skipped: string[];
 }
 
+export type CommissionUploadType = "adr" | "sdr" | "retention" | "eligibility";
+
+export interface CommissionUpload {
+  type: CommissionUploadType;
+  rows: number;
+  deleted?: number | null;
+  fromDate?: string | null;
+  toDate?: string | null;
+}
+
 export interface SdrFilter {
   marketId: number;
   name: string;
@@ -88,7 +98,30 @@ export class DailyCommissionFilterService {
     );
   }
 
+  async getDailyCommissionUploads(): Promise<CommissionUpload[]> {
+    const res = await http.get<CommissionUpload[]>(
+      DAILY_COMMISSION_FILTER_API_PATHS.getDailyCommissionUploads,
+    );
+    return res.data ?? [];
+  }
+
+  async dailyCommissionUpload(type: CommissionUploadType, file: File): Promise<CommissionUpload> {
+    // ADR / SDR csv files are ~100 MB, gzipped they are ~10 MB.
+    const upload =
+      type === "adr" || type === "sdr"
+        ? new File(
+            [await new Response(file.stream().pipeThrough(new CompressionStream("gzip"))).blob()],
+            `${file.name}.gz`,
+          )
+        : file;
+    return this.postFile<CommissionUpload>(DAILY_COMMISSION_FILTER_API_PATHS.dailyCommissionUpload(type), upload);
+  }
+
   async dailyCommissionParsePdf(file: File): Promise<PdfImport> {
+    return this.postFile<PdfImport>(DAILY_COMMISSION_FILTER_API_PATHS.dailyCommissionParsePdf, file);
+  }
+
+  private async postFile<T>(path: string, file: File): Promise<T> {
     const form = new FormData();
     form.append("file", file);
 
@@ -99,16 +132,13 @@ export class DailyCommissionFilterService {
       headers["token"] = token;
     }
 
-    const res = await fetch(
-      `${http.baseUrl}${DAILY_COMMISSION_FILTER_API_PATHS.dailyCommissionParsePdf}`,
-      {
-        method: "POST",
-        headers,
-        body: form,
-      },
-    );
+    const res = await fetch(`${http.baseUrl}${path}`, {
+      method: "POST",
+      headers,
+      body: form,
+    });
 
-    let json: ApiEnvelope<PdfImport>;
+    let json: ApiEnvelope<T>;
     try {
       json = await res.json();
     } catch {
