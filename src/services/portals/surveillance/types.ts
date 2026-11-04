@@ -673,6 +673,8 @@ export interface SurveillanceValidationItem {
   reportStatus?: "Pending Review" | "Approved" | "Rejected";
   reportReviewedBy?: string;
   reportReviewedAt?: string;
+  surveyStartsAt?: string;
+  surveyEndsAt?: string;
   managerRating?: number;
   managerComments?: string;
 }

@@ -222,6 +222,29 @@ function formatDateTimeDisplay(isoString?: string): string {
   return `${day} ${month} ${year}, ${timeStr}`;
 }
 
+function getSurveyStartsAtDisplay(
+  item: SurveillanceValidationItem,
+  displayStatus: ValidationDisplayStatus,
+): string {
+  if (displayStatus === "Unassigned" || displayStatus === "Request Rejected") {
+    return item.surveyStartsAt ? formatDateTimeDisplay(item.surveyStartsAt) : "-";
+  }
+  const startRaw =
+    item.surveyStartsAt ||
+    item.assignedAt ||
+    (displayStatus !== "Assigned" ? item.createdAt : undefined);
+  return startRaw ? formatDateTimeDisplay(startRaw) : "-";
+}
+
+function getSurveyEndsAtDisplay(
+  item: SurveillanceValidationItem,
+  displayStatus: ValidationDisplayStatus,
+): string {
+  if (displayStatus !== "Completed") return "-";
+  const endRaw = item.surveyEndsAt || item.reportReviewedAt || item.reportSubmittedAt;
+  return endRaw ? formatDateTimeDisplay(endRaw) : "-";
+}
+
 export default function ValidateAndAssignPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -832,34 +855,32 @@ export default function ValidateAndAssignPage() {
                 </div>
               </div>
 
-              {/* 7. Request Received At Card - Indigo */}
+              {/* 7. Survey Starts At Card - Indigo */}
               <div className="flex items-start gap-3.5 rounded-xl border border-indigo-200/80 bg-indigo-50/60 p-4 dark:border-indigo-900/50 dark:bg-indigo-950/25">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-indigo-600 border border-indigo-100 shadow-2xs dark:bg-indigo-950 dark:text-indigo-400 dark:border-indigo-900 shrink-0">
                   <Clock className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
                   <div className="text-[11px] font-medium text-indigo-700/80 dark:text-indigo-300/80">
-                    Request received at
+                    Survey starts at
                   </div>
                   <div className="text-sm font-bold text-indigo-950 dark:text-indigo-100 tabular-nums mt-0.5">
-                    {formatDateTimeDisplay(selectedDetail.createdAt)}
+                    {getSurveyStartsAtDisplay(selectedDetail, selectedDetailDisplayStatus)}
                   </div>
                 </div>
               </div>
 
-              {/* 8. Assigned At Card - Teal */}
+              {/* 8. Survey Ends At Card - Teal */}
               <div className="flex items-start gap-3.5 rounded-xl border border-teal-200/80 bg-teal-50/60 p-4 dark:border-teal-900/50 dark:bg-teal-950/25">
                 <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-teal-600 border border-teal-100 shadow-2xs dark:bg-teal-950 dark:text-teal-400 dark:border-teal-900 shrink-0">
                   <Clock className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
                   <div className="text-[11px] font-medium text-teal-700/80 dark:text-teal-300/80">
-                    Assigned at
+                    Survey ends at
                   </div>
                   <div className="text-sm font-bold text-teal-950 dark:text-teal-100 tabular-nums mt-0.5">
-                    {selectedDetail.assignedAt
-                      ? formatDateTimeDisplay(selectedDetail.assignedAt)
-                      : "—"}
+                    {getSurveyEndsAtDisplay(selectedDetail, selectedDetailDisplayStatus)}
                   </div>
                 </div>
               </div>
