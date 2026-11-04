@@ -73,7 +73,9 @@ import {
   Video,
   Loader2,
   ChevronsUpDown,
+  Link2,
 } from "lucide-react";
+import { FilterReset } from "@/components/filter-reset";
 import { toast } from "sonner";
 import {
   canAccessSurveillanceReports,
@@ -84,10 +86,15 @@ import {
   type SurveillanceAttachment,
   type SurveillanceAuditRow,
   type SurveillanceAdditionalInvoice,
+  type SurveillanceMarketOption,
   type SurveillancePriority,
   type SurveillanceRequestStatus,
 } from "@/services/portals/surveillance";
 import { surveillanceService } from "@/services/portals/surveillance/surveillance.service";
+import {
+  SurveillanceAuditFormSkeleton,
+  SurveillanceListPageSkeleton,
+} from "./SurveillanceSkeletons";
 
 const PRIORITY_TONES: Record<SurveillancePriority, string> = {
   low: "bg-muted text-muted-foreground border-border",
@@ -197,15 +204,19 @@ function formatDateTimeDisplay(raw?: string): string {
 }
 
 const TRANSACTION_TYPE_OPTIONS = [
-  "ACC",
-  "ACT Pay",
-  "Bill Payment",
+  "Phone",
+  "Tablet",
+  "HINT",
+  "Accessories",
+  "Activation",
+  "LOA",
   "Client",
   "FEA",
-  "LOA",
-  "Refunded ACC",
-  "REVVL Tab",
-  "2 Magenta in Metro",
+  "MIM",
+  "Phone Refund",
+  "Tablet Refund",
+  "HINT Refund",
+  "Accessories Refund",
 ];
 
 const YES_NO_OPTIONS = [
@@ -665,7 +676,10 @@ function RepNameCombobox({
             <ChevronsUpDown className="h-3.5 w-3.5 opacity-50 shrink-0" />
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <PopoverContent
+          className="w-(--radix-popover-trigger-width) min-w-(--radix-popover-trigger-width) p-0"
+          align="start"
+        >
           <Command shouldFilter={false}>
             <CommandInput
               placeholder="Type 2+ characters to search..."
@@ -833,35 +847,35 @@ function calculatePaymentDifferenceDisplay(
   return calculateDifferenceDisplay(invoiceAmountRaw || "", totalTakenStr);
 }
 
-const HOURS_12 = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
+const HOURS_24 = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
 const MINUTES_60 = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0"));
 
-function parseAmPmValue(raw: string | undefined): {
+function parse24HourValue(raw: string | undefined): {
   hour: string;
   minute: string;
-  period: "AM" | "PM";
   hasValue: boolean;
 } {
   if (!raw || !raw.trim()) {
-    return { hour: "10", minute: "00", period: "AM", hasValue: false };
+    return { hour: "09", minute: "00", hasValue: false };
   }
   const str = raw.trim();
   const match12 = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)$/i);
   if (match12) {
-    const h = String(Math.max(1, Math.min(12, parseInt(match12[1], 10))));
+    let h = parseInt(match12[1], 10);
     const m = match12[2];
-    const p = match12[3].toUpperCase() === "PM" ? "PM" : "AM";
-    return { hour: h, minute: m, period: p, hasValue: true };
+    const p = match12[3].toUpperCase();
+    if (p === "PM" && h < 12) h += 12;
+    if (p === "AM" && h === 12) h = 0;
+    const hStr = String(Math.max(0, Math.min(23, h))).padStart(2, "0");
+    return { hour: hStr, minute: m, hasValue: true };
   }
   const match24 = str.match(/^(\d{1,2}):(\d{2})/);
   if (match24) {
-    let h24 = parseInt(match24[1], 10);
+    const h24 = Math.max(0, Math.min(23, parseInt(match24[1], 10)));
     const m = match24[2];
-    const p: "AM" | "PM" = h24 >= 12 ? "PM" : "AM";
-    h24 = h24 % 12 || 12;
-    return { hour: String(h24), minute: m, period: p, hasValue: true };
+    return { hour: String(h24).padStart(2, "0"), minute: m, hasValue: true };
   }
-  return { hour: "10", minute: "00", period: "AM", hasValue: false };
+  return { hour: "09", minute: "00", hasValue: false };
 }
 
 function AmPmTimePicker({
@@ -872,10 +886,10 @@ function AmPmTimePicker({
   onChange: (nextVal: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const parsed = parseAmPmValue(value);
+  const parsed = parse24HourValue(value);
 
-  const commitTime = (h: string, m: string, p: "AM" | "PM") => {
-    onChange(`${h}:${m} ${p}`);
+  const commitTime = (h: string, m: string) => {
+    onChange(`${h}:${m}`);
   };
 
   return (
@@ -887,8 +901,10 @@ function AmPmTimePicker({
         >
           <span className="flex items-center gap-2 truncate">
             <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            {value && value.trim() ? (
-              <span className="font-medium text-foreground">{value}</span>
+            {parsed.hasValue ? (
+              <span className="font-mono font-medium text-foreground">
+                {`${parsed.hour}:${parsed.minute}`}
+              </span>
             ) : (
               <span className="text-muted-foreground font-mono font-medium">--:--</span>
             )}
@@ -919,12 +935,12 @@ function AmPmTimePicker({
       </PopoverTrigger>
 
       <PopoverContent align="start" className="w-[272px] p-3 space-y-3">
-        {/* Live Preview Header */}
+        {/* Live Preview Header (24-Hour Format) */}
         <div className="flex items-center justify-between border-b pb-2">
           <div className="flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5 text-primary" />
-            <span className="text-xs font-semibold text-foreground">
-              {parsed.hasValue ? `${parsed.hour}:${parsed.minute} ${parsed.period}` : "Select Time"}
+            <span className="text-xs font-semibold font-mono text-foreground">
+              {parsed.hasValue ? `${parsed.hour}:${parsed.minute}` : "Select Time (24h)"}
             </span>
           </div>
           {parsed.hasValue && (
@@ -938,22 +954,22 @@ function AmPmTimePicker({
           )}
         </div>
 
-        {/* Hour / Minute / AM-PM Selector */}
-        <div className="grid grid-cols-12 gap-2">
-          {/* Hours (1-12) */}
-          <div className="col-span-5 space-y-1">
+        {/* 24-Hour (00-23) & Minute (00-59) Selector */}
+        <div className="grid grid-cols-12 gap-2.5">
+          {/* Hours (00-23) */}
+          <div className="col-span-7 space-y-1">
             <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Hour
+              Hour (00–23)
             </div>
-            <div className="grid grid-cols-3 gap-1">
-              {HOURS_12.map((h) => {
+            <div className="grid grid-cols-4 gap-1 max-h-[156px] overflow-y-auto pr-1">
+              {HOURS_24.map((h) => {
                 const selected = parsed.hasValue && parsed.hour === h;
                 return (
                   <button
                     key={h}
                     type="button"
-                    onClick={() => commitTime(h, parsed.minute, parsed.period)}
-                    className={`h-7 rounded text-xs font-medium transition-colors ${
+                    onClick={() => commitTime(h, parsed.minute)}
+                    className={`h-7 rounded text-xs font-mono font-medium transition-colors ${
                       selected
                         ? "bg-primary text-primary-foreground shadow-xs"
                         : "border border-border/60 bg-card hover:bg-accent text-foreground"
@@ -967,18 +983,18 @@ function AmPmTimePicker({
           </div>
 
           {/* Minutes (00-59 scrollable) */}
-          <div className="col-span-4 space-y-1">
+          <div className="col-span-5 space-y-1">
             <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               Minute
             </div>
-            <div className="grid grid-cols-2 gap-1 max-h-[124px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 gap-1 max-h-[156px] overflow-y-auto pr-1">
               {MINUTES_60.map((m) => {
                 const selected = parsed.hasValue && parsed.minute === m;
                 return (
                   <button
                     key={m}
                     type="button"
-                    onClick={() => commitTime(parsed.hour, m, parsed.period)}
+                    onClick={() => commitTime(parsed.hour, m)}
                     className={`h-7 rounded text-xs font-mono font-medium transition-colors ${
                       selected
                         ? "bg-primary text-primary-foreground shadow-xs"
@@ -986,32 +1002,6 @@ function AmPmTimePicker({
                     }`}
                   >
                     {m}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* AM / PM Period */}
-          <div className="col-span-3 space-y-1">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              AM/PM
-            </div>
-            <div className="flex flex-col gap-1.5">
-              {(["AM", "PM"] as const).map((p) => {
-                const selected = parsed.hasValue && parsed.period === p;
-                return (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => commitTime(parsed.hour, parsed.minute, p)}
-                    className={`h-9 rounded-md text-xs font-semibold transition-colors ${
-                      selected
-                        ? "bg-primary text-primary-foreground shadow-xs"
-                        : "border border-border bg-card hover:bg-accent text-foreground"
-                    }`}
-                  >
-                    {p}
                   </button>
                 );
               })}
@@ -1096,24 +1086,83 @@ function formatSurveillanceDate(raw?: string): string {
   return str;
 }
 
+export type RepTimingType = "Store Left" | "Back Room";
+
 export interface RepTimingRow {
   id: string;
   repName: string;
+  timingType: RepTimingType;
+  timeIn: string;
+  timeOut: string;
   timeLeft: string;
   timeReturned: string;
   backRoomTimeIn: string;
   backRoomTimeOut: string;
 }
 
-function createEmptyRepTimingRow(): RepTimingRow {
+function syncRepTimingDerivedFields(
+  base: Pick<RepTimingRow, "id" | "repName" | "timingType" | "timeIn" | "timeOut">,
+): RepTimingRow {
+  const isBackRoom = base.timingType === "Back Room";
   return {
+    id: base.id,
+    repName: base.repName,
+    timingType: base.timingType,
+    timeIn: base.timeIn,
+    timeOut: base.timeOut,
+    timeLeft: isBackRoom ? "" : base.timeIn,
+    timeReturned: isBackRoom ? "" : base.timeOut,
+    backRoomTimeIn: isBackRoom ? base.timeIn : "",
+    backRoomTimeOut: isBackRoom ? base.timeOut : "",
+  };
+}
+
+function hydrateRepTimingRow(raw: {
+  id?: string;
+  repName?: string;
+  timingType?: RepTimingType;
+  timeIn?: string;
+  timeOut?: string;
+  timeLeft?: string;
+  timeReturned?: string;
+  backRoomTimeIn?: string;
+  backRoomTimeOut?: string;
+}): RepTimingRow {
+  const id = raw.id || `rep-timing-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+  const repName = raw.repName || "";
+  const hasBackRoom = Boolean(
+    (raw.backRoomTimeIn && raw.backRoomTimeIn.trim()) ||
+      (raw.backRoomTimeOut && raw.backRoomTimeOut.trim()),
+  );
+  const timingType: RepTimingType =
+    raw.timingType === "Back Room" || raw.timingType === "Store Left"
+      ? raw.timingType
+      : hasBackRoom
+        ? "Back Room"
+        : "Store Left";
+  const timeIn =
+    raw.timeIn !== undefined
+      ? raw.timeIn
+      : timingType === "Back Room"
+        ? raw.backRoomTimeIn || ""
+        : raw.timeLeft || "";
+  const timeOut =
+    raw.timeOut !== undefined
+      ? raw.timeOut
+      : timingType === "Back Room"
+        ? raw.backRoomTimeOut || ""
+        : raw.timeReturned || "";
+  return syncRepTimingDerivedFields({ id, repName, timingType, timeIn, timeOut });
+}
+
+function createEmptyRepTimingRow(): RepTimingRow {
+  return syncRepTimingDerivedFields({
     id: `rep-timing-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     repName: "",
-    timeLeft: "",
-    timeReturned: "",
-    backRoomTimeIn: "",
-    backRoomTimeOut: "",
-  };
+    timingType: "Store Left",
+    timeIn: "",
+    timeOut: "",
+  });
 }
 
 export interface CameraUptimeRow {
@@ -1344,6 +1393,7 @@ export default function SurveillanceReportsPage() {
 
   const [requests, setRequests] = useState<SurveillanceRequest[]>([]);
   const [reports, setReports] = useState<SurveillanceReport[]>([]);
+  const [marketOptions, setMarketOptions] = useState<SurveillanceMarketOption[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
 
   // Drill-down state: null = main table, non-null = Report Detail view
@@ -1362,12 +1412,11 @@ export default function SurveillanceReportsPage() {
   // Status "Draft"). Required before Floor Presence / Camera Uptime can be
   // saved to the server.
   const [draftReportId, setDraftReportId] = useState<string | undefined>(undefined);
-  // Full-screen blocking overlay shown while any backend call on this page
-  // is in flight (row save, rep timing/camera log save, submit, resume
-  // fetch) so the agent can't interact with the form mid-request.
-  const [blockingMessage, setBlockingMessage] = useState<string | null>(
-    "Loading surveillance reports...",
-  );
+  // Full-screen blocking overlay shown while any backend mutation on this page
+  // is in flight (row save, rep timing/camera log save, submit). Initial page
+  // load and form load use dedicated Skeleton Loaders instead.
+  const [blockingMessage, setBlockingMessage] = useState<string | null>(null);
+  const [loadingAuditForm, setLoadingAuditForm] = useState<boolean>(false);
   const blockingOverlay = blockingMessage ? (
     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-xl bg-background/30 backdrop-blur-[2px]">
       <Loader2 className="h-9 w-9 animate-spin text-primary" />
@@ -1375,9 +1424,19 @@ export default function SurveillanceReportsPage() {
     </div>
   ) : null;
 
+  // Submit Report list view filters (Market + Clickable KPI Card filter)
+  const [marketFilter, setMarketFilter] = useState<string>("all");
+  const [cardFilter, setCardFilter] = useState<
+    "all" | "submitted" | "pending" | "rejected" | "approved"
+  >("all");
+
   // Top / bottom store open & close time fields
   const [headerStoreOpenTime, setHeaderStoreOpenTime] = useState<string>("");
   const [headerStoreCloseTime, setHeaderStoreCloseTime] = useState<string>("");
+
+  // Loomis Machine & Safe Locker URL fields
+  const [loomisMachineUrl, setLoomisMachineUrl] = useState<string>("");
+  const [safeLockerUrl, setSafeLockerUrl] = useState<string>("");
 
   // Standalone Floor Presence & Rep Timings rows
   const [repTimingRows, setRepTimingRows] = useState<RepTimingRow[]>([
@@ -1403,7 +1462,7 @@ export default function SurveillanceReportsPage() {
   >({});
   const [headerGeneralNotes, setHeaderGeneralNotes] = useState<string>("");
 
-  // Autosave header fields + Floor Presence / Camera Uptime sections to
+  // Autosave header fields + Floor Presence / Camera Uptime + Loomis / Safe Locker URLs to
   // MMKV so pausing mid-audit (closing the form, coming back later) doesn't
   // lose anything beyond the audit rows, which saveDraftRow already covers.
   useEffect(() => {
@@ -1412,6 +1471,8 @@ export default function SurveillanceReportsPage() {
       headerStoreOpenTime,
       headerStoreCloseTime,
       headerGeneralNotes,
+      loomisMachineUrl,
+      safeLockerUrl,
       repTimingRows,
       cameraUptimeRows,
       isFloorPresenceEnabled,
@@ -1423,11 +1484,21 @@ export default function SurveillanceReportsPage() {
     headerStoreOpenTime,
     headerStoreCloseTime,
     headerGeneralNotes,
+    loomisMachineUrl,
+    safeLockerUrl,
     repTimingRows,
     cameraUptimeRows,
     isFloorPresenceEnabled,
     isCameraUptimeEnabled,
   ]);
+
+  const markets = useMemo(
+    () =>
+      Array.from(
+        new Set(marketOptions.map((m) => m.name?.trim()).filter((n): n is string => Boolean(n))),
+      ).sort(),
+    [marketOptions],
+  );
 
   const metrics = useMemo(() => {
     return {
@@ -1442,6 +1513,29 @@ export default function SurveillanceReportsPage() {
       approved: requests.filter((r) => r.status === "Approved").length,
     };
   }, [requests]);
+
+  const filteredRequests = useMemo(() => {
+    return requests.filter((r) => {
+      if (marketFilter !== "all" && r.marketName !== marketFilter) {
+        return false;
+      }
+      if (cardFilter === "submitted") {
+        return (
+          r.status === "Report Received" || r.status === "Approved" || r.status === "Rejected"
+        );
+      }
+      if (cardFilter === "pending") {
+        return r.status === "Report Requested";
+      }
+      if (cardFilter === "rejected") {
+        return r.status === "Rejected" || r.reportStatus === "Rejected";
+      }
+      if (cardFilter === "approved") {
+        return r.status === "Approved";
+      }
+      return true;
+    });
+  }, [requests, marketFilter, cardFilter]);
 
   const reloadAgentRequests = async () => {
     try {
@@ -1459,11 +1553,19 @@ export default function SurveillanceReportsPage() {
     }
   };
 
-  // Load agent requests + reports from the backend on mount. The "Rep Name"
-  // picker searches on demand (RepNameCombobox) rather than loading the
-  // whole user roster here.
+  const reloadMarkets = async () => {
+    try {
+      setMarketOptions(await surveillanceService.getMarkets(0, 500));
+    } catch (error) {
+      toast.error(`Failed to load markets: ${(error as Error).message}`);
+    }
+  };
+
+  // Load agent requests, reports, and markets from the backend on mount. The
+  // "Rep Name" picker searches on demand (RepNameCombobox) rather than loading
+  // the whole user roster here.
   useEffect(() => {
-    Promise.all([reloadAgentRequests(), reloadReports()]).finally(() => {
+    Promise.all([reloadAgentRequests(), reloadReports(), reloadMarkets()]).finally(() => {
       setDataLoaded(true);
       setBlockingMessage(null);
     });
@@ -1556,8 +1658,12 @@ export default function SurveillanceReportsPage() {
       setHeaderStoreOpenTime(sessionMeta.headerStoreOpenTime || "");
       setHeaderStoreCloseTime(sessionMeta.headerStoreCloseTime || "");
       setHeaderGeneralNotes(sessionMeta.headerGeneralNotes || "");
+      setLoomisMachineUrl(sessionMeta.loomisMachineUrl || "");
+      setSafeLockerUrl(sessionMeta.safeLockerUrl || "");
       setRepTimingRows(
-        sessionMeta.repTimingRows.length > 0 ? sessionMeta.repTimingRows : [createEmptyRepTimingRow()],
+        sessionMeta.repTimingRows.length > 0
+          ? sessionMeta.repTimingRows.map(hydrateRepTimingRow)
+          : [createEmptyRepTimingRow()],
       );
       setCameraUptimeRows(
         sessionMeta.cameraUptimeRows.length > 0
@@ -1590,9 +1696,10 @@ export default function SurveillanceReportsPage() {
     // 0. Real DB first - progress saved from any browser/device for this
     // request, not just this browser's local storage. If it exists, it's
     // authoritative; MMKV below is only the pre-first-save fallback.
-    setBlockingMessage("Loading surveillance audit...");
+    setIsEditingReport(true);
+    setLoadingAuditForm(true);
     const dbReport = await surveillanceService.getReportByRequestId(reqItem.id);
-    setBlockingMessage(null);
+    setLoadingAuditForm(false);
     if (dbReport) {
       const restoredRows = (dbReport.rows || []).map((row) => {
         const resolvedPt = normalizePaymentTypeSelection(row.paymentType, row.cash, row.card);
@@ -1631,20 +1738,20 @@ export default function SurveillanceReportsPage() {
       setExpandedRowIds(expanded);
       setFraudSectionEnabledByRow(initialFraudOpen);
       setSalesPitchSectionEnabledByRow(initialPitchOpen);
+      const localSessionMeta = surveillanceService.getSessionMeta(reqItem.id);
       setHeaderStoreOpenTime(dbReport.storeOpenTime || "");
       setHeaderStoreCloseTime(dbReport.storeCloseTime || "");
       setHeaderGeneralNotes(dbReport.notes || "");
+      setLoomisMachineUrl(
+        dbReport.summaryMeta?.loomisLink || localSessionMeta?.loomisMachineUrl || "",
+      );
+      setSafeLockerUrl(
+        dbReport.summaryMeta?.safeLockerLink || localSessionMeta?.safeLockerUrl || "",
+      );
       const dbRepTimings = dbReport.repTimings || [];
       setRepTimingRows(
         dbRepTimings.length > 0
-          ? dbRepTimings.map((t) => ({
-              id: t.id,
-              repName: t.repName || "",
-              timeLeft: t.timeLeft || "",
-              timeReturned: t.timeReturned || "",
-              backRoomTimeIn: t.backRoomTimeIn || "",
-              backRoomTimeOut: t.backRoomTimeOut || "",
-            }))
+          ? dbRepTimings.map(hydrateRepTimingRow)
           : [createEmptyRepTimingRow()],
       );
       setIsFloorPresenceEnabled(dbRepTimings.length > 0);
@@ -1729,9 +1836,11 @@ export default function SurveillanceReportsPage() {
         setHeaderStoreOpenTime(sessionMeta.headerStoreOpenTime || "");
         setHeaderStoreCloseTime(sessionMeta.headerStoreCloseTime || "");
         setHeaderGeneralNotes(sessionMeta.headerGeneralNotes || "");
+        setLoomisMachineUrl(sessionMeta.loomisMachineUrl || "");
+        setSafeLockerUrl(sessionMeta.safeLockerUrl || "");
         setRepTimingRows(
           sessionMeta.repTimingRows.length > 0
-            ? sessionMeta.repTimingRows
+            ? sessionMeta.repTimingRows.map(hydrateRepTimingRow)
             : [createEmptyRepTimingRow()],
         );
         setCameraUptimeRows(
@@ -1745,6 +1854,8 @@ export default function SurveillanceReportsPage() {
         setHeaderStoreOpenTime("");
         setHeaderStoreCloseTime("");
         setHeaderGeneralNotes("");
+        setLoomisMachineUrl("");
+        setSafeLockerUrl("");
         setRepTimingRows([createEmptyRepTimingRow()]);
         setCameraUptimeRows([createEmptyCameraUptimeRow()]);
         setIsFloorPresenceEnabled(false);
@@ -1786,8 +1897,12 @@ export default function SurveillanceReportsPage() {
       setHeaderStoreOpenTime(sessionMeta.headerStoreOpenTime || "");
       setHeaderStoreCloseTime(sessionMeta.headerStoreCloseTime || "");
       setHeaderGeneralNotes(sessionMeta.headerGeneralNotes || "");
+      setLoomisMachineUrl(sessionMeta.loomisMachineUrl || "");
+      setSafeLockerUrl(sessionMeta.safeLockerUrl || "");
       setRepTimingRows(
-        sessionMeta.repTimingRows.length > 0 ? sessionMeta.repTimingRows : [createEmptyRepTimingRow()],
+        sessionMeta.repTimingRows.length > 0
+          ? sessionMeta.repTimingRows.map(hydrateRepTimingRow)
+          : [createEmptyRepTimingRow()],
       );
       setCameraUptimeRows(
         sessionMeta.cameraUptimeRows.length > 0
@@ -1805,16 +1920,25 @@ export default function SurveillanceReportsPage() {
       setHeaderStoreOpenTime(existingReport.cashTime || existingReport.time || "");
       setHeaderStoreCloseTime(existingReport.timeReturned || "");
       setHeaderGeneralNotes(existingReport.notes || "");
-      if (existingReport.nameOfRepLeaving || existingReport.timeLeft) {
+      setLoomisMachineUrl(existingReport.summaryMeta?.loomisLink || "");
+      setSafeLockerUrl(existingReport.summaryMeta?.safeLockerLink || "");
+      if (existingReport.repTimings && existingReport.repTimings.length > 0) {
+        setRepTimingRows(existingReport.repTimings.map(hydrateRepTimingRow));
+      } else if (
+        existingReport.nameOfRepLeaving ||
+        existingReport.timeLeft ||
+        existingReport.backRoomTimeIn ||
+        existingReport.backRoomTimeOut
+      ) {
         setRepTimingRows([
-          {
+          hydrateRepTimingRow({
             id: `rep-timing-${Date.now()}`,
             repName: existingReport.nameOfRepLeaving?.trim() || "",
             timeLeft: existingReport.timeLeft || "",
             timeReturned: existingReport.timeReturned || "",
             backRoomTimeIn: existingReport.backRoomTimeIn || "",
             backRoomTimeOut: existingReport.backRoomTimeOut || "",
-          },
+          }),
         ]);
       } else {
         setRepTimingRows([createEmptyRepTimingRow()]);
@@ -1824,6 +1948,8 @@ export default function SurveillanceReportsPage() {
       setHeaderStoreOpenTime("");
       setHeaderStoreCloseTime("");
       setHeaderGeneralNotes("");
+      setLoomisMachineUrl("");
+      setSafeLockerUrl("");
       setRepTimingRows([createEmptyRepTimingRow()]);
       setCameraUptimeRows([createEmptyCameraUptimeRow()]);
     }
@@ -1961,6 +2087,15 @@ export default function SurveillanceReportsPage() {
           storeOpenTime: headerStoreOpenTime || undefined,
           storeCloseTime: headerStoreCloseTime || undefined,
           notes: headerGeneralNotes || undefined,
+          summaryMeta:
+            loomisMachineUrl.trim() || safeLockerUrl.trim()
+              ? {
+                  loomisMachineVisible: loomisMachineUrl.trim() ? "Yes" : undefined,
+                  loomisLink: loomisMachineUrl.trim() || undefined,
+                  safeLockerVisible: safeLockerUrl.trim() ? "Yes" : undefined,
+                  safeLockerLink: safeLockerUrl.trim() || undefined,
+                }
+              : undefined,
           row,
         });
         setDraftReportId(saved.id);
@@ -2215,7 +2350,9 @@ export default function SurveillanceReportsPage() {
     setRepTimingRows((prev) => prev.filter((r) => r.id !== id));
   };
 
-  const handleUpdateRepTimingField = <K extends keyof RepTimingRow>(
+  const handleUpdateRepTimingField = <
+    K extends "repName" | "timingType" | "timeIn" | "timeOut",
+  >(
     id: string,
     field: K,
     value: RepTimingRow[K],
@@ -2223,7 +2360,11 @@ export default function SurveillanceReportsPage() {
     setIsTimingSectionDirty(true);
     setIsTimingSectionSaved(false);
     setRepTimingRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)),
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const nextBase = { ...r, [field]: value };
+        return syncRepTimingDerivedFields(nextBase);
+      }),
     );
   };
 
@@ -2231,13 +2372,7 @@ export default function SurveillanceReportsPage() {
     for (let i = 0; i < repTimingRows.length; i++) {
       const row = repTimingRows[i];
       const rowNum = i + 1;
-      const hasAnyTime = [
-        row.timeLeft,
-        row.timeReturned,
-        row.backRoomTimeIn,
-        row.backRoomTimeOut,
-      ].some((t) => t && t.trim());
-
+      const hasAnyTime = [row.timeIn, row.timeOut].some((t) => t && t.trim());
       const hasRepName = Boolean(row.repName && row.repName.trim());
 
       if (hasAnyTime && !hasRepName) {
@@ -2245,7 +2380,7 @@ export default function SurveillanceReportsPage() {
         return;
       }
       if (hasRepName && !hasAnyTime) {
-        toast.error(`Please enter at least one time entry for Timing Row #${rowNum}.`);
+        toast.error(`Please select Time In or Time Out for Timing Row #${rowNum}.`);
         return;
       }
     }
@@ -2547,7 +2682,7 @@ export default function SurveillanceReportsPage() {
           "onlineRejectedPayment",
           "onlineRejectedPaymentDetails",
         ),
-        notes: "",
+        notes: (r.notes || "").trim(),
         pitchNb:
           pitchEnabled && normalizePitchQualitySelectValue(r.pitchQuality) ? "YES" : "",
         pitchNbDetails: "",
@@ -2678,27 +2813,42 @@ export default function SurveillanceReportsPage() {
       primaryRow.nb,
     );
 
+    const activeRepTimingRows = isFloorPresenceEnabled
+      ? repTimingRows.filter(
+          (r) => r.repName?.trim() || r.timeIn?.trim() || r.timeOut?.trim(),
+        )
+      : [];
+
     const payload = {
       requestId: reqItem.id,
       rows: flattenedAuditRows,
-      repTimings: repTimingRows
-        .filter((r) => r.repName?.trim() || r.timeLeft?.trim() || r.timeReturned?.trim() || r.backRoomTimeIn?.trim() || r.backRoomTimeOut?.trim())
-        .map((r) => ({
-          id: r.id,
-          repName: r.repName,
-          timeLeft: r.timeLeft,
-          timeReturned: r.timeReturned,
-          backRoomTimeIn: r.backRoomTimeIn,
-          backRoomTimeOut: r.backRoomTimeOut,
-        })),
-      cameraLogs: cameraUptimeRows
-        .filter((c) => c.cameraName.trim() || c.onlineTime.trim() || c.offlineTime.trim())
-        .map((c) => ({
-          id: c.id,
-          cameraName: c.cameraName,
-          onlineTime: c.onlineTime,
-          offlineTime: c.offlineTime,
-        })),
+      repTimings: activeRepTimingRows.map((r) => ({
+        id: r.id,
+        repName: r.repName,
+        timeLeft: r.timingType === "Store Left" ? r.timeIn : "",
+        timeReturned: r.timingType === "Store Left" ? r.timeOut : "",
+        backRoomTimeIn: r.timingType === "Back Room" ? r.timeIn : "",
+        backRoomTimeOut: r.timingType === "Back Room" ? r.timeOut : "",
+      })),
+      cameraLogs: isCameraUptimeEnabled
+        ? cameraUptimeRows
+            .filter((c) => c.cameraName.trim() || c.onlineTime.trim() || c.offlineTime.trim())
+            .map((c) => ({
+              id: c.id,
+              cameraName: c.cameraName,
+              onlineTime: c.onlineTime,
+              offlineTime: c.offlineTime,
+            }))
+        : [],
+      summaryMeta:
+        loomisMachineUrl.trim() || safeLockerUrl.trim() || activeRepTimingRows.length > 0
+          ? {
+              loomisMachineVisible: loomisMachineUrl.trim() ? "Yes" : undefined,
+              loomisLink: loomisMachineUrl.trim() || undefined,
+              safeLockerVisible: safeLockerUrl.trim() ? "Yes" : undefined,
+              safeLockerLink: safeLockerUrl.trim() || undefined,
+            }
+          : undefined,
       date: formatSurveillanceDate(primaryRow.date || reqItem.incidentDate),
       marketName: (primaryRow.marketName || reqItem.marketName || "").trim(),
       storeName: (primaryRow.storeName || reqItem.storeName || "").trim(),
@@ -2907,8 +3057,22 @@ export default function SurveillanceReportsPage() {
     return <Navigate to={getSurveillanceDefaultRoute(user)} replace />;
   }
 
+  if (!dataLoaded) {
+    return (
+      <SurveillanceListPageSkeleton
+        kpiCount={5}
+        kpiGridClassName="grid-cols-1 sm:grid-cols-2 lg:grid-cols-5"
+        filterCount={1}
+      />
+    );
+  }
+
   // VIEW 3: EDITABLE SURVEILLANCE AUDIT REPORT FORM (Opened when clicking "Submit Report" inside Report Details)
   if (selectedDetail && isEditingReport) {
+    if (loadingAuditForm) {
+      return <SurveillanceAuditFormSkeleton />;
+    }
+
     const activeItem = requests.find((r) => r.id === selectedDetail.id) || selectedDetail;
 
     const defaultDate = formatSurveillanceDate(activeItem.incidentDate);
@@ -3480,6 +3644,19 @@ export default function SurveillanceReportsPage() {
                             })}
                           </div>
                         )}
+
+                        {/* Shared Transaction Notes (stays below all primary & additional invoices) */}
+                        <div className="space-y-1 pt-2 border-t border-border/60">
+                          <Label className="text-[11px] font-semibold">Transaction Notes</Label>
+                          <Input
+                            value={row.notes || ""}
+                            onChange={(e) =>
+                              handleUpdateRowField(row.id, "notes", e.target.value)
+                            }
+                            placeholder="Enter transaction-related notes for all invoices in this row..."
+                            className="w-full"
+                          />
+                        </div>
                       </div>
 
                       {/* 2. Fraud & Compliance Verification */}
@@ -3793,8 +3970,8 @@ export default function SurveillanceReportsPage() {
                   key={timingRow.id}
                   className="py-2.5 first:pt-1 last:pb-1 flex items-end gap-2.5"
                 >
-                  <div className="grid flex-1 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 min-w-0">
-                    {/* Name of Rep Leaving */}
+                  <div className="grid flex-1 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 min-w-0 items-end">
+                    {/* 1. Name of Rep Leaving */}
                     <div className="min-w-0">
                       <RepNameCombobox
                         label="Name of Rep Leaving"
@@ -3805,52 +3982,67 @@ export default function SurveillanceReportsPage() {
                       />
                     </div>
 
-                    {/* Time Left */}
+                    {/* 2. Store Left / Back Room Radio Selection */}
                     <div className="min-w-0 space-y-1">
-                      <Label className="text-[11px] font-semibold text-foreground">Time Left</Label>
+                      <Label className="text-[11px] font-semibold text-foreground">
+                        Movement Type
+                      </Label>
+                      <RadioGroup
+                        value={timingRow.timingType}
+                        onValueChange={(val) =>
+                          handleUpdateRepTimingField(
+                            timingRow.id,
+                            "timingType",
+                            val as RepTimingType,
+                          )
+                        }
+                        className="flex h-9 items-center gap-4 rounded-md border border-input bg-transparent px-3 shadow-xs"
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <RadioGroupItem
+                            value="Store Left"
+                            id={`${timingRow.id}-store-left`}
+                          />
+                          <Label
+                            htmlFor={`${timingRow.id}-store-left`}
+                            className="text-xs font-medium cursor-pointer select-none whitespace-nowrap"
+                          >
+                            Store Left
+                          </Label>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <RadioGroupItem
+                            value="Back Room"
+                            id={`${timingRow.id}-back-room`}
+                          />
+                          <Label
+                            htmlFor={`${timingRow.id}-back-room`}
+                            className="text-xs font-medium cursor-pointer select-none whitespace-nowrap"
+                          >
+                            Back Room
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    {/* 3. Time In */}
+                    <div className="min-w-0 space-y-1">
+                      <Label className="text-[11px] font-semibold text-foreground">Time In</Label>
                       <AmPmTimePicker
-                        value={timingRow.timeLeft}
+                        value={timingRow.timeIn}
                         onChange={(val) =>
-                          handleUpdateRepTimingField(timingRow.id, "timeLeft", val)
+                          handleUpdateRepTimingField(timingRow.id, "timeIn", val)
                         }
                       />
                     </div>
 
-                    {/* Time Returned */}
+                    {/* 4. Time Out */}
                     <div className="min-w-0 space-y-1">
-                      <Label className="text-[11px] font-semibold text-foreground">
-                        Time Returned
-                      </Label>
+                      <Label className="text-[11px] font-semibold text-foreground">Time Out</Label>
                       <AmPmTimePicker
-                        value={timingRow.timeReturned}
+                        value={timingRow.timeOut}
                         onChange={(val) =>
-                          handleUpdateRepTimingField(timingRow.id, "timeReturned", val)
-                        }
-                      />
-                    </div>
-
-                    {/* Back Room Time - In */}
-                    <div className="min-w-0 space-y-1">
-                      <Label className="text-[11px] font-semibold text-foreground">
-                        Back Room - In
-                      </Label>
-                      <AmPmTimePicker
-                        value={timingRow.backRoomTimeIn}
-                        onChange={(val) =>
-                          handleUpdateRepTimingField(timingRow.id, "backRoomTimeIn", val)
-                        }
-                      />
-                    </div>
-
-                    {/* Back Room Time - Out */}
-                    <div className="min-w-0 space-y-1">
-                      <Label className="text-[11px] font-semibold text-foreground">
-                        Back Room - Out
-                      </Label>
-                      <AmPmTimePicker
-                        value={timingRow.backRoomTimeOut}
-                        onChange={(val) =>
-                          handleUpdateRepTimingField(timingRow.id, "backRoomTimeOut", val)
+                          handleUpdateRepTimingField(timingRow.id, "timeOut", val)
                         }
                       />
                     </div>
@@ -3995,7 +4187,43 @@ export default function SurveillanceReportsPage() {
           )}
         </Card>
 
-        {/* 5. Store Close Time (Compact borderless inline row) */}
+        {/* 6. Loomis Machine & Safe Locker URL Section */}
+        <Card className="p-4 border-border/80 shadow-2xs bg-card space-y-3">
+          <div className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-2 border-b pb-2.5">
+            <Link2 className="h-4 w-4 text-primary" />
+            <span>Loomis Machine &amp; Safe Locker</span>
+          </div>
+
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <Label className="text-[11px] font-semibold text-foreground">
+                Loomis Machine
+              </Label>
+              <Input
+                type="url"
+                value={loomisMachineUrl}
+                onChange={(e) => setLoomisMachineUrl(e.target.value)}
+                placeholder="Paste Loomis Machine footage / verification URL (e.g. https://...)"
+                className="h-9 w-full text-xs font-mono"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-[11px] font-semibold text-foreground">
+                Safe Locker
+              </Label>
+              <Input
+                type="url"
+                value={safeLockerUrl}
+                onChange={(e) => setSafeLockerUrl(e.target.value)}
+                placeholder="Paste Safe Locker footage / verification URL (e.g. https://...)"
+                className="h-9 w-full text-xs font-mono"
+              />
+            </div>
+          </div>
+        </Card>
+
+        {/* 7. Store Close Time (Compact borderless inline row) */}
         <div className="flex flex-wrap items-center gap-3 py-1">
           <span className="text-xs font-bold text-foreground whitespace-nowrap">
             Store Close Time:
@@ -4143,35 +4371,42 @@ export default function SurveillanceReportsPage() {
           </div>
         </div>
 
-        {/* Store Header + 6 Distinctly Colored Summary Cards */}
+        {/* Store Header with Right-Aligned Market Tag + 6 Ordered Summary Cards */}
         <Card className="p-6 rounded-2xl border-border/70 shadow-xs space-y-5">
-          <div className="flex items-center gap-3.5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-900/50 shrink-0">
-              <StoreIcon className="h-5 w-5" />
+          <div className="flex flex-wrap items-center justify-between gap-3.5">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-900/50 shrink-0">
+                <StoreIcon className="h-5 w-5" />
+              </div>
+              <h2 className="font-display text-lg font-bold text-foreground tracking-tight truncate">
+                {item.storeName}
+              </h2>
             </div>
-            <h2 className="font-display text-lg font-bold text-foreground tracking-tight">
-              {item.storeName}
-            </h2>
+
+            {item.marketName && (
+              <Badge
+                variant="outline"
+                className="gap-1.5 rounded-lg border-blue-200 bg-blue-50/80 px-3 py-1.5 text-xs font-semibold text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300 shrink-0"
+              >
+                <MapPin className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                <span>{item.marketName}</span>
+              </Badge>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {/* 1. Market Card - Blue */}
-            <div className="flex items-start gap-3.5 rounded-xl border border-blue-200/80 bg-blue-50/60 p-4 dark:border-blue-900/50 dark:bg-blue-950/25">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-blue-600 border border-blue-100 shadow-2xs dark:bg-blue-950 dark:text-blue-400 dark:border-blue-900 shrink-0">
-                <MapPin className="h-4 w-4" />
+            {/* 1. Surveillance Date Card - Purple */}
+            <div className="flex items-start gap-3.5 rounded-xl border border-purple-200/80 bg-purple-50/60 p-4 dark:border-purple-900/50 dark:bg-purple-950/25">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-purple-600 border border-purple-100 shadow-2xs dark:bg-purple-950 dark:text-purple-400 dark:border-purple-900 shrink-0">
+                <Calendar className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <div className="text-[11px] font-medium text-blue-700/80 dark:text-blue-300/80">
-                  Market
+                <div className="text-[11px] font-medium text-purple-700/80 dark:text-purple-300/80">
+                  Surveillance date
                 </div>
-                <div className="text-sm font-bold text-blue-950 dark:text-blue-100 truncate mt-0.5">
-                  {item.marketName}
+                <div className="text-sm font-bold text-purple-950 dark:text-purple-100 tabular-nums mt-0.5">
+                  {formatDisplayDate(item.incidentDate)}
                 </div>
-                {item.districtName && (
-                  <div className="text-[11px] text-blue-700/70 dark:text-blue-300/70 mt-0.5">
-                    {item.districtName}
-                  </div>
-                )}
               </div>
             </div>
 
@@ -4205,22 +4440,7 @@ export default function SurveillanceReportsPage() {
               </div>
             </div>
 
-            {/* 4. Surveillance Date Card - Purple */}
-            <div className="flex items-start gap-3.5 rounded-xl border border-purple-200/80 bg-purple-50/60 p-4 dark:border-purple-900/50 dark:bg-purple-950/25">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-purple-600 border border-purple-100 shadow-2xs dark:bg-purple-950 dark:text-purple-400 dark:border-purple-900 shrink-0">
-                <Calendar className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-[11px] font-medium text-purple-700/80 dark:text-purple-300/80">
-                  Surveillance date
-                </div>
-                <div className="text-sm font-bold text-purple-950 dark:text-purple-100 tabular-nums mt-0.5">
-                  {formatDisplayDate(item.incidentDate)}
-                </div>
-              </div>
-            </div>
-
-            {/* 5. Requested By Card - Cyan */}
+            {/* 4. Requested By Card - Cyan */}
             <div className="flex items-start gap-3.5 rounded-xl border border-cyan-200/80 bg-cyan-50/60 p-4 dark:border-cyan-900/50 dark:bg-cyan-950/25">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-cyan-600 border border-cyan-100 shadow-2xs dark:bg-cyan-950 dark:text-cyan-400 dark:border-cyan-900 shrink-0">
                 <UserIcon className="h-4 w-4" />
@@ -4235,17 +4455,53 @@ export default function SurveillanceReportsPage() {
               </div>
             </div>
 
-            {/* 6. Prepared By Card - Emerald */}
-            <div className="flex items-start gap-3.5 rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/25">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-emerald-600 border border-emerald-100 shadow-2xs dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-900 shrink-0">
-                <UserPlus className="h-4 w-4" />
+            {/* 5. Survey Starts At Card - Indigo */}
+            <div className="flex items-start gap-3.5 rounded-xl border border-indigo-200/80 bg-indigo-50/60 p-4 dark:border-indigo-900/50 dark:bg-indigo-950/25">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-indigo-600 border border-indigo-100 shadow-2xs dark:bg-indigo-950 dark:text-indigo-400 dark:border-indigo-900 shrink-0">
+                <Clock className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <div className="text-[11px] font-medium text-emerald-700/80 dark:text-emerald-300/80">
-                  Prepared by
+                <div className="text-[11px] font-medium text-indigo-700/80 dark:text-indigo-300/80">
+                  Survey starts at
                 </div>
-                <div className="text-sm font-bold text-emerald-950 dark:text-emerald-100 truncate mt-0.5">
-                  {item.preparedBy || "—"}
+                <div className="text-sm font-bold text-indigo-950 dark:text-indigo-100 tabular-nums mt-0.5">
+                  {(() => {
+                    const startRaw =
+                      item.surveyStartsAt || item.assignedAt || item.approvedAt || item.createdAt;
+                    return startRaw ? formatDateTimeDisplay(startRaw) : "-";
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* 6. Survey Ends At Card - Teal */}
+            <div className="flex items-start gap-3.5 rounded-xl border border-teal-200/80 bg-teal-50/60 p-4 dark:border-teal-900/50 dark:bg-teal-950/25">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-teal-600 border border-teal-100 shadow-2xs dark:bg-teal-950 dark:text-teal-400 dark:border-teal-900 shrink-0">
+                <Clock className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[11px] font-medium text-teal-700/80 dark:text-teal-300/80">
+                  Survey ends at
+                </div>
+                <div className="text-sm font-bold text-teal-950 dark:text-teal-100 tabular-nums mt-0.5">
+                  {(() => {
+                    const isSurveyEnded =
+                      (item.status === "Report Received" ||
+                        item.status === "Approved" ||
+                        item.status === "Completed") &&
+                      item.reportStatus !== "Rejected" &&
+                      linkedReport?.status !== "Rejected";
+                    if (!isSurveyEnded) return "-";
+                    const endRaw =
+                      item.surveyEndsAt ||
+                      item.preparedAt ||
+                      (linkedReport && linkedReport.status !== "Draft"
+                        ? linkedReport.submittedAt
+                        : undefined) ||
+                      item.reportApprovedAt ||
+                      linkedReport?.reviewedAt;
+                    return endRaw ? formatDateTimeDisplay(endRaw) : "-";
+                  })()}
                 </div>
               </div>
             </div>
@@ -4577,62 +4833,137 @@ export default function SurveillanceReportsPage() {
         </p>
       </div>
 
-      {/* Top Dashboard Summary Cards (5 Distinct Colors) */}
+      {/* Top Dashboard Summary Cards (5 Distinct Colors — Clickable to filter rows) */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        {/* Card 1: Total Requests Received (Blue tone) */}
-        <Card className="p-4 border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-900/50">
+        {/* Card 1: Total Requests Received (Blue tone — Default selected) */}
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setCardFilter("all")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setCardFilter("all");
+          }}
+          className={`p-4 cursor-pointer transition-all border-blue-200 bg-blue-50/50 hover:bg-blue-50/80 dark:bg-blue-950/20 dark:border-blue-900/50 ${
+            cardFilter === "all" ? "ring-2 ring-blue-500/70 shadow-xs" : ""
+          }`}
+        >
           <div className="text-xs text-blue-800 dark:text-blue-300 font-medium uppercase tracking-wider">
             Total Requests Received
           </div>
-          <div className="mt-1 text-2xl font-bold font-display text-blue-950 dark:text-blue-100">
+          <div className="mt-1 text-2xl font-bold font-display text-blue-950 dark:text-blue-100 tabular-nums">
             {metrics.total}
           </div>
         </Card>
 
         {/* Card 2: Total Submitted (Purple tone) */}
-        <Card className="p-4 border-purple-300/80 bg-purple-50/50 dark:bg-purple-950/20 dark:border-purple-900/50">
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setCardFilter("submitted")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setCardFilter("submitted");
+          }}
+          className={`p-4 cursor-pointer transition-all border-purple-300/80 bg-purple-50/50 hover:bg-purple-50/80 dark:bg-purple-950/20 dark:border-purple-900/50 ${
+            cardFilter === "submitted" ? "ring-2 ring-purple-500/70 shadow-xs" : ""
+          }`}
+        >
           <div className="text-xs text-purple-800 dark:text-purple-300 font-medium uppercase tracking-wider">
             Total Submitted
           </div>
-          <div className="mt-1 text-2xl font-bold font-display text-purple-950 dark:text-purple-100">
+          <div className="mt-1 text-2xl font-bold font-display text-purple-950 dark:text-purple-100 tabular-nums">
             {metrics.submitted}
           </div>
         </Card>
 
         {/* Card 3: Pending (Amber tone) */}
-        <Card className="p-4 border-amber-300/80 bg-amber-50/50 dark:bg-amber-950/20 dark:border-amber-900/50">
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setCardFilter("pending")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setCardFilter("pending");
+          }}
+          className={`p-4 cursor-pointer transition-all border-amber-300/80 bg-amber-50/50 hover:bg-amber-50/80 dark:bg-amber-950/20 dark:border-amber-900/50 ${
+            cardFilter === "pending" ? "ring-2 ring-amber-500/70 shadow-xs" : ""
+          }`}
+        >
           <div className="text-xs text-amber-800 dark:text-amber-300 font-medium uppercase tracking-wider">
             Pending
           </div>
-          <div className="mt-1 text-2xl font-bold font-display text-amber-950 dark:text-amber-100">
+          <div className="mt-1 text-2xl font-bold font-display text-amber-950 dark:text-amber-100 tabular-nums">
             {metrics.pending}
           </div>
         </Card>
 
         {/* Card 4: Rejected (Rose tone) */}
-        <Card className="p-4 border-rose-300/80 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/50">
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setCardFilter("rejected")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setCardFilter("rejected");
+          }}
+          className={`p-4 cursor-pointer transition-all border-rose-300/80 bg-rose-50/50 hover:bg-rose-50/80 dark:bg-rose-950/20 dark:border-rose-900/50 ${
+            cardFilter === "rejected" ? "ring-2 ring-rose-500/70 shadow-xs" : ""
+          }`}
+        >
           <div className="text-xs text-rose-800 dark:text-rose-300 font-medium uppercase tracking-wider">
             Rejected
           </div>
-          <div className="mt-1 text-2xl font-bold font-display text-rose-950 dark:text-rose-100">
+          <div className="mt-1 text-2xl font-bold font-display text-rose-950 dark:text-rose-100 tabular-nums">
             {metrics.rejected}
           </div>
         </Card>
 
         {/* Card 5: Approved (Emerald tone) */}
-        <Card className="p-4 border-emerald-300/80 bg-emerald-50/50 dark:bg-emerald-950/20 dark:border-emerald-900/50">
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setCardFilter("approved")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setCardFilter("approved");
+          }}
+          className={`p-4 cursor-pointer transition-all border-emerald-300/80 bg-emerald-50/50 hover:bg-emerald-50/80 dark:bg-emerald-950/20 dark:border-emerald-900/50 ${
+            cardFilter === "approved" ? "ring-2 ring-emerald-500/70 shadow-xs" : ""
+          }`}
+        >
           <div className="text-xs text-emerald-800 dark:text-emerald-300 font-medium uppercase tracking-wider">
             Approved
           </div>
-          <div className="mt-1 text-2xl font-bold font-display text-emerald-950 dark:text-emerald-100">
+          <div className="mt-1 text-2xl font-bold font-display text-emerald-950 dark:text-emerald-100 tabular-nums">
             {metrics.approved}
           </div>
         </Card>
       </div>
 
+      {/* Market Filter + Reset Button Toolbar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Select value={marketFilter} onValueChange={setMarketFilter}>
+          <SelectTrigger className="h-9 w-[170px]">
+            <SelectValue placeholder="Market" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Markets</SelectItem>
+            {markets.map((m) => (
+              <SelectItem key={m} value={m}>
+                {m}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <FilterReset
+          active={marketFilter !== "all" || cardFilter !== "all"}
+          onReset={() => {
+            setMarketFilter("all");
+            setCardFilter("all");
+          }}
+        />
+      </div>
+
       {/* Standard DataTable with only the 5 requested columns */}
       <DataTable
-        rows={requests}
+        rows={filteredRequests}
         columns={columns}
         rowKey={(r) => r.id}
         searchPlaceholder="Search by Store Name, Market, Requested By, or Status..."
