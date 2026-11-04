@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ChevronDown } from "lucide-react";
 import {
   formatMessageDateLabel,
   getBuddyName,
+  getBuddySendId,
   getImageUrl,
   getMessageDayKey,
 } from "../chatHealper";
@@ -45,6 +47,8 @@ export default function ChatMessageList(props: Record<string, any>) {
   const olderMessagesSentinelRef = useRef<HTMLDivElement | null>(null);
   const loadingOlderRef = useRef(false);
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previousMessageSnapshotRef = useRef({ count: 0, lastId: "" });
+  const [showNewMessages, setShowNewMessages] = useState(false);
   // Keep the loading guard synchronized with the parent loading state.
   useEffect(() => {
     loadingOlderRef.current = loadingOlderMessages;
@@ -91,6 +95,51 @@ export default function ChatMessageList(props: Record<string, any>) {
       }
     };
   }, []);
+
+  // Keep the WhatsApp-style new-message affordance visible only when the
+  // reader is away from the latest message.
+  useEffect(() => {
+    const container = chatBoxRef?.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const distanceFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      if (distanceFromBottom <= 120) setShowNewMessages(false);
+    };
+
+    container.addEventListener("scroll", handleScroll, { passive: true });
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [chatBoxRef]);
+
+  useEffect(() => {
+    const lastMessage = currentMessages[currentMessages.length - 1] as ChatMessage | undefined;
+    const lastId = String(
+      lastMessage?.id ||
+        lastMessage?.messageId ||
+        lastMessage?.message_id ||
+        lastMessage?.sentAt ||
+        "",
+    );
+    const previous = previousMessageSnapshotRef.current;
+    const container = chatBoxRef?.current;
+    const distanceFromBottom = container
+      ? container.scrollHeight - container.scrollTop - container.clientHeight
+      : 0;
+
+    if (
+      previous.count > 0 &&
+      currentMessages.length > previous.count &&
+      lastId !== previous.lastId &&
+      distanceFromBottom > 120
+    ) {
+      setShowNewMessages(true);
+    } else if (distanceFromBottom <= 120) {
+      setShowNewMessages(false);
+    }
+
+    previousMessageSnapshotRef.current = { count: currentMessages.length, lastId };
+  }, [chatBoxRef, currentMessages]);
 
   // Build a lookup map for replies instead of repeatedly scanning all messages.
   const messageById = useMemo(() => {
@@ -141,7 +190,7 @@ export default function ChatMessageList(props: Record<string, any>) {
   return (
     <div
       ref={chatBoxRef}
-      className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/20 px-1 pb-0 pt-2 sm:px-2 sm:pt-3"
+      className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-transparent px-1 pb-0 pt-2 sm:px-2 sm:pt-3"
     >
       <div ref={olderMessagesSentinelRef} aria-hidden="true" className="h-px w-full" />
 
@@ -214,9 +263,22 @@ export default function ChatMessageList(props: Record<string, any>) {
 
           const currentAuthor = message.authorId ?? message.sender?.id ?? message.senderId;
 
+          const previousDirection = String(previous?.direction || "inbound").toLowerCase();
+          const currentDirection = String(message.direction || "inbound").toLowerCase();
+
+          const isGroupChat = selectedChat?.type === "channel" || selectedChat?.type === "group";
           const showGroupAvatar =
-            selectedChat?.type !== "channel" ||
-            String(previousAuthor ?? "") !== String(currentAuthor ?? "");
+            (!isGroupChat ||
+              index === 0 ||
+              previousDayKey !== dayKey ||
+              String(previousAuthor ?? "") !== String(currentAuthor ?? "") ||
+              previousDirection !== currentDirection);
+
+          const senderProfile = (selectedChat?.participants || selectedChat?.raw?.participants || [])
+            .find((participant: ChatMessage) => {
+              const participantId = String(getBuddySendId(participant) || "");
+              return participantId && participantId === String(currentAuthor ?? "");
+            });
 
           return (
             <div
@@ -235,7 +297,7 @@ export default function ChatMessageList(props: Record<string, any>) {
               )}
 
               <MessageRow
-                authorName={message.authorName || getBuddyName(message.sender)}
+                authorName={message.authorName || getBuddyName(message.sender) || getBuddyName(senderProfile)}
                 chatId={chatId}
                 currentUser={currentUser}
                 message={{
@@ -243,6 +305,7 @@ export default function ChatMessageList(props: Record<string, any>) {
                   authorAvatarUrl:
                     message.authorAvatarUrl ||
                     getImageUrl(message.sender) ||
+                    getImageUrl(senderProfile) ||
                     getImageUrl(selectedChat),
                   repliedMessage: repliedMessage || message.repliedMessage,
                 }}
@@ -281,6 +344,24 @@ export default function ChatMessageList(props: Record<string, any>) {
             </div>
           );
         })
+      )}
+
+      {showNewMessages && (
+        <div className="sticky bottom-3 z-20 flex justify-end px-3 pointer-events-none">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="pointer-events-auto rounded-full border border-primary/30 bg-primary px-3 text-primary-foreground shadow-md hover:bg-primary/90"
+            onClick={() => {
+              if (chatBoxRef.current) chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+              setShowNewMessages(false);
+            }}
+          >
+            New messages
+            <ChevronDown className="ml-1 h-4 w-4" />
+          </Button>
+        </div>
       )}
     </div>
   );

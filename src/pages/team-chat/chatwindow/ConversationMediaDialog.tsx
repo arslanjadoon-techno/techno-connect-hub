@@ -2,9 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import { Download, ExternalLink, FileText, Link2, Paperclip, Video } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { downloadAttachment, getMessageAttachments } from "../chatHealper";
+import {
+  CHAT_URL_PATTERN,
+  downloadAttachment,
+  getChatHost,
+  getFileUrl,
+  getMessageAttachments,
+  toChatHref,
+} from "../chatHealper";
 
-const URL_PATTERN = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg)$/i;
 const VIDEO_EXT = /\.(mp4|mov|webm|mkv|avi)$/i;
 
@@ -46,16 +52,6 @@ interface LinkItem {
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
 
 // Attachments come in several API shapes, so every known URL field is checked.
-const getFileUrl = (file: FileRecord): string =>
-  file.url ||
-  file.downloadUrl ||
-  file.download_url ||
-  file.fileUrl ||
-  file.file_url ||
-  file.publicUrl ||
-  file.public_url ||
-  "";
-
 const formatSize = (bytes: unknown) => {
   const size = Number(bytes);
   if (!Number.isFinite(size) || size <= 0) return "";
@@ -74,16 +70,6 @@ const fileKind = (name: string, contentType: string) => {
   const ext = name.includes(".") ? name.split(".").pop() || "" : "";
   const kind = ext || contentType.split("/").pop() || "file";
   return kind.length > 6 ? "FILE" : kind.toUpperCase();
-};
-
-const toHref = (url: string) => (url.toLowerCase().startsWith("www.") ? `https://${url}` : url);
-
-const hostOf = (url: string) => {
-  try {
-    return new URL(toHref(url)).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
 };
 
 export default function ConversationMediaDialog({ messages = [], onClose, open }: Props) {
@@ -120,11 +106,11 @@ export default function ConversationMediaDialog({ messages = [], onClose, open }
         }
       }
 
-      for (const value of String(message.text || "").match(URL_PATTERN) || []) {
+      for (const value of String(message.text || "").match(CHAT_URL_PATTERN) || []) {
         const cleanUrl = value.replace(/[),.!?:;]+$/, "");
         if (seenLinks.has(cleanUrl)) continue;
         seenLinks.add(cleanUrl);
-        linkItems.push({ url: cleanUrl, href: toHref(cleanUrl), host: hostOf(cleanUrl), date });
+        linkItems.push({ url: cleanUrl, href: toChatHref(cleanUrl), host: getChatHost(cleanUrl), date });
       }
     }
     return { media: mediaItems, files: fileItems, links: linkItems };

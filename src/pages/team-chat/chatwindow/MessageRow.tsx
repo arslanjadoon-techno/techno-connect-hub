@@ -59,8 +59,9 @@ const COLLAPSE_AT = 700; // characters before "Read more" appears
 const MEMBER_EVENTS = ["group_member_removed", "group_member_added", "group_member_joined"];
 
 // Colors come from the app theme tokens, so bubbles follow light/dark mode and your brand color.
-const BUBBLE_OUT = "bg-primary/10";
-const BUBBLE_IN = "bg-muted";
+// Keep both directions on the same professional surface. Alignment and the
+// small tail still distinguish who sent the message without changing colors.
+const BUBBLE_SURFACE = "bg-card/95 ring-1 ring-inset ring-border/80";
 const TEXT_MAIN = "text-foreground";
 const TEXT_META = "text-muted-foreground";
 const TICK_READ = "text-primary";
@@ -153,6 +154,7 @@ function MessageRow({
   const [infoData, setInfoData] = useState<RecordValue | null>(null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [reactionDetails, setReactionDetails] = useState<RecordValue | null>(null);
   const [dragX, setDragX] = useState(0);
   const bubbleRef = useRef<HTMLDivElement>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -168,10 +170,11 @@ function MessageRow({
       currentUser?.id ||
       "",
   );
-  const avatarUrl =
-    message.authorAvatarUrl ||
-    getImageUrl(message.sender) ||
-    (String(message.authorId || "") === currentUserIdentity ? getImageUrl(currentUser) : "");
+  const avatarUrl = isMe
+    ? getImageUrl(currentUser)
+    : message.authorAvatarUrl ||
+      getImageUrl(message.sender) ||
+      (String(message.authorId || "") === currentUserIdentity ? getImageUrl(currentUser) : "");
   const messageUser = {
     ...(isMe ? currentUser : message.sender || {}),
     id: (isMe ? currentUser?.id : message.sender?.id) || message.authorId,
@@ -329,7 +332,7 @@ function MessageRow({
   return (
     <>
       <div
-        className={`group relative flex w-full min-w-0 max-w-full touch-pan-y items-start gap-2 px-3 sm:px-6 ${showAvatar ? "mt-2" : "mt-px"} ${isMe ? "justify-end" : "justify-start"} ${selected ? "bg-primary/10" : ""}`}
+        className={`group relative flex w-full min-w-0 max-w-full touch-pan-y items-start gap-2 px-3 sm:px-6 ${showAvatar ? "mt-3" : "mt-1.5"} ${isMe ? "justify-end" : "justify-start"} ${selected ? "bg-primary/10" : ""}`}
         onClick={() => selectionMode && onSelect?.(message)}
         onContextMenu={(event) => longPressed.current && event.preventDefault()}
         onPointerDown={handlePointerDown}
@@ -393,7 +396,7 @@ function MessageRow({
         >
           <div
             ref={bubbleRef}
-            className={`relative min-w-[84px] max-w-full rounded-lg px-2 pb-1 pt-1.5 text-[14.2px] leading-[1.4] font-normal shadow-[0_1px_0.5px_rgba(11,20,26,0.13)] [overflow-wrap:anywhere] ${TEXT_MAIN} ${isMe ? BUBBLE_OUT : BUBBLE_IN} ${showAvatar ? (isMe ? "rounded-tr-none" : "rounded-tl-none") : ""}`}
+            className={`relative min-w-[84px] max-w-full rounded-[14px] px-3 py-1.5 text-[13.5px] leading-[1.35] font-normal shadow-[0_2px_8px_rgba(15,23,42,0.06)] [overflow-wrap:anywhere] dark:shadow-[0_2px_8px_rgba(0,0,0,0.16)] ${TEXT_MAIN} ${BUBBLE_SURFACE} ${showAvatar ? (isMe ? "rounded-tr-[4px]" : "rounded-tl-[4px]") : ""}`}
           >
             {showAvatar && tail}
 
@@ -523,8 +526,9 @@ function MessageRow({
                   aria-label={`React with ${reaction.emoji}`}
                   onClick={(event) => {
                     event.stopPropagation();
-                    onReact?.(message, reaction.emoji);
+                    setReactionDetails(reaction);
                   }}
+                  title="Click to see who reacted"
                   className={`flex items-center gap-1 rounded-full border bg-background px-1.5 py-0.5 text-[13px] shadow-sm transition-transform hover:scale-105 ${TEXT_MAIN}`}
                 >
                   <span>{reaction.emoji}</span>
@@ -536,6 +540,51 @@ function MessageRow({
             </div>
           )}
         </div>
+
+        {isMe &&
+          (showAvatar ? (
+            <button
+              type="button"
+              className="mt-0.5 shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={`View ${name}`}
+              title={`View ${name}`}
+              onClick={(event) => {
+                event.stopPropagation();
+                onViewUser?.(messageUser);
+              }}
+            >
+              <Avatar className="h-8 w-8 bg-primary/10 text-xs text-primary">
+                <AvatarImage key={avatarUrl} src={avatarUrl} />
+                <AvatarFallback>{name.charAt(0)}</AvatarFallback>
+              </Avatar>
+            </button>
+          ) : (
+            <div className="w-8 shrink-0" />
+          ))}
+
+        <Dialog open={Boolean(reactionDetails)} onOpenChange={(open) => !open && setReactionDetails(null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>
+                {reactionDetails?.emoji} reactions
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              {Array.isArray(reactionDetails?.userDetails) && reactionDetails.userDetails.length > 0 ? (
+                reactionDetails.userDetails.map((user: RecordValue) => (
+                  <div key={String(user.id)} className="flex items-center gap-2 text-sm">
+                    <span>{reactionDetails.emoji}</span>
+                    <span>{user.name}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="text-sm text-muted-foreground">
+                  {reactionDetails?.emoji} — User name unavailable.
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {!isMe && quickActions}
       </div>
@@ -577,7 +626,7 @@ function MessageRow({
             <div className="max-h-[60vh] space-y-4 overflow-y-auto text-sm">
               <div className="flex justify-end rounded-lg bg-muted/50 p-4">
                 <div
-                  className={`max-w-[85%] rounded-lg rounded-tr-none px-3 py-2 ${BUBBLE_OUT} ${TEXT_MAIN}`}
+                  className={`max-w-[85%] rounded-lg rounded-tr-none px-3 py-2 ${BUBBLE_SURFACE} ${TEXT_MAIN}`}
                 >
                   <p className="whitespace-pre-wrap break-words">
                     {infoData?.message?.text || message.text || "Attachment"}

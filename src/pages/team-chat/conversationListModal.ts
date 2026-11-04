@@ -29,6 +29,21 @@ const valuesFor = (item: ChatRecord) =>
 const conversationId = (conversation: ChatRecord | null | undefined) =>
   conversation?.chat_id || conversation?.chatId || conversation?.id || "";
 
+const messageTime = (message: ChatRecord | null | undefined) => {
+  const value =
+    message?.createdAt ||
+    message?.created_at ||
+    message?.sentAt ||
+    message?.sent_at ||
+    message?.timestamp ||
+    message?.time;
+  if (value == null || value === "") return 0;
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) return numeric < 1e12 ? numeric * 1000 : numeric;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 const activityTime = (conversation: ChatRecord | null | undefined) => {
   const value =
     conversation?.lastMessage?.createdAt ||
@@ -39,6 +54,12 @@ const activityTime = (conversation: ChatRecord | null | undefined) => {
     conversation?.last_message_at ||
     conversation?.lastMessageTime ||
     conversation?.last_message_time ||
+    conversation?.lastMessage?.sentAt ||
+    conversation?.lastMessage?.sent_at ||
+    conversation?.lastMessage?.timestamp ||
+    conversation?.last_message?.sentAt ||
+    conversation?.last_message?.sent_at ||
+    conversation?.last_message?.timestamp ||
     conversation?.updatedAt ||
     conversation?.updated_at;
 
@@ -63,9 +84,33 @@ const toDirectRow = ({
   messagesByChat?: MessageMap;
 }): ChatRecord => {
   const directId = conversationId(conversation) || buddy?.directConversationId || buddy?.chatId;
-  const cachedMessages =
-    messagesByChat[String(directId)] || messagesByChat[String(getBuddySendId(buddy))] || [];
-  const cachedLastMessage = cachedMessages.at(-1);
+  const cacheKeys = Array.from(
+    new Set(
+      [
+        directId,
+        buddy?.directConversationId,
+        buddy?.chatId,
+        buddy?.chat_id,
+        getBuddySendId(buddy),
+        buddy?.id,
+      ]
+        .filter(Boolean)
+        .map(String),
+    ),
+  );
+  const cachedMessages = cacheKeys.flatMap((key) => messagesByChat[key] || []);
+  const storedLastMessages = [
+    conversation?.lastMessage,
+    conversation?.last_message,
+    buddy?.lastMessage,
+    buddy?.last_message,
+  ].filter(Boolean);
+  const cachedLastMessage = [...cachedMessages].sort(
+    (first, second) => messageTime(second) - messageTime(first),
+  )[0];
+  const latestMessage = [...storedLastMessages, cachedLastMessage]
+    .filter(Boolean)
+    .sort((first, second) => messageTime(second) - messageTime(first))[0];
   const peer = (conversation?.participants as ChatRecord[] | undefined)?.find(
     (participant: ChatRecord) => !isCurrentUserRecord(participant),
   );
@@ -90,23 +135,18 @@ const toDirectRow = ({
       buddy?.chatId ||
       "",
     unreadCount: conversation ? unread(conversation) : unread(buddy),
-    lastMessage:
-      cachedLastMessage ||
-      conversation?.lastMessage ||
-      conversation?.last_message ||
-      buddy?.lastMessage ||
-      buddy?.last_message,
-    last_message: conversation?.last_message || conversation?.lastMessage || buddy?.last_message,
+    lastMessage: latestMessage,
+    last_message: latestMessage,
     lastMessageTime:
-      conversation?.lastMessageTime ||
-      conversation?.last_message_time ||
+      latestMessage?.sentAt ||
+      latestMessage?.createdAt ||
+      latestMessage?.created_at ||
       conversation?.lastMessageAt ||
-      conversation?.last_message_at ||
-      buddy?.lastMessageTime ||
-      buddy?.last_message_time,
+      buddy?.lastMessageAt,
     lastMessageAt:
-      cachedLastMessage?.sentAt ||
-      cachedLastMessage?.createdAt ||
+      latestMessage?.sentAt ||
+      latestMessage?.createdAt ||
+      latestMessage?.created_at ||
       conversation?.lastMessageAt ||
       conversation?.last_message_at ||
       buddy?.lastMessageAt ||
@@ -185,17 +225,52 @@ export function buildConversationItems({
   }
 
   if (selectedChat?.type === "person" && selectedChat?.chatId) {
-    directRows.push({
-      ...selectedChat.raw,
-      ...selectedChat,
-      id: selectedChat.id,
-      directConversationId: selectedChat.chatId,
-      type: "direct",
-      isDirect: true,
-      lastMessage: messagesByChat[selectedChat.id]?.at(-1) || selectedChat.lastMessage,
-      lastMessageAt: selectedChat.lastMessageAt || new Date().toISOString(),
-      __conversationType: "person",
+    const selectedConversationId = String(selectedChat.chatId);
+    const selectedUserId = String(getBuddySendId(selectedChat) || "");
+    const alreadyListed = directRows.some((row) => {
+      const rowConversationId = String(
+        row?.directConversationId || row?.chat_id || row?.chatId || "",
+      );
+      const rowUserId = String(getBuddySendId(row) || "");
+      return (
+        rowConversationId === selectedConversationId ||
+        (selectedUserId && rowUserId === selectedUserId)
+      );
     });
+
+    // A selected direct chat can be new and absent from the server list until
+    // its first message. Add it only in that case; never invent a current-time
+    // activity timestamp, because that changes sidebar order merely by opening it.
+    if (!alreadyListed) {
+      const selectedMessages = messagesByChat[selectedChat.id] || [];
+      const selectedLastMessage =
+        selectedMessages[selectedMessages.length - 1] ||
+        selectedChat.lastMessage ||
+        selectedChat.last_message;
+      const selectedLastMessageAt =
+        selectedLastMessage?.sentAt ||
+        selectedLastMessage?.createdAt ||
+        selectedLastMessage?.created_at ||
+        selectedChat.lastMessageAt ||
+        selectedChat.last_message_at ||
+        selectedChat.raw?.lastMessageAt ||
+        selectedChat.raw?.last_message_at ||
+        "";
+
+      directRows.push({
+        ...selectedChat.raw,
+        ...selectedChat,
+        id: selectedChat.id,
+        directConversationId: selectedChat.chatId,
+        type: "direct",
+        isDirect: true,
+        lastMessage: selectedLastMessage,
+        last_message: selectedLastMessage,
+        lastMessageAt: selectedLastMessageAt,
+        last_message_at: selectedLastMessageAt,
+        __conversationType: "person",
+      });
+    }
   }
 
   const items: ChatRecord[] = [

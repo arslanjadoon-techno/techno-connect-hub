@@ -6,6 +6,7 @@ import {
   normalizeChatError,
 } from "./chatHealper";
 import { normalizeRealtimeMessage } from "./chatMessageNormalization";
+import { getConversationPreviewTimestamp, updateConversationPreview } from "./chatConversationKeys";
 import { getConversationIdFromResponse, textContainsMention } from "./ChatSystemUtils";
 import {
   createClientMessageId,
@@ -24,6 +25,57 @@ import {
 } from "@/services/Team-chat/chat.service";
 
 type ChatRecord = Record<string, any>;
+
+const updateDirectBuddyPreview = (
+  buddies: ChatRecord[],
+  selectedChat: ChatRecord,
+  message: ChatRecord,
+) => {
+  const selectedIdentity = new Set(
+    [
+      selectedChat.id,
+      selectedChat.chatId,
+      selectedChat.chat_id,
+      selectedChat.userId,
+      selectedChat.user_id,
+      selectedChat.appUserId,
+      selectedChat.app_user_id,
+      selectedChat.email,
+      selectedChat.email_id,
+    ]
+      .filter(Boolean)
+      .map((value) => String(value).trim().toLowerCase()),
+  );
+  const matchesSelected = (buddy: ChatRecord) =>
+    [
+      buddy.id,
+      buddy.chatId,
+      buddy.chat_id,
+      buddy.userId,
+      buddy.user_id,
+      buddy.appUserId,
+      buddy.app_user_id,
+      buddy.email,
+      buddy.email_id,
+    ]
+      .filter(Boolean)
+      .some((value) => selectedIdentity.has(String(value).trim().toLowerCase()));
+
+  const selectedIndex = buddies.findIndex(matchesSelected);
+  if (selectedIndex < 0) return buddies;
+
+  const previewTimestamp = getConversationPreviewTimestamp(message, new Date().toISOString());
+  const updated = {
+    ...buddies[selectedIndex],
+    lastMessage: message,
+    last_message: message,
+    lastMessageAt: previewTimestamp,
+    last_message_at: previewTimestamp,
+    lastMessageTime: previewTimestamp,
+    last_message_time: previewTimestamp,
+  };
+  return [updated, ...buddies.filter((_, index) => index !== selectedIndex)];
+};
 
 type ChatSendOptions = {
   blockedUserIds: string[];
@@ -45,6 +97,7 @@ type ChatSendOptions = {
   setReplyToMessage: (message: ChatRecord | null) => void;
   setSelectedChat: (updater: any) => void;
   setChannels: (updater: any) => void;
+  setBuddies: (updater: any) => void;
   setSendError: (value: string) => void;
   setSending: (value: boolean) => void;
   setUploading: (value: boolean) => void;
@@ -71,6 +124,7 @@ export function useChatSend({
   setReplyToMessage,
   setSelectedChat,
   setChannels,
+  setBuddies,
   setSendError,
   setSending,
   setUploading,
@@ -135,6 +189,20 @@ export function useChatSend({
         });
         return next;
       });
+
+      const optimisticChatId =
+        selectedChat.type === "channel" ? selectedChat.id : selectedChat.chatId || selectedChat.id;
+      if (optimisticChatId) {
+        setChannels((previous: ChatRecord[]) =>
+          updateConversationPreview(previous, {
+            chatId: optimisticChatId,
+            message: optimisticMessage,
+          }),
+        );
+        setBuddies((previous: ChatRecord[]) =>
+          updateDirectBuddyPreview(previous, selectedChat, optimisticMessage),
+        );
+      }
     }
     logChatTiming("optimistic_queued", {
       clientMessageId,
@@ -257,6 +325,41 @@ export function useChatSend({
       setEditingMessage(null);
 
       if (chatId) {
+        const previewMessage = confirmed || { ...optimisticMessage, chatId, chat_id: chatId };
+        setChannels((previous: ChatRecord[]) =>
+          updateConversationPreview(previous, {
+            chatId,
+            message: previewMessage,
+            createConversation:
+              selectedChat.type === "person"
+                ? () => {
+                    const peer = selectedChat.raw || selectedChat;
+                    const previewTimestamp = getConversationPreviewTimestamp(
+                      previewMessage,
+                      new Date().toISOString(),
+                    );
+                    return {
+                      id: chatId,
+                      chat_id: chatId,
+                      chatId,
+                      type: "direct",
+                      isDirect: true,
+                      participants: [currentUser, peer].filter(Boolean),
+                      lastMessage: previewMessage,
+                      last_message: previewMessage,
+                      lastMessageAt: previewTimestamp,
+                      last_message_at: previewTimestamp,
+                      unreadCount: 0,
+                      unread_count: 0,
+                    };
+                  }
+                : undefined,
+          }),
+        );
+        setBuddies((previous: ChatRecord[]) =>
+          updateDirectBuddyPreview(previous, selectedChat, previewMessage),
+        );
+
         // The persisted response and SignalR event reconcile the active list. Avoid
         // a second full history request on every send; refresh remains available
         // on conversation open/reconnect for recovery.

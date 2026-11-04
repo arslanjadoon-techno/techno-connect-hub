@@ -242,6 +242,7 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     handledRealtimeMessageKeysRef,
     realtimeStartedAtRef,
     selectedChat,
+    setBuddies,
     setChannels,
     setMessagesByChat,
   });

@@ -374,9 +374,16 @@ export default function ChatComposerPanel(props: Record<string, any>) {
         forwardMessage={actionsMessage}
         selectedChat={selectedChat}
         onClose={() => setActionsMessage(null)}
-        onForwardToChat={(target) => {
-          if (actionsMessage) handleForwardMessage?.(actionsMessage, target);
-          setActionsMessage(null);
+        onForwardToChats={async (targets) => {
+          if (!actionsMessage) return;
+
+          try {
+            for (const target of targets) {
+              await handleForwardMessage?.(actionsMessage, target);
+            }
+          } finally {
+            setActionsMessage(null);
+          }
         }}
       />
     </>

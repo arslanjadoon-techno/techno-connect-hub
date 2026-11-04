@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import {
   getBuddyEmail,
   getBuddyName,
@@ -44,6 +44,8 @@ export function useChatLifecycle({
   setPendingFiles,
   setReplyToMessage,
 }: ChatLifecycleOptions) {
+  const previousChatIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (initialFetchStartedRef.current) return;
 
@@ -72,13 +74,26 @@ export function useChatLifecycle({
   }, [loadChannelHistory, selectedChat]);
 
   useEffect(() => {
-    const scrollToLatest = () => {
-      if (chatBoxRef.current) {
-        chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+    const currentChatId = selectedChat?.chatId || selectedChat?.id || null;
+    const chatChanged = String(previousChatIdRef.current || "") !== String(currentChatId || "");
+    previousChatIdRef.current = currentChatId ? String(currentChatId) : null;
+
+    const scrollToLatestIfAppropriate = () => {
+      const container = chatBoxRef.current;
+      if (!container) return;
+
+      const distanceFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+
+      // WhatsApp keeps the reader's position when they are viewing older
+      // messages, but opens a newly selected conversation at the latest one.
+      if (chatChanged || distanceFromBottom <= 120) {
+        container.scrollTop = container.scrollHeight;
       }
     };
-    const frame = requestAnimationFrame(scrollToLatest);
-    const timer = window.setTimeout(scrollToLatest, 50);
+
+    const frame = requestAnimationFrame(scrollToLatestIfAppropriate);
+    const timer = window.setTimeout(scrollToLatestIfAppropriate, 50);
     return () => {
       cancelAnimationFrame(frame);
       window.clearTimeout(timer);

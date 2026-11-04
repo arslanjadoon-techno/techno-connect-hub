@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Download, FileText, Music2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { downloadAttachment } from "../chatHealper";
+import { downloadAttachment, getFileUrl } from "../chatHealper";
 
 type RecordValue = Record<string, any>;
 
@@ -16,16 +16,6 @@ const formatFileSize = (bytes: number) => {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 };
 
-const getFileUrl = (file: RecordValue): string =>
-  file.url ||
-  file.downloadUrl ||
-  file.download_url ||
-  file.fileUrl ||
-  file.file_url ||
-  file.publicUrl ||
-  file.public_url ||
-  "";
-
 // Prefer the file extension (PDF, DOCX). Content types like "vnd.openxml..." are too long to show.
 const getFileKind = (fileName: string, contentType: string) => {
   const ext = fileName.includes(".") ? fileName.split(".").pop() : "";
@@ -38,11 +28,13 @@ function DownloadLink({
   url,
   fileName,
   className,
+  children,
 }: {
   file: RecordValue;
   url: string;
   fileName: string;
   className?: string;
+  children?: ReactNode;
 }) {
   return (
     <a
@@ -57,6 +49,7 @@ function DownloadLink({
       className={`flex shrink-0 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${className || "h-8 w-8"}`}
     >
       <Download className="h-4 w-4" />
+      {children}
     </a>
   );
 }
@@ -90,6 +83,67 @@ function FileCard({
       </span>
       {url && <DownloadLink file={file} url={url} fileName={fileName} />}
     </div>
+  );
+}
+
+function DocumentAttachment({
+  file,
+  fileName,
+  fileKind,
+  fileSize,
+  url,
+}: {
+  file: RecordValue;
+  fileName: string;
+  fileKind: string;
+  fileSize: string;
+  url: string;
+}) {
+  const [viewerOpen, setViewerOpen] = useState(false);
+
+  return (
+    <>
+      <div className="mt-1 flex min-w-[220px] max-w-[320px] items-center gap-1 rounded-lg bg-background/60 p-2.5 text-foreground">
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            setViewerOpen(true);
+          }}
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-md p-0.5 text-left hover:bg-background/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={`Preview ${fileName}`}
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <FileText className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm" title={fileName}>{fileName}</span>
+            <span className="block text-xs text-muted-foreground">
+              {fileKind}{fileSize ? `, ${fileSize}` : ""}
+            </span>
+          </span>
+        </button>
+        {url && <DownloadLink file={file} url={url} fileName={fileName} />}
+      </div>
+
+      <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
+        <DialogContent className="flex h-[90vh] max-w-[min(96vw,900px)] flex-col gap-3">
+          <DialogHeader>
+            <DialogTitle className="truncate pr-8 text-sm font-normal">{fileName}</DialogTitle>
+          </DialogHeader>
+          <iframe
+            src={url}
+            title={`Preview ${fileName}`}
+            className="min-h-0 w-full flex-1 rounded-md border bg-muted"
+          />
+          <div className="flex justify-end">
+            <DownloadLink file={file} url={url} fileName={fileName} className="h-auto gap-2 rounded-md px-3 py-1.5">
+              Download
+            </DownloadLink>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -196,6 +250,7 @@ export default function MessageAttachments({
         const key = file.id || index;
         const isImage = contentType.startsWith("image/") || IMAGE_EXT.test(fileName);
         const isAudio = contentType.startsWith("audio/") || AUDIO_EXT.test(fileName);
+        const isPdf = contentType === "application/pdf" || /\.pdf$/i.test(fileName);
 
         if (isImage && url) {
           return (
@@ -224,6 +279,19 @@ export default function MessageAttachments({
                 {fileSize ? `, ${fileSize}` : ""}
               </p>
             </div>
+          );
+        }
+
+        if (isPdf && url) {
+          return (
+            <DocumentAttachment
+              key={key}
+              file={file}
+              fileName={fileName}
+              fileKind={fileKind}
+              fileSize={fileSize}
+              url={url}
+            />
           );
         }
 

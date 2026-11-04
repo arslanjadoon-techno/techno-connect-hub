@@ -360,6 +360,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     setPendingFiles,
     setReplyToMessage,
     setSelectedChat,
+    setBuddies,
     setChannels,
     setSendError,
     setSending,
