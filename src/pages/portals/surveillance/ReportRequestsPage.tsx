@@ -486,7 +486,7 @@ export default function ReportRequestsPage() {
       <SurveillanceListPageSkeleton
         kpiCount={4}
         kpiGridClassName="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
-        filterCount={3}
+        filterCount={2}
         showHeaderAction
       />
     );
@@ -1059,7 +1059,7 @@ export default function ReportRequestsPage() {
         </Card>
       </div>
 
-      {/* Toolbar filters: Market, Status (Pending, Completed, Rejected), Priority */}
+      {/* Toolbar filters: Market, Priority */}
       <div className="flex flex-wrap items-center gap-2">
         <Select value={marketFilter} onValueChange={setMarketFilter}>
           <SelectTrigger className="h-9 w-[170px]">
@@ -1072,18 +1072,6 @@ export default function ReportRequestsPage() {
                 {m}
               </SelectItem>
             ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="h-9 w-[170px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="Pending">Pending</SelectItem>
-            <SelectItem value="Completed">Completed</SelectItem>
-            <SelectItem value="Rejected">Rejected</SelectItem>
           </SelectContent>
         </Select>
 

@@ -642,7 +642,7 @@ export default function ValidateAndAssignPage() {
       <SurveillanceListPageSkeleton
         kpiCount={7}
         kpiGridClassName="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7"
-        filterCount={4}
+        filterCount={3}
         showHeaderAction
       />
     );
@@ -1404,21 +1404,6 @@ export default function ValidateAndAssignPage() {
                     {m}
                   </SelectItem>
                 ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="h-9 w-[195px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="Unassigned">Unassigned</SelectItem>
-                <SelectItem value="Request Rejected">Request Rejected</SelectItem>
-                <SelectItem value="Assigned">Assigned</SelectItem>
-                <SelectItem value="Pending Verification">Pending Verification</SelectItem>
-                <SelectItem value="Report Rejected">Report Rejected</SelectItem>
-                <SelectItem value="Completed">Completed</SelectItem>
               </SelectContent>
             </Select>
 
