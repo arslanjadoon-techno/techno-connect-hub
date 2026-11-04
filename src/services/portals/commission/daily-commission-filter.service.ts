@@ -15,10 +15,19 @@ export interface CommissionFilter {
   isActive: boolean;
 }
 
+/* "Which lines?": a raw ADR column and its ticked values */
+export interface CommissionCondition {
+  column: string;
+  values: string[];
+}
+
 export interface CommissionType {
   id: number;
   name: string;
   isActive: boolean;
+  countInBox?: boolean;
+  sortOrder?: number;
+  conditions?: CommissionCondition[];
   filters: CommissionFilter[];
 }
 
@@ -98,6 +107,20 @@ export class DailyCommissionFilterService {
     );
   }
 
+  async getDailyCommissionConditionColumns(): Promise<string[]> {
+    const res = await http.get<string[]>(
+      DAILY_COMMISSION_FILTER_API_PATHS.getDailyCommissionConditionColumns,
+    );
+    return res.data ?? [];
+  }
+
+  async getDailyCommissionColumnValues(column: string): Promise<string[]> {
+    const res = await http.get<string[]>(
+      DAILY_COMMISSION_FILTER_API_PATHS.getDailyCommissionColumnValues(column),
+    );
+    return res.data ?? [];
+  }
+
   async getDailyCommissionUploads(): Promise<CommissionUpload[]> {
     const res = await http.get<CommissionUpload[]>(
       DAILY_COMMISSION_FILTER_API_PATHS.getDailyCommissionUploads,
@@ -114,11 +137,17 @@ export class DailyCommissionFilterService {
             `${file.name}.gz`,
           )
         : file;
-    return this.postFile<CommissionUpload>(DAILY_COMMISSION_FILTER_API_PATHS.dailyCommissionUpload(type), upload);
+    return this.postFile<CommissionUpload>(
+      DAILY_COMMISSION_FILTER_API_PATHS.dailyCommissionUpload(type),
+      upload,
+    );
   }
 
   async dailyCommissionParsePdf(file: File): Promise<PdfImport> {
-    return this.postFile<PdfImport>(DAILY_COMMISSION_FILTER_API_PATHS.dailyCommissionParsePdf, file);
+    return this.postFile<PdfImport>(
+      DAILY_COMMISSION_FILTER_API_PATHS.dailyCommissionParsePdf,
+      file,
+    );
   }
 
   private async postFile<T>(path: string, file: File): Promise<T> {

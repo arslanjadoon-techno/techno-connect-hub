@@ -50,6 +50,8 @@ import {
   type CommissionType,
 } from "@/services/portals/commission/daily-commission-filter.service";
 import SdrFilterPanel from "./SdrFilterPanel";
+import SectionConditions, { newConditionKey, type EditableCondition } from "./SectionConditions";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type EditableFilter = {
   key: string;
@@ -66,6 +68,9 @@ type EditableType = {
   id: number;
   name: string;
   isActive: boolean;
+  countInBox: boolean;
+  sortOrder: number;
+  conditions: EditableCondition[];
   filters: EditableFilter[];
   snapshot: string;
   open: boolean;
@@ -130,6 +135,11 @@ const toPayload = (t: EditableType): CommissionType => ({
   id: t.id,
   name: t.name.trim(),
   isActive: t.isActive,
+  countInBox: t.countInBox,
+  sortOrder: t.sortOrder,
+  conditions: t.conditions
+    .filter((c) => c.column)
+    .map((c) => ({ column: c.column, values: c.values })),
   filters: t.filters.map((f) => ({
     criteria: f.criteria.trim() || null,
     minValue: toNum(f.minValue),
@@ -149,6 +159,13 @@ const toEditable = (t: CommissionType, saved: boolean): EditableType => {
     id: t.id,
     name: t.name,
     isActive: t.isActive,
+    countInBox: t.countInBox ?? true,
+    sortOrder: t.sortOrder ?? 0,
+    conditions: (t.conditions ?? []).map((c) => ({
+      key: newConditionKey(),
+      column: c.column,
+      values: c.values,
+    })),
     filters: t.filters.map(toEditableFilter),
     snapshot: "",
     open: false,
@@ -259,6 +276,19 @@ export default function DailyCommissionFilterPage() {
     updateType(t.key, { filters });
   };
 
+  /* Section order = order of its columns in the report */
+  const moveSection = (index: number, step: number) =>
+    updateTypes((types) => {
+      const next = [...types];
+      const a = next[index];
+      const b = next[index + step];
+      const order =
+        a.sortOrder === b.sortOrder ? [index, index + step] : [b.sortOrder, a.sortOrder];
+      next[index] = { ...b, sortOrder: order[0] };
+      next[index + step] = { ...a, sortOrder: order[1] };
+      return next;
+    });
+
   const addSection = () =>
     updateTypes((types) => [
       {
@@ -266,6 +296,9 @@ export default function DailyCommissionFilterPage() {
         id: 0,
         name: "",
         isActive: true,
+        countInBox: true,
+        sortOrder: Math.min(0, ...types.map((t) => t.sortOrder)) - 1,
+        conditions: [],
         filters: [emptyFilter()],
         snapshot: "",
         open: true,
@@ -318,6 +351,10 @@ export default function DailyCommissionFilterPage() {
     if (!current || dirtyTypes.length === 0) return;
     if (dirtyTypes.some((t) => !t.name.trim() || t.filters.some((f) => filterError(f) !== null))) {
       toast.error("Fix the red rows first");
+      return;
+    }
+    if (dirtyTypes.some((t) => t.conditions.some((c) => c.column && c.values.length === 0))) {
+      toast.error("Select values for every column in Which lines?");
       return;
     }
     setSaving(true);
@@ -485,10 +522,30 @@ export default function DailyCommissionFilterPage() {
                 </div>
               </div>
 
-              {current.types.map((t) => (
+              {current.types.map((t, typeIndex) => (
                 <Card key={t.key} className={cn(isDirty(t) && "border-primary/50")}>
                   <CardContent className="p-0">
                     <div className="flex items-center gap-2 p-2">
+                      <div className="flex flex-col">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-6"
+                          disabled={typeIndex === 0}
+                          onClick={() => moveSection(typeIndex, -1)}
+                        >
+                          <ChevronUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-6"
+                          disabled={typeIndex === current.types.length - 1}
+                          onClick={() => moveSection(typeIndex, 1)}
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                      </div>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -528,6 +585,19 @@ export default function DailyCommissionFilterPage() {
 
                     {t.open && (
                       <div className="border-t">
+                        <SectionConditions
+                          conditions={t.conditions}
+                          onChange={(conditions) => updateType(t.key, { conditions })}
+                        />
+                        {t.conditions.length > 0 && (
+                          <label className="flex cursor-pointer items-center gap-2 border-b px-3 py-2 text-sm">
+                            <Checkbox
+                              checked={t.countInBox}
+                              onCheckedChange={(v) => updateType(t.key, { countInBox: v === true })}
+                            />
+                            Count in Total BOX
+                          </label>
+                        )}
                         <div className="overflow-x-auto">
                           <Table>
                             <TableHeader>
