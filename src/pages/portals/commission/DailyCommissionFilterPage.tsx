@@ -359,7 +359,6 @@ export default function DailyCommissionFilterPage() {
           current.month,
         );
       updateTypes((types) => types.filter((t) => t.key !== target.key));
-      await dailyCommissionFilterService.refreshDailyCommissionSummary();
     } catch (e) {
       toast.error((e as Error).message || "Could not delete");
     } finally {

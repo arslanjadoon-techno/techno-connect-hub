@@ -15,14 +15,14 @@ const UPLOADS: { type: CommissionUploadType; title: string; accept: string; shee
     title: "ADR",
     accept: ".csv",
     sheet:
-      "Activation Detail .csv from RTPOS (marketid ... actdate ... username ... mrc). Old ADR rows of the same days are replaced",
+      "Activation Detail .csv from RTPOS (marketid ... actdate ... username ... mrc). Replaces all old ADR data",
   },
   {
     type: "sdr",
     title: "SDR",
     accept: ".csv",
     sheet:
-      "Sales Detailed (Raw) .csv from RTPOS (marketid ... adduser ... adddate ... principle). Old SDR rows of the same days are replaced",
+      "Sales Detailed (Raw) .csv from RTPOS (marketid ... adduser ... adddate ... principle). Replaces all old SDR data",
   },
   {
     type: "retention",
@@ -70,7 +70,7 @@ export default function DailyCommissionUploadPanel() {
       const result = await dailyCommissionFilterService.dailyCommissionUpload(type, file);
       toast.success(
         result.fromDate
-          ? `${result.rows} rows uploaded for ${dayLabel(result.fromDate)} to ${dayLabel(result.toDate)}. ${result.deleted ?? 0} old rows of these days removed.`
+          ? `${result.rows} rows uploaded for ${dayLabel(result.fromDate)} to ${dayLabel(result.toDate)}. ${result.deleted ?? 0} old rows removed.`
           : `${result.rows} rows uploaded. Old ${type} data replaced.`,
       );
       await load();
@@ -101,8 +101,8 @@ export default function DailyCommissionUploadPanel() {
         <div>
           <h1 className="text-xl font-semibold">Commission Uploads</h1>
           <p className="text-sm text-muted-foreground">
-            Retention / Eligibility replace the old data. ADR / SDR replace the old rows of the days
-            in the file. Recalculate after uploading to apply it to today's commission.
+            Every upload replaces all the old data of that type. Recalculate after uploading to apply
+            it to today's commission.
           </p>
         </div>
         <Button variant="outline" onClick={onRefresh} disabled={refreshing || uploading !== null}>
