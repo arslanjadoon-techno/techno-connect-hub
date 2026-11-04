@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import DailyCommissionUploadPanel from "./DailyCommissionUploadPanel";
 import {
   Select,
   SelectContent,
@@ -211,7 +213,8 @@ export default function DailyCommissionFilterPage() {
   const version = current && selectedVersion !== null ? current.history[selectedVersion] : null;
 
   const refreshHistory = async () => {
-    const data: CommissionMonth[] = await dailyCommissionFilterService.getAllDailyCommissionFilter();
+    const data: CommissionMonth[] =
+      await dailyCommissionFilterService.getAllDailyCommissionFilter();
     setMonths((prev) =>
       prev.map((m) => ({
         ...m,
@@ -290,7 +293,13 @@ export default function DailyCommissionFilterPage() {
           if (index >= 0) types[index] = { ...types[index], filters };
           else types.push(toEditable(parsed, false));
         }
-        const updated: EditableMonth = { key, year, month, types, history: existing?.history ?? [] };
+        const updated: EditableMonth = {
+          key,
+          year,
+          month,
+          types,
+          history: existing?.history ?? [],
+        };
         const next = existing ? prev.map((m) => (m.key === key ? updated : m)) : [...prev, updated];
         return next.sort((a, b) => b.year - a.year || b.month - a.month);
       });
@@ -359,319 +368,336 @@ export default function DailyCommissionFilterPage() {
   };
 
   return (
-    <div className="grid gap-4 p-4 md:grid-cols-[220px_1fr] md:p-6">
-      {saving && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <div className="text-lg font-semibold">Saving and calculating commission...</div>
-          <div className="text-sm text-muted-foreground">This can take up to a minute. Please wait.</div>
-        </div>
-      )}
-      <div className="space-y-2">
-        <input
-          ref={fileRef}
-          type="file"
-          accept="application/pdf,.pdf"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) onUpload(file);
-          }}
-        />
-        <Button className="w-full" onClick={() => fileRef.current?.click()} disabled={uploading}>
-          {uploading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Upload className="mr-2 h-4 w-4" />
-          )}
-          Upload PDF
-        </Button>
-        <SdrFilterPanel />
-        <Card>
-          <CardContent className="p-1">
-            {loading ? (
-              <div className="flex justify-center py-6">
-                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+    <Tabs defaultValue="filters" className="space-y-4 p-4 md:p-6">
+      <TabsList>
+        <TabsTrigger value="filters">Filters</TabsTrigger>
+        <TabsTrigger value="uploads">Uploader</TabsTrigger>
+      </TabsList>
+      <TabsContent value="uploads">
+        <DailyCommissionUploadPanel />
+      </TabsContent>
+      <TabsContent value="filters">
+        <div className="grid gap-4 md:grid-cols-[220px_1fr]">
+          {saving && (
+            <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-background/80 backdrop-blur-sm">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              <div className="text-lg font-semibold">Saving and calculating commission...</div>
+              <div className="text-sm text-muted-foreground">
+                This can take up to a minute. Please wait.
               </div>
-            ) : months.length === 0 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground">No months</div>
-            ) : (
-              months.map((m) => (
-                <div key={m.key}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelected(m.key === selected ? null : m.key);
-                      setSelectedVersion(null);
-                      const latest = m.history[m.history.length - 1];
-                      if (latest) setMonthTypes(m.key, latest.types);
-                    }}
-                    className={cn(
-                      "flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-muted",
-                      m.key === selected && selectedVersion === null && "bg-muted font-medium",
-                    )}
-                  >
-                    {monthLabel(m)}
-                    <span className="text-xs text-muted-foreground">{m.types.length}</span>
-                  </button>
-                  {m.key === selected &&
-                    m.history.map((h, index) => (
+            </div>
+          )}
+          <div className="space-y-2">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="application/pdf,.pdf"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) onUpload(file);
+              }}
+            />
+            <Button
+              className="w-full"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 h-4 w-4" />
+              )}
+              Upload PDF
+            </Button>
+            <SdrFilterPanel />
+            <Card>
+              <CardContent className="p-1">
+                {loading ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                ) : months.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-muted-foreground">No months</div>
+                ) : (
+                  months.map((m) => (
+                    <div key={m.key}>
                       <button
-                        key={h.savedAt}
                         type="button"
-                        onClick={() => openVersion(index)}
+                        onClick={() => {
+                          setSelected(m.key === selected ? null : m.key);
+                          setSelectedVersion(null);
+                          const latest = m.history[m.history.length - 1];
+                          if (latest) setMonthTypes(m.key, latest.types);
+                        }}
                         className={cn(
-                          "w-full rounded-md py-1.5 pl-6 pr-3 text-left text-xs text-muted-foreground hover:bg-muted",
-                          index === selectedVersion && "bg-muted font-medium text-foreground",
+                          "flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-muted",
+                          m.key === selected && selectedVersion === null && "bg-muted font-medium",
                         )}
                       >
-                        {historyLabel(h)}
+                        {monthLabel(m)}
+                        <span className="text-xs text-muted-foreground">{m.types.length}</span>
                       </button>
-                    ))}
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {current && (
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold">
-              {monthLabel(current)}
-              {version && (
-                <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  {historyLabel(version)}
-                </span>
-              )}
-            </h2>
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={addSection}>
-                <Plus className="mr-2 h-4 w-4" />
-                New Section
-              </Button>
-              <Button onClick={onSave} disabled={saving || dirtyTypes.length === 0}>
-                {saving ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="mr-2 h-4 w-4" />
-                )}
-                Save
-              </Button>
-            </div>
-          </div>
-
-          {current.types.map((t) => (
-            <Card key={t.key} className={cn(isDirty(t) && "border-primary/50")}>
-              <CardContent className="p-0">
-                <div className="flex items-center gap-2 p-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => updateType(t.key, { open: !t.open })}
-                  >
-                    {t.open ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <Input
-                    value={t.name}
-                    placeholder="Section name"
-                    onChange={(e) => updateType(t.key, { name: e.target.value })}
-                    className={cn(
-                      "h-8 max-w-xs font-medium",
-                      !t.name.trim() && "border-destructive",
-                    )}
-                  />
-                  <div className="ml-auto flex items-center gap-2">
-                    <Switch
-                      checked={t.isActive}
-                      onCheckedChange={(v) => updateType(t.key, { isActive: v })}
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => setDeleteTarget(t)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-
-                {t.open && (
-                  <div className="border-t">
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-8" />
-                            <TableHead className="min-w-36">Criteria</TableHead>
-                            <TableHead className="w-28">Min</TableHead>
-                            <TableHead className="w-28">Max</TableHead>
-                            <TableHead className="w-28">Payout</TableHead>
-                            <TableHead className="min-w-36">Pay type</TableHead>
-                            <TableHead className="w-16">Active</TableHead>
-                            <TableHead className="w-10" />
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {t.filters.map((f, index) => {
-                            const error = filterError(f);
-                            return (
-                              <TableRow
-                                key={f.key}
-                                title={error ?? undefined}
-                                className={cn(error && "bg-destructive/10")}
-                              >
-                                <TableCell className="p-1">
-                                  <div className="flex flex-col">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-5 w-6"
-                                      disabled={index === 0}
-                                      onClick={() => moveFilter(t, index, -1)}
-                                    >
-                                      <ChevronUp className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-5 w-6"
-                                      disabled={index === t.filters.length - 1}
-                                      onClick={() => moveFilter(t, index, 1)}
-                                    >
-                                      <ChevronDown className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <Input
-                                    value={f.criteria}
-                                    onChange={(e) =>
-                                      updateFilter(t.key, f.key, { criteria: e.target.value })
-                                    }
-                                    className="h-8"
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Input
-                                    value={f.minValue}
-                                    inputMode="decimal"
-                                    onChange={(e) =>
-                                      updateFilter(t.key, f.key, { minValue: e.target.value })
-                                    }
-                                    className="h-8"
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Input
-                                    value={f.maxValue}
-                                    inputMode="decimal"
-                                    onChange={(e) =>
-                                      updateFilter(t.key, f.key, { maxValue: e.target.value })
-                                    }
-                                    className="h-8"
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Input
-                                    value={f.commissionPayout}
-                                    inputMode="decimal"
-                                    onChange={(e) =>
-                                      updateFilter(t.key, f.key, {
-                                        commissionPayout: e.target.value,
-                                      })
-                                    }
-                                    className="h-8"
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Select
-                                    value={String(f.payTypeId)}
-                                    onValueChange={(v) =>
-                                      updateFilter(t.key, f.key, { payTypeId: Number(v) })
-                                    }
-                                  >
-                                    <SelectTrigger className="h-8">
-                                      <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {PAY_TYPES.map((p) => (
-                                        <SelectItem key={p.id} value={String(p.id)}>
-                                          {p.label}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </TableCell>
-                                <TableCell>
-                                  <Switch
-                                    checked={f.isActive}
-                                    onCheckedChange={(v) =>
-                                      updateFilter(t.key, f.key, { isActive: v })
-                                    }
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() =>
-                                      updateType(t.key, {
-                                        filters: t.filters.filter((x) => x.key !== f.key),
-                                      })
-                                    }
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
+                      {m.key === selected &&
+                        m.history.map((h, index) => (
+                          <button
+                            key={h.savedAt}
+                            type="button"
+                            onClick={() => openVersion(index)}
+                            className={cn(
+                              "w-full rounded-md py-1.5 pl-6 pr-3 text-left text-xs text-muted-foreground hover:bg-muted",
+                              index === selectedVersion && "bg-muted font-medium text-foreground",
+                            )}
+                          >
+                            {historyLabel(h)}
+                          </button>
+                        ))}
                     </div>
-                    <div className="p-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          updateType(t.key, { filters: [...t.filters, emptyFilter()] })
-                        }
-                      >
-                        <Plus className="mr-1 h-4 w-4" />
-                        Add row
-                      </Button>
-                    </div>
-                  </div>
+                  ))
                 )}
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          </div>
 
-      <AlertDialog
-        open={deleteTarget !== null}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete {deleteTarget?.name || "this section"}?</AlertDialogTitle>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={onDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+          {current && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-lg font-semibold">
+                  {monthLabel(current)}
+                  {version && (
+                    <span className="ml-2 text-sm font-normal text-muted-foreground">
+                      {historyLabel(version)}
+                    </span>
+                  )}
+                </h2>
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={addSection}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    New Section
+                  </Button>
+                  <Button onClick={onSave} disabled={saving || dirtyTypes.length === 0}>
+                    {saving ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Save className="mr-2 h-4 w-4" />
+                    )}
+                    Save
+                  </Button>
+                </div>
+              </div>
+
+              {current.types.map((t) => (
+                <Card key={t.key} className={cn(isDirty(t) && "border-primary/50")}>
+                  <CardContent className="p-0">
+                    <div className="flex items-center gap-2 p-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => updateType(t.key, { open: !t.open })}
+                      >
+                        {t.open ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <Input
+                        value={t.name}
+                        placeholder="Section name"
+                        onChange={(e) => updateType(t.key, { name: e.target.value })}
+                        className={cn(
+                          "h-8 max-w-xs font-medium",
+                          !t.name.trim() && "border-destructive",
+                        )}
+                      />
+                      <div className="ml-auto flex items-center gap-2">
+                        <Switch
+                          checked={t.isActive}
+                          onCheckedChange={(v) => updateType(t.key, { isActive: v })}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setDeleteTarget(t)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {t.open && (
+                      <div className="border-t">
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-8" />
+                                <TableHead className="min-w-36">Criteria</TableHead>
+                                <TableHead className="w-28">Min</TableHead>
+                                <TableHead className="w-28">Max</TableHead>
+                                <TableHead className="w-28">Payout</TableHead>
+                                <TableHead className="min-w-36">Pay type</TableHead>
+                                <TableHead className="w-16">Active</TableHead>
+                                <TableHead className="w-10" />
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {t.filters.map((f, index) => {
+                                const error = filterError(f);
+                                return (
+                                  <TableRow
+                                    key={f.key}
+                                    title={error ?? undefined}
+                                    className={cn(error && "bg-destructive/10")}
+                                  >
+                                    <TableCell className="p-1">
+                                      <div className="flex flex-col">
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-5 w-6"
+                                          disabled={index === 0}
+                                          onClick={() => moveFilter(t, index, -1)}
+                                        >
+                                          <ChevronUp className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-5 w-6"
+                                          disabled={index === t.filters.length - 1}
+                                          onClick={() => moveFilter(t, index, 1)}
+                                        >
+                                          <ChevronDown className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Input
+                                        value={f.criteria}
+                                        onChange={(e) =>
+                                          updateFilter(t.key, f.key, { criteria: e.target.value })
+                                        }
+                                        className="h-8"
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <Input
+                                        value={f.minValue}
+                                        inputMode="decimal"
+                                        onChange={(e) =>
+                                          updateFilter(t.key, f.key, { minValue: e.target.value })
+                                        }
+                                        className="h-8"
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <Input
+                                        value={f.maxValue}
+                                        inputMode="decimal"
+                                        onChange={(e) =>
+                                          updateFilter(t.key, f.key, { maxValue: e.target.value })
+                                        }
+                                        className="h-8"
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <Input
+                                        value={f.commissionPayout}
+                                        inputMode="decimal"
+                                        onChange={(e) =>
+                                          updateFilter(t.key, f.key, {
+                                            commissionPayout: e.target.value,
+                                          })
+                                        }
+                                        className="h-8"
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <Select
+                                        value={String(f.payTypeId)}
+                                        onValueChange={(v) =>
+                                          updateFilter(t.key, f.key, { payTypeId: Number(v) })
+                                        }
+                                      >
+                                        <SelectTrigger className="h-8">
+                                          <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          {PAY_TYPES.map((p) => (
+                                            <SelectItem key={p.id} value={String(p.id)}>
+                                              {p.label}
+                                            </SelectItem>
+                                          ))}
+                                        </SelectContent>
+                                      </Select>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Switch
+                                        checked={f.isActive}
+                                        onCheckedChange={(v) =>
+                                          updateFilter(t.key, f.key, { isActive: v })
+                                        }
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={() =>
+                                          updateType(t.key, {
+                                            filters: t.filters.filter((x) => x.key !== f.key),
+                                          })
+                                        }
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                );
+                              })}
+                            </TableBody>
+                          </Table>
+                        </div>
+                        <div className="p-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              updateType(t.key, { filters: [...t.filters, emptyFilter()] })
+                            }
+                          >
+                            <Plus className="mr-1 h-4 w-4" />
+                            Add row
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          <AlertDialog
+            open={deleteTarget !== null}
+            onOpenChange={(open) => !open && setDeleteTarget(null)}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete {deleteTarget?.name || "this section"}?</AlertDialogTitle>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={onDelete}>Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      </TabsContent>
+    </Tabs>
   );
 }

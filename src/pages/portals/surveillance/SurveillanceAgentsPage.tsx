@@ -23,6 +23,7 @@ import {
   type SurveillanceAssignableAgent,
   type SurveillanceValidationItem,
 } from "@/services/portals/surveillance/types";
+import { SurveillanceListPageSkeleton } from "./SurveillanceSkeletons";
 
 type AgentAvailabilityStatus = "Available" | "Occupied";
 
@@ -54,8 +55,10 @@ export default function SurveillanceAgentsPage() {
   const [rawAgents, setRawAgents] = useState<SurveillanceAssignableAgent[]>([]);
   const [validationQueue, setValidationQueue] = useState<SurveillanceValidationItem[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>(initialStatusFilter);
+  const [loading, setLoading] = useState<boolean>(true);
 
   const loadData = useCallback(async () => {
+    setLoading(true);
     try {
       const [agents, queue] = await Promise.all([
         surveillanceService.getAssignableAgents(),
@@ -65,6 +68,8 @@ export default function SurveillanceAgentsPage() {
       setValidationQueue(queue);
     } catch (error) {
       toast.error(`Failed to load surveillance agents: ${(error as Error).message}`);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -152,6 +157,17 @@ export default function SurveillanceAgentsPage() {
 
   if (!canAccessValidatePage) {
     return <Navigate to={getSurveillanceDefaultRoute(user)} replace />;
+  }
+
+  if (loading) {
+    return (
+      <SurveillanceListPageSkeleton
+        kpiCount={3}
+        kpiGridClassName="grid-cols-1 sm:grid-cols-3"
+        filterCount={1}
+        showBackButton
+      />
+    );
   }
 
   return (

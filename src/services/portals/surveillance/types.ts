@@ -39,6 +39,9 @@ export interface SurveillanceRequest {
   status: SurveillanceRequestStatus;
   createdAt: string;
   updatedAt?: string;
+  assignedAt?: string;
+  surveyStartsAt?: string;
+  surveyEndsAt?: string;
   approvedBy?: string;
   approvedAt?: string;
   rejectionReason?: string;
@@ -184,9 +187,14 @@ export interface SavedAuditRowRecord {
   savedAt: string;
 }
 
+export type SurveillanceRepTimingType = "Store Left" | "Back Room";
+
 export interface SurveillanceSessionRepTimingRow {
   id: string;
   repName: string;
+  timingType?: SurveillanceRepTimingType;
+  timeIn?: string;
+  timeOut?: string;
   timeLeft: string;
   timeReturned: string;
   backRoomTimeIn: string;
@@ -212,6 +220,8 @@ export interface SurveillanceAuditSessionMeta {
   headerStoreOpenTime: string;
   headerStoreCloseTime: string;
   headerGeneralNotes: string;
+  loomisMachineUrl?: string;
+  safeLockerUrl?: string;
   repTimingRows: SurveillanceSessionRepTimingRow[];
   cameraUptimeRows: SurveillanceSessionCameraUptimeRow[];
   isFloorPresenceEnabled: boolean;
@@ -381,6 +391,7 @@ export interface CreateSurveillanceReportPayload {
   rows?: SurveillanceAuditRow[];
   repTimings?: SurveillanceRepTiming[];
   cameraLogs?: SurveillanceCameraLog[];
+  summaryMeta?: SurveillanceReportSummaryMeta;
   date: string;
   marketName?: string;
   storeName: string;
@@ -463,6 +474,7 @@ export interface SaveReportProgressPayload {
   storeOpenTime?: string;
   storeCloseTime?: string;
   notes?: string;
+  summaryMeta?: SurveillanceReportSummaryMeta;
   row: SurveillanceAuditRow;
 }
 
@@ -589,7 +601,13 @@ export function getSurveillanceDefaultRoute(user: any): string {
 }
 
 export type SurveillanceValidationStatus =
-  "Unassigned" | "Assigned" | "Pending Verification" | "Rejected" | "Completed";
+  | "Unassigned"
+  | "Assigned"
+  | "Request Rejected"
+  | "Pending Verification"
+  | "Report Rejected"
+  | "Rejected"
+  | "Completed";
 
 export interface SurveillanceSalesRep {
   ntid: string;
@@ -605,6 +623,17 @@ export interface SurveillanceAssignableAgent {
   role: string;
   department: string;
   activeAssignments: number;
+}
+
+export interface SurveillanceMarketOption {
+  id: number;
+  name: string;
+  state?: {
+    id: number;
+    name: string;
+    symbol?: string;
+  };
+  storeCount?: number;
 }
 
 export interface SurveillanceValidationItem {
@@ -647,6 +676,8 @@ export interface SurveillanceValidationItem {
   reportStatus?: "Pending Review" | "Approved" | "Rejected";
   reportReviewedBy?: string;
   reportReviewedAt?: string;
+  surveyStartsAt?: string;
+  surveyEndsAt?: string;
   managerRating?: number;
   managerComments?: string;
 }

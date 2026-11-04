@@ -54,6 +54,7 @@ import {
   UserPlus,
   FileText,
   Loader2,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { surveillanceService } from "@/services/portals/surveillance/surveillance.service";
@@ -61,8 +62,13 @@ import { storesService } from "@/services/user-manager/stores.service";
 import type {
   SurveillanceRequest,
   SurveillanceReport,
+  SurveillanceMarketOption,
   SurveillancePriority,
 } from "@/services/portals/surveillance/types";
+import {
+  SurveillanceDetailPageSkeleton,
+  SurveillanceListPageSkeleton,
+} from "./SurveillanceSkeletons";
 
 interface StaticStoreOption {
   id: string;
@@ -73,7 +79,7 @@ interface StaticStoreOption {
   address: string;
 }
 
-type RequestReportPageStatus = "Pending" | "Completed";
+type RequestReportPageStatus = "Pending" | "Completed" | "Rejected";
 
 const PRIORITY_TONES: Record<SurveillancePriority, string> = {
   low: "bg-muted text-muted-foreground border-border",
@@ -97,10 +103,23 @@ const REQUEST_STATUS_CONFIG: Record<
     dotClass: "bg-emerald-500",
     textClass: "text-emerald-800 dark:text-emerald-300",
   },
+  Rejected: {
+    label: "Rejected",
+    tone: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400",
+    dotClass: "bg-rose-500",
+    textClass: "text-rose-700 dark:text-rose-300",
+  },
 };
 
-function normalizeRequestStatus(raw: string): RequestReportPageStatus {
+function normalizeRequestStatus(req: SurveillanceRequest): RequestReportPageStatus {
+  const raw = String(req.status || "");
   if (raw === "Completed" || raw === "Approved") return "Completed";
+  if (
+    raw === "Request Rejected" ||
+    (raw === "Rejected" && !req.linkedReportId && req.reportStatus !== "Rejected")
+  ) {
+    return "Rejected";
+  }
   return "Pending";
 }
 
@@ -182,11 +201,10 @@ export default function ReportRequestsPage() {
   const [requests, setRequests] = useState<SurveillanceRequest[]>([]);
   const [reports, setReports] = useState<SurveillanceReport[]>([]);
   const [stores, setStores] = useState<StaticStoreOption[]>([]);
-  // Full-screen blocking overlay shown while the list is loading or a
-  // backend call (submit request) is in flight.
-  const [blockingMessage, setBlockingMessage] = useState<string | null>(
-    "Loading surveillance requests...",
-  );
+  const [marketOptions, setMarketOptions] = useState<SurveillanceMarketOption[]>([]);
+  const [initialLoading, setInitialLoading] = useState(true);
+  // Full-screen blocking overlay shown while a backend mutation (submit request) is in flight.
+  const [blockingMessage, setBlockingMessage] = useState<string | null>(null);
   const blockingOverlay = blockingMessage ? (
     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-xl bg-background/30 backdrop-blur-[2px]">
       <Loader2 className="h-9 w-9 animate-spin text-primary" />
@@ -209,6 +227,10 @@ export default function ReportRequestsPage() {
         .getReports()
         .then(setReports)
         .catch((error) => toast.error(`Failed to load surveillance reports: ${(error as Error).message}`)),
+      surveillanceService
+        .getMarkets(0, 500)
+        .then(setMarketOptions)
+        .catch((error) => toast.error(`Failed to load markets: ${(error as Error).message}`)),
       storesService
         .getAll({ size: 2000 })
         .then((res) =>
@@ -224,7 +246,10 @@ export default function ReportRequestsPage() {
           ),
         )
         .catch((error) => toast.error(`Failed to load stores: ${(error as Error).message}`)),
-    ]).finally(() => setBlockingMessage(null));
+    ]).finally(() => {
+      setInitialLoading(false);
+      setBlockingMessage(null);
+    });
   }, []);
 
   // Active drill-down detail view state synced with URL query param (?detail=...)
@@ -245,8 +270,11 @@ export default function ReportRequestsPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
 
   const MARKETS = useMemo(
-    () => Array.from(new Set(stores.map((s) => s.market).filter(Boolean))).sort(),
-    [stores],
+    () =>
+      Array.from(
+        new Set(marketOptions.map((m) => m.name?.trim()).filter((n): n is string => Boolean(n))),
+      ).sort(),
+    [marketOptions],
   );
 
   // Create Request Modal state
@@ -351,7 +379,7 @@ export default function ReportRequestsPage() {
   // Filtered requests
   const filteredRequests = useMemo(() => {
     return requests.filter((r) => {
-      const normalizedStatus = normalizeRequestStatus(r.status);
+      const normalizedStatus = normalizeRequestStatus(r);
       if (marketFilter !== "all" && r.marketName !== marketFilter) return false;
       if (statusFilter !== "all" && normalizedStatus !== statusFilter) return false;
       if (priorityFilter !== "all" && r.priority !== priorityFilter) return false;
@@ -359,16 +387,22 @@ export default function ReportRequestsPage() {
     });
   }, [requests, marketFilter, statusFilter, priorityFilter]);
 
-  // Strictly 3 KPI summary cards: Total Requests (Pending + Completed), Pending, and Completed
+  // 4 KPI summary cards: Total Requests, Pending, Completed, and Rejected
   const metrics = useMemo(() => {
-    const pending = requests.filter((r) => normalizeRequestStatus(r.status) === "Pending").length;
-    const completed = requests.filter(
-      (r) => normalizeRequestStatus(r.status) === "Completed",
-    ).length;
+    let pending = 0;
+    let completed = 0;
+    let rejected = 0;
+    for (const r of requests) {
+      const normalized = normalizeRequestStatus(r);
+      if (normalized === "Completed") completed += 1;
+      else if (normalized === "Rejected") rejected += 1;
+      else pending += 1;
+    }
     return {
-      total: pending + completed,
+      total: requests.length,
       pending,
       completed,
+      rejected,
     };
   }, [requests]);
 
@@ -415,19 +449,19 @@ export default function ReportRequestsPage() {
         key: "preparedBy",
         header: "Prepared by",
         searchValue: (r) =>
-          normalizeRequestStatus(r.status) === "Completed" ? r.preparedBy || "-" : "-",
+          normalizeRequestStatus(r) === "Completed" ? r.preparedBy || "-" : "-",
         accessor: (r) => (
           <span className="text-foreground text-sm">
-            {normalizeRequestStatus(r.status) === "Completed" ? r.preparedBy || "-" : "-"}
+            {normalizeRequestStatus(r) === "Completed" ? r.preparedBy || "-" : "-"}
           </span>
         ),
       },
       {
         key: "status",
         header: "Status",
-        searchValue: (r) => normalizeRequestStatus(r.status),
+        searchValue: (r) => normalizeRequestStatus(r),
         accessor: (r) => {
-          const normalized = normalizeRequestStatus(r.status);
+          const normalized = normalizeRequestStatus(r);
           const cfg = REQUEST_STATUS_CONFIG[normalized];
           return (
             <Badge variant="outline" className={`text-xs font-semibold ${cfg.tone}`}>
@@ -445,10 +479,23 @@ export default function ReportRequestsPage() {
     [requests, selectedDetailId],
   );
 
+  if (initialLoading) {
+    return selectedDetailId ? (
+      <SurveillanceDetailPageSkeleton />
+    ) : (
+      <SurveillanceListPageSkeleton
+        kpiCount={4}
+        kpiGridClassName="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4"
+        filterCount={2}
+        showHeaderAction
+      />
+    );
+  }
+
   // REQUESTED REPORT DETAILS PAGE (Consistent UI format matching Request Details)
   if (selectedDetail) {
     const item = selectedDetail;
-    const normalizedStatus = normalizeRequestStatus(item.status);
+    const normalizedStatus = normalizeRequestStatus(item);
     const isCompleted = normalizedStatus === "Completed";
     const showPreparedBy = isCompleted && Boolean(item.preparedBy);
     const statusCfg = REQUEST_STATUS_CONFIG[normalizedStatus];
@@ -693,6 +740,19 @@ export default function ReportRequestsPage() {
           </Card>
         )}
 
+        {/* Request Rejection Reason Banner (Displayed when Request is Rejected) */}
+        {normalizedStatus === "Rejected" && (
+          <Card className="p-5 rounded-2xl border-rose-200/90 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/60 space-y-2.5 shadow-xs">
+            <div className="flex items-center gap-2 text-rose-900 dark:text-rose-200 font-semibold text-sm">
+              <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
+              <span>Request Rejection Reason</span>
+            </div>
+            <div className="p-3.5 rounded-xl border border-rose-200/80 bg-background text-foreground text-xs leading-relaxed whitespace-pre-wrap">
+              {item.rejectionReason || "This surveillance request was rejected during validation."}
+            </div>
+          </Card>
+        )}
+
         {/* Bottom 2-Column Section: "Requested by" & "Prepared by" with Distinct Colors */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-stretch">
           {/* Left Card: Requested by (Blue Tint) */}
@@ -864,6 +924,14 @@ export default function ReportRequestsPage() {
                   audit findings.
                 </span>
               </div>
+            ) : normalizedStatus === "Rejected" ? (
+              <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-100/60 p-3.5 text-xs text-rose-900 dark:border-rose-800/60 dark:bg-rose-950/50 dark:text-rose-200">
+                <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                <span>
+                  This surveillance request was rejected during validation. Review the rejection
+                  reason above for details.
+                </span>
+              </div>
             ) : (
               <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50/90 p-3.5 text-xs text-amber-900 dark:border-amber-800/60 dark:bg-amber-950/40 dark:text-amber-200">
                 <Clock className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
@@ -908,8 +976,8 @@ export default function ReportRequestsPage() {
         </div>
       </div>
 
-      {/* KPI Cards: Strictly 3 cards — Total Requests (Pending + Completed), Pending, and Completed */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {/* KPI Cards: 4 cards — Total Requests, Pending, Completed, and Rejected */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {/* Card 1: Total Requests (Blue tone) */}
         <Card
           role="button"
@@ -969,9 +1037,29 @@ export default function ReportRequestsPage() {
             {metrics.completed}
           </div>
         </Card>
+
+        {/* Card 4: Rejected (Rose tone) */}
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setStatusFilter("Rejected")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setStatusFilter("Rejected");
+          }}
+          className={`p-4 cursor-pointer transition-all border-rose-300/80 bg-rose-50/50 hover:bg-rose-50/80 dark:bg-rose-950/20 dark:border-rose-900/50 ${
+            statusFilter === "Rejected" ? "ring-2 ring-rose-500/70 shadow-xs" : ""
+          }`}
+        >
+          <div className="text-xs text-rose-800 dark:text-rose-300 font-medium uppercase tracking-wider">
+            Rejected
+          </div>
+          <div className="mt-1 text-2xl font-bold font-display text-rose-950 dark:text-rose-100 tabular-nums">
+            {metrics.rejected}
+          </div>
+        </Card>
       </div>
 
-      {/* Toolbar filters: Market, Status (Pending, Completed), Priority */}
+      {/* Toolbar filters: Market, Priority */}
       <div className="flex flex-wrap items-center gap-2">
         <Select value={marketFilter} onValueChange={setMarketFilter}>
           <SelectTrigger className="h-9 w-[170px]">
@@ -984,17 +1072,6 @@ export default function ReportRequestsPage() {
                 {m}
               </SelectItem>
             ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="h-9 w-[170px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="Pending">Pending</SelectItem>
-            <SelectItem value="Completed">Completed</SelectItem>
           </SelectContent>
         </Select>
 

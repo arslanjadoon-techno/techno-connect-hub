@@ -10,6 +10,7 @@
  */
 
 import { http } from "../../http";
+import { MARKET_API_PATHS } from "@/lib/config";
 import { MMKV } from "@/lib/mmkv-storage";
 import type {
   SurveillanceRequest,
@@ -24,6 +25,7 @@ import type {
   SurveillanceRepTiming,
   SurveillanceCameraLog,
   SurveillanceAssignableAgent,
+  SurveillanceMarketOption,
   SurveillanceSalesRep,
   SurveillanceValidationItem,
   ValidateAndAssignPayload,
@@ -274,6 +276,14 @@ export class SurveillanceService {
   async getValidationQueue(): Promise<SurveillanceValidationItem[]> {
     const res = await http.get<SurveillanceValidationItem[]>("/api/surveillance/validation-queue");
     return res.data;
+  }
+
+  async getMarkets(page = 0, size = 500): Promise<SurveillanceMarketOption[]> {
+    const res = await http.get<SurveillanceMarketOption[]>(MARKET_API_PATHS.getAll, {
+      page,
+      size,
+    });
+    return res.data || [];
   }
 
   // With `search`, the DB query itself is narrowed by name/email server-side
