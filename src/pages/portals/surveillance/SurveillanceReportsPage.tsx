@@ -4371,35 +4371,42 @@ export default function SurveillanceReportsPage() {
           </div>
         </div>
 
-        {/* Store Header + 6 Distinctly Colored Summary Cards */}
+        {/* Store Header with Right-Aligned Market Tag + 6 Ordered Summary Cards */}
         <Card className="p-6 rounded-2xl border-border/70 shadow-xs space-y-5">
-          <div className="flex items-center gap-3.5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-900/50 shrink-0">
-              <StoreIcon className="h-5 w-5" />
+          <div className="flex flex-wrap items-center justify-between gap-3.5">
+            <div className="flex items-center gap-3.5 min-w-0">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-50 text-blue-600 border border-blue-100 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-900/50 shrink-0">
+                <StoreIcon className="h-5 w-5" />
+              </div>
+              <h2 className="font-display text-lg font-bold text-foreground tracking-tight truncate">
+                {item.storeName}
+              </h2>
             </div>
-            <h2 className="font-display text-lg font-bold text-foreground tracking-tight">
-              {item.storeName}
-            </h2>
+
+            {item.marketName && (
+              <Badge
+                variant="outline"
+                className="gap-1.5 rounded-lg border-blue-200 bg-blue-50/80 px-3 py-1.5 text-xs font-semibold text-blue-800 dark:border-blue-900 dark:bg-blue-950/40 dark:text-blue-300 shrink-0"
+              >
+                <MapPin className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
+                <span>{item.marketName}</span>
+              </Badge>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-            {/* 1. Market Card - Blue */}
-            <div className="flex items-start gap-3.5 rounded-xl border border-blue-200/80 bg-blue-50/60 p-4 dark:border-blue-900/50 dark:bg-blue-950/25">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-blue-600 border border-blue-100 shadow-2xs dark:bg-blue-950 dark:text-blue-400 dark:border-blue-900 shrink-0">
-                <MapPin className="h-4 w-4" />
+            {/* 1. Surveillance Date Card - Purple */}
+            <div className="flex items-start gap-3.5 rounded-xl border border-purple-200/80 bg-purple-50/60 p-4 dark:border-purple-900/50 dark:bg-purple-950/25">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-purple-600 border border-purple-100 shadow-2xs dark:bg-purple-950 dark:text-purple-400 dark:border-purple-900 shrink-0">
+                <Calendar className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <div className="text-[11px] font-medium text-blue-700/80 dark:text-blue-300/80">
-                  Market
+                <div className="text-[11px] font-medium text-purple-700/80 dark:text-purple-300/80">
+                  Surveillance date
                 </div>
-                <div className="text-sm font-bold text-blue-950 dark:text-blue-100 truncate mt-0.5">
-                  {item.marketName}
+                <div className="text-sm font-bold text-purple-950 dark:text-purple-100 tabular-nums mt-0.5">
+                  {formatDisplayDate(item.incidentDate)}
                 </div>
-                {item.districtName && (
-                  <div className="text-[11px] text-blue-700/70 dark:text-blue-300/70 mt-0.5">
-                    {item.districtName}
-                  </div>
-                )}
               </div>
             </div>
 
@@ -4433,22 +4440,7 @@ export default function SurveillanceReportsPage() {
               </div>
             </div>
 
-            {/* 4. Surveillance Date Card - Purple */}
-            <div className="flex items-start gap-3.5 rounded-xl border border-purple-200/80 bg-purple-50/60 p-4 dark:border-purple-900/50 dark:bg-purple-950/25">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-purple-600 border border-purple-100 shadow-2xs dark:bg-purple-950 dark:text-purple-400 dark:border-purple-900 shrink-0">
-                <Calendar className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <div className="text-[11px] font-medium text-purple-700/80 dark:text-purple-300/80">
-                  Surveillance date
-                </div>
-                <div className="text-sm font-bold text-purple-950 dark:text-purple-100 tabular-nums mt-0.5">
-                  {formatDisplayDate(item.incidentDate)}
-                </div>
-              </div>
-            </div>
-
-            {/* 5. Requested By Card - Cyan */}
+            {/* 4. Requested By Card - Cyan */}
             <div className="flex items-start gap-3.5 rounded-xl border border-cyan-200/80 bg-cyan-50/60 p-4 dark:border-cyan-900/50 dark:bg-cyan-950/25">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-cyan-600 border border-cyan-100 shadow-2xs dark:bg-cyan-950 dark:text-cyan-400 dark:border-cyan-900 shrink-0">
                 <UserIcon className="h-4 w-4" />
@@ -4463,17 +4455,53 @@ export default function SurveillanceReportsPage() {
               </div>
             </div>
 
-            {/* 6. Prepared By Card - Emerald */}
-            <div className="flex items-start gap-3.5 rounded-xl border border-emerald-200/80 bg-emerald-50/60 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/25">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-emerald-600 border border-emerald-100 shadow-2xs dark:bg-emerald-950 dark:text-emerald-400 dark:border-emerald-900 shrink-0">
-                <UserPlus className="h-4 w-4" />
+            {/* 5. Survey Starts At Card - Indigo */}
+            <div className="flex items-start gap-3.5 rounded-xl border border-indigo-200/80 bg-indigo-50/60 p-4 dark:border-indigo-900/50 dark:bg-indigo-950/25">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-indigo-600 border border-indigo-100 shadow-2xs dark:bg-indigo-950 dark:text-indigo-400 dark:border-indigo-900 shrink-0">
+                <Clock className="h-4 w-4" />
               </div>
               <div className="min-w-0">
-                <div className="text-[11px] font-medium text-emerald-700/80 dark:text-emerald-300/80">
-                  Prepared by
+                <div className="text-[11px] font-medium text-indigo-700/80 dark:text-indigo-300/80">
+                  Survey starts at
                 </div>
-                <div className="text-sm font-bold text-emerald-950 dark:text-emerald-100 truncate mt-0.5">
-                  {item.preparedBy || "—"}
+                <div className="text-sm font-bold text-indigo-950 dark:text-indigo-100 tabular-nums mt-0.5">
+                  {(() => {
+                    const startRaw =
+                      item.surveyStartsAt || item.assignedAt || item.approvedAt || item.createdAt;
+                    return startRaw ? formatDateTimeDisplay(startRaw) : "-";
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* 6. Survey Ends At Card - Teal */}
+            <div className="flex items-start gap-3.5 rounded-xl border border-teal-200/80 bg-teal-50/60 p-4 dark:border-teal-900/50 dark:bg-teal-950/25">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white text-teal-600 border border-teal-100 shadow-2xs dark:bg-teal-950 dark:text-teal-400 dark:border-teal-900 shrink-0">
+                <Clock className="h-4 w-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="text-[11px] font-medium text-teal-700/80 dark:text-teal-300/80">
+                  Survey ends at
+                </div>
+                <div className="text-sm font-bold text-teal-950 dark:text-teal-100 tabular-nums mt-0.5">
+                  {(() => {
+                    const isSurveyEnded =
+                      (item.status === "Report Received" ||
+                        item.status === "Approved" ||
+                        item.status === "Completed") &&
+                      item.reportStatus !== "Rejected" &&
+                      linkedReport?.status !== "Rejected";
+                    if (!isSurveyEnded) return "-";
+                    const endRaw =
+                      item.surveyEndsAt ||
+                      item.preparedAt ||
+                      (linkedReport && linkedReport.status !== "Draft"
+                        ? linkedReport.submittedAt
+                        : undefined) ||
+                      item.reportApprovedAt ||
+                      linkedReport?.reviewedAt;
+                    return endRaw ? formatDateTimeDisplay(endRaw) : "-";
+                  })()}
                 </div>
               </div>
             </div>

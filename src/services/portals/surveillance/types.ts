@@ -39,6 +39,9 @@ export interface SurveillanceRequest {
   status: SurveillanceRequestStatus;
   createdAt: string;
   updatedAt?: string;
+  assignedAt?: string;
+  surveyStartsAt?: string;
+  surveyEndsAt?: string;
   approvedBy?: string;
   approvedAt?: string;
   rejectionReason?: string;

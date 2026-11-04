@@ -240,8 +240,10 @@ function getSurveyEndsAtDisplay(
   item: SurveillanceValidationItem,
   displayStatus: ValidationDisplayStatus,
 ): string {
-  if (displayStatus !== "Completed") return "-";
-  const endRaw = item.surveyEndsAt || item.reportReviewedAt || item.reportSubmittedAt;
+  if (displayStatus !== "Completed" && displayStatus !== "Pending Verification") {
+    return "-";
+  }
+  const endRaw = item.surveyEndsAt || item.reportSubmittedAt || item.reportReviewedAt;
   return endRaw ? formatDateTimeDisplay(endRaw) : "-";
 }
 
@@ -1290,25 +1292,7 @@ export default function ValidateAndAssignPage() {
               </div>
             </Card>
 
-            {/* 3. Assigned */}
-            <Card
-              role="button"
-              tabIndex={0}
-              onClick={() => setStatusFilter("Assigned")}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") setStatusFilter("Assigned");
-              }}
-              className={`p-4 cursor-pointer transition-all border-sky-300/80 bg-sky-50/50 hover:bg-sky-50/80 dark:bg-sky-950/20 dark:border-sky-900/50 ${
-                statusFilter === "Assigned" ? "ring-2 ring-sky-500/70 shadow-xs" : ""
-              }`}
-            >
-              <div className="text-xs text-sky-800 dark:text-sky-300 font-medium">Assigned</div>
-              <div className="mt-1 text-2xl font-bold font-display text-sky-950 dark:text-sky-100 tabular-nums">
-                {metrics.assigned}
-              </div>
-            </Card>
-
-            {/* 4. Request Rejected */}
+            {/* 3. Request Rejected */}
             <Card
               role="button"
               tabIndex={0}
@@ -1325,6 +1309,24 @@ export default function ValidateAndAssignPage() {
               </div>
               <div className="mt-1 text-2xl font-bold font-display text-orange-950 dark:text-orange-100 tabular-nums">
                 {metrics.requestRejected}
+              </div>
+            </Card>
+
+            {/* 4. Assigned */}
+            <Card
+              role="button"
+              tabIndex={0}
+              onClick={() => setStatusFilter("Assigned")}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") setStatusFilter("Assigned");
+              }}
+              className={`p-4 cursor-pointer transition-all border-sky-300/80 bg-sky-50/50 hover:bg-sky-50/80 dark:bg-sky-950/20 dark:border-sky-900/50 ${
+                statusFilter === "Assigned" ? "ring-2 ring-sky-500/70 shadow-xs" : ""
+              }`}
+            >
+              <div className="text-xs text-sky-800 dark:text-sky-300 font-medium">Assigned</div>
+              <div className="mt-1 text-2xl font-bold font-display text-sky-950 dark:text-sky-100 tabular-nums">
+                {metrics.assigned}
               </div>
             </Card>
 
@@ -1412,8 +1414,8 @@ export default function ValidateAndAssignPage() {
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
                 <SelectItem value="Unassigned">Unassigned</SelectItem>
-                <SelectItem value="Assigned">Assigned</SelectItem>
                 <SelectItem value="Request Rejected">Request Rejected</SelectItem>
+                <SelectItem value="Assigned">Assigned</SelectItem>
                 <SelectItem value="Pending Verification">Pending Verification</SelectItem>
                 <SelectItem value="Report Rejected">Report Rejected</SelectItem>
                 <SelectItem value="Completed">Completed</SelectItem>
