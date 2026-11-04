@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   seedChatGroups,
   seedChatMessages,
@@ -66,6 +66,12 @@ const DataContext = createContext<DataCtx | null>(null);
 export function DataProvider({ children }: { children: ReactNode }) {
   // 🧹 Removed localStore() helper and storage keys. Explicitly initializing with base/empty template.
   const [data, setData] = useState<Store$>(initial);
+
+  useEffect(() => {
+    const handleLogout = () => setData(initial);
+    window.addEventListener("auth:logout", handleLogout);
+    return () => window.removeEventListener("auth:logout", handleLogout);
+  }, []);
 
   // 🛠️ Optimized state setter with stability guard
   const set = useCallback(<K extends keyof Store$>(key: K, next: Store$[K]) => {

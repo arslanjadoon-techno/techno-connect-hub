@@ -5,7 +5,10 @@
  * Change it there (e.g. switching from local to production) and every
  * API call in the app picks it up automatically.
  */
-const cleanBaseUrl = (value: unknown): string => String(value || "").trim().replace(/\/$/, "");
+const cleanBaseUrl = (value: unknown): string =>
+  String(value || "")
+    .trim()
+    .replace(/\/$/, "");
 
 export const API_BASE_URL = cleanBaseUrl(import.meta.env.VITE_API_DEV_URL) || "N/A";
 // Chat and the main API must use the same origin by default. A dedicated URL
@@ -140,7 +143,39 @@ export const COMMISSION_API_PATHS = {
   getAllEmployeeCommissionMarketWise: "/GetAllEmployeeCommissionMarketWise",
   getAllEmployeeCommissionMarketWiseWithPagination:
     "/GetAllEmployeeCommissionMarketWiseWithPagination",
+  getDailyCommission: "/api/DailyCommission/GetDailyCommission",
   getDashboard: "/GetDashboard",
+} as const;
+
+export const DAILY_COMMISSION_FILTER_API_PATHS = {
+  getAllDailyCommissionFilter: "/api/DailyCommission/GetAllDailyCommissionFilter",
+  saveDailyCommissionFilter: "/api/DailyCommission/SaveDailyCommissionFilter",
+  dailyCommissionParsePdf: "/api/DailyCommission/DailyCommissionParsePdf",
+  deleteDailyCommissionFilter: (id: number, year: number, month: number) =>
+    `/api/DailyCommission/DeleteDailyCommissionFilter/${id}?year=${year}&month=${month}`,
+  getDailyCommissionSdrFilter: "/api/DailyCommission/GetDailyCommissionSdrFilter",
+  saveDailyCommissionSdrFilter: "/api/DailyCommission/SaveDailyCommissionSdrFilter",
+  refreshDailyCommissionSummary: "/api/DailyCommission/RefreshDailyCommissionSummary",
+} as const;
+
+export const COMMISSION_ENGINE_API_PATHS = {
+  getPlans: "/api/CommissionEngine/GetPlans",
+  getPlan: (planId: number) => `/api/CommissionEngine/GetPlan/${planId}`,
+  createPlan: "/api/CommissionEngine/CreatePlan",
+  saveRules: (planId: number) => `/api/CommissionEngine/SaveRules/${planId}`,
+  saveTypes: (planId: number) => `/api/CommissionEngine/SaveTypes/${planId}`,
+  getSourceFields: "/api/CommissionEngine/GetSourceFields",
+  getFieldValues: "/api/CommissionEngine/GetFieldValues",
+  getUploads: (planId: number) => `/api/CommissionEngine/GetUploads/${planId}`,
+  upload: (planId: number, uploadType: string) =>
+    `/api/CommissionEngine/Upload/${planId}?uploadType=${encodeURIComponent(uploadType)}`,
+  deleteUpload: (planId: number, uploadId: number) =>
+    `/api/CommissionEngine/DeleteUpload/${planId}/${uploadId}`,
+  run: (planId: number, tillDate: string | null) =>
+    `/api/CommissionEngine/Run/${planId}${tillDate ? `?tillDate=${tillDate}` : ""}`,
+  getRuns: (planId: number) => `/api/CommissionEngine/GetRuns/${planId}`,
+  getRun: (runId: number) => `/api/CommissionEngine/GetRun/${runId}`,
+  getLatestRun: (planId: number) => `/api/CommissionEngine/GetLatestRun/${planId}`,
 } as const;
 
 export const LEAVE_API_PATHS = {

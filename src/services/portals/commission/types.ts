@@ -86,6 +86,7 @@ export interface CommissionPaginationParams {
   page?: number;
   pageSize?: number;
   market?: string;
+  search?: string;
 }
 
 export interface CommissionPaginationResponse {

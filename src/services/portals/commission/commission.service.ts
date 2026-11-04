@@ -262,6 +262,43 @@ export class CommissionService {
       data: Array.isArray(json.data) ? json.data : [],
     };
   }
+
+  /**
+   * Fetch paginated commission records from dailyCommission.final_commission_summary.
+   * Endpoint: /api/DailyCommission/GetDailyCommission?fromDate=...&toDate=...&page=...&size=...&market=... (page is 0-based)
+   */
+  async getDailyCommission(params: CommissionPaginationParams): Promise<CommissionPaginationResponse> {
+    const page = params.page ?? 1;
+    const pageSize = params.pageSize ?? 100;
+    const query = this.buildQueryString({
+      fromDate: params.fromDate,
+      toDate: params.toDate,
+      page: page - 1,
+      size: pageSize,
+      market: params.market && params.market !== "all" ? params.market : undefined,
+      search: params.search?.trim() || undefined,
+    });
+
+    const url = `${LEASING_COMMISSION_API_BASE_URL}${COMMISSION_API_PATHS.getDailyCommission}${query}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch commission data (${response.status}: ${response.statusText})`);
+    }
+
+    const json = await response.json();
+    const totalRecords = Number(json.pagination?.totalRecords) || 0;
+    const totalPages = Number(json.pagination?.totalPages) || 0;
+    return {
+      page,
+      pageSize,
+      totalRecords,
+      totalPages,
+      hasPreviousPage: page > 1,
+      hasNextPage: page < totalPages,
+      data: Array.isArray(json.data) ? json.data : [],
+    };
+  }
 }
 
 /**

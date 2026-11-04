@@ -208,3 +208,22 @@ export async function clearAllCachedChatMessages(): Promise<void> {
     db?.close();
   }
 }
+
+/**
+ * Remove the chat cache database and all of its data.
+ */
+export async function deleteChatDatabase(): Promise<void> {
+  if (typeof indexedDB === "undefined") {
+    return;
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(DB_NAME);
+
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+    request.onblocked = () => {
+      reject(new Error(`IndexedDB deletion was blocked for ${DB_NAME}`));
+    };
+  });
+}

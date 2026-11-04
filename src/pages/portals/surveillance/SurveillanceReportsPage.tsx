@@ -21,6 +21,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -28,6 +36,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Plus,
@@ -62,6 +71,8 @@ import {
   Search,
   UserPlus,
   Video,
+  Loader2,
+  ChevronsUpDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -76,18 +87,7 @@ import {
   type SurveillancePriority,
   type SurveillanceRequestStatus,
 } from "@/services/portals/surveillance";
-import {
-  getStaticAgentRequests,
-  getStaticReports,
-  submitStaticAuditReport,
-  saveStaticDraftRow,
-  getStaticDraftRows,
-  removeStaticDraftRow,
-  clearStaticRequestDraft,
-  saveStaticActiveDraftSession,
-  getStaticActiveDraftSession,
-  clearStaticActiveDraftSession,
-} from "./surveillance-data";
+import { surveillanceService } from "@/services/portals/surveillance/surveillance.service";
 
 const PRIORITY_TONES: Record<SurveillancePriority, string> = {
   low: "bg-muted text-muted-foreground border-border",
@@ -196,8 +196,6 @@ function formatDateTimeDisplay(raw?: string): string {
   return raw;
 }
 
-const SALES_REP_NAMES = ["Abdul Razzak", "Dakshay Raval", "Marcus Young"];
-
 const TRANSACTION_TYPE_OPTIONS = [
   "ACC",
   "ACT Pay",
@@ -220,11 +218,6 @@ const CLIENT_TYPE_OPTIONS = [
   { value: "__empty__", label: "-" },
   { value: "Buyer", label: "Buyer" },
   { value: "Non-Buyer", label: "Non-Buyer" },
-];
-
-const REP_NAME_OPTIONS = [
-  { value: "__empty__", label: "-" },
-  ...SALES_REP_NAMES.map((rep) => ({ value: rep, label: rep })),
 ];
 
 const PAYMENT_TYPE_OPTIONS = [
@@ -325,6 +318,29 @@ function hasAnyActiveFraudItem(row: SurveillanceAuditRow): boolean {
     (item) =>
       (row[item.key] || "").trim().toUpperCase() === "YES" ||
       Boolean((row[item.detailKey] || "").trim()),
+  );
+}
+
+// Mirrors hasAnyActiveFraudItem for the "Sales Pitch & Bundle Verification"
+// section - a row restored (from MMKV or the real backend) with any of these
+// fields already filled in should reopen the toggle, not show it disabled
+// while still holding the saved values underneath.
+function hasAnyActiveSalesPitchItem(row: SurveillanceAuditRow): boolean {
+  const isYes = (val?: string) => (val || "").trim().toUpperCase() === "YES";
+  const nonEmpty = (val?: string) => {
+    const s = (val || "").trim();
+    return Boolean(s) && s !== "__empty__";
+  };
+  return (
+    nonEmpty(row.pitchQuality) ||
+    isYes(row.showingPhone) ||
+    isYes(row.accOffered) ||
+    isYes(row.maximize) ||
+    isYes(row.bundleAccGiven) ||
+    nonEmpty(row.bundleNb) ||
+    nonEmpty(row.bundleStartB) ||
+    nonEmpty(row.bundleEndB) ||
+    nonEmpty(row.pitchNotes)
   );
 }
 
@@ -588,6 +604,150 @@ function StandardSelect({
           ))}
         </SelectContent>
       </Select>
+    </div>
+  );
+}
+
+// Search-as-you-type "Rep Name" picker - queries TechnoUserManagement's
+// users table server-side (2+ characters) instead of loading the whole
+// roster up front, same pattern as the Validate & Assign agent picker.
+function RepNameCombobox({
+  label,
+  required = false,
+  value,
+  onValueChange,
+}: {
+  label: string;
+  required?: boolean;
+  value: string | undefined;
+  onValueChange: (val: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<{ value: string; label: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const q = query.trim();
+    if (q.length < 2) {
+      setResults([]);
+      return;
+    }
+    setLoading(true);
+    const timer = setTimeout(() => {
+      surveillanceService
+        .getSalesReps(q)
+        .then((reps) => setResults(reps.map((r) => ({ value: r.fullName, label: r.fullName }))))
+        .catch(() => setResults([]))
+        .finally(() => setLoading(false));
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query, open]);
+
+  return (
+    <div className="space-y-1">
+      <Label className="text-[11px] font-semibold">
+        {label}
+        {required && <span className="text-destructive"> *</span>}
+      </Label>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="flex h-9 w-full items-center gap-2 rounded-md border border-input bg-background px-3 text-xs text-foreground hover:bg-accent"
+          >
+            <span
+              className={`flex-1 text-left truncate ${value ? "text-foreground" : "text-muted-foreground"}`}
+            >
+              {value || "Search rep name..."}
+            </span>
+            <ChevronsUpDown className="h-3.5 w-3.5 opacity-50 shrink-0" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+          <Command shouldFilter={false}>
+            <CommandInput
+              placeholder="Type 2+ characters to search..."
+              value={query}
+              onValueChange={setQuery}
+            />
+            <CommandList>
+              <CommandEmpty>
+                {loading
+                  ? "Searching..."
+                  : query.trim().length < 2
+                    ? "Type at least 2 characters to search."
+                    : "No matching users found."}
+              </CommandEmpty>
+              <CommandGroup>
+                {results.map((r) => (
+                  <CommandItem
+                    key={r.value}
+                    value={r.value}
+                    onSelect={() => {
+                      onValueChange(r.value);
+                      setOpen(false);
+                    }}
+                    className="text-xs"
+                  >
+                    {r.label}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
+}
+
+// Same label/required/options/value/onValueChange contract as StandardSelect,
+// but renders inline radio buttons instead of a dropdown - used for Pitch
+// Quality and the Yes/No fields in Sales Pitch & Bundle Verification. The
+// leading "__empty__"/"-" placeholder entry from the shared options arrays
+// (YES_NO_OPTIONS, PITCH_QUALITY_OPTIONS) is skipped here - a radio group
+// already supports "nothing selected" without needing an explicit option for it.
+function StandardRadioGroup({
+  label,
+  required = false,
+  options,
+  value,
+  onValueChange,
+}: {
+  label: string;
+  required?: boolean;
+  options: { value: string; label: string }[];
+  value: string | undefined;
+  onValueChange: (val: string) => void;
+}) {
+  const selectVal = !value || value === "__empty__" ? "" : value;
+  const realOptions = options.filter((opt) => opt.value !== "__empty__");
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-[11px] font-semibold">
+        {label}
+        {required && <span className="text-destructive"> *</span>}
+      </Label>
+      <RadioGroup
+        value={selectVal}
+        onValueChange={onValueChange}
+        className="grid grid-flow-col auto-cols-max gap-x-4 gap-y-1"
+      >
+        {realOptions.map((opt) => {
+          const itemId = `${label}-${opt.value}`.replace(/\s+/g, "-");
+          return (
+            <div key={opt.value} className="flex items-center gap-1.5">
+              <RadioGroupItem value={opt.value} id={itemId} />
+              <Label htmlFor={itemId} className="text-xs font-normal cursor-pointer select-none">
+                {opt.label}
+              </Label>
+            </div>
+          );
+        })}
+      </RadioGroup>
     </div>
   );
 }
@@ -1197,6 +1357,23 @@ export default function SurveillanceReportsPage() {
   const [dirtyRowIds, setDirtyRowIds] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
+  // Real backend report id for the audit currently being edited - set once
+  // the first audit row is saved (saveReportProgress creates the report as
+  // Status "Draft"). Required before Floor Presence / Camera Uptime can be
+  // saved to the server.
+  const [draftReportId, setDraftReportId] = useState<string | undefined>(undefined);
+  // Full-screen blocking overlay shown while any backend call on this page
+  // is in flight (row save, rep timing/camera log save, submit, resume
+  // fetch) so the agent can't interact with the form mid-request.
+  const [blockingMessage, setBlockingMessage] = useState<string | null>(
+    "Loading surveillance reports...",
+  );
+  const blockingOverlay = blockingMessage ? (
+    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-xl bg-background/30 backdrop-blur-[2px]">
+      <Loader2 className="h-9 w-9 animate-spin text-primary" />
+      <p className="text-sm font-semibold text-foreground drop-shadow-sm">{blockingMessage}</p>
+    </div>
+  ) : null;
 
   // Top / bottom store open & close time fields
   const [headerStoreOpenTime, setHeaderStoreOpenTime] = useState<string>("");
@@ -1226,6 +1403,32 @@ export default function SurveillanceReportsPage() {
   >({});
   const [headerGeneralNotes, setHeaderGeneralNotes] = useState<string>("");
 
+  // Autosave header fields + Floor Presence / Camera Uptime sections to
+  // MMKV so pausing mid-audit (closing the form, coming back later) doesn't
+  // lose anything beyond the audit rows, which saveDraftRow already covers.
+  useEffect(() => {
+    if (!isEditingReport || !selectedDetail) return;
+    surveillanceService.saveSessionMeta(selectedDetail.id, {
+      headerStoreOpenTime,
+      headerStoreCloseTime,
+      headerGeneralNotes,
+      repTimingRows,
+      cameraUptimeRows,
+      isFloorPresenceEnabled,
+      isCameraUptimeEnabled,
+    });
+  }, [
+    isEditingReport,
+    selectedDetail,
+    headerStoreOpenTime,
+    headerStoreCloseTime,
+    headerGeneralNotes,
+    repTimingRows,
+    cameraUptimeRows,
+    isFloorPresenceEnabled,
+    isCameraUptimeEnabled,
+  ]);
+
   const metrics = useMemo(() => {
     return {
       total: requests.length,
@@ -1240,11 +1443,30 @@ export default function SurveillanceReportsPage() {
     };
   }, [requests]);
 
-  // Load sample static requests + reports on mount (backend API disabled during UI iteration)
+  const reloadAgentRequests = async () => {
+    try {
+      setRequests(await surveillanceService.getRequests());
+    } catch (error) {
+      toast.error(`Failed to load surveillance requests: ${(error as Error).message}`);
+    }
+  };
+
+  const reloadReports = async () => {
+    try {
+      setReports(await surveillanceService.getReports());
+    } catch (error) {
+      toast.error(`Failed to load surveillance reports: ${(error as Error).message}`);
+    }
+  };
+
+  // Load agent requests + reports from the backend on mount. The "Rep Name"
+  // picker searches on demand (RepNameCombobox) rather than loading the
+  // whole user roster here.
   useEffect(() => {
-    setRequests(getStaticAgentRequests());
-    setReports(getStaticReports());
-    setDataLoaded(true);
+    Promise.all([reloadAgentRequests(), reloadReports()]).finally(() => {
+      setDataLoaded(true);
+      setBlockingMessage(null);
+    });
   }, []);
 
   // Listen for resubmitRequestId passed from detail view navigation
@@ -1264,18 +1486,18 @@ export default function SurveillanceReportsPage() {
   // Automatically restore active MMKV draft session after an unexpected refresh
   useEffect(() => {
     if (!dataLoaded) return;
-    const activeSession = getStaticActiveDraftSession();
+    const activeSession = surveillanceService.getActiveDraftSession();
     if (!activeSession?.isEditing || !activeSession.requestId) return;
 
     const targetReq = requests.find(
       (r) => r.id === activeSession.requestId && r.status === "Report Requested",
     );
     if (!targetReq) {
-      clearStaticActiveDraftSession();
+      surveillanceService.clearActiveDraftSession();
       return;
     }
 
-    const savedRecords = getStaticDraftRows(targetReq.id);
+    const savedRecords = surveillanceService.getDraftRows(targetReq.id);
     if (savedRecords.length === 0) return;
 
     const restoredRows = savedRecords.map((rec) => {
@@ -1315,6 +1537,7 @@ export default function SurveillanceReportsPage() {
     const timestamps: Record<string, string> = {};
     const expanded: Record<string, boolean> = {};
     const initialFraudOpen: Record<string, boolean> = {};
+    const initialPitchOpen: Record<string, boolean> = {};
     for (const rec of savedRecords) {
       timestamps[rec.row.id] = rec.savedAt;
       expanded[rec.row.id] = true;
@@ -1323,6 +1546,26 @@ export default function SurveillanceReportsPage() {
       if (hasAnyActiveFraudItem(r)) {
         initialFraudOpen[r.id] = true;
       }
+      if (hasAnyActiveSalesPitchItem(r)) {
+        initialPitchOpen[r.id] = true;
+      }
+    }
+
+    const sessionMeta = surveillanceService.getSessionMeta(targetReq.id);
+    if (sessionMeta) {
+      setHeaderStoreOpenTime(sessionMeta.headerStoreOpenTime || "");
+      setHeaderStoreCloseTime(sessionMeta.headerStoreCloseTime || "");
+      setHeaderGeneralNotes(sessionMeta.headerGeneralNotes || "");
+      setRepTimingRows(
+        sessionMeta.repTimingRows.length > 0 ? sessionMeta.repTimingRows : [createEmptyRepTimingRow()],
+      );
+      setCameraUptimeRows(
+        sessionMeta.cameraUptimeRows.length > 0
+          ? sessionMeta.cameraUptimeRows
+          : [createEmptyCameraUptimeRow()],
+      );
+      setIsFloorPresenceEnabled(sessionMeta.isFloorPresenceEnabled);
+      setIsCameraUptimeEnabled(sessionMeta.isCameraUptimeEnabled);
     }
 
     setSelectedDetail(targetReq);
@@ -1331,13 +1574,104 @@ export default function SurveillanceReportsPage() {
     setDirtyRowIds({});
     setExpandedRowIds(expanded);
     setFraudSectionEnabledByRow(initialFraudOpen);
+    setSalesPitchSectionEnabledByRow(initialPitchOpen);
     setIsEditingReport(true);
+
+    // Reconnect to the real backend report (if progress was already synced
+    // in an earlier session on this browser) so Floor Presence / Camera
+    // Uptime saves work right away instead of requiring a fresh row save.
+    surveillanceService.getReportByRequestId(targetReq.id).then((dbReport) => {
+      if (dbReport) setDraftReportId(dbReport.id);
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dataLoaded]);
 
-  const handleOpenEditableForm = (reqItem: SurveillanceRequest) => {
+  const handleOpenEditableForm = async (reqItem: SurveillanceRequest) => {
+    // 0. Real DB first - progress saved from any browser/device for this
+    // request, not just this browser's local storage. If it exists, it's
+    // authoritative; MMKV below is only the pre-first-save fallback.
+    setBlockingMessage("Loading surveillance audit...");
+    const dbReport = await surveillanceService.getReportByRequestId(reqItem.id);
+    setBlockingMessage(null);
+    if (dbReport) {
+      const restoredRows = (dbReport.rows || []).map((row) => {
+        const resolvedPt = normalizePaymentTypeSelection(row.paymentType, row.cash, row.card);
+        const cleanCash = sanitizePaymentInputValue(row.cash, resolvedPt === "Cash" ? row.totalTaken : "");
+        const cleanCard = sanitizePaymentInputValue(row.card, resolvedPt === "Card" ? row.totalTaken : "");
+        const computedTaken = computeTotalTakenFromPayments(resolvedPt, cleanCash, cleanCard);
+        return hydrateAuditRowDetails({
+          ...row,
+          date: formatSurveillanceDate(row.date || reqItem.incidentDate),
+          marketName: row.marketName?.trim() || reqItem.marketName || "",
+          storeName: row.storeName?.trim() || reqItem.storeName || "",
+          clientType: normalizeClientType(row.clientType, row.b, row.nb),
+          paymentType: resolvedPt,
+          cash: cleanCash,
+          card: cleanCard,
+          totalTaken: computedTaken,
+          difference: calculatePaymentDifferenceDisplay(row.invoiceAmount, resolvedPt, cleanCash, cleanCard),
+          attachments: row.attachments ? [...row.attachments] : [],
+        });
+      });
+      const timestamps: Record<string, string> = {};
+      const expanded: Record<string, boolean> = {};
+      const initialFraudOpen: Record<string, boolean> = {};
+      const initialPitchOpen: Record<string, boolean> = {};
+      for (const r of restoredRows) {
+        timestamps[r.id] = dbReport.submittedAt;
+        expanded[r.id] = true;
+        if (hasAnyActiveFraudItem(r)) initialFraudOpen[r.id] = true;
+        if (hasAnyActiveSalesPitchItem(r)) initialPitchOpen[r.id] = true;
+      }
+
+      setDraftReportId(dbReport.id);
+      setEditableRows(restoredRows);
+      setSavedRowTimestamps(timestamps);
+      setDirtyRowIds({});
+      setExpandedRowIds(expanded);
+      setFraudSectionEnabledByRow(initialFraudOpen);
+      setSalesPitchSectionEnabledByRow(initialPitchOpen);
+      setHeaderStoreOpenTime(dbReport.storeOpenTime || "");
+      setHeaderStoreCloseTime(dbReport.storeCloseTime || "");
+      setHeaderGeneralNotes(dbReport.notes || "");
+      const dbRepTimings = dbReport.repTimings || [];
+      setRepTimingRows(
+        dbRepTimings.length > 0
+          ? dbRepTimings.map((t) => ({
+              id: t.id,
+              repName: t.repName || "",
+              timeLeft: t.timeLeft || "",
+              timeReturned: t.timeReturned || "",
+              backRoomTimeIn: t.backRoomTimeIn || "",
+              backRoomTimeOut: t.backRoomTimeOut || "",
+            }))
+          : [createEmptyRepTimingRow()],
+      );
+      setIsFloorPresenceEnabled(dbRepTimings.length > 0);
+      const dbCameraLogs = dbReport.cameraLogs || [];
+      setCameraUptimeRows(
+        dbCameraLogs.length > 0
+          ? dbCameraLogs.map((c) => ({
+              id: c.id,
+              cameraName: c.cameraName || "",
+              onlineTime: c.onlineTime || "",
+              offlineTime: c.offlineTime || "",
+            }))
+          : [createEmptyCameraUptimeRow()],
+      );
+      setIsCameraUptimeEnabled(dbCameraLogs.length > 0);
+      setIsTimingSectionDirty(false);
+      setIsCameraUptimeDirty(false);
+      surveillanceService.saveActiveDraftSession(reqItem.id, true);
+      setIsEditingReport(true);
+      toast.info(
+        `Restored ${restoredRows.length} saved audit ${restoredRows.length === 1 ? "row" : "rows"} from the server.`,
+      );
+      return;
+    }
+
     // 1. Check MMKV storage first for previously saved row-by-row draft entries
-    const savedRecords = getStaticDraftRows(reqItem.id);
+    const savedRecords = surveillanceService.getDraftRows(reqItem.id);
     if (savedRecords.length > 0) {
       const restoredRows = savedRecords.map((rec) => {
         const resolvedPt = normalizePaymentTypeSelection(
@@ -1376,6 +1710,7 @@ export default function SurveillanceReportsPage() {
       const timestamps: Record<string, string> = {};
       const expanded: Record<string, boolean> = {};
       const initialFraudOpen: Record<string, boolean> = {};
+      const initialPitchOpen: Record<string, boolean> = {};
       for (const rec of savedRecords) {
         timestamps[rec.row.id] = rec.savedAt;
         expanded[rec.row.id] = true;
@@ -1384,16 +1719,46 @@ export default function SurveillanceReportsPage() {
         if (hasAnyActiveFraudItem(r)) {
           initialFraudOpen[r.id] = true;
         }
+        if (hasAnyActiveSalesPitchItem(r)) {
+          initialPitchOpen[r.id] = true;
+        }
       }
 
+      const sessionMeta = surveillanceService.getSessionMeta(reqItem.id);
+      if (sessionMeta) {
+        setHeaderStoreOpenTime(sessionMeta.headerStoreOpenTime || "");
+        setHeaderStoreCloseTime(sessionMeta.headerStoreCloseTime || "");
+        setHeaderGeneralNotes(sessionMeta.headerGeneralNotes || "");
+        setRepTimingRows(
+          sessionMeta.repTimingRows.length > 0
+            ? sessionMeta.repTimingRows
+            : [createEmptyRepTimingRow()],
+        );
+        setCameraUptimeRows(
+          sessionMeta.cameraUptimeRows.length > 0
+            ? sessionMeta.cameraUptimeRows
+            : [createEmptyCameraUptimeRow()],
+        );
+        setIsFloorPresenceEnabled(sessionMeta.isFloorPresenceEnabled);
+        setIsCameraUptimeEnabled(sessionMeta.isCameraUptimeEnabled);
+      } else {
+        setHeaderStoreOpenTime("");
+        setHeaderStoreCloseTime("");
+        setHeaderGeneralNotes("");
+        setRepTimingRows([createEmptyRepTimingRow()]);
+        setCameraUptimeRows([createEmptyCameraUptimeRow()]);
+        setIsFloorPresenceEnabled(false);
+        setIsCameraUptimeEnabled(false);
+      }
+
+      setDraftReportId(undefined);
       setEditableRows(restoredRows);
       setSavedRowTimestamps(timestamps);
       setDirtyRowIds({});
       setExpandedRowIds(expanded);
-      setIsFloorPresenceEnabled(false);
       setFraudSectionEnabledByRow(initialFraudOpen);
-      setSalesPitchSectionEnabledByRow({});
-      saveStaticActiveDraftSession(reqItem.id, true);
+      setSalesPitchSectionEnabledByRow(initialPitchOpen);
+      surveillanceService.saveActiveDraftSession(reqItem.id, true);
       setIsEditingReport(true);
       toast.info(
         `Restored ${restoredRows.length} saved audit ${restoredRows.length === 1 ? "row" : "rows"} from local storage.`,
@@ -1401,23 +1766,42 @@ export default function SurveillanceReportsPage() {
       return;
     }
 
-    // 2. Otherwise initialize from existing report or start with a blank audit row
+    // 2. Otherwise initialize from a saved session draft (header/timing/camera
+    // saved before any audit row was added), an existing report, or blank
     const existingReport = reports.find(
       (rep) => rep.id === reqItem.linkedReportId || rep.requestId === reqItem.id,
     );
+    const sessionMeta = surveillanceService.getSessionMeta(reqItem.id);
 
     const initialDate = formatSurveillanceDate(reqItem.incidentDate);
 
     setSavedRowTimestamps({});
     setDirtyRowIds({});
-    setIsFloorPresenceEnabled(false);
-    setIsCameraUptimeEnabled(false);
     setIsTimingSectionDirty(false);
     setIsCameraUptimeDirty(false);
     setFraudSectionEnabledByRow({});
     setSalesPitchSectionEnabledByRow({});
 
-    if (existingReport) {
+    if (sessionMeta) {
+      setHeaderStoreOpenTime(sessionMeta.headerStoreOpenTime || "");
+      setHeaderStoreCloseTime(sessionMeta.headerStoreCloseTime || "");
+      setHeaderGeneralNotes(sessionMeta.headerGeneralNotes || "");
+      setRepTimingRows(
+        sessionMeta.repTimingRows.length > 0 ? sessionMeta.repTimingRows : [createEmptyRepTimingRow()],
+      );
+      setCameraUptimeRows(
+        sessionMeta.cameraUptimeRows.length > 0
+          ? sessionMeta.cameraUptimeRows
+          : [createEmptyCameraUptimeRow()],
+      );
+      setIsFloorPresenceEnabled(sessionMeta.isFloorPresenceEnabled);
+      setIsCameraUptimeEnabled(sessionMeta.isCameraUptimeEnabled);
+    } else {
+      setIsFloorPresenceEnabled(false);
+      setIsCameraUptimeEnabled(false);
+    }
+
+    if (!sessionMeta && existingReport) {
       setHeaderStoreOpenTime(existingReport.cashTime || existingReport.time || "");
       setHeaderStoreCloseTime(existingReport.timeReturned || "");
       setHeaderGeneralNotes(existingReport.notes || "");
@@ -1436,7 +1820,7 @@ export default function SurveillanceReportsPage() {
         setRepTimingRows([createEmptyRepTimingRow()]);
       }
       setCameraUptimeRows([createEmptyCameraUptimeRow()]);
-    } else {
+    } else if (!sessionMeta) {
       setHeaderStoreOpenTime("");
       setHeaderStoreCloseTime("");
       setHeaderGeneralNotes("");
@@ -1479,12 +1863,17 @@ export default function SurveillanceReportsPage() {
         );
       });
       const initialFraudOpen: Record<string, boolean> = {};
+      const initialPitchOpen: Record<string, boolean> = {};
       for (const r of cloned) {
         if (hasAnyActiveFraudItem(r)) {
           initialFraudOpen[r.id] = true;
         }
+        if (hasAnyActiveSalesPitchItem(r)) {
+          initialPitchOpen[r.id] = true;
+        }
       }
       setFraudSectionEnabledByRow(initialFraudOpen);
+      setSalesPitchSectionEnabledByRow(initialPitchOpen);
       setEditableRows(cloned);
       setExpandedRowIds({ [cloned[0].id]: true });
     } else if (existingReport) {
@@ -1521,6 +1910,9 @@ export default function SurveillanceReportsPage() {
       if (hasAnyActiveFraudItem(fallbackRow)) {
         setFraudSectionEnabledByRow({ [fallbackRow.id]: true });
       }
+      if (hasAnyActiveSalesPitchItem(fallbackRow)) {
+        setSalesPitchSectionEnabledByRow({ [fallbackRow.id]: true });
+      }
       setEditableRows([fallbackRow]);
       setExpandedRowIds({ [fallbackRow.id]: true });
     } else {
@@ -1529,27 +1921,64 @@ export default function SurveillanceReportsPage() {
       setExpandedRowIds({});
     }
 
-    saveStaticActiveDraftSession(reqItem.id, true);
+    setDraftReportId(undefined);
+    surveillanceService.saveActiveDraftSession(reqItem.id, true);
     setIsEditingReport(true);
   };
 
   const handleCloseEditableForm = () => {
-    clearStaticActiveDraftSession();
+    surveillanceService.clearActiveDraftSession();
+    setDraftReportId(undefined);
     setIsEditingReport(false);
   };
 
-  const handleSaveAuditRow = (requestId: string, row: SurveillanceAuditRow, rowIndex: number) => {
-    const savedRecord = saveStaticDraftRow(requestId, row, rowIndex);
-    setSavedRowTimestamps((prev) => ({
-      ...prev,
-      [row.id]: savedRecord.savedAt,
-    }));
-    setDirtyRowIds((prev) => ({
-      ...prev,
-      [row.id]: false,
-    }));
-    saveStaticActiveDraftSession(requestId, true);
-    toast.success(`Row #${rowIndex + 1} has been saved locally.`);
+  // Single save action for every audit row at once - replaces the old
+  // per-row Save button, which was confusing when there were several rows
+  // (easy to think a row was saved when only a different one had been).
+  const handleSaveAllAuditRows = async (requestId: string) => {
+    if (editableRows.length === 0) {
+      toast.error("Add at least one audit row before saving.");
+      return;
+    }
+
+    const rowCount = editableRows.length;
+    setBlockingMessage(`Saving ${rowCount} audit ${rowCount === 1 ? "row" : "rows"}...`);
+    const reqItem = requests.find((r) => r.id === requestId);
+    let syncFailures = 0;
+
+    for (let i = 0; i < editableRows.length; i++) {
+      const row = editableRows[i];
+      const savedRecord = surveillanceService.saveDraftRow(requestId, row, i);
+      setSavedRowTimestamps((prev) => ({ ...prev, [row.id]: savedRecord.savedAt }));
+      setDirtyRowIds((prev) => ({ ...prev, [row.id]: false }));
+
+      try {
+        const saved = await surveillanceService.saveReportProgress({
+          requestId,
+          date: formatSurveillanceDate(reqItem?.incidentDate || ""),
+          marketName: reqItem?.marketName,
+          storeName: reqItem?.storeName,
+          storeOpenTime: headerStoreOpenTime || undefined,
+          storeCloseTime: headerStoreCloseTime || undefined,
+          notes: headerGeneralNotes || undefined,
+          row,
+        });
+        setDraftReportId(saved.id);
+      } catch {
+        syncFailures += 1;
+      }
+    }
+
+    surveillanceService.saveActiveDraftSession(requestId, true);
+    setBlockingMessage(null);
+
+    if (syncFailures > 0) {
+      toast.error(
+        `${syncFailures} of ${rowCount} row${rowCount === 1 ? "" : "s"} saved locally but failed to sync to the server.`,
+      );
+    } else {
+      toast.success(`${rowCount} audit ${rowCount === 1 ? "row" : "rows"} saved.`);
+    }
   };
 
   const handleUpdateRowField = <K extends keyof SurveillanceAuditRow>(
@@ -1734,8 +2163,8 @@ export default function SurveillanceReportsPage() {
     );
   };
 
-  const handleRemoveAuditRow = (requestId: string, rowId: string) => {
-    removeStaticDraftRow(requestId, rowId);
+  const handleRemoveAuditRow = async (requestId: string, rowId: string) => {
+    surveillanceService.removeDraftRow(requestId, rowId);
     setEditableRows((prev) => prev.filter((r) => r.id !== rowId));
     setSavedRowTimestamps((prev) => {
       const next = { ...prev };
@@ -1757,6 +2186,17 @@ export default function SurveillanceReportsPage() {
       delete next[rowId];
       return next;
     });
+
+    // The row may already be synced to the real backend report (via "Save
+    // All Audit Rows") - without deleting it there too, it would still be in
+    // the DB and reappear the next time this audit is resumed.
+    if (draftReportId) {
+      try {
+        await surveillanceService.deleteAuditRow(draftReportId, rowId);
+      } catch (error) {
+        toast.error(`Row removed locally, but failed to delete on the server: ${(error as Error).message}`);
+      }
+    }
   };
 
   const handleAddRepTimingRow = () => {
@@ -1787,7 +2227,7 @@ export default function SurveillanceReportsPage() {
     );
   };
 
-  const handleSaveAllRepTimings = () => {
+  const handleSaveAllRepTimings = async () => {
     for (let i = 0; i < repTimingRows.length; i++) {
       const row = repTimingRows[i];
       const rowNum = i + 1;
@@ -1810,9 +2250,26 @@ export default function SurveillanceReportsPage() {
       }
     }
 
-    setIsTimingSectionDirty(false);
-    setIsTimingSectionSaved(true);
-    toast.success("Floor Presence & Rep Timings saved successfully.");
+    if (!headerStoreOpenTime.trim()) {
+      toast.error("Please enter Store Open Time before saving Floor Presence & Rep Timings.");
+      return;
+    }
+    if (!draftReportId) {
+      toast.error("Please save at least one audit row before saving Floor Presence & Rep Timings.");
+      return;
+    }
+
+    setBlockingMessage("Saving Floor Presence & Rep Timings...");
+    try {
+      await surveillanceService.saveRepTimings(draftReportId, repTimingRows);
+      setIsTimingSectionDirty(false);
+      setIsTimingSectionSaved(true);
+      toast.success("Floor Presence & Rep Timings saved successfully.");
+    } catch (error) {
+      toast.error(`Failed to save Floor Presence & Rep Timings: ${(error as Error).message}`);
+    } finally {
+      setBlockingMessage(null);
+    }
   };
 
   const handleAddCameraUptimeRow = () => {
@@ -1843,7 +2300,7 @@ export default function SurveillanceReportsPage() {
     );
   };
 
-  const handleSaveAllCameraUptimeLogs = () => {
+  const handleSaveAllCameraUptimeLogs = async () => {
     for (let i = 0; i < cameraUptimeRows.length; i++) {
       const row = cameraUptimeRows[i];
       const rowNum = i + 1;
@@ -1862,9 +2319,26 @@ export default function SurveillanceReportsPage() {
       }
     }
 
-    setIsCameraUptimeDirty(false);
-    setIsCameraUptimeSaved(true);
-    toast.success("Camera Uptime Logs saved successfully.");
+    if (!headerStoreOpenTime.trim()) {
+      toast.error("Please enter Store Open Time before saving Camera Uptime Logs.");
+      return;
+    }
+    if (!draftReportId) {
+      toast.error("Please save at least one audit row before saving Camera Uptime Logs.");
+      return;
+    }
+
+    setBlockingMessage("Saving Camera Uptime Logs...");
+    try {
+      await surveillanceService.saveCameraLogs(draftReportId, cameraUptimeRows);
+      setIsCameraUptimeDirty(false);
+      setIsCameraUptimeSaved(true);
+      toast.success("Camera Uptime Logs saved successfully.");
+    } catch (error) {
+      toast.error(`Failed to save Camera Uptime Logs: ${(error as Error).message}`);
+    } finally {
+      setBlockingMessage(null);
+    }
   };
 
   const toggleRowExpanded = (rowId: string) => {
@@ -1967,6 +2441,7 @@ export default function SurveillanceReportsPage() {
 
     setConfirmSubmitOpen(false);
     setIsSubmitting(true);
+    setBlockingMessage("Submitting surveillance audit report...");
 
     const primaryRow = editableRows[0];
 
@@ -2206,9 +2681,29 @@ export default function SurveillanceReportsPage() {
     const payload = {
       requestId: reqItem.id,
       rows: flattenedAuditRows,
+      repTimings: repTimingRows
+        .filter((r) => r.repName?.trim() || r.timeLeft?.trim() || r.timeReturned?.trim() || r.backRoomTimeIn?.trim() || r.backRoomTimeOut?.trim())
+        .map((r) => ({
+          id: r.id,
+          repName: r.repName,
+          timeLeft: r.timeLeft,
+          timeReturned: r.timeReturned,
+          backRoomTimeIn: r.backRoomTimeIn,
+          backRoomTimeOut: r.backRoomTimeOut,
+        })),
+      cameraLogs: cameraUptimeRows
+        .filter((c) => c.cameraName.trim() || c.onlineTime.trim() || c.offlineTime.trim())
+        .map((c) => ({
+          id: c.id,
+          cameraName: c.cameraName,
+          onlineTime: c.onlineTime,
+          offlineTime: c.offlineTime,
+        })),
       date: formatSurveillanceDate(primaryRow.date || reqItem.incidentDate),
       marketName: (primaryRow.marketName || reqItem.marketName || "").trim(),
       storeName: (primaryRow.storeName || reqItem.storeName || "").trim(),
+      storeOpenTime: headerStoreOpenTime || undefined,
+      storeCloseTime: headerStoreCloseTime || undefined,
       invoiceNo:
         flattenedAuditRows.length > 1
           ? `${primaryRow.invoice || "Audit"} (${flattenedAuditRows.length} Rows)`
@@ -2296,18 +2791,15 @@ export default function SurveillanceReportsPage() {
 
     let savedReport: SurveillanceReport;
     try {
-      savedReport = submitStaticAuditReport(payload, {
-        name: user?.fullName || "Michael Sterling",
-        email: user?.email || "m.sterling@techno-communications.com",
-        role: user?.roleName || "Asset Protection Auditor",
-      });
+      savedReport = await surveillanceService.submitReport(payload);
     } catch (error) {
       toast.error(`Failed to submit report: ${(error as Error).message}`);
       setIsSubmitting(false);
+      setBlockingMessage(null);
       return;
     }
 
-    setReports(getStaticReports());
+    await reloadReports();
 
     const updatedReq: SurveillanceRequest = {
       ...reqItem,
@@ -2326,13 +2818,15 @@ export default function SurveillanceReportsPage() {
     };
 
     // Clear MMKV draft storage for this request once final submission succeeds
-    clearStaticRequestDraft(reqItem.id);
+    surveillanceService.clearRequestDraft(reqItem.id);
     setSavedRowTimestamps({});
     setDirtyRowIds({});
+    setDraftReportId(undefined);
 
-    setRequests(getStaticAgentRequests());
+    await reloadAgentRequests();
     setSelectedDetail(updatedReq);
     setIsSubmitting(false);
+    setBlockingMessage(null);
     setIsEditingReport(false);
 
     toast.success("Surveillance audit report has been submitted successfully.");
@@ -2420,7 +2914,8 @@ export default function SurveillanceReportsPage() {
     const defaultDate = formatSurveillanceDate(activeItem.incidentDate);
 
     return (
-      <div className="space-y-5 pb-12 animate-fade-in">
+      <div className="relative space-y-5 pb-12 animate-fade-in">
+        {blockingOverlay}
         {/* Top Bar */}
         <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
@@ -2490,16 +2985,29 @@ export default function SurveillanceReportsPage() {
                 Record transaction and sales pitch audit observations below.
               </p>
             </div>
-            <Button
-              type="button"
-              onClick={() =>
-                handleAddAuditRow(activeItem.storeName, activeItem.marketName, defaultDate)
-              }
-              className="h-9 gap-1.5 text-xs font-semibold shadow-2xs"
-            >
-              <Plus className="h-4 w-4" />
-              Add Audit Row
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              {editableRows.length > 0 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleSaveAllAuditRows(activeItem.id)}
+                  className="h-9 gap-1.5 text-xs font-semibold shadow-2xs"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  Save All Audit Rows
+                </Button>
+              )}
+              <Button
+                type="button"
+                onClick={() =>
+                  handleAddAuditRow(activeItem.storeName, activeItem.marketName, defaultDate)
+                }
+                className="h-9 gap-1.5 text-xs font-semibold shadow-2xs"
+              >
+                <Plus className="h-4 w-4" />
+                Add Audit Row
+              </Button>
+            </div>
           </div>
 
           {editableRows.length === 0 ? (
@@ -2530,15 +3038,35 @@ export default function SurveillanceReportsPage() {
               );
 
               return (
-                <Card key={row.id} className="border-border/80 overflow-hidden shadow-xs">
+                <Card
+                  key={row.id}
+                  className={`overflow-hidden rounded-2xl bg-card shadow-sm transition-all ${
+                    isExpanded
+                      ? "border-[3px] border-blue-500 shadow-md ring-2 ring-blue-200 dark:border-blue-500 dark:ring-blue-900/50"
+                      : "border-2 border-blue-200 hover:border-blue-300 dark:border-blue-900/60 dark:hover:border-blue-800"
+                  }`}
+                >
                   {/* Row Header */}
-                  <div className="flex items-center justify-between gap-3 border-b bg-muted/30 px-4 py-3">
+                  <div
+                    className={`flex items-center justify-between gap-3 border-b-2 px-4 py-3 ${
+                      isExpanded
+                        ? "border-blue-200 bg-blue-50/70 dark:border-blue-900/60 dark:bg-blue-950/30"
+                        : "border-blue-100 bg-blue-50/40 dark:border-blue-900/40 dark:bg-blue-950/20"
+                    }`}
+                  >
                     <button
                       type="button"
                       onClick={() => toggleRowExpanded(row.id)}
                       className="flex flex-1 items-center gap-3 text-left"
                     >
-                      <Badge variant="outline" className="font-mono text-xs font-semibold">
+                      <Badge
+                        variant="outline"
+                        className={`font-mono text-xs font-semibold ${
+                          isExpanded
+                            ? "border-blue-500 bg-blue-500 text-white dark:border-blue-500"
+                            : ""
+                        }`}
+                      >
                         Row #{index + 1}
                       </Badge>
                       <span className="text-sm font-semibold text-foreground">
@@ -2638,10 +3166,9 @@ export default function SurveillanceReportsPage() {
                             />
                           </div>
 
-                          <StandardSelect
+                          <RepNameCombobox
                             label="Rep Name"
                             required
-                            options={REP_NAME_OPTIONS}
                             value={row.salesRep}
                             onValueChange={(val) => handleUpdateRowField(row.id, "salesRep", val)}
                           />
@@ -3082,7 +3609,7 @@ export default function SurveillanceReportsPage() {
                         {Boolean(salesPitchSectionEnabledByRow[row.id]) && (
                           <>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                              <StandardSelect
+                              <StandardRadioGroup
                                 label="Pitch Quality"
                                 options={PITCH_QUALITY_OPTIONS}
                                 value={normalizePitchQualitySelectValue(row.pitchQuality)}
@@ -3098,7 +3625,7 @@ export default function SurveillanceReportsPage() {
                                   { key: "maximize", label: "Maximize" },
                                 ] as const
                               ).map((field) => (
-                                <StandardSelect
+                                <StandardRadioGroup
                                   key={field.key}
                                   label={field.label}
                                   options={YES_NO_OPTIONS}
@@ -3140,7 +3667,7 @@ export default function SurveillanceReportsPage() {
                                 />
                               </div>
 
-                              <StandardSelect
+                              <StandardRadioGroup
                                 label="Bundle Acc Given"
                                 options={YES_NO_OPTIONS}
                                 value={row.bundleAccGiven}
@@ -3167,46 +3694,46 @@ export default function SurveillanceReportsPage() {
                         )}
                       </div>
 
-                      {/* Row-level MMKV Save Footer */}
-                      <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-3">
-                        <div className="flex items-center gap-1.5 text-xs">
-                          {isRowSavedClean ? (
-                            <span className="inline-flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              Saved locally at{" "}
-                              {new Date(rowSavedAt).toLocaleTimeString([], {
-                                hour: "numeric",
-                                minute: "2-digit",
-                              })}
-                            </span>
-                          ) : rowSavedAt && isRowDirty ? (
-                            <span className="font-medium text-amber-600 dark:text-amber-400">
-                              Unsaved changes in this row — click Save to update local draft.
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground">
-                              Click Save to preserve this row locally against accidental navigation or
-                              power loss.
-                            </span>
-                          )}
-                        </div>
-
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={isRowSavedClean ? "outline" : "default"}
-                          onClick={() => handleSaveAuditRow(activeItem.id, row, index)}
-                          className="h-8 gap-1.5 px-3.5 text-xs font-semibold"
-                        >
-                          <Save className="h-3.5 w-3.5" />
-                          {isRowSavedClean ? "Saved" : "Save"}
-                        </Button>
+                      {/* Row-level save status (saving happens via the single
+                          "Save All Audit Rows" action above/below the list) */}
+                      <div className="flex flex-wrap items-center gap-1.5 border-t pt-3 text-xs">
+                        {isRowSavedClean ? (
+                          <span className="inline-flex items-center gap-1.5 font-medium text-emerald-600 dark:text-emerald-400">
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Saved at{" "}
+                            {new Date(rowSavedAt).toLocaleTimeString([], {
+                              hour: "numeric",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        ) : rowSavedAt && isRowDirty ? (
+                          <span className="font-medium text-amber-600 dark:text-amber-400">
+                            Unsaved changes in this row — use "Save All Audit Rows" to update.
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">
+                            Not saved yet — use "Save All Audit Rows" above or below the list.
+                          </span>
+                        )}
                       </div>
                     </div>
                   )}
                 </Card>
               );
             })
+          )}
+
+          {editableRows.length > 0 && (
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                onClick={() => handleSaveAllAuditRows(activeItem.id)}
+                className="h-9 gap-1.5 px-4 text-xs font-semibold shadow-2xs"
+              >
+                <Save className="h-3.5 w-3.5" />
+                Save All Audit Rows
+              </Button>
+            </div>
           )}
         </div>
 
@@ -3267,35 +3794,15 @@ export default function SurveillanceReportsPage() {
                   className="py-2.5 first:pt-1 last:pb-1 flex items-end gap-2.5"
                 >
                   <div className="grid flex-1 grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 min-w-0">
-                    {/* Name of Rep Leaving Dropdown */}
-                    <div className="min-w-0 space-y-1">
-                      <Label className="text-[11px] font-semibold text-foreground">
-                        Name of Rep Leaving
-                      </Label>
-                      <Select
-                        value={toSelectVal(timingRow.repName)}
-                        onValueChange={(v) =>
-                          handleUpdateRepTimingField(
-                            timingRow.id,
-                            "repName",
-                            fromSelectVal(v),
-                          )
+                    {/* Name of Rep Leaving */}
+                    <div className="min-w-0">
+                      <RepNameCombobox
+                        label="Name of Rep Leaving"
+                        value={timingRow.repName}
+                        onValueChange={(val) =>
+                          handleUpdateRepTimingField(timingRow.id, "repName", val)
                         }
-                      >
-                        <SelectTrigger className="h-9 text-xs w-full">
-                          <SelectValue placeholder="-" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__empty__" className="text-xs">
-                            -
-                          </SelectItem>
-                          {SALES_REP_NAMES.map((rep) => (
-                            <SelectItem key={rep} value={rep} className="text-xs">
-                              {rep}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      />
                     </div>
 
                     {/* Time Left */}
@@ -3574,8 +4081,15 @@ export default function SurveillanceReportsPage() {
     const givenRating = item.managerRating ?? linkedReport?.managerRating;
     const ratingReviewer = item.reportApprovedBy || linkedReport?.reviewedBy;
 
+    // "Start" vs "Resume" - a Draft report (synced progress) or a local-only
+    // MMKV draft (not yet synced) both mean there's something to pick back
+    // up, not a fresh audit.
+    const hasSavedProgress =
+      linkedReport?.status === "Draft" || surveillanceService.getDraftRows(item.id).length > 0;
+
     return (
-      <div className="space-y-5 animate-fade-in">
+      <div className="relative space-y-5 animate-fade-in">
+        {blockingOverlay}
         {/* Top Bar */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-3.5">
@@ -3605,7 +4119,7 @@ export default function SurveillanceReportsPage() {
                 className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
               >
                 <FileText className="h-4 w-4" />
-                Proceed to Submit
+                {hasSavedProgress ? "Resume Surveillance" : "Start Surveillance"}
               </Button>
             ) : item.status === "Rejected" || linkedReport?.status === "Rejected" ? (
               <Button
@@ -4028,8 +4542,9 @@ export default function SurveillanceReportsPage() {
               <div className="flex items-start gap-2.5 rounded-xl border border-amber-200/80 bg-amber-50/70 p-3.5 text-xs text-amber-900 leading-relaxed dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
                 <Clock className="h-4 w-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
                 <span>
-                  No surveillance audit report submitted yet. Click &quot;Proceed to Submit&quot;
-                  above to prepare and submit the report.
+                  No surveillance audit report submitted yet. Click &quot;
+                  {hasSavedProgress ? "Resume Surveillance" : "Start Surveillance"}&quot; above to
+                  prepare and submit the report.
                 </span>
               </div>
             )}
@@ -4048,7 +4563,8 @@ export default function SurveillanceReportsPage() {
 
   // VIEW 1 (DEFAULT): SURVEILLANCE REPORTS LIST TABLE
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6">
+      {blockingOverlay}
       {/* Clean Header without View As tag or filters */}
       <div className="border-b pb-4">
         <div className="flex items-center gap-2.5">

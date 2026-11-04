@@ -32,7 +32,7 @@ import {
   type SurveillanceReport,
   type SurveillanceRequest,
 } from "@/services/portals/surveillance";
-import { getStaticReportById, getStaticRequestById } from "./surveillance-data";
+import { surveillanceService } from "@/services/portals/surveillance/surveillance.service";
 
 function padTwo(num: number): string {
   if (num < 0) return String(num);
@@ -657,7 +657,8 @@ function computeSummaryFromReport(
     loomisLink: meta.loomisLink || "",
     safeLockerVisible: meta.safeLockerVisible || "Yes",
     safeLockerLink: meta.safeLockerLink || "",
-    generalOtherNotes: meta.generalOtherNotes || "No",
+    generalOtherNotes:
+      meta.generalOtherNotes || (isMeaningfulText(report.notes) ? report.notes!.trim() : "No"),
     amountDifference,
     reasonForDifference,
     qaName: meta.qaName || report.investigatorName || linkedRequest?.preparedBy || "—",
@@ -906,12 +907,24 @@ export default function RequestedSurveillanceSummaryPage() {
       setLoading(false);
       return;
     }
-    const foundReport = getStaticReportById(id) || null;
-    setReport(foundReport);
-    if (foundReport?.requestId) {
-      setLinkedRequest(getStaticRequestById(foundReport.requestId) || null);
-    }
-    setLoading(false);
+    setLoading(true);
+    surveillanceService
+      .getReport(id)
+      .then(async (foundReport) => {
+        setReport(foundReport);
+        if (foundReport?.requestId) {
+          try {
+            setLinkedRequest(await surveillanceService.getRequest(foundReport.requestId));
+          } catch {
+            setLinkedRequest(null);
+          }
+        }
+      })
+      .catch(() => {
+        setReport(null);
+        setLinkedRequest(null);
+      })
+      .finally(() => setLoading(false));
   }, [id]);
 
   const summary = useMemo(() => {

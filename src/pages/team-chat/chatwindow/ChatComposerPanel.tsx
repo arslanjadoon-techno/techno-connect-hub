@@ -257,7 +257,7 @@ export default function ChatComposerPanel(props: Record<string, any>) {
             </div>
           )}
 
-          <div className="flex items-end gap-1 px-1.5 py-1">
+          <div className="flex min-w-0 items-end gap-0.5 px-1 py-1 sm:gap-1 sm:px-1.5">
             <Button
               size="icon"
               variant="ghost"
@@ -281,7 +281,7 @@ export default function ChatComposerPanel(props: Record<string, any>) {
               onKeyDown={handleKeyDown}
               onBlur={() => onTyping?.(false)}
               rows={1}
-              className="min-h-[40px] flex-1 resize-none rounded-none border-0 bg-transparent px-1 py-2 text-sm font-normal shadow-none focus-visible:ring-0"
+              className="min-h-[40px] min-w-0 flex-1 resize-none rounded-none border-0 bg-transparent px-1 py-2 text-sm font-normal shadow-none focus-visible:ring-0"
             />
 
             {(selectedChat?.type === "channel" || selectedChat?.type === "group") && (
@@ -338,7 +338,7 @@ export default function ChatComposerPanel(props: Record<string, any>) {
         </div>
 
         <div className="mt-1 flex justify-between px-1 text-[11px] text-muted-foreground">
-          <span>Enter to send, Shift+Enter for a new line</span>
+          <span className="hidden sm:inline">Enter to send, Shift+Enter for a new line</span>
           <span>
             {pendingFiles.length > 0
               ? `${pendingFiles.length} ${pendingFiles.length === 1 ? "attachment" : "attachments"}`

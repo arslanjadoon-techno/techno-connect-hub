@@ -161,10 +161,61 @@ export interface SurveillanceAuditRow {
   rowHighlight?: "opening" | "amber" | "green" | "violation";
 }
 
+export interface SurveillanceRepTiming {
+  id: string;
+  repName?: string;
+  timeLeft?: string;
+  timeReturned?: string;
+  backRoomTimeIn?: string;
+  backRoomTimeOut?: string;
+}
+
+export interface SurveillanceCameraLog {
+  id: string;
+  cameraName?: string;
+  onlineTime?: string;
+  offlineTime?: string;
+}
+
 export interface SavedAuditRowRecord {
   requestId: string;
   row: SurveillanceAuditRow;
   rowOrder: number;
+  savedAt: string;
+}
+
+export interface SurveillanceSessionRepTimingRow {
+  id: string;
+  repName: string;
+  timeLeft: string;
+  timeReturned: string;
+  backRoomTimeIn: string;
+  backRoomTimeOut: string;
+}
+
+export interface SurveillanceSessionCameraUptimeRow {
+  id: string;
+  cameraName: string;
+  onlineTime: string;
+  offlineTime: string;
+}
+
+/**
+ * Everything in the audit form that isn't a per-row entry: the one-time
+ * header fields plus the Floor Presence / Camera Uptime sections. Saved
+ * alongside the per-row MMKV drafts so an agent can pause a surveillance
+ * audit mid-way (close the form, do something else) and pick up exactly
+ * where they left off later - not just the audit rows.
+ */
+export interface SurveillanceAuditSessionMeta {
+  requestId: string;
+  headerStoreOpenTime: string;
+  headerStoreCloseTime: string;
+  headerGeneralNotes: string;
+  repTimingRows: SurveillanceSessionRepTimingRow[];
+  cameraUptimeRows: SurveillanceSessionCameraUptimeRow[];
+  isFloorPresenceEnabled: boolean;
+  isCameraUptimeEnabled: boolean;
   savedAt: string;
 }
 
@@ -214,10 +265,18 @@ export interface SurveillanceReport {
   investigatorRole?: string;
   investigatorDepartment?: string;
   submittedAt: string;
-  status: "Report Received" | "Approved" | "Rejected";
+  // "Draft" = progressively saved while the agent is still conducting the
+  // audit, real DB state (not just this browser's local storage) - set by
+  // the "Save" button on the first audit row, cleared to "Report Received"
+  // only on final Submit Report.
+  status: "Draft" | "Report Received" | "Approved" | "Rejected";
 
   // Multi-row Surveillance Audit Log Entries
   rows?: SurveillanceAuditRow[];
+
+  // Report-level logs, not tied to any audit row (floor presence / camera uptime)
+  repTimings?: SurveillanceRepTiming[];
+  cameraLogs?: SurveillanceCameraLog[];
 
   // Optional supplemental summary metadata
   summaryMeta?: SurveillanceReportSummaryMeta;
@@ -226,6 +285,8 @@ export interface SurveillanceReport {
   date: string;
   marketName?: string;
   storeName: string;
+  storeOpenTime?: string;
+  storeCloseTime?: string;
   invoiceNo: string;
   cashTime: string;
   time: string;
@@ -318,9 +379,13 @@ export interface CreateSurveillanceRequestPayload {
 export interface CreateSurveillanceReportPayload {
   requestId: string;
   rows?: SurveillanceAuditRow[];
+  repTimings?: SurveillanceRepTiming[];
+  cameraLogs?: SurveillanceCameraLog[];
   date: string;
   marketName?: string;
   storeName: string;
+  storeOpenTime?: string;
+  storeCloseTime?: string;
   invoiceNo: string;
   cashTime: string;
   time: string;
@@ -385,6 +450,20 @@ export interface CreateSurveillanceReportPayload {
   offline: "Yes" | "No" | "Custom" | string;
   offlineDetails?: string;
   attachments?: SurveillanceAttachment[];
+}
+
+// Sent by the audit row "Save" button - creates the report (real DB row,
+// Status "Draft") on the first call for a request and reuses it on every
+// call after, upserting the single row being saved.
+export interface SaveReportProgressPayload {
+  requestId: string;
+  date?: string;
+  marketName?: string;
+  storeName?: string;
+  storeOpenTime?: string;
+  storeCloseTime?: string;
+  notes?: string;
+  row: SurveillanceAuditRow;
 }
 
 /** Check user role for the Surveillance portal across all system roles */
@@ -512,6 +591,12 @@ export function getSurveillanceDefaultRoute(user: any): string {
 export type SurveillanceValidationStatus =
   "Unassigned" | "Assigned" | "Pending Verification" | "Rejected" | "Completed";
 
+export interface SurveillanceSalesRep {
+  ntid: string;
+  fullName: string;
+  designation?: string;
+}
+
 export interface SurveillanceAssignableAgent {
   id: string;
   fullName: string;
@@ -569,21 +654,17 @@ export interface SurveillanceValidationItem {
 export interface ValidateAndAssignPayload {
   requestId: string;
   agentId: string;
-  priority: SurveillancePriority;
+  priority?: SurveillancePriority;
   adminInstructions?: string;
-  assignedBy: string;
 }
 
 export interface RejectValidationPayload {
   requestId: string;
   reason: string;
-  rejectedBy: string;
 }
 
 export interface ReviewSubmittedReportPayload {
-  requestId: string;
   action: "approve" | "reject";
-  reviewedBy: string;
   rating?: number;
   comments?: string;
 }

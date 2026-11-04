@@ -45,7 +45,7 @@ import {
   type SurveillanceAuditRow,
   type SurveillanceAttachment,
 } from "@/services/portals/surveillance";
-import { getStaticReportById, getStaticRequestById, reviewStaticReport } from "./surveillance-data";
+import { surveillanceService } from "@/services/portals/surveillance/surveillance.service";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -423,31 +423,40 @@ export default function SurveillanceReportReviewPage() {
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    const rep = getStaticReportById(id);
-    if (rep) {
-      setReport(rep);
-      setLinkedRequest(getStaticRequestById(rep.requestId));
-    } else {
-      setReport(null);
-      setLinkedRequest(null);
-    }
-    setLoading(false);
+    surveillanceService
+      .getReport(id)
+      .then(async (rep) => {
+        setReport(rep);
+        try {
+          setLinkedRequest(await surveillanceService.getRequest(rep.requestId));
+        } catch {
+          setLinkedRequest(null);
+        }
+      })
+      .catch(() => {
+        setReport(null);
+        setLinkedRequest(null);
+      })
+      .finally(() => setLoading(false));
   }, [id]);
 
   const isReportFinalized = report?.status === "Approved" || report?.status === "Rejected";
   const canTakeReviewAction = Boolean(report) && canReviewReport && !isReportFinalized;
 
-  const handleConfirmMarkAsCompleted = () => {
+  const handleConfirmMarkAsCompleted = async () => {
     if (!report) return;
 
     setSubmittingReview(true);
     try {
-      const updated = reviewStaticReport(report.id, {
+      const updated = await surveillanceService.reviewReport(report.id, {
         action: "approve",
-        reviewedBy: user?.fullName || "System Admin",
       });
       setReport(updated);
-      setLinkedRequest(getStaticRequestById(updated.requestId));
+      try {
+        setLinkedRequest(await surveillanceService.getRequest(updated.requestId));
+      } catch {
+        setLinkedRequest(null);
+      }
       setCompleteModalOpen(false);
       toast.success(
         "Surveillance audit report marked as Completed and is now visible on the requester dashboard.",
@@ -464,7 +473,7 @@ export default function SurveillanceReportReviewPage() {
     setDeclineModalOpen(true);
   };
 
-  const handleConfirmDeclineReport = () => {
+  const handleConfirmDeclineReport = async () => {
     if (!report) return;
     if (!declineReason.trim()) {
       toast.error("Please provide a reason for declining this report.");
@@ -473,13 +482,16 @@ export default function SurveillanceReportReviewPage() {
 
     setSubmittingReview(true);
     try {
-      const updated = reviewStaticReport(report.id, {
+      const updated = await surveillanceService.reviewReport(report.id, {
         action: "reject",
         comments: declineReason.trim(),
-        reviewedBy: user?.fullName || "System Admin",
       });
       setReport(updated);
-      setLinkedRequest(getStaticRequestById(updated.requestId));
+      try {
+        setLinkedRequest(await surveillanceService.getRequest(updated.requestId));
+      } catch {
+        setLinkedRequest(null);
+      }
       setDeclineModalOpen(false);
       toast.success("Surveillance audit report has been rejected with reason.");
     } catch (error) {

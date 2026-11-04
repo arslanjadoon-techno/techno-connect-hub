@@ -309,7 +309,8 @@ function MessageRow({
     />
   );
 
-  // Hover shortcuts beside the bubble: react and reply. Hidden on touch screens.
+  // Hover shortcuts beside the bubble. The dropdown arrow inside the bubble
+  // provides the actions entry point on touch devices.
   const quickActions = !selectionMode && !deleted && (
     <div className="flex items-center gap-1 self-center opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100 [@media(hover:none)]:hidden">
       {!isMe && (
@@ -400,7 +401,7 @@ function MessageRow({
               <button
                 type="button"
                 aria-label="Message actions"
-                className={`absolute right-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-inherit ${TEXT_META} transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:none)]:hidden`}
+                className={`absolute right-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-inherit ${TEXT_META} transition-opacity focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100`}
                 onClick={(event) => {
                   event.stopPropagation();
                   setActionsAnchor(event.currentTarget);

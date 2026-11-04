@@ -31,7 +31,7 @@ import {
   type SurveillanceAuditRow,
   type SurveillanceAttachment,
 } from "@/services/portals/surveillance";
-import { getStaticReportById, getStaticRequestById } from "./surveillance-data";
+import { surveillanceService } from "@/services/portals/surveillance/surveillance.service";
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -420,15 +420,21 @@ export default function SubmittedSurveillanceReportPage() {
   useEffect(() => {
     if (!id) return;
     setLoading(true);
-    const rep = getStaticReportById(id);
-    if (rep) {
-      setReport(rep);
-      setLinkedRequest(getStaticRequestById(rep.requestId));
-    } else {
-      setReport(null);
-      setLinkedRequest(null);
-    }
-    setLoading(false);
+    surveillanceService
+      .getReport(id)
+      .then(async (rep) => {
+        setReport(rep);
+        try {
+          setLinkedRequest(await surveillanceService.getRequest(rep.requestId));
+        } catch {
+          setLinkedRequest(null);
+        }
+      })
+      .catch(() => {
+        setReport(null);
+        setLinkedRequest(null);
+      })
+      .finally(() => setLoading(false));
   }, [id]);
 
   // Row attachment viewer modal state

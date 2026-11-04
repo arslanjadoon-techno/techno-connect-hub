@@ -94,6 +94,17 @@ const TYPING_IDLE_MS = 2500;
 const HIGHLIGHT_MS = 1800;
 const ADMIN_ROLES = ["owner", "admin", "administrator"];
 
+function getSearchableMessageText(message: MessageRecord) {
+  return String(
+    message.text ??
+      message.content ??
+      message.message ??
+      message.body ??
+      message.messageText ??
+      "",
+  );
+}
+
 // Memoized so typing in the composer does not re-render the header and the whole message list.
 const MemoHeader = memo(ChatWindowHeader);
 const MemoMessageList = memo(ChatMessageList);
@@ -431,8 +442,19 @@ export default function ChatWindow({
         setSearchResults(Array.isArray(results) ? results : []);
       } catch {
         if (requestId === searchRequestId.current) {
-          setSearchResults([]);
-          setSearchError("Unable to search messages. Please try again.");
+          // Keep search useful while an older/degraded backend cannot execute
+          // its FULLTEXT query. The server remains the source of truth; this
+          // searches the messages already loaded in the active conversation.
+          const normalizedTerm = term.toLocaleLowerCase();
+          const localResults = currentMessages.filter((message) =>
+            getSearchableMessageText(message).toLocaleLowerCase().includes(normalizedTerm),
+          );
+          setSearchResults(localResults.slice(0, 25));
+          setSearchError(
+            localResults.length
+              ? "Showing messages already loaded in this chat."
+              : "Unable to search messages. Please try again.",
+          );
         }
       } finally {
         if (requestId === searchRequestId.current) setSearchLoading(false);
@@ -440,7 +462,7 @@ export default function ChatWindow({
     }, SEARCH_DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
-  }, [messageSearchTerm, messageSearchOpen, chatId]);
+  }, [messageSearchTerm, messageSearchOpen, chatId, currentMessages]);
 
   // Close the chat options menu on Escape or an outside click.
   useEffect(() => {

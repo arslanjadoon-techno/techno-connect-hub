@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/select";
 import { FilterReset } from "@/components/filter-reset";
 import { ArrowLeft } from "lucide-react";
-import { getStaticAssignableAgents, getStaticValidationQueue } from "./surveillance-data";
+import { toast } from "sonner";
+import { surveillanceService } from "@/services/portals/surveillance/surveillance.service";
 import {
   canValidateSurveillance,
   getSurveillanceDefaultRoute,
@@ -50,17 +51,21 @@ export default function SurveillanceAgentsPage() {
         ? "Occupied"
         : "all";
 
-  const [rawAgents, setRawAgents] = useState<SurveillanceAssignableAgent[]>(() =>
-    getStaticAssignableAgents(),
-  );
-  const [validationQueue, setValidationQueue] = useState<SurveillanceValidationItem[]>(() =>
-    getStaticValidationQueue(),
-  );
+  const [rawAgents, setRawAgents] = useState<SurveillanceAssignableAgent[]>([]);
+  const [validationQueue, setValidationQueue] = useState<SurveillanceValidationItem[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>(initialStatusFilter);
 
-  const loadData = useCallback(() => {
-    setRawAgents(getStaticAssignableAgents());
-    setValidationQueue(getStaticValidationQueue());
+  const loadData = useCallback(async () => {
+    try {
+      const [agents, queue] = await Promise.all([
+        surveillanceService.getAssignableAgents(),
+        surveillanceService.getValidationQueue(),
+      ]);
+      setRawAgents(agents);
+      setValidationQueue(queue);
+    } catch (error) {
+      toast.error(`Failed to load surveillance agents: ${(error as Error).message}`);
+    }
   }, []);
 
   useEffect(() => {
