@@ -148,6 +148,8 @@ export const DAILY_COMMISSION_FILTER_API_PATHS = {
   getDailyCommissionSdrFilter: "/api/DailyCommission/GetDailyCommissionSdrFilter",
   saveDailyCommissionSdrFilter: "/api/DailyCommission/SaveDailyCommissionSdrFilter",
   refreshDailyCommissionSummary: "/api/DailyCommission/RefreshDailyCommissionSummary",
+  getDailyCommissionUploads: "/api/DailyCommission/GetDailyCommissionUploads",
+  dailyCommissionUpload: (type: string) => `/api/DailyCommission/DailyCommissionUpload/${type}`,
 } as const;
 
 export const COMMISSION_ENGINE_API_PATHS = {
