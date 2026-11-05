@@ -153,6 +153,7 @@ export default function ChatSystemView(props: Record<string, any>) {
             currentStatus={currentStatus}
             mentionNotifications={mentionNotifications}
             onMentionNotificationsChange={setMentionNotifications}
+            onOpenNotes={() => navigate(`${CHAT_APP_BASE_PATH}/notes`)}
             desktopNotifications={desktopNotifications}
             onDesktopNotificationsChange={onDesktopNotificationsChange}
             filteredItems={filteredItems}

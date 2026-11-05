@@ -401,7 +401,13 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     setSendError,
   });
 
-  const { markChatAsRead } = useChatMarkRead({ activeConversationId, selectedChat, setChannels });
+  const { markChatAsRead } = useChatMarkRead({
+    activeConversationId,
+    callSocketRef,
+    messagesByChat,
+    selectedChat,
+    setChannels,
+  });
 
   return {
     allVisibleBuddies,

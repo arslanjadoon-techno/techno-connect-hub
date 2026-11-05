@@ -164,12 +164,34 @@ export function useChatData({
 
         const normalizedMessages = normalizeChatMessages(historyPayload, { ...chat, chatId });
 
+        // Preserve the unread boundary returned by the API long enough for the
+        // chat view to open on the first unread message. The read call may run
+        // immediately after opening, so deriving this later from unreadCount
+        // would lose the position.
+        const unreadCount = Math.max(0, Number(historyPayload?.unreadCount) || 0);
+        const unreadIncoming = normalizedMessages.filter(
+          (message: ChatRecord) => message.direction !== "outbound",
+        );
+        const unreadIds = new Set(
+          (unreadCount > 0
+            ? unreadIncoming.slice(Math.max(0, unreadIncoming.length - unreadCount))
+            : []
+          ).map((message) => String(message.id)),
+        );
+        const messagesWithUnreadState: ChatRecord[] = normalizedMessages.map(
+          (message: ChatRecord) => ({
+            ...message,
+            isUnread: unreadIds.has(String(message.id)),
+          }),
+        );
+        const firstUnreadMessageId = messagesWithUnreadState.find((message) => message.isUnread)?.id;
+
         // 3. Merge server history with cached messages without duplicates.
         const existingMessages = cachedMessages.length > 0 ? cachedMessages : [];
 
         const mergedMap = new Map<string, ChatRecord>();
 
-        for (const message of [...existingMessages, ...normalizedMessages]) {
+        for (const message of [...existingMessages, ...messagesWithUnreadState]) {
           const messageId = String(
             message.id ??
               message.messageId ??
@@ -189,13 +211,28 @@ export function useChatData({
           });
         }
 
-        const mergedMessages = Array.from(mergedMap.values());
+        const mergedMessages = Array.from(mergedMap.values()).sort((first, second) => {
+          const firstTime = new Date(
+            first.sentAt || first.createdAt || first.created_at || 0,
+          ).getTime();
+          const secondTime = new Date(
+            second.sentAt || second.createdAt || second.created_at || 0,
+          ).getTime();
+          return (Number.isFinite(firstTime) ? firstTime : 0) -
+            (Number.isFinite(secondTime) ? secondTime : 0);
+        });
 
         setMessagesByChat((prev: Record<string, ChatRecord[]>) => ({
           ...prev,
           [chat.id]: mergedMessages,
           [chatId]: mergedMessages,
         }));
+
+        setSelectedChat((prev: ChatRecord | null) =>
+          prev?.id === chat.id
+            ? { ...prev, firstUnreadMessageId: firstUnreadMessageId || null }
+            : prev,
+        );
 
         // 4. Persist merged messages for the next visit.
         await saveCachedChatMessages(chat.id, mergedMessages);
@@ -244,11 +281,36 @@ export function useChatData({
           ...chat,
           chatId: chat.id,
         });
+        const unreadCount = Math.max(0, Number(historyPayload?.unreadCount) || 0);
+        const unreadIncoming = normalizedMessages.filter(
+          (message: ChatRecord) => message.direction !== "outbound",
+        );
+        const unreadIds = new Set(
+          (unreadCount > 0
+            ? unreadIncoming.slice(Math.max(0, unreadIncoming.length - unreadCount))
+            : []
+          ).map((message) => String(message.id)),
+        );
+        const messagesWithUnreadState: ChatRecord[] = normalizedMessages.map(
+          (message: ChatRecord) => ({
+            ...message,
+            isUnread: unreadIds.has(String(message.id)),
+          }),
+        );
 
         setMessagesByChat((prev: Record<string, ChatRecord[]>) => ({
           ...prev,
-          [chat.id]: normalizedMessages,
+          [chat.id]: messagesWithUnreadState,
         }));
+        setSelectedChat((prev: ChatRecord | null) =>
+          prev?.id === chat.id
+            ? {
+                ...prev,
+                firstUnreadMessageId:
+                  messagesWithUnreadState.find((message) => message.isUnread)?.id || null,
+              }
+            : prev,
+        );
         setMessagePaginationByChat((prev: Record<string, ChatRecord>) => ({
           ...prev,
           [chat.id]: historyPayload?.pagination || { hasMore: false },

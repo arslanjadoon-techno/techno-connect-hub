@@ -30,7 +30,16 @@ export function useChatMessageList({ selectedChat, messagesByChat }: any) {
       });
     });
   });
-  const storedMessages = Array.from(mergedMessages.values());
+  const storedMessages = Array.from(mergedMessages.values()).sort((first, second) => {
+    const firstTime = new Date(
+      first.sentAt || first.createdAt || first.created_at || first.timestamp || 0,
+    ).getTime();
+    const secondTime = new Date(
+      second.sentAt || second.createdAt || second.created_at || second.timestamp || 0,
+    ).getTime();
+    return (Number.isFinite(firstTime) ? firstTime : 0) -
+      (Number.isFinite(secondTime) ? secondTime : 0);
+  });
   const currentMessages = selectedChat
     ? (storedMessages.length ? storedMessages : undefined) ||
       (selectedLastMessage ? normalizeChatMessages([selectedLastMessage], selectedChat) : [])

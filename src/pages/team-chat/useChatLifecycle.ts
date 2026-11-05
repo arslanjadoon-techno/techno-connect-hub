@@ -45,6 +45,7 @@ export function useChatLifecycle({
   setReplyToMessage,
 }: ChatLifecycleOptions) {
   const previousChatIdRef = useRef<string | null>(null);
+  const initiallyPositionedChatRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (initialFetchStartedRef.current) return;
@@ -82,13 +83,20 @@ export function useChatLifecycle({
       const container = chatBoxRef.current;
       if (!container) return;
 
+      const chatKey = String(currentChatId || "");
+      const hasRenderedMessages = Boolean(container.querySelector("[data-message-id]"));
+      const needsInitialPosition =
+        chatChanged ||
+        (hasRenderedMessages && initiallyPositionedChatRef.current !== chatKey);
+
       const distanceFromBottom =
         container.scrollHeight - container.scrollTop - container.clientHeight;
 
       // WhatsApp keeps the reader's position when they are viewing older
       // messages, but opens a newly selected conversation at the latest one.
-      if (chatChanged || distanceFromBottom <= 120) {
+      if (needsInitialPosition || distanceFromBottom <= 120) {
         container.scrollTop = container.scrollHeight;
+        if (hasRenderedMessages) initiallyPositionedChatRef.current = chatKey;
       }
     };
 

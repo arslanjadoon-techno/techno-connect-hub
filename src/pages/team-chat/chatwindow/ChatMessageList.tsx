@@ -131,7 +131,10 @@ export default function ChatMessageList(props: Record<string, any>) {
       previous.count > 0 &&
       currentMessages.length > previous.count &&
       lastId !== previous.lastId &&
-      distanceFromBottom > 120
+      distanceFromBottom > 120 &&
+      lastMessage?.direction !== "outbound" &&
+      lastMessage?.deliveryStatus !== "read" &&
+      lastMessage?.deliveryStatus !== "seen"
     ) {
       setShowNewMessages(true);
     } else if (distanceFromBottom <= 120) {
@@ -284,6 +287,7 @@ export default function ChatMessageList(props: Record<string, any>) {
             <div
               key={messageId || `${dayKey}-${index}`}
               data-message-id={messageId || undefined}
+              data-unread-message={message.isUnread ? "true" : undefined}
               className={
                 highlightedMessageId === messageId && messageId
                   ? "rounded-lg bg-primary/10 ring-2 ring-primary/40 transition-colors"

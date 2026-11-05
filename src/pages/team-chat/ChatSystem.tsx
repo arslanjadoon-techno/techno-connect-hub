@@ -202,6 +202,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
 
   const { saveNote, deleteNote } = useChatNotes({
     bodyView,
+    currentUserId,
     notes,
     setNotes,
     setNotesLoading,
@@ -344,6 +345,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
 
   const handleSend = useChatSend({
     blockedUserIds,
+    chatBoxRef,
     currentUser,
     currentUserId,
     editingMessage,
