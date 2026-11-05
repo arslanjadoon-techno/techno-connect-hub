@@ -156,6 +156,9 @@ export const DAILY_COMMISSION_FILTER_API_PATHS = {
   getDailyCommissionSdrFilter: "/api/DailyCommission/GetDailyCommissionSdrFilter",
   saveDailyCommissionSdrFilter: "/api/DailyCommission/SaveDailyCommissionSdrFilter",
   refreshDailyCommissionSummary: "/api/DailyCommission/RefreshDailyCommissionSummary",
+  getDailyCommissionConditionColumns: "/api/DailyCommission/GetDailyCommissionConditionColumns",
+  getDailyCommissionColumnValues: (column: string) =>
+    `/api/DailyCommission/GetDailyCommissionColumnValues/${encodeURIComponent(column)}`,
   getDailyCommissionUploads: "/api/DailyCommission/GetDailyCommissionUploads",
   dailyCommissionUpload: (type: string) => `/api/DailyCommission/DailyCommissionUpload/${type}`,
 } as const;
