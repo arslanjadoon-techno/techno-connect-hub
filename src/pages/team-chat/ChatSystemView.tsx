@@ -46,7 +46,6 @@ export default function ChatSystemView(props: Record<string, any>) {
     deleteNote,
     desktopNotifications,
     editingMessage,
-    enterToSend,
     fetchChatData,
     filteredItems,
     groupDialogOpen,
@@ -67,7 +66,6 @@ export default function ChatSystemView(props: Record<string, any>) {
     handleDeleteGroup,
     handleEditMessage,
     handleEndActiveCall,
-    handleEnterToSendChange,
     handleFileUpload,
     handleForwardMessage,
     handleLeaveGroup,
@@ -142,10 +140,10 @@ export default function ChatSystemView(props: Record<string, any>) {
         className={`chat-shell grid h-full min-h-0 w-full min-w-0 grid-rows-1 overflow-hidden bg-background text-foreground ${
           standalone
             ? "h-[100dvh] min-h-[100dvh]"
-            : "-mx-3 -mt-3 -mb-3 w-[calc(100%+1.5rem)] h-[calc(100%+1.5rem)] min-h-0 sm:-mx-4 sm:-mt-4 sm:-mb-4 sm:w-[calc(100%+2rem)] sm:h-[calc(100%+2rem)] lg:-mx-6 lg:-mt-6 lg:-mb-6 lg:w-[calc(100%+3rem)] lg:h-[calc(100%+3rem)]"
+            : "w-full h-full min-h-0 sm:-mx-4 sm:-mt-4 sm:-mb-4 sm:w-[calc(100%+2rem)] sm:h-[calc(100%+2rem)] lg:-mx-6 lg:-mt-6 lg:-mb-6 lg:w-[calc(100%+3rem)] lg:h-[calc(100%+3rem)]"
         } ${
           showConversationSidebar
-            ? "grid-cols-1 sm:grid-cols-[250px_minmax(0,1fr)] md:grid-cols-[280px_minmax(0,1fr)]"
+            ? "grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]"
             : "grid-cols-1"
         }`}
       >
@@ -153,12 +151,11 @@ export default function ChatSystemView(props: Record<string, any>) {
           <ChatSidebar
             avatarUploading={avatarUploading}
             currentStatus={currentStatus}
-            enterToSend={enterToSend}
             mentionNotifications={mentionNotifications}
             onMentionNotificationsChange={setMentionNotifications}
+            onOpenNotes={() => navigate(`${CHAT_APP_BASE_PATH}/notes`)}
             desktopNotifications={desktopNotifications}
             onDesktopNotificationsChange={onDesktopNotificationsChange}
-            onEnterToSendChange={handleEnterToSendChange}
             filteredItems={filteredItems}
             loadError={loadError}
             loading={loading}
@@ -274,7 +271,6 @@ export default function ChatSystemView(props: Record<string, any>) {
             currentUser={currentUser}
             messageInfoVersions={messageInfoVersions}
             editingMessage={editingMessage}
-            enterToSend={enterToSend}
             currentMessages={currentMessages}
             typingUser={typingUsersByChat[String(selectedChat?.chatId || selectedChat?.id)]}
             onTyping={(typing) =>

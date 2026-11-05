@@ -1,6 +1,6 @@
 import type { MouseEvent, PointerEvent, ReactNode } from "react";
-import { useState } from "react";
-import { Loader2, Pin, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Check, Loader2, Pin, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -38,8 +38,17 @@ interface ForwardMessageDialogProps {
   availableChats?: ChatRecord[];
   forwardMessage?: unknown;
   onClose: () => void;
-  onForwardToChat: (chat: ChatRecord) => void;
+  onForwardToChats: (chats: ChatRecord[]) => void | Promise<void>;
   selectedChat?: ChatRecord | null;
+}
+
+function getForwardTargetKey(chat: ChatRecord) {
+  const channel = chat.__conversationType === "channel" || chat.type === "channel";
+  const id = channel
+    ? getChannelId(chat)
+    : getBuddySendId(chat) || chat.directConversationId || chat.chat_id || chat.chatId;
+  const fallback = channel ? getChannelName(chat) : getBuddyName(chat);
+  return `${channel ? "channel" : "direct"}:${String(id || fallback || "")}`;
 }
 
 export function ToolBtn({ title, icon, disabled, onClick, onPointerDown }: ToolBtnProps) {
@@ -96,10 +105,19 @@ export function ForwardMessageDialog({
   availableChats = [],
   forwardMessage,
   onClose,
-  onForwardToChat,
+  onForwardToChats,
   selectedChat,
 }: ForwardMessageDialogProps) {
   const [search, setSearch] = useState("");
+  const [selectedTargetKeys, setSelectedTargetKeys] = useState<string[]>([]);
+  const [forwarding, setForwarding] = useState(false);
+
+  useEffect(() => {
+    setSearch("");
+    setSelectedTargetKeys([]);
+    setForwarding(false);
+  }, [forwardMessage]);
+
   const targets = availableChats.filter((chat) => {
     const id =
       chat.__conversationType === "channel"
@@ -113,11 +131,33 @@ export function ForwardMessageDialog({
       .toLowerCase()
       .includes(query);
   });
+  const selectedTargets = availableChats.filter((chat) =>
+    selectedTargetKeys.includes(getForwardTargetKey(chat)),
+  );
+
+  const toggleTarget = (chat: ChatRecord) => {
+    const key = getForwardTargetKey(chat);
+    setSelectedTargetKeys((previous) =>
+      previous.includes(key) ? previous.filter((item) => item !== key) : [...previous, key],
+    );
+  };
+
+  const handleForward = async () => {
+    if (selectedTargets.length === 0 || forwarding) return;
+
+    setForwarding(true);
+    try {
+      await onForwardToChats(selectedTargets);
+    } finally {
+      setForwarding(false);
+    }
+  };
+
   return (
     <Dialog open={Boolean(forwardMessage)} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Forward to</DialogTitle>
+          <DialogTitle>Forward to conversations</DialogTitle>
         </DialogHeader>
         <Input
           autoFocus
@@ -125,20 +165,21 @@ export function ForwardMessageDialog({
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search people or conversations"
         />
+        <p className="text-xs text-muted-foreground">Select one or more conversations.</p>
         <ScrollArea className="max-h-[360px] pr-2">
           <div className="space-y-1">
             {targets.map((chat) => {
-              const channel = chat.__conversationType === "channel";
+              const channel = chat.__conversationType === "channel" || chat.type === "channel";
               const title = channel ? getChannelName(chat) : getBuddyName(chat);
-              const key = channel
-                ? getChannelId(chat)
-                : getBuddySendId(chat) || chat.directConversationId || title;
+              const key = getForwardTargetKey(chat);
+              const selected = selectedTargetKeys.includes(key);
               return (
                 <button
                   type="button"
                   key={key}
-                  onClick={() => onForwardToChat(chat)}
-                  className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-accent"
+                  aria-pressed={selected}
+                  onClick={() => toggleTarget(chat)}
+                  className={`flex w-full items-center gap-3 rounded-md p-2 text-left transition-colors hover:bg-accent ${selected ? "bg-accent ring-1 ring-primary/30" : ""}`}
                 >
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={getImageUrl(chat)} />
@@ -152,6 +193,12 @@ export function ForwardMessageDialog({
                       {channel ? "Group" : getBuddyEmail(chat)}
                     </span>
                   </span>
+                  <span
+                    aria-hidden="true"
+                    className={`ml-auto flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${selected ? "border-primary bg-primary text-primary-foreground" : "border-border text-transparent"}`}
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </span>
                 </button>
               );
             })}
@@ -163,6 +210,10 @@ export function ForwardMessageDialog({
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>
             Cancel
+          </Button>
+          <Button disabled={selectedTargets.length === 0 || forwarding} onClick={handleForward}>
+            {forwarding && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Forward{selectedTargets.length > 0 ? ` (${selectedTargets.length})` : ""}
           </Button>
         </DialogFooter>
       </DialogContent>

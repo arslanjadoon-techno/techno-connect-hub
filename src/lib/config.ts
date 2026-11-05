@@ -5,9 +5,17 @@
  * Change it there (e.g. switching from local to production) and every
  * API call in the app picks it up automatically.
  */
-export const API_BASE_URL = import.meta.env.VITE_API_DEV_URL as string | "N/A";
+const cleanBaseUrl = (value: unknown): string =>
+  String(value || "")
+    .trim()
+    .replace(/\/$/, "");
+
+export const API_BASE_URL = cleanBaseUrl(import.meta.env.VITE_API_DEV_URL) || "N/A";
+// Chat and the main API must use the same origin by default. A dedicated URL
+// remains supported for local development, but an accidental leading space or
+// an omitted variable must not produce an invalid fetch/SignalR URL.
 export const CHAT_API_BASE_URL =
-  (import.meta.env.VITE_CHAT_API_URL as string | undefined) || "http://localhost:5000";
+  cleanBaseUrl(import.meta.env.VITE_CHAT_API_URL) || cleanBaseUrl(API_BASE_URL);
 export const USER_MANAGEMENT_API_BASE_URL =
   (import.meta.env.VITE_USER_MANAGEMENT_API_URL as string | undefined) ||
   "https://misapis.active8wireless.com";
@@ -148,6 +156,9 @@ export const DAILY_COMMISSION_FILTER_API_PATHS = {
   getDailyCommissionSdrFilter: "/api/DailyCommission/GetDailyCommissionSdrFilter",
   saveDailyCommissionSdrFilter: "/api/DailyCommission/SaveDailyCommissionSdrFilter",
   refreshDailyCommissionSummary: "/api/DailyCommission/RefreshDailyCommissionSummary",
+  getDailyCommissionConditionColumns: "/api/DailyCommission/GetDailyCommissionConditionColumns",
+  getDailyCommissionColumnValues: (column: string) =>
+    `/api/DailyCommission/GetDailyCommissionColumnValues/${encodeURIComponent(column)}`,
   getDailyCommissionUploads: "/api/DailyCommission/GetDailyCommissionUploads",
   dailyCommissionUpload: (type: string) => `/api/DailyCommission/DailyCommissionUpload/${type}`,
 } as const;

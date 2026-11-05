@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { getChatMessagesService } from "@/services/Team-chat/chat.service";
 import { normalizeChatError } from "./chatHealper";
 import { normalizeChatMessages } from "./chatMessageNormalization";
+import { getChatStateKeys } from "./chatConversationKeys";
 
 export function useChatOlderMessages({
   selectedChat,
@@ -32,12 +33,25 @@ export function useChatOlderMessages({
       const olderMessages = filterBlockedMessages(normalizeChatMessages(payload, selectedChat));
 
       setMessagesByChat((previous: Record<string, any[]>) => {
-        const existing = previous[chatKey] || [];
+        const stateKeys = getChatStateKeys(selectedChat);
+        const existingById = new Map<string, any>();
+        stateKeys.forEach((key) => {
+          (previous[key] || []).forEach((message: any) => {
+            existingById.set(String(message.id), message);
+          });
+        });
+
+        const existing = Array.from(existingById.values());
         const existingIds = new Set(existing.map((message) => String(message.id)));
         const uniqueOlder = olderMessages.filter(
           (message: any) => !existingIds.has(String(message.id)),
         );
-        return { ...previous, [chatKey]: [...uniqueOlder, ...existing] };
+        const merged = [...uniqueOlder, ...existing];
+        const next = { ...previous };
+        stateKeys.forEach((key) => {
+          next[key] = merged;
+        });
+        return next;
       });
       setMessagePaginationByChat((previous: Record<string, any>) => ({
         ...previous,

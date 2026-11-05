@@ -1,241 +1,268 @@
-import React from "react";
-import { motion } from "motion/react";
-import { Sparkles } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 
 interface PortalNode {
   id: string;
   name: string;
+  displayName?: string;
   angleDeg: number;
   isLive: boolean;
   statusLabel?: string;
 }
 
 const PORTAL_NODES: PortalNode[] = [
-  { id: "commission", name: "Commission", angleDeg: 270, isLive: true, statusLabel: "Active" }, // Top (Live)
-  { id: "leasing", name: "Leasing", angleDeg: 321.4, isLive: true, statusLabel: "Active" }, // Top-Right (Live)
-  { id: "ranker", name: "Ranker", angleDeg: 12.9, isLive: true, statusLabel: "Active" }, // Mid-Right (Live)
-  { id: "reporting", name: "Reporting", angleDeg: 64.3, isLive: true, statusLabel: "Active" }, // Bottom-Right
-  { id: "surveillance", name: "Surveillance", angleDeg: 115.7, isLive: true, statusLabel: "Active" }, // Bottom-Left (Live)
+  { id: "commission", name: "Commission", angleDeg: 270, isLive: true, statusLabel: "Active" },
+  { id: "leasing", name: "Leasing", angleDeg: 315, isLive: true, statusLabel: "Active" },
+  { id: "ranker", name: "Ranker", angleDeg: 0, isLive: true, statusLabel: "Active" },
+  { id: "reporting", name: "Reporting", angleDeg: 45, isLive: true, statusLabel: "Active" },
+  {
+    id: "surveillance",
+    name: "Surveillance",
+    displayName: "Surveillance",
+    angleDeg: 90,
+    isLive: true,
+    statusLabel: "Active",
+  },
   {
     id: "leave-mgmt",
     name: "Leave Management",
-    angleDeg: 167.1,
+    displayName: "Leave Mgmt",
+    angleDeg: 135,
     isLive: true,
     statusLabel: "Active",
-  }, // Mid-Left (Live)
-  { id: "ticketing", name: "Ticketing", angleDeg: 218.6, isLive: false, statusLabel: "Upcoming" }, // Top-Left
+  },
+  { id: "ticketing", name: "Ticketing", angleDeg: 180, isLive: false, statusLabel: "Upcoming" },
+  { id: "ChatApp", name: "ChatApp", angleDeg: 225, isLive: true, statusLabel: "Active" },
 ];
 
+const VIEW = 420;
+const C = VIEW / 2;
+const RADIUS = 168;
+
+const polar = (deg: number, r: number) => {
+  const a = (deg * Math.PI) / 180;
+  return { x: C + r * Math.cos(a), y: C + r * Math.sin(a) };
+};
+
 export function HeroHubGraph() {
-  const viewBoxSize = 420;
-  const center = viewBoxSize / 2;
-  const radius = 142; // Distance from center to nodes
+  const reduceMotion = useReducedMotion();
+  const liveCount = PORTAL_NODES.filter((n) => n.isLive).length;
 
   return (
-    <div className="relative flex flex-col items-center justify-center w-full max-w-xs sm:max-w-sm xl:max-w-md mx-auto select-none py-1">
+    <div className="relative mx-auto flex w-full max-w-xs select-none flex-col items-center justify-center py-2 sm:max-w-sm xl:max-w-md">
       {/* Background radial glow */}
-      <div className="absolute inset-0 bg-radial from-white/20 via-purple-500/10 to-transparent blur-2xl pointer-events-none rounded-full" />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 rounded-full bg-[radial-gradient(closest-side,rgba(255,255,255,0.22),rgba(168,139,250,0.12)_60%,transparent)] blur-2xl"
+      />
 
-      {/* SVG Network Canvas */}
-      <div className="relative w-full aspect-square max-w-[260px] sm:max-w-[290px] xl:max-w-[340px]">
-        <svg
-          viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
-          className="w-full h-full overflow-visible"
-        >
+      <div
+        role="img"
+        aria-label={`MIS Core exchanging data with ${liveCount} live modules`}
+        className="relative aspect-square w-full max-w-[300px] sm:max-w-[330px] xl:max-w-[360px]"
+      >
+        <svg viewBox={`0 0 ${VIEW} ${VIEW}`} className="h-full w-full overflow-visible" aria-hidden>
           <defs>
-            {/* Glowing filter for active live lines */}
-            <filter id="glow-live" x="-30%" y="-30%" width="160%" height="160%">
-              <feGaussianBlur stdDeviation="3.5" result="blur" />
+            {/* userSpaceOnUse keeps the glow visible on perfectly horizontal / vertical lines */}
+            <filter
+              id="glow-live"
+              filterUnits="userSpaceOnUse"
+              x="-20"
+              y="-20"
+              width={VIEW + 50}
+              height={VIEW + 50}
+            >
+              <feGaussianBlur stdDeviation="3" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
-
-            {/* Gradient for live data stream */}
-            <linearGradient id="live-line-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.95" />
-              <stop offset="50%" stopColor="#c4b5fd" stopOpacity="0.8" />
-              <stop offset="100%" stopColor="#818cf8" stopOpacity="0.4" />
-            </linearGradient>
-
-            {/* Inactive line gradient */}
-            <linearGradient id="inactive-line-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="#ffffff" stopOpacity="0.25" />
-              <stop offset="100%" stopColor="#ffffff" stopOpacity="0.1" />
-            </linearGradient>
           </defs>
 
-          {/* Concentric ambient orbital rings */}
+          {/* Outer orbital ring */}
           <circle
-            cx={center}
-            cy={center}
-            r={radius}
+            cx={C}
+            cy={C}
+            r={RADIUS}
             fill="none"
-            stroke="rgba(255, 255, 255, 0.12)"
+            stroke="rgba(255,255,255,0.14)"
             strokeWidth="1.5"
             strokeDasharray="4 6"
           />
+
+          {/* Inner orbital ring */}
           <circle
-            cx={center}
-            cy={center}
-            r={radius * 0.65}
+            cx={C}
+            cy={C}
+            r={RADIUS * 0.75}
             fill="none"
-            stroke="rgba(255, 255, 255, 0.08)"
+            stroke="rgba(255,255,255,0.09)"
             strokeWidth="1"
           />
 
-          {/* Connecting Lines */}
-          {PORTAL_NODES.map((node) => {
-            const angleRad = (node.angleDeg * Math.PI) / 180;
-            const x2 = center + radius * Math.cos(angleRad);
-            const y2 = center + radius * Math.sin(angleRad);
+          {/* Connecting lines */}
+          {PORTAL_NODES.map((node, i) => {
+            const { x: x2, y: y2 } = polar(node.angleDeg, RADIUS);
 
-            if (node.isLive) {
+            if (!node.isLive) {
               return (
-                <g key={`line-${node.id}`}>
-                  {/* Glowing wide background halo line */}
-                  <line
-                    x1={center}
-                    y1={center}
-                    x2={x2}
-                    y2={y2}
-                    stroke="#c4b5fd"
-                    strokeWidth="4"
-                    strokeOpacity="0.75"
-                    filter="url(#glow-live)"
-                  />
-                  {/* Crisp primary bright foreground line */}
-                  <line
-                    x1={center}
-                    y1={center}
-                    x2={x2}
-                    y2={y2}
-                    stroke="#ffffff"
-                    strokeWidth="2.5"
-                    strokeOpacity="0.95"
-                  />
-                  {/* Animated traveling data particle outwards */}
-                  <circle r="4.5" fill="#ffffff" filter="url(#glow-live)">
-                    <animateMotion
-                      path={`M ${center} ${center} L ${x2} ${y2}`}
-                      dur="1.8s"
-                      repeatCount="indefinite"
-                      keyPoints="0;1"
-                      keyTimes="0;1"
-                      calcMode="linear"
-                    />
-                  </circle>
-                  {/* Animated traveling data particle inwards */}
-                  <circle r="3.5" fill="#a78bfa">
-                    <animateMotion
-                      path={`M ${x2} ${y2} L ${center} ${center}`}
-                      dur="2.4s"
-                      repeatCount="indefinite"
-                      keyPoints="0;1"
-                      keyTimes="0;1"
-                      calcMode="linear"
-                    />
-                  </circle>
-                </g>
+                <line
+                  key={`line-${node.id}`}
+                  x1={C}
+                  y1={C}
+                  x2={x2}
+                  y2={y2}
+                  stroke="rgba(255,255,255,0.24)"
+                  strokeWidth="1.5"
+                  strokeDasharray="4 4"
+                  strokeLinecap="round"
+                />
               );
             }
 
-            // Inactive / upcoming portal line
+            const out = `M ${C} ${C} L ${x2} ${y2}`;
+            const back = `M ${x2} ${y2} L ${C} ${C}`;
+            const delay = `${(i * 0.3).toFixed(1)}s`;
+
             return (
-              <line
-                key={`line-${node.id}`}
-                x1={center}
-                y1={center}
-                x2={x2}
-                y2={y2}
-                stroke="rgba(255, 255, 255, 0.22)"
-                strokeWidth="1.5"
-                strokeDasharray="4 4"
-              />
+              <g key={`line-${node.id}`}>
+                {/* Soft glow underlay */}
+                <line
+                  x1={C}
+                  y1={C}
+                  x2={x2}
+                  y2={y2}
+                  stroke="#c4b5fd"
+                  strokeWidth="3"
+                  strokeOpacity="0.55"
+                  strokeLinecap="round"
+                  filter="url(#glow-live)"
+                />
+                {/* Main line */}
+                <line
+                  x1={C}
+                  y1={C}
+                  x2={x2}
+                  y2={y2}
+                  stroke="#ffffff"
+                  strokeWidth="1.5"
+                  strokeOpacity="0.9"
+                  strokeLinecap="round"
+                />
+
+                {!reduceMotion && (
+                  <>
+                    {/* Outgoing particle */}
+                    <circle r="4.5" fill="#ffffff" filter="url(#glow-live)">
+                      <animateMotion
+                        path={out}
+                        dur="1.8s"
+                        begin={delay}
+                        repeatCount="indefinite"
+                        calcMode="linear"
+                      />
+                    </circle>
+                    {/* Incoming particle */}
+                    <circle r="2.5" fill="#a78bfa">
+                      <animateMotion
+                        path={back}
+                        dur="2.4s"
+                        begin={delay}
+                        repeatCount="indefinite"
+                        calcMode="linear"
+                      />
+                    </circle>
+                  </>
+                )}
+              </g>
             );
           })}
         </svg>
 
-        {/* Center Node: MIS CORE */}
+        {/* Center node: MIS Core */}
         <div
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center justify-center w-28 h-28 rounded-full z-20 shadow-[0_0_35px_rgba(139,110,240,0.7)] border-3 border-white/90"
+          className="absolute left-1/2 top-1/2 z-20 flex h-[92px] w-[92px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border-2 border-white/90 shadow-[0_0_28px_rgba(139,110,240,0.6)]"
           style={{
-            background: "radial-gradient(circle at 35% 35%, #6d44d0 0%, #3a1c8b 80%, #291269 100%)",
+            background: "radial-gradient(circle at 35% 30%, #7048d8 0%, #3a1c8b 75%, #291269 100%)",
           }}
         >
-          {/* Animated pulsing halo behind MIS CORE */}
-          <div className="absolute inset-0 rounded-full border-2 border-white/50 animate-ping opacity-25 pointer-events-none" />
-          <div className="absolute -inset-1.5 rounded-full border border-purple-300/40 pointer-events-none" />
+          {!reduceMotion && (
+            <div className="pointer-events-none absolute inset-0 animate-ping rounded-full border border-white/50 opacity-20" />
+          )}
+          <div className="pointer-events-none absolute -inset-1.5 rounded-full border border-purple-300/35" />
 
-          <span className="text-white font-extrabold font-display text-xl tracking-wider drop-shadow-md">
+          <span className="font-display text-[17px] font-extrabold leading-none tracking-wider text-white drop-shadow-md">
             MIS
           </span>
-          <span className="text-[11px] font-semibold text-purple-200 tracking-widest uppercase mt-0.5 opacity-90">
-            CORE
+          <span className="mt-1 text-[9px] font-semibold uppercase leading-none tracking-widest text-purple-200">
+            Core
           </span>
         </div>
 
-        {/* Surrounding Nodes HTML Overlay for perfect typography and styling */}
-        {PORTAL_NODES.map((node) => {
-          const angleRad = (node.angleDeg * Math.PI) / 180;
-          // Percentage coordinates inside container (0% to 100%)
-          const xPercent = 50 + (radius / viewBoxSize) * 100 * Math.cos(angleRad);
-          const yPercent = 50 + (radius / viewBoxSize) * 100 * Math.sin(angleRad);
+        {/* Surrounding portal nodes */}
+        {PORTAL_NODES.map((node, i) => {
+          const { x, y } = polar(node.angleDeg, RADIUS);
+          const label = node.displayName || node.name;
 
           return (
             <div
               key={`node-${node.id}`}
-              className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center z-20"
-              style={{
-                left: `${xPercent}%`,
-                top: `${yPercent}%`,
-              }}
+              className="absolute z-20 -translate-x-1/2 -translate-y-1/2"
+              style={{ left: `${(x / VIEW) * 100}%`, top: `${(y / VIEW) * 100}%` }}
             >
-              {node.isLive ? (
-                /* Active / Live Node */
-                <div className="relative group cursor-default">
-                  {/* Subtle pulsing background ring */}
-                  <div className="absolute -inset-1 rounded-full bg-white/30 blur-sm animate-pulse" />
-
-                  <div className="relative flex flex-col items-center justify-center w-[84px] h-[84px] sm:w-[90px] sm:h-[90px] rounded-full bg-white text-primary border-2 border-white shadow-[0_4px_22px_rgba(255,255,255,0.45)] transition-transform duration-300 hover:scale-105">
-                    {/* Live green/violet active badge indicator */}
-                    <div className="absolute -top-1 right-1 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-500 text-[9px] font-bold text-white shadow-xs">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping mr-0.5" />
-                      LIVE
+              <motion.div
+                initial={reduceMotion ? false : { opacity: 0, scale: 0.7 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.15 + i * 0.06, type: "spring", stiffness: 260, damping: 20 }}
+                title={`${node.name} · ${node.statusLabel}`}
+                className="cursor-default"
+              >
+                {node.isLive ? (
+                  <div className="relative">
+                    <div
+                      className={`absolute -inset-1 rounded-full bg-white/25 blur-sm ${reduceMotion ? "" : "animate-pulse"}`}
+                    />
+                    <div className="relative flex h-[70px] w-[70px] sm:h-[80px] sm:w-[80px] flex-col items-center justify-center rounded-full border border-white bg-white shadow-[0_2px_18px_rgba(255,255,255,0.4)] transition-transform duration-300 hover:scale-105">
+                      {" "}
+                      {/* Live badge */}
+                      <div className="absolute -top-2 left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-emerald-500 px-1.5 py-[3px] text-[7px] font-bold leading-none tracking-wide text-white shadow-sm ring-2 ring-white">
+                        <span className="relative flex h-2 w-2">
+                          {!reduceMotion && (
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+                          )}
+                          <span className="relative inline-flex h-1 w-1 rounded-full bg-white" />
+                        </span>
+                        LIVE
+                      </div>
+                      <span className="px-1 pt-1 text-center font-display text-[10px] font-semibold leading-tight text-slate-900 sm:text-[11px]">
+                        {label}
+                      </span>
                     </div>
-
-                    <span className="font-display font-bold text-[12px] sm:text-[13px] text-slate-900 text-center leading-tight px-1">
-                      {node.name}
-                    </span>
                   </div>
-                </div>
-              ) : (
-                /* Inactive / Upcoming Node */
-                <div className="relative group opacity-85 cursor-default">
-                  <div className="flex flex-col items-center justify-center w-[76px] h-[76px] sm:w-[82px] sm:h-[82px] rounded-full bg-white/18 backdrop-blur-md text-white/80 border border-white/25 shadow-[0_2px_10px_rgba(0,0,0,0.15)] transition-transform duration-300 hover:scale-105">
-                    <span className="font-display font-medium text-[11px] sm:text-[12px] text-white/90 text-center leading-tight px-1">
-                      {node.name}
+                ) : (
+                  <div className="flex h-[70px] w-[70px] flex-col items-center justify-center rounded-full border border-dashed border-white/40 bg-white/15 shadow-[0_2px_10px_rgba(0,0,0,0.15)] backdrop-blur-md transition-transform duration-300 hover:scale-105 sm:h-[66px] sm:w-[66px]">
+                    <span className="px-1.5 text-center font-display text-[10px] font-medium leading-tight text-white/90 sm:text-[11px]">
+                      {label}
                     </span>
-                    <span className="text-[9px] text-white/60 mt-0.5">Soon</span>
+                    <span className="mt-0.5 text-[8px] leading-none text-white/65">Soon</span>
                   </div>
-                </div>
-              )}
+                )}
+              </motion.div>
             </div>
           );
         })}
       </div>
 
-      {/* Legend below graph */}
-      <div className="mt-4 flex items-center justify-center gap-5 text-xs text-white/80 bg-black/15 backdrop-blur-sm px-4 py-1.5 rounded-full border border-white/10">
+      {/* Legend */}
+      <div className="mt-4 flex items-center justify-center gap-4 rounded-full border border-white/10 bg-black/15 px-4 py-1.5 text-[11px] text-white/80 backdrop-blur-sm">
         <div className="flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]" />
-          <span className="font-medium text-white">Live Data Exchange</span>
+          <span className="font-medium text-white">Live data exchange</span>
         </div>
         <div className="h-3 w-px bg-white/20" />
         <div className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-white/40" />
-          <span className="text-white/70">Connected Modules</span>
+          <span className="h-1.5 w-1.5 rounded-full bg-white/40" />
+          <span className="text-white/70">Connected modules</span>
         </div>
       </div>
     </div>

@@ -15,7 +15,11 @@ export function useChatLibrary({
     setLibraryLoading(true);
     setLibraryError("");
 
-    searchChatMessagesService({ type: bodyView, limit: 100 })
+    // Load all messages for the media page. The backend's `type=media`
+    // filter returns only messages with attachments, which excludes messages
+    // containing plain URLs from the Links tab.
+    const params = bodyView === "media" ? { limit: 100 } : { type: bodyView, limit: 100 };
+    searchChatMessagesService(params)
       .then((response: any) => {
         if (cancelled) return;
         const messages =

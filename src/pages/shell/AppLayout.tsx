@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Bell, CheckCheck } from "lucide-react";
 import { UserMenu } from "@/components/user-menu";
+import GlobalChatNotifications from "./GlobalChatNotifications";
 
 export default function AppLayout() {
   const { user } = useAuth();
@@ -46,6 +47,7 @@ export default function AppLayout() {
 
   return (
     <SidebarProvider>
+      <GlobalChatNotifications />
       <div className={`flex w-full bg-background ${isChatRoute ? "h-screen overflow-hidden" : "min-h-screen"}`}>
         <AppSidebar />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">

@@ -20,7 +20,6 @@ import {
   getChatSettingsService,
   getChatStatusService,
   getChatUsersService,
-  updateChatSettingsService,
   updateChatStatusService,
 } from "@/services/Team-chat/chat.service";
 import { getStoredUser } from "@/lib/api/client";
@@ -41,7 +40,6 @@ type ChatDataOptions = {
   setBuddies: (value: any) => void;
   setChannels: (value: any) => void;
   setCurrentStatus: (value: any) => void;
-  setEnterToSend: (value: any) => void;
   setLoadError: (value: any) => void;
   setLoading: (value: any) => void;
   setMentionNotifications: (value: any) => void;
@@ -95,7 +93,6 @@ export function useChatData({
   setBuddies,
   setChannels,
   setCurrentStatus,
-  setEnterToSend,
   setLoadError,
   setLoading,
   setMentionNotifications,
@@ -123,8 +120,6 @@ export function useChatData({
 
       const requestClearVersion = chatClearVersionsRef.current.get(chatKey) || 0;
 
-      loadedChatHistoryRef.current.add(chatKey);
-
       clearUnreadForChat({
         chatId: chat.chatId,
         userId: chat.id,
@@ -133,7 +128,11 @@ export function useChatData({
 
       try {
         const chatId = chat.chatId || null;
+        // A new direct chat has no conversation ID until its first message.
+        // Do not mark it as loaded or a later history retry will be skipped.
         if (!chatId) return;
+
+        loadedChatHistoryRef.current.add(chatKey);
 
         setSelectedChat((prev: ChatRecord | null) =>
           prev?.id === chat.id ? { ...prev, chatId } : prev,
@@ -165,12 +164,34 @@ export function useChatData({
 
         const normalizedMessages = normalizeChatMessages(historyPayload, { ...chat, chatId });
 
+        // Preserve the unread boundary returned by the API long enough for the
+        // chat view to open on the first unread message. The read call may run
+        // immediately after opening, so deriving this later from unreadCount
+        // would lose the position.
+        const unreadCount = Math.max(0, Number(historyPayload?.unreadCount) || 0);
+        const unreadIncoming = normalizedMessages.filter(
+          (message: ChatRecord) => message.direction !== "outbound",
+        );
+        const unreadIds = new Set(
+          (unreadCount > 0
+            ? unreadIncoming.slice(Math.max(0, unreadIncoming.length - unreadCount))
+            : []
+          ).map((message) => String(message.id)),
+        );
+        const messagesWithUnreadState: ChatRecord[] = normalizedMessages.map(
+          (message: ChatRecord) => ({
+            ...message,
+            isUnread: unreadIds.has(String(message.id)),
+          }),
+        );
+        const firstUnreadMessageId = messagesWithUnreadState.find((message) => message.isUnread)?.id;
+
         // 3. Merge server history with cached messages without duplicates.
         const existingMessages = cachedMessages.length > 0 ? cachedMessages : [];
 
         const mergedMap = new Map<string, ChatRecord>();
 
-        for (const message of [...existingMessages, ...normalizedMessages]) {
+        for (const message of [...existingMessages, ...messagesWithUnreadState]) {
           const messageId = String(
             message.id ??
               message.messageId ??
@@ -190,13 +211,28 @@ export function useChatData({
           });
         }
 
-        const mergedMessages = Array.from(mergedMap.values());
+        const mergedMessages = Array.from(mergedMap.values()).sort((first, second) => {
+          const firstTime = new Date(
+            first.sentAt || first.createdAt || first.created_at || 0,
+          ).getTime();
+          const secondTime = new Date(
+            second.sentAt || second.createdAt || second.created_at || 0,
+          ).getTime();
+          return (Number.isFinite(firstTime) ? firstTime : 0) -
+            (Number.isFinite(secondTime) ? secondTime : 0);
+        });
 
         setMessagesByChat((prev: Record<string, ChatRecord[]>) => ({
           ...prev,
           [chat.id]: mergedMessages,
           [chatId]: mergedMessages,
         }));
+
+        setSelectedChat((prev: ChatRecord | null) =>
+          prev?.id === chat.id
+            ? { ...prev, firstUnreadMessageId: firstUnreadMessageId || null }
+            : prev,
+        );
 
         // 4. Persist merged messages for the next visit.
         await saveCachedChatMessages(chat.id, mergedMessages);
@@ -245,11 +281,36 @@ export function useChatData({
           ...chat,
           chatId: chat.id,
         });
+        const unreadCount = Math.max(0, Number(historyPayload?.unreadCount) || 0);
+        const unreadIncoming = normalizedMessages.filter(
+          (message: ChatRecord) => message.direction !== "outbound",
+        );
+        const unreadIds = new Set(
+          (unreadCount > 0
+            ? unreadIncoming.slice(Math.max(0, unreadIncoming.length - unreadCount))
+            : []
+          ).map((message) => String(message.id)),
+        );
+        const messagesWithUnreadState: ChatRecord[] = normalizedMessages.map(
+          (message: ChatRecord) => ({
+            ...message,
+            isUnread: unreadIds.has(String(message.id)),
+          }),
+        );
 
         setMessagesByChat((prev: Record<string, ChatRecord[]>) => ({
           ...prev,
-          [chat.id]: normalizedMessages,
+          [chat.id]: messagesWithUnreadState,
         }));
+        setSelectedChat((prev: ChatRecord | null) =>
+          prev?.id === chat.id
+            ? {
+                ...prev,
+                firstUnreadMessageId:
+                  messagesWithUnreadState.find((message) => message.isUnread)?.id || null,
+              }
+            : prev,
+        );
         setMessagePaginationByChat((prev: Record<string, ChatRecord>) => ({
           ...prev,
           [chat.id]: historyPayload?.pagination || { hasMore: false },
@@ -296,17 +357,6 @@ export function useChatData({
       if (typeof persistedSettings.desktopNotifications === "boolean") {
         setDesktopNotifications(persistedSettings.desktopNotifications);
         setChatNotificationsEnabled(persistedSettings.desktopNotifications);
-      }
-
-      if (typeof persistedSettings.enterToSend === "boolean") {
-        const savedEnterToSend = localStorage.getItem("chat_enter_to_send");
-        const restoredEnterToSend =
-          savedEnterToSend === "true" ||
-          (savedEnterToSend !== "false" && persistedSettings.enterToSend);
-        setEnterToSend(restoredEnterToSend);
-        if (savedEnterToSend === "true" && !persistedSettings.enterToSend) {
-          updateChatSettingsService({ enterToSend: true }).catch(() => {});
-        }
       }
 
       if (typeof persistedSettings.mentionNotifications === "boolean") {
@@ -517,12 +567,11 @@ export function useChatData({
     id,
     isCurrentUserRecord,
     isSelfConversation,
-    selectedChat?.id, // ← stable primitive, not whole object
+    selectedChat,
     setBlockedUserIds,
     setBuddies,
     setChannels,
     setCurrentStatus,
-    setEnterToSend,
     setLoadError,
     setLoading,
     setMentionNotifications,

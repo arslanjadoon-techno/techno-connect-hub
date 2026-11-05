@@ -56,7 +56,7 @@ export function useChatCallActions({
     setCallError("");
 
     try {
-      let chatId =
+      const chatId =
         options.chatId ||
         (selectedChat?.type === "channel" ? selectedChat.id : selectedChat?.chatId);
       // For person calls, resolve by the selected User Management/chat user ID.
@@ -77,7 +77,11 @@ export function useChatCallActions({
         // A stale conversation ID or legacy participant mapping can return 404.
         // Retry by User Management ID so the backend can resolve/reuse the
         // canonical direct conversation before starting the call.
-        if (conversationId && userId && error?.response?.status === 404) {
+        if (
+          conversationId &&
+          userId &&
+          (error?.status === 404 || error?.response?.status === 404)
+        ) {
           response = await startCallService({ userId, type });
         } else {
           throw error;

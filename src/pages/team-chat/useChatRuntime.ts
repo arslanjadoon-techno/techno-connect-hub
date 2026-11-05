@@ -119,7 +119,10 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
   const handleRealtimeAvatar = useChatRealtimeAvatar({
     currentUserId,
     setBuddies,
+    setChannels,
+    setMessagesByChat,
     setProfileUser,
+    setSelectedChat,
   });
   const loadOlderMessages = useChatOlderMessages({
     selectedChat,
@@ -239,6 +242,7 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     handledRealtimeMessageKeysRef,
     realtimeStartedAtRef,
     selectedChat,
+    setBuddies,
     setChannels,
     setMessagesByChat,
   });
@@ -375,11 +379,16 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
   });
   const { handleAvatarUpload } = useChatAvatar({
     avatarUploading,
+    profileUser: currentUser,
     setAvatarUploading,
     setLoadError,
     setProfileUser,
   });
-  const { handleToggleChatMute } = useChatMute({ setMutedChatIds, setSendError });
+  const { handleToggleChatMute } = useChatMute({
+    mutedChatIds,
+    setMutedChatIds,
+    setSendError,
+  });
   const { handleClearChat } = useChatClear({
     selectedChat,
     requestConfirmation,
@@ -392,7 +401,13 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     setSendError,
   });
 
-  const { markChatAsRead } = useChatMarkRead({ activeConversationId, selectedChat, setChannels });
+  const { markChatAsRead } = useChatMarkRead({
+    activeConversationId,
+    callSocketRef,
+    messagesByChat,
+    selectedChat,
+    setChannels,
+  });
 
   return {
     allVisibleBuddies,

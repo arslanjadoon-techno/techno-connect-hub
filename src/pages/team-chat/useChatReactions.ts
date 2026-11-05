@@ -17,32 +17,47 @@ const updateReactionLocally = (
   add: boolean,
 ): ChatRecord => {
   const reactions = Array.isArray(message.reactions) ? message.reactions : [];
-  const index = reactions.findIndex((reaction: ChatRecord) => reaction.emoji === emoji);
+  const next = reactions.reduce<ChatRecord[]>((result, reaction: ChatRecord) => {
+    const users = Array.isArray(reaction.users) ? reaction.users.map(String) : [];
+    // `reacted` is normalized for the current user. It is more reliable than
+    // comparing IDs here because the API may return a chat-identity ID while
+    // the session stores the provider/user ID.
+    const hadUser = Boolean(reaction.reacted) || Boolean(userId && users.includes(userId));
+    const isTarget = reaction.emoji === emoji;
 
-  if (index < 0) {
-    return add
-      ? {
-          ...message,
-          reactions: [
-            { emoji, count: 1, reacted: true, users: userId ? [userId] : [] },
-            ...reactions,
-          ],
-        }
-      : message;
+    // A user may have only one reaction on a message. When adding a new
+    // emoji, remove that user from every previous emoji first.
+    const nextUsers = add && hadUser && !isTarget
+      ? users.filter((id: string) => id !== userId)
+      : users;
+    const nextCount = Math.max(
+      0,
+      Number(reaction.count || 0) - (add && hadUser && !isTarget ? 1 : 0),
+    );
+
+    if (nextCount > 0) {
+      result.push({
+        ...reaction,
+        count: nextCount,
+        reacted: isTarget ? Boolean(userId && nextUsers.includes(userId)) : false,
+        users: nextUsers,
+      });
+    }
+    return result;
+  }, []);
+
+  if (!add) return { ...message, reactions: next };
+
+  const target = next.find((reaction: ChatRecord) => reaction.emoji === emoji);
+  if (target) {
+    const users = Array.isArray(target.users) ? target.users.map(String) : [];
+    if (userId && !users.includes(userId)) users.push(userId);
+    target.count = Number(target.count || 0) + (userId && users.includes(userId) ? 1 : 0);
+    target.reacted = true;
+    target.users = users;
+  } else {
+    next.unshift({ emoji, count: 1, reacted: true, users: userId ? [userId] : [] });
   }
-
-  const next = [...reactions];
-  const current = next[index];
-  const users = Array.isArray(current.users) ? current.users.map(String) : [];
-  const nextUsers = add
-    ? Array.from(new Set([...users, userId].filter(Boolean)))
-    : users.filter((id: string) => id !== userId);
-  const nextCount = add
-    ? Number(current.count || 0) + 1
-    : Math.max(0, Number(current.count || 0) - 1);
-
-  if (nextCount === 0) next.splice(index, 1);
-  else next[index] = { ...current, count: nextCount, reacted: add, users: nextUsers };
   return { ...message, reactions: next };
 };
 

@@ -192,6 +192,17 @@ export function useChatRealtime({
 
         try {
           callback(lifecycleEvents.has(event) ? { call: payload } : payload);
+
+          // A message is delivered once this client has received and handled
+          // it. This drives the sender's grey double tick in realtime.
+          if (event === "message:new") {
+            const message = payload?.message || payload;
+            const chatId = payload?.chatId || message?.conversationId || message?.chatId;
+            const messageId = message?.id || message?.messageId || message?.message_id;
+            if (chatId && messageId) {
+              void connection.invoke("AcknowledgeMessageDelivered", String(chatId), String(messageId));
+            }
+          }
         } catch (error) {
           console.error(`[Chat realtime] Handler failed for ${event}`, error);
         }
@@ -244,6 +255,7 @@ export function useChatRealtime({
       "call:signal": "CallSignal",
       // This requires an exact matching method on ChatHub.
       "message:delivered:ack": "AcknowledgeMessageDelivered",
+      "message:read:ack": "AcknowledgeMessagesRead",
     };
 
     const callKey = (payload: RealtimePayload | undefined) => {
@@ -299,6 +311,15 @@ export function useChatRealtime({
 
           // Confirm this signature against ChatHub.cs before relying on it.
           invocation = connection.invoke(method, String(chatId), String(messageId));
+        } else if (event === "message:read:ack") {
+          const chatId = payloadObject.chatId ?? payloadObject[0];
+          const messageIds = payloadObject.messageIds ?? payloadObject[1];
+          if (!chatId || !Array.isArray(messageIds) || messageIds.length === 0) {
+            const result = { ok: false, error: "chatId and messageIds are required" };
+            acknowledge?.(result);
+            return Promise.resolve(result);
+          }
+          invocation = connection.invoke(method, String(chatId), messageIds.map(String));
         } else {
           // Other existing Hub methods use a single payload object.
           invocation = connection.invoke(method, payloadObject);

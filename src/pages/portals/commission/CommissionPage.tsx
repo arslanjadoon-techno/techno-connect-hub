@@ -378,7 +378,21 @@ export default function CommissionPage({ source = "legacy" }: { source?: Commiss
       });
       exportToExcel(
         data,
-        ["date", "market", "ntid", "name", "eligible", "commission", "totalBox", "boxCommission", "accSales", "accCommission", "vasCommission", "hsi", "hsiCommission"],
+        [
+          "date",
+          "market",
+          "ntid",
+          "name",
+          "eligible",
+          "commission",
+          "totalBox",
+          "boxCommission",
+          "accSales",
+          "accCommission",
+          "vasCommission",
+          "hsi",
+          "hsiCommission",
+        ],
         {
           date: "Date",
           market: "Market",

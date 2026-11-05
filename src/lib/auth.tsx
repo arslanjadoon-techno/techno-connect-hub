@@ -19,7 +19,9 @@ import {
   type UserPermissionEntry,
 } from "./api/client";
 import { authService } from "@/services/auth";
-import { clearAllCachedChatMessages } from ".././pages/team-chat/chatMessageIndexedDb";
+import { invalidateChatTokenCache } from "@/services/Team-chat/chat.service";
+import { queryClient } from "@/lib/query-client";
+import { deleteChatDatabase } from ".././pages/team-chat/chatMessageIndexedDb";
 
 export type LoginResult =
   | { kind: "authenticated"; user: User }
@@ -201,9 +203,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStoredPermissions(null);
     setUser(null);
     setPermissions([]);
-    // Clear the local chat cache without blocking logout.
-    void clearAllCachedChatMessages().catch((error) => {
-      console.warn("Failed to clear chat cache on logout:", error);
+    invalidateChatTokenCache();
+    queryClient.clear();
+    window.dispatchEvent(new Event("auth:logout"));
+    // Remove the local chat database without blocking logout.
+    void deleteChatDatabase().catch((error) => {
+      console.warn("Failed to remove chat database on logout:", error);
     });
   }, []);
 

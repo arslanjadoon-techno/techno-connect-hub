@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { getImageUrl } from "../chatHealper";
+import { getBuddyName, getImageUrl } from "../chatHealper";
 import GroupActions from "./GroupActions";
 
 function MenuItem({
@@ -72,6 +72,7 @@ export default function ChatWindowHeader(props: Record<string, any>) {
     onSearchMessages,
     onToggleGroupMute,
     onTransferOwnership,
+    onViewUser,
     isGroupOwner,
     selectedChat,
     selectedUserBlocked,
@@ -92,6 +93,10 @@ export default function ChatWindowHeader(props: Record<string, any>) {
   } = props;
 
   const displayTitle = String(title || "Conversation");
+  const profileUser = selectedChat?.raw || selectedChat || {};
+  const canViewUser = !isGroup && Boolean(selectedChat);
+  const profileName = getBuddyName(profileUser) || displayTitle;
+  const profileImageUrl = getImageUrl(selectedChat) || getImageUrl(profileUser);
   const memberCount = Array.isArray(groupMembers) ? groupMembers.length : 0;
   const subtitle = typingUser
     ? "typing…"
@@ -136,19 +141,45 @@ export default function ChatWindowHeader(props: Record<string, any>) {
         </Button>
 
         {/* On phones the title gives way to the search box while searching. */}
-        <Avatar
-          className={`h-10 w-10 bg-primary/10 text-primary ${messageSearchOpen ? "hidden sm:flex" : ""}`}
-        >
-          <AvatarImage src={getImageUrl(selectedChat)} />
-          <AvatarFallback>
-            {isGroup ? <UsersRound className="h-5 w-5" /> : displayTitle.charAt(0).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+        {canViewUser ? (
+          <button
+            type="button"
+            className={`rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${messageSearchOpen ? "hidden sm:flex" : ""}`}
+            aria-label={`View ${profileName}`}
+            title={`View ${profileName}`}
+            onClick={() => onViewUser?.(profileUser)}
+          >
+            <Avatar className="h-10 w-10 bg-primary/10 text-primary">
+              <AvatarImage src={profileImageUrl} />
+              <AvatarFallback>{profileName.charAt(0).toUpperCase()}</AvatarFallback>
+            </Avatar>
+          </button>
+        ) : (
+          <Avatar
+            className={`h-10 w-10 bg-primary/10 text-primary ${messageSearchOpen ? "hidden sm:flex" : ""}`}
+          >
+            <AvatarImage src={profileImageUrl} />
+            <AvatarFallback>
+              <UsersRound className="h-5 w-5" />
+            </AvatarFallback>
+          </Avatar>
+        )}
 
         <div className={`min-w-0 flex-1 ${messageSearchOpen ? "hidden sm:block" : ""}`}>
-          <h2 className="truncate text-base font-normal" title={displayTitle}>
-            {displayTitle}
-          </h2>
+          {canViewUser ? (
+            <button
+              type="button"
+              className="block max-w-full truncate text-left text-base font-normal hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              title={`View ${profileName}`}
+              onClick={() => onViewUser?.(profileUser)}
+            >
+              {displayTitle}
+            </button>
+          ) : (
+            <h2 className="truncate text-base font-normal" title={displayTitle}>
+              {displayTitle}
+            </h2>
+          )}
           <p
             className={`truncate text-xs ${typingUser ? "text-primary" : "text-muted-foreground"}`}
             aria-live="polite"

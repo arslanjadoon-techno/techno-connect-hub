@@ -17,9 +17,18 @@ type Note = {
   updatedAt?: string;
 };
 
-export function useChatNotes({ bodyView, notes, setNotes, setNotesLoading, setNotesError }: any) {
+export function useChatNotes({
+  bodyView,
+  currentUserId,
+  notes,
+  setNotes,
+  setNotesLoading,
+  setNotesError,
+}: any) {
   useEffect(() => {
-    if (bodyView !== "notes") return undefined;
+    // On a hard reload the chat identity is restored just after the page
+    // mounts. Do not issue the notes request with an empty identity.
+    if (bodyView !== "notes" || !currentUserId) return undefined;
     let cancelled = false;
     setNotesLoading(true);
     setNotesError("");
@@ -27,8 +36,15 @@ export function useChatNotes({ bodyView, notes, setNotes, setNotesLoading, setNo
     getNotes(true)
       .then((response: any) => {
         if (cancelled) return;
-        const raw = response?.data?.data || response?.data || response || [];
-        const items = Array.isArray(raw) ? raw : raw.notes || raw.items || [];
+        const findItems = (value: any, depth = 0): any[] => {
+          if (depth > 4 || value == null) return [];
+          if (Array.isArray(value)) return value;
+          if (typeof value !== "object") return [];
+          if (Array.isArray(value.notes)) return value.notes;
+          if (Array.isArray(value.items)) return value.items;
+          return findItems(value.data, depth + 1);
+        };
+        const items = findItems(response);
         setNotes(
           items.map((note: any) => ({
             id: note.id,
@@ -53,7 +69,7 @@ export function useChatNotes({ bodyView, notes, setNotes, setNotesLoading, setNo
     return () => {
       cancelled = true;
     };
-  }, [bodyView, setNotes, setNotesError, setNotesLoading]);
+  }, [bodyView, currentUserId, setNotes, setNotesError, setNotesLoading]);
 
   const saveNote = useCallback(
     ({ id, title, body, reminderAt }: any) => {

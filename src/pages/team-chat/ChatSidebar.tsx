@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { StickyNote } from "lucide-react";
 import {
   areChatNotificationsEnabled,
   requestChatNotificationPermission,
@@ -11,6 +12,7 @@ import ChatSidebarSettingsDialog from "./sidebar/ChatSidebarSettingsDialog";
 import { getCurrentUserName } from "./sidebar/chatSidebarUtils";
 import ConversationList from "./sidebar/ConversationList";
 import SearchBox from "./sidebar/SearchBox";
+import { Button } from "@/components/ui/button";
 
 type ChatRecord = Record<string, any>;
 
@@ -24,6 +26,7 @@ interface ChatSidebarProps {
   currentStatus?: string;
   mentionNotifications?: boolean;
   onMentionNotificationsChange?: (enabled: boolean) => void;
+  onOpenNotes?: () => void;
   onAvatarUpload?: (file: File) => void;
   onRefresh?: () => void;
   onSelectBuddy: (item: ChatRecord) => void;
@@ -62,6 +65,7 @@ export default function ChatSidebar({
   currentStatus = "available",
   mentionNotifications = true,
   onMentionNotificationsChange,
+  onOpenNotes,
   onAvatarUpload,
   onRefresh,
   onSelectBuddy,
@@ -167,20 +171,15 @@ export default function ChatSidebar({
   };
 
   const handleToggleMentionNotifications = async (enabled: boolean) => {
+    // The current backend does not persist mentionNotifications. Keep this
+    // preference local and avoid reporting a false server save success.
     try {
-      await updateChatSettingsService({ mentionNotifications: enabled });
-      try {
-        localStorage.setItem("chat_mention_notifications", String(enabled));
-      } catch {
-        // Storage can be unavailable; the server value is the source of truth.
-      }
-      onMentionNotificationsChange?.(enabled);
-      setSettingsNotice(
-        enabled ? "Mention notifications are on." : "Mention notifications are off.",
-      );
+      localStorage.setItem("chat_mention_notifications", String(enabled));
     } catch {
-      setSettingsNotice("Mention notification setting could not be saved.");
+      // Storage can be unavailable; the in-memory state still updates.
     }
+    onMentionNotificationsChange?.(enabled);
+    setSettingsNotice(enabled ? "Mention notifications are on." : "Mention notifications are off.");
   };
 
   // The test button only shows a sample alert. It never changes the saved setting.
@@ -237,6 +236,17 @@ export default function ChatSidebar({
       />
       <div className="flex min-h-0 min-w-0 flex-col bg-background">
         <SearchBox searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+        <div className="border-b border-border px-2 py-2">
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full justify-start gap-2"
+            onClick={onOpenNotes}
+          >
+            <StickyNote className="h-4 w-4" />
+            Notes
+          </Button>
+        </div>
         <ConversationList
           connectUrl={connectUrl}
           filteredItems={filteredItems}

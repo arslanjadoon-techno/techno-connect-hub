@@ -31,7 +31,31 @@ const normalizeMessageReactions = (reactions: ChatRecord[] = [], currentUserId =
       count: 0,
       reacted: false,
       users: [],
+      userDetails: [],
     };
+
+    const user =
+      reaction?.user ||
+      reaction?.User ||
+      reaction?.identity ||
+      reaction?.Identity ||
+      reaction?.actor ||
+      reaction?.Actor;
+    const userName =
+      user?.name ||
+      user?.Name ||
+      user?.fullName ||
+      user?.FullName ||
+      user?.full_name ||
+      user?.displayName ||
+      user?.display_name ||
+      user?.email ||
+      user?.Email ||
+      user?.emailAddress ||
+      user?.email_address ||
+      reaction?.userName ||
+      reaction?.user_name ||
+      reaction?.name;
 
     reactionsByEmoji.set(emoji, {
       ...existing,
@@ -41,6 +65,10 @@ const normalizeMessageReactions = (reactions: ChatRecord[] = [], currentUserId =
         Boolean(reaction?.reacted) ||
         Boolean(currentUserId && reactionUserId === String(currentUserId)),
       users: reactionUserId ? [...existing.users, reactionUserId] : existing.users,
+      userDetails:
+        userName && reactionUserId
+          ? [...existing.userDetails, { id: reactionUserId, name: String(userName) }]
+          : existing.userDetails,
     });
   });
 
@@ -63,6 +91,14 @@ export const normalizeChatMessages = (
   const selectedId = String(selectedChat?.id || "");
   const currentUserId = String(selectedChat?.currentUserId || "");
   const currentUserEmail = String(selectedChat?.currentUserEmail || "").toLowerCase();
+
+  const comparableTime = (value: unknown): number | null => {
+    if (value == null || value === "") return null;
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) return numeric < 1e12 ? numeric * 1000 : numeric;
+    const parsed = new Date(String(value)).getTime();
+    return Number.isFinite(parsed) ? parsed : null;
+  };
 
   return messages
     .map((message: ChatRecord, index: number) => {
@@ -146,7 +182,14 @@ export const normalizeChatMessages = (
         attachments,
       };
     })
-    .sort((first, second) => new Date(first.sentAt).getTime() - new Date(second.sentAt).getTime());
+    .sort((first, second) => {
+      // Keep the API/cache order when a legacy message has no timestamp. Never
+      // replace a missing timestamp with the current time just to force sorting.
+      const firstTime = comparableTime(first.sentAt);
+      const secondTime = comparableTime(second.sentAt);
+      if (firstTime == null || secondTime == null) return 0;
+      return firstTime - secondTime;
+    });
 };
 
 export const normalizeRealtimeMessage = (message: ChatRecord, selectedChat: ChatRecord) => {

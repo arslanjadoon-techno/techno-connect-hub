@@ -11,8 +11,17 @@ import {
   Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { downloadAttachment, getMessageAttachments, type ChatAttachment } from "./chatHealper";
+import {
+  CHAT_URL_PATTERN,
+  downloadAttachment,
+  getChatHost,
+  getFileUrl,
+  getMessageAttachments,
+  toChatHref,
+  type ChatAttachment,
+} from "./chatHealper";
 import NotesDialog from "./sidebar/NotesDialog";
 
 export type ChatBodyView = "conversations" | "calls" | "media" | "notes";
@@ -59,19 +68,7 @@ const panelTitles: Record<Exclude<ChatBodyView, "conversations">, string> = {
   notes: "Notes",
 };
 
-const URL_PATTERN = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
-
 type MediaTab = "visual" | "files" | "links";
-
-const toHref = (url: string) => (url.toLowerCase().startsWith("www.") ? `https://${url}` : url);
-
-const hostOf = (url: string) => {
-  try {
-    return new URL(toHref(url)).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-};
 
 const dateTimeFormat = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
@@ -94,16 +91,6 @@ const getContentType = (file: ChatRecord) =>
   String(file.contentType || file.content_type || file.mimeType || "").toLowerCase();
 
 // Attachments come in several API shapes, so every known URL field is checked.
-const getFileUrl = (file: ChatRecord): string =>
-  file.url ||
-  file.downloadUrl ||
-  file.download_url ||
-  file.fileUrl ||
-  file.file_url ||
-  file.publicUrl ||
-  file.public_url ||
-  "";
-
 /* ------------------------------ call history ------------------------------ */
 
 function CallRow({
@@ -231,17 +218,23 @@ export default function ChatBodyPanels({
     const items: Array<{ url: string; href: string; host: string; message: ChatRecord }> = [];
     const newestFirst = [...libraryMessages].sort((a, b) => timeOf(b.sentAt) - timeOf(a.sentAt));
     for (const message of newestFirst) {
-      for (const value of String(message.text || "").match(URL_PATTERN) || []) {
+      for (const value of String(message.text || "").match(CHAT_URL_PATTERN) || []) {
         const url = value.replace(/[),.!?:;]+$/, "");
         if (seen.has(url)) continue;
         seen.add(url);
-        items.push({ url, href: toHref(url), host: hostOf(url), message });
+        items.push({ url, href: toChatHref(url), host: getChatHost(url), message });
       }
     }
     return items;
   }, [libraryMessages]);
 
   const [mediaTab, setMediaTab] = useState<MediaTab>("visual");
+  const [selectedLink, setSelectedLink] = useState<{ url: string; href: string } | null>(null);
+  const [selectedPreview, setSelectedPreview] = useState<{
+    url: string;
+    name: string;
+    kind: "image" | "video" | "file";
+  } | null>(null);
 
   // Once the library loads, open on the first tab that has something in it.
   useEffect(() => {
@@ -365,12 +358,11 @@ export default function ChatBodyPanels({
                             key={`${file.message?.id ?? "message"}-${file.id ?? index}`}
                             className="group relative aspect-square overflow-hidden rounded-lg bg-muted"
                           >
-                            <a
-                              href={file.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <button
+                              type="button"
                               aria-label={`Open ${name}`}
-                              className="block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                              onClick={() => setSelectedPreview({ url: file.url, name, kind: isVideo ? "video" : "image" })}
+                              className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                             >
                               {isVideo ? (
                                 <>
@@ -394,7 +386,7 @@ export default function ChatBodyPanels({
                                   className="h-full w-full object-cover transition-transform group-hover:scale-105"
                                 />
                               )}
-                            </a>
+                            </button>
                             <a
                               href={file.url}
                               download={name}
@@ -422,46 +414,64 @@ export default function ChatBodyPanels({
               {mediaTab === "files" && (
                 <div role="tabpanel" id="media-panel-files" aria-labelledby="media-tab-files">
                   {documentItems.length > 0 ? (
-                    <ul className="space-y-2">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
                       {documentItems.map((file, index) => {
                         const when = formatWhen(file.message?.sentAt);
                         return (
-                          <li
+                          <div
                             key={`${file.message?.id ?? "message"}-${file.id ?? index}`}
-                            className="flex min-w-0 items-center gap-3 rounded-lg border bg-card p-3"
+                            role={file.url ? "button" : undefined}
+                            tabIndex={file.url ? 0 : undefined}
+                            onClick={() => file.url && setSelectedPreview({
+                              url: file.url,
+                              name: file.name || "Attachment",
+                              kind: "file",
+                            })}
+                            onKeyDown={(event) => {
+                              if (file.url && (event.key === "Enter" || event.key === " ")) {
+                                event.preventDefault();
+                                setSelectedPreview({
+                                  url: file.url,
+                                  name: file.name || "Attachment",
+                                  kind: "file",
+                                });
+                              }
+                            }}
+                            className="group relative min-w-0 cursor-pointer overflow-hidden rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50"
                           >
-                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                              <FileText className="h-5 w-5" />
+                            <span className="flex aspect-square w-full items-center justify-center rounded-lg bg-primary/10 text-primary">
+                              <FileText className="h-8 w-8" />
                             </span>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm text-foreground" title={file.name}>
+                            <div className="mt-2 min-w-0">
+                              <p className="truncate text-xs font-medium text-foreground" title={file.name}>
                                 {file.name || "Attachment"}
                               </p>
-                              <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                                Shared by {file.message?.authorName || "Chat"}
-                                {when ? `, ${when}` : ""}
+                              <p className="mt-0.5 truncate text-[11px] text-muted-foreground" title={when}>
+                                {file.message?.authorName || "Chat"}
                               </p>
                             </div>
                             {file.url ? (
-                              <Button variant="outline" size="sm" asChild>
+                              <Button variant="outline" size="icon" className="absolute right-2 top-2 h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:none)]:opacity-100" asChild>
                                 <a
                                   href={file.url}
                                   download={file.name || undefined}
-                                  onClick={(event) => downloadAttachment(event.nativeEvent, file)}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    downloadAttachment(event.nativeEvent, file);
+                                  }}
                                 >
                                   <Download className="h-4 w-4" />
-                                  Download
                                 </a>
                               </Button>
                             ) : (
-                              <span className="shrink-0 text-xs text-muted-foreground">
+                              <span className="mt-1 block text-[11px] text-muted-foreground">
                                 Unavailable
                               </span>
                             )}
-                          </li>
+                          </div>
                         );
                       })}
-                    </ul>
+                    </div>
                   ) : (
                     <EmptyState
                       icon={<FileText className="h-5 w-5" />}
@@ -475,17 +485,17 @@ export default function ChatBodyPanels({
               {mediaTab === "links" && (
                 <div role="tabpanel" id="media-panel-links" aria-labelledby="media-tab-links">
                   {linkItems.length > 0 ? (
-                    <ul className="space-y-2">
+                    <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
                       {linkItems.map((item) => {
                         const when = formatWhen(item.message?.sentAt);
                         return (
-                          <li key={item.url}>
-                            <a
-                              href={item.href}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex min-w-0 items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          <li key={item.url} className="min-w-0">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedLink({ url: item.url, href: item.href })}
+                              className="block w-full cursor-pointer overflow-hidden rounded-lg border bg-card text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             >
+                              <span className="flex min-w-0 items-center gap-3 p-3">
                               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                                 <Link2 className="h-5 w-5" />
                               </span>
@@ -505,7 +515,8 @@ export default function ChatBodyPanels({
                                 </span>
                               </span>
                               <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
-                            </a>
+                              </span>
+                            </button>
                           </li>
                         );
                       })}
@@ -523,6 +534,44 @@ export default function ChatBodyPanels({
           )}
         </div>
       )}
+
+      <Dialog open={Boolean(selectedLink)} onOpenChange={(open) => !open && setSelectedLink(null)}>
+        <DialogContent className="flex h-[85vh] max-w-5xl flex-col p-0">
+          <DialogHeader className="border-b px-4 py-3">
+            <DialogTitle className="truncate text-sm font-normal">
+              {selectedLink?.url}
+            </DialogTitle>
+          </DialogHeader>
+          {selectedLink && (
+            <iframe
+              src={selectedLink.href}
+              title={`Preview of ${selectedLink.url}`}
+              referrerPolicy="no-referrer"
+              sandbox="allow-forms allow-popups allow-same-origin allow-scripts"
+              className="min-h-0 flex-1 rounded-b-lg border-0 bg-background"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(selectedPreview)} onOpenChange={(open) => !open && setSelectedPreview(null)}>
+        <DialogContent className="flex h-[85vh] max-w-5xl flex-col p-2">
+          <DialogHeader className="px-2 py-1">
+            <DialogTitle className="truncate text-sm font-normal">{selectedPreview?.name}</DialogTitle>
+          </DialogHeader>
+          {selectedPreview?.kind === "video" ? (
+            <video src={selectedPreview.url} controls autoPlay className="min-h-0 flex-1 rounded-md object-contain" />
+          ) : selectedPreview?.kind === "image" ? (
+            <img src={selectedPreview.url} alt={selectedPreview.name} className="min-h-0 flex-1 rounded-md object-contain" />
+          ) : selectedPreview ? (
+            <iframe
+              src={selectedPreview.url}
+              title={`Preview of ${selectedPreview.name}`}
+              className="min-h-0 flex-1 rounded-md border bg-background"
+            />
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </section>
   );
-} 
+}

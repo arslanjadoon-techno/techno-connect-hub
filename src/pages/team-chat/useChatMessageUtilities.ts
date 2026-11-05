@@ -4,7 +4,10 @@ import {
 } from "@/services/Team-chat/chat.service";
 import { getBuddySendId, getChannelId, normalizeChatError } from "./chatHealper";
 
-export function useChatMessageUtilities(setSendError: (message: string) => void) {
+export function useChatMessageUtilities(
+  setSendError: (message: string) => void,
+  setMessagesByChat?: (updater: any) => void,
+) {
   const handleCopyMessage = async (message: any) => {
     const text = String(message?.text || "").trim();
     if (!text) return;
@@ -25,15 +28,33 @@ export function useChatMessageUtilities(setSendError: (message: string) => void)
     const targetChatId = isChannelTarget ? getChannelId(target) : target.directConversationId;
     try {
       const forwardedText = text || "[Attachment]";
+      let response: any;
       if (isChannelTarget) {
-        await sendConversationMessageService(targetChatId, forwardedText, {
+        response = await sendConversationMessageService(targetChatId, forwardedText, {
           metadata: { forwardedFrom: message.id },
         });
       } else {
         const recipientId = getBuddySendId(target);
         if (!recipientId) throw new Error("The selected recipient is missing an identity ID.");
-        await sendDirectMessageService(recipientId, forwardedText, {
+        response = await sendDirectMessageService(recipientId, forwardedText, {
           metadata: { forwardedFrom: message.id },
+        });
+      }
+
+      const payload = response?.data?.data ?? response?.data ?? {};
+      const forwardedMessage = payload?.SentMessage ?? payload?.sentMessage ?? payload?.message ?? payload;
+      const conversationId = String(
+        payload?.chatId ?? payload?.chat_id ?? payload?.conversationId ?? payload?.conversation_id ?? targetChatId ?? "",
+      );
+
+      if (setMessagesByChat && conversationId && forwardedMessage?.id) {
+        setMessagesByChat((previous: Record<string, any[]>) => {
+          const existing = previous[conversationId] || [];
+          if (existing.some((item) => String(item.id) === String(forwardedMessage.id))) return previous;
+          return {
+            ...previous,
+            [conversationId]: [...existing, { ...forwardedMessage, sendState: "sent" }],
+          };
         });
       }
       setSendError("");

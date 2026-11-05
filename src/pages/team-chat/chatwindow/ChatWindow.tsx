@@ -9,7 +9,15 @@ import {
   type KeyboardEvent,
   type RefObject,
 } from "react";
-import { getBuddyEmail, getBuddyName, getBuddySendId } from "../chatHealper";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  getAvailability,
+  getBuddyEmail,
+  getBuddyName,
+  getBuddySendId,
+  getImageUrl,
+} from "../chatHealper";
 import { EmptyChatState } from "./ChatWindowStates";
 import { PinnedMessageBanner } from "./ChatWindowPanels";
 import InternalCallPanel from "../calls/InternalCallPanel";
@@ -85,6 +93,17 @@ const SEARCH_DEBOUNCE_MS = 300;
 const TYPING_IDLE_MS = 2500;
 const HIGHLIGHT_MS = 1800;
 const ADMIN_ROLES = ["owner", "admin", "administrator"];
+
+function getSearchableMessageText(message: MessageRecord) {
+  return String(
+    message.text ??
+      message.content ??
+      message.message ??
+      message.body ??
+      message.messageText ??
+      "",
+  );
+}
 
 // Memoized so typing in the composer does not re-render the header and the whole message list.
 const MemoHeader = memo(ChatWindowHeader);
@@ -194,6 +213,8 @@ export default function ChatWindow({
   const [searchResults, setSearchResults] = useState<MessageRecord[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
+  const [viewedUser, setViewedUser] = useState<ChatRecord | null>(null);
+  const [profileImageOpen, setProfileImageOpen] = useState(false);
 
   const chatMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -421,8 +442,19 @@ export default function ChatWindow({
         setSearchResults(Array.isArray(results) ? results : []);
       } catch {
         if (requestId === searchRequestId.current) {
-          setSearchResults([]);
-          setSearchError("Unable to search messages. Please try again.");
+          // Keep search useful while an older/degraded backend cannot execute
+          // its FULLTEXT query. The server remains the source of truth; this
+          // searches the messages already loaded in the active conversation.
+          const normalizedTerm = term.toLocaleLowerCase();
+          const localResults = currentMessages.filter((message) =>
+            getSearchableMessageText(message).toLocaleLowerCase().includes(normalizedTerm),
+          );
+          setSearchResults(localResults.slice(0, 25));
+          setSearchError(
+            localResults.length
+              ? "Showing messages already loaded in this chat."
+              : "Unable to search messages. Please try again.",
+          );
         }
       } finally {
         if (requestId === searchRequestId.current) setSearchLoading(false);
@@ -430,7 +462,7 @@ export default function ChatWindow({
     }, SEARCH_DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
-  }, [messageSearchTerm, messageSearchOpen, chatId]);
+  }, [messageSearchTerm, messageSearchOpen, chatId, currentMessages]);
 
   // Close the chat options menu on Escape or an outside click.
   useEffect(() => {
@@ -546,6 +578,10 @@ export default function ChatWindow({
   if (!selectedChat) return <EmptyChatState />;
 
   const title = getChatTitle(selectedChat);
+  const viewedUserName = viewedUser ? getBuddyName(viewedUser) : "Chat user";
+  const viewedUserEmail = viewedUser ? getBuddyEmail(viewedUser) : "";
+  const viewedUserImage = getImageUrl(viewedUser);
+  const viewedUserAvailability = getAvailability(viewedUser);
 
   return (
     <section className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-background text-foreground">
@@ -580,6 +616,7 @@ export default function ChatWindow({
           onSearchMessages,
           onToggleGroupMute,
           onTransferOwnership,
+          onViewUser: (user: ChatRecord) => setViewedUser(user),
           selectedChat,
           selectedUserBlocked,
           setChatMenuOpen,
@@ -623,6 +660,7 @@ export default function ChatWindow({
           handlePinMessage,
           handleReaction,
           handleReplyToMessage,
+          onViewUser: (user: ChatRecord) => setViewedUser(user),
           hasOlderMessages,
           highlightedMessageId,
           loadingOlderMessages,
@@ -641,50 +679,111 @@ export default function ChatWindow({
           setSelectedMessageIds,
         }}
       />
-      <ChatComposerPanel
-        {...{
-          actionsMessage,
-          availableChats,
-          composerInputRef,
-          currentMessages,
-          currentUser,
-          editingMessage,
-          emojiAnchor,
-          emojiTarget,
-          fileInputRef,
-          groupMembers,
-          handleComposerChange,
-          handleFileUpload,
-          handleForwardMessage,
-          handleReaction,
-          handleSend,
-          handleOTPRequest,
-          inputValue,
-          insertEmoji,
-          insertMention,
-          mentionQuery,
-          onComposerKeyDown,
-          onTyping: signalTyping,
-          pendingFiles,
-          recording,
-          removePendingFile,
-          replyToMessage,
-          selectedChat,
-          sendError,
-          sendMessageIsSuccess,
-          sending,
-          setActionsMessage,
-          setEmojiAnchor,
-          setEmojiTarget,
-          setMediaDialogOpen,
-          setScheduleCallOpen,
-          scheduleCallOpen,
-          mediaDialogOpen,
-          toggleRecording,
-          uploading,
-          handleCancelComposerMode,
+      <Dialog
+        open={Boolean(viewedUser)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setViewedUser(null);
+            setProfileImageOpen(false);
+          }
         }}
-      />
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>User profile</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center text-center">
+            <button
+              type="button"
+              disabled={!viewedUserImage}
+              aria-label={`Open ${viewedUserName}'s profile picture`}
+              title={viewedUserImage ? "Open profile picture" : undefined}
+              onClick={() => setProfileImageOpen(true)}
+              className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+            >
+              <Avatar className="h-24 w-24 bg-primary/10 text-primary">
+                <AvatarImage src={viewedUserImage} />
+                <AvatarFallback className="text-2xl">
+                  {viewedUserName.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </button>
+            <p className="mt-3 text-lg font-semibold">{viewedUserName}</p>
+            {viewedUserEmail && <p className="text-sm text-muted-foreground">{viewedUserEmail}</p>}
+            <p className="mt-2 inline-flex items-center gap-2 text-sm">
+              <span
+                aria-hidden="true"
+                className="inline-block h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: viewedUserAvailability.color }}
+              />
+              {viewedUserAvailability.label}
+            </p>
+            {viewedUser?.designation && (
+              <p className="mt-1 text-sm text-muted-foreground">{viewedUser.designation}</p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={profileImageOpen} onOpenChange={setProfileImageOpen}>
+        <DialogContent className="max-w-[min(94vw,960px)] border-0 bg-transparent p-2 shadow-none">
+          <DialogHeader>
+            <DialogTitle className="sr-only">{viewedUserName}&apos;s profile picture</DialogTitle>
+          </DialogHeader>
+          <div className="flex max-h-[85vh] justify-center overflow-hidden rounded-lg bg-black/80 p-2">
+            <img
+              src={viewedUserImage}
+              alt={`${viewedUserName}'s profile picture`}
+              className="max-h-[82vh] max-w-full object-contain"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+      <div className="mt-3 shrink-0">
+        <ChatComposerPanel
+          {...{
+            actionsMessage,
+            availableChats,
+            composerInputRef,
+            currentMessages,
+            currentUser,
+            editingMessage,
+            emojiAnchor,
+            emojiTarget,
+            fileInputRef,
+            groupMembers,
+            handleComposerChange,
+            handleFileUpload,
+            handleForwardMessage,
+            handleReaction,
+            handleSend,
+            handleOTPRequest,
+            inputValue,
+            insertEmoji,
+            insertMention,
+            mentionQuery,
+            onComposerKeyDown,
+            onTyping: signalTyping,
+            pendingFiles,
+            recording,
+            removePendingFile,
+            replyToMessage,
+            selectedChat,
+            sendError,
+            sendMessageIsSuccess,
+            sending,
+            setActionsMessage,
+            setEmojiAnchor,
+            setEmojiTarget,
+            setMediaDialogOpen,
+            setScheduleCallOpen,
+            scheduleCallOpen,
+            mediaDialogOpen,
+            toggleRecording,
+            uploading,
+            handleCancelComposerMode,
+          }}
+        />
+      </div>
     </section>
   );
 }

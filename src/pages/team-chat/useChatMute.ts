@@ -1,18 +1,25 @@
-import { updateChatSettingsService } from "@/services/Team-chat/chat.service";
+import {
+  muteConversationService,
+  unmuteConversationService,
+} from "@/services/Team-chat/chat.service";
 
-export function useChatMute({ setMutedChatIds, setSendError }: any) {
-  const handleToggleChatMute = (chatId: any) => {
+export function useChatMute({ mutedChatIds, setMutedChatIds, setSendError }: any) {
+  const handleToggleChatMute = async (chatId: any) => {
     if (!chatId) return;
-    setMutedChatIds((previous: string[]) => {
-      const normalizedChatId = String(chatId);
-      const next = previous.includes(normalizedChatId)
-        ? previous.filter((id) => id !== normalizedChatId)
-        : [...previous, normalizedChatId];
-      updateChatSettingsService({ mutedChatIds: next }).catch(() => {
-        setSendError("Chat notification setting could not be saved.");
-      });
-      return next;
-    });
+    const normalizedChatId = String(chatId);
+    const wasMuted = mutedChatIds.includes(normalizedChatId);
+    const next = wasMuted
+      ? mutedChatIds.filter((id: string) => id !== normalizedChatId)
+      : [...mutedChatIds, normalizedChatId];
+
+    setMutedChatIds(next);
+    try {
+      if (wasMuted) await unmuteConversationService(normalizedChatId);
+      else await muteConversationService(normalizedChatId);
+    } catch {
+      setMutedChatIds(mutedChatIds);
+      setSendError("Chat notification setting could not be saved.");
+    }
   };
   return { handleToggleChatMute };
 }

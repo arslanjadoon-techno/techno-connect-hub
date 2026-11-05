@@ -155,8 +155,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
   const {
     inputValue,
     setInputValue,
-    enterToSend,
-    setEnterToSend,
     replyToMessage,
     setReplyToMessage,
     editingMessage,
@@ -173,7 +171,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     handleFileUpload,
     removePendingFile,
     handleVoiceMessage,
-    handleEnterToSendChange,
     handleReplyToMessage,
     handleEditMessage,
     handleCancelComposerMode,
@@ -205,6 +202,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
 
   const { saveNote, deleteNote } = useChatNotes({
     bodyView,
+    currentUserId,
     notes,
     setNotes,
     setNotesLoading,
@@ -266,7 +264,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     id,
     isCurrentUserRecord,
     isSelfConversation,
-    setEnterToSend,
     setBlockedUserIds,
     setSendError,
   });
@@ -348,6 +345,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
 
   const handleSend = useChatSend({
     blockedUserIds,
+    chatBoxRef,
     currentUser,
     currentUserId,
     editingMessage,
@@ -364,6 +362,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     setPendingFiles,
     setReplyToMessage,
     setSelectedChat,
+    setBuddies,
     setChannels,
     setSendError,
     setSending,
@@ -435,7 +434,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         currentUser,
         deleteNote,
         editingMessage,
-        enterToSend,
         fetchChatData,
         filteredItems,
         groupDialogOpen,
@@ -455,7 +453,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         handleOTPRequest,
         handleEditMessage,
         handleEndActiveCall,
-        handleEnterToSendChange,
         handleFileUpload,
         handleForwardMessage,
         handleLeaveGroup,

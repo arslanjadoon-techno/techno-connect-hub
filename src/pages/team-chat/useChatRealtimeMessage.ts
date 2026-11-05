@@ -1,17 +1,16 @@
 import { useCallback, useRef } from "react";
 import {
   getBuddySendId,
-  getChannelId,
   getImageUrl,
   getMessageSenderId,
   getMessageText,
-  getUnreadCount,
 } from "./chatHealper";
 import { normalizeRealtimeMessage, resolveLocalChatKey } from "./chatMessageNormalization";
 import { getMessageTimestamp, isMessageReadByUser, messageMentionsUser } from "./ChatSystemUtils";
 import { CHAT_APP_BASE_PATH } from "./chatRoutes";
 import { playMessageNotificationSound, showChatNotification } from "./chatNotifications";
 import { markConversationReadService } from "@/services/Team-chat/chat.service";
+import { updateConversationPreview } from "./chatConversationKeys";
 
 type ChatRecord = Record<string, any>;
 
@@ -31,6 +30,7 @@ type ChatRealtimeMessageOptions = {
   realtimeStartedAtRef: { current: number };
   selectedChat: ChatRecord | null;
   setChannels: (updater: any) => void;
+  setBuddies: (updater: any) => void;
   setMessagesByChat: (updater: any) => void;
 };
 
@@ -50,13 +50,27 @@ export function useChatRealtimeMessage({
   realtimeStartedAtRef,
   selectedChat,
   setChannels,
+  setBuddies,
   setMessagesByChat,
 }: ChatRealtimeMessageOptions) {
   const fallbackHandledMessageKeysRef = useRef(new Set<string>());
   const messageKeysRef = handledRealtimeMessageKeysRef || fallbackHandledMessageKeysRef;
 
   const handleRealtimeMessage = useCallback(
-    ({ chatId, message }: { chatId: string | number; message: ChatRecord }) => {
+    (payload: ChatRecord = {}) => {
+      // Accept both the wrapped notification shape and a raw message DTO so
+      // clients remain compatible with every chat notification producer.
+      const wrappedMessage = payload?.message;
+      const message =
+        wrappedMessage && typeof wrappedMessage === "object" ? wrappedMessage : payload;
+      const chatId =
+        payload?.chatId ??
+        payload?.chat_id ??
+        message?.chatId ??
+        message?.chat_id ??
+        message?.conversationId ??
+        message?.conversation_id;
+
       if (!chatId || !message) return;
 
       const senderId = getMessageSenderId(message);
@@ -206,72 +220,71 @@ export function useChatRealtimeMessage({
       }
 
       // Update the conversation preview and unread count.
-      setChannels((prev: ChatRecord[]) => {
-        let matchedExistingConversation = false;
+      setChannels((prev: ChatRecord[]) =>
+        updateConversationPreview(prev, {
+          chatId,
+          message,
+          unreadIncrement: !isOwnMessage && !shouldTreatAsRead ? 1 : 0,
+          createConversation: () => {
+            // Create a conversation preview when this chat is not currently in the list.
+            const sender =
+              message?.sender && typeof message.sender === "object" ? message.sender : {};
 
-        const nextChannels = prev.map((channel: ChatRecord) => {
-          const channelId = String(getChannelId(channel) ?? "");
-          const conversationId = String(channel?.chat_id ?? channel?.chatId ?? channel?.id ?? "");
+            const matchingBuddy = buddies.find(
+              (buddy) => String(getBuddySendId(buddy)) === String(senderId),
+            );
 
-          if (channelId !== String(chatId) && conversationId !== String(chatId)) {
-            return channel;
-          }
+            const senderUser = {
+              ...sender,
+              id: senderId,
+              user_id: senderId,
+              name:
+                sender?.name ||
+                sender?.display_name ||
+                sender?.displayName ||
+                matchingBuddy?.name ||
+                "Chat user",
+              email: sender?.email || sender?.email_id || matchingBuddy?.email || "",
+            };
 
-          matchedExistingConversation = true;
+            const initialUnreadCount = !isOwnMessage && !shouldTreatAsRead ? 1 : 0;
 
-          const currentUnreadCount = getUnreadCount(channel);
-          const nextUnreadCount =
-            !isOwnMessage && !shouldTreatAsRead ? currentUnreadCount + 1 : currentUnreadCount;
-
-          return {
-            ...channel,
-            lastMessage: message,
-            unreadCount: nextUnreadCount,
-            unread_count: nextUnreadCount,
-          };
-        });
-
-        if (matchedExistingConversation || isOwnMessage) {
-          return nextChannels;
-        }
-
-        // Create a conversation preview when this chat is not currently in the list.
-        const sender = message?.sender && typeof message.sender === "object" ? message.sender : {};
-
-        const matchingBuddy = buddies.find(
-          (buddy) => String(getBuddySendId(buddy)) === String(senderId),
-        );
-
-        const senderUser = {
-          ...sender,
-          id: senderId,
-          user_id: senderId,
-          name:
-            sender?.name ||
-            sender?.display_name ||
-            sender?.displayName ||
-            matchingBuddy?.name ||
-            "Chat user",
-          email: sender?.email || sender?.email_id || matchingBuddy?.email || "",
-        };
-
-        const initialUnreadCount = !isOwnMessage && !shouldTreatAsRead ? 1 : 0;
-
-        return [
-          {
-            id: String(chatId),
-            chat_id: String(chatId),
-            type: "direct",
-            isDirect: true,
-            title: senderUser.name,
-            participants: [senderUser, currentUser].filter(Boolean),
-            unreadCount: initialUnreadCount,
-            unread_count: initialUnreadCount,
-            lastMessage: message,
+            return {
+              id: String(chatId),
+              chat_id: String(chatId),
+              type: "direct",
+              isDirect: true,
+              title: senderUser.name,
+              participants: [senderUser, currentUser].filter(Boolean),
+              unreadCount: initialUnreadCount,
+              unread_count: initialUnreadCount,
+              lastMessage: message,
+              last_message: message,
+              lastMessageAt:
+                message?.createdAt ||
+                message?.created_at ||
+                message?.sentAt ||
+                message?.sent_at ||
+                new Date().toISOString(),
+              last_message_at:
+                message?.createdAt ||
+                message?.created_at ||
+                message?.sentAt ||
+                message?.sent_at ||
+                new Date().toISOString(),
+            };
           },
-          ...nextChannels,
-        ];
-      });
+        }),
+      );
+      if (localKey) {
+        setBuddies((prev: ChatRecord[]) =>
+          updateConversationPreview(prev, {
+            chatId: localKey,
+            message,
+            unreadIncrement: !isOwnMessage && !shouldTreatAsRead ? 1 : 0,
+          }),
+        );
+      }
 
       const isDoNotDisturb =
         String(currentStatus || "")
@@ -348,6 +361,7 @@ export function useChatRealtimeMessage({
       realtimeStartedAtRef,
       selectedChat,
       setChannels,
+      setBuddies,
       setMessagesByChat,
     ],
   );

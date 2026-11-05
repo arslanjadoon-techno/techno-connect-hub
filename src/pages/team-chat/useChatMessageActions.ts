@@ -18,7 +18,10 @@ export function useChatMessageActions({
   setMessagesByChat: (updater: any) => void;
   setSendError: (value: string) => void;
 }) {
-  const { handleCopyMessage, handleForwardMessage } = useChatMessageUtilities(setSendError);
+  const { handleCopyMessage, handleForwardMessage } = useChatMessageUtilities(
+    setSendError,
+    setMessagesByChat,
+  );
   const { handleReaction } = useChatReactions({
     currentUserId,
     selectedChat,

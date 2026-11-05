@@ -32,6 +32,12 @@ export function getConversationActivityTime(conversation: ChatRecord | null | un
     conversation?.last_message_at ||
     conversation?.lastMessageTime ||
     conversation?.last_message_time ||
+    conversation?.lastMessage?.sentAt ||
+    conversation?.lastMessage?.sent_at ||
+    conversation?.lastMessage?.timestamp ||
+    conversation?.last_message?.sentAt ||
+    conversation?.last_message?.sent_at ||
+    conversation?.last_message?.timestamp ||
     conversation?.updatedAt ||
     conversation?.updated_at;
   if (value == null || value === "") return 0;

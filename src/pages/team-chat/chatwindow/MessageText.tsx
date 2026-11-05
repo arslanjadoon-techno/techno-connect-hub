@@ -2,6 +2,7 @@ import { getBuddyName } from "../chatHealper";
 
 type RecordValue = Record<string, any>;
 const URL_PATTERN = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
+const EMAIL_PATTERN = /([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})/gi;
 const FORMAT_PATTERN = /(\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*|_[^_\n]+_)/g;
 
 export default function MessageText({
@@ -56,7 +57,23 @@ export default function MessageText({
                       {urlPart}
                     </a>
                   ) : (
-                    <span key={`${index}-${mentionIndex}-${urlIndex}`}>{urlPart}</span>
+                    urlPart.split(EMAIL_PATTERN).map((emailPart, emailIndex) =>
+                      emailIndex % 2 ? (
+                        <a
+                          key={`${index}-${mentionIndex}-${urlIndex}-email-${emailIndex}`}
+                          href={`mailto:${emailPart}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-primary underline-offset-2 hover:underline"
+                        >
+                          {emailPart}
+                        </a>
+                      ) : (
+                        <span key={`${index}-${mentionIndex}-${urlIndex}-text-${emailIndex}`}>
+                          {emailPart}
+                        </span>
+                      ),
+                    )
                   ),
                 ),
           );

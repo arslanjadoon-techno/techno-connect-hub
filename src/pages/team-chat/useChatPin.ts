@@ -16,7 +16,7 @@ export function useChatPin({ selectedChat, currentUserId, setMessagesByChat, set
     }
 
     const keys = getChatKeys(selectedChat);
-    const pinned = !Boolean(message.metadata?.pinned);
+    const pinned = !message.metadata?.pinned;
     const applyLocal = (isPinned: boolean) =>
       setMessagesByChat((previous: Record<string, ChatRecord[]>) => {
         const next = { ...previous };

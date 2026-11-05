@@ -263,7 +263,20 @@ export const getMessageText = (message: ChatRecord | null | undefined): string =
   message?.message ||
   "";
 
-const getFileUrl = (file: ChatRecord | null | undefined): string =>
+export const CHAT_URL_PATTERN = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
+
+export const toChatHref = (url: string) =>
+  url.toLowerCase().startsWith("www.") ? `https://${url}` : url;
+
+export const getChatHost = (url: string) => {
+  try {
+    return new URL(toChatHref(url)).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+};
+
+export const getFileUrl = (file: ChatRecord | null | undefined): string =>
   file?.url ||
   file?.Url ||
   file?.fileUrl ||
@@ -373,7 +386,7 @@ export const getMessageTime = (message: ChatRecord | null | undefined): string =
   message?.sent_time ||
   message?.createdAt ||
   message?.timestamp ||
-  new Date().toISOString();
+  "";
 
 export const parseChatDate = (value: string | number | Date): Date => {
   if (typeof value === "number" || value instanceof Date) {
