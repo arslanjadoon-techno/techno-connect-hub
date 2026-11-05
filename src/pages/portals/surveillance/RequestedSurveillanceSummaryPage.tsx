@@ -8,12 +8,10 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock,
-  DollarSign,
   Download,
   ExternalLink,
   Eye,
   FileText,
-  ShieldAlert,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
@@ -42,6 +40,21 @@ function isAffirmative(val: unknown): boolean {
   if (val === null || val === undefined) return false;
   const s = String(val).trim().toLowerCase();
   return s === "yes" || s === "true" || s === "y" || s === "1";
+}
+
+// For the Compliance/Payment Policy grid: collects the written note for every
+// audit row where the given flag is affirmative, dropping rows that have
+// nothing written. A flag with zero notes across every row is omitted from
+// the grid entirely instead of showing a bare "Yes".
+function collectFlagNotes(
+  rows: SurveillanceAuditRow[],
+  flagKey: keyof SurveillanceAuditRow,
+  detailsKey: keyof SurveillanceAuditRow,
+): string[] {
+  return rows
+    .filter((r) => isAffirmative(r[flagKey]))
+    .map((r) => String(r[detailsKey] ?? "").trim())
+    .filter((note) => note.length > 0);
 }
 
 function isMeaningfulText(val: unknown): boolean {
@@ -151,11 +164,8 @@ interface BundleEntry {
   itemSummary: string;
   startingAmount: string;
   endingAmount: string;
-}
-
-interface IncidentInvoiceItem {
-  invoice: string;
-  description: string;
+  accGiven?: string;
+  accGivenDetails?: string;
 }
 
 interface MissOpportunityItem {
@@ -182,20 +192,11 @@ interface ComputedSurveillanceSummary {
   bundleNonBuying: BundleEntry[];
   totalAccessoriesOffered: number;
   maximizing: "Yes" | "No";
-  flipping: "Yes" | "No";
-  smartPay: "Yes" | "No";
-  paymentsMadeOnline: "Yes" | "No";
-  paymentsRejected: "Yes" | "No";
-  splitPayments: "Yes" | "No";
-  aalSwap: "Yes" | "No";
-  aalBillSame: "Yes" | "No";
+  complianceFlags: Array<{ label: string; notes: string[] }>;
+  transactionNotes: string[];
   missOpportunities: MissOpportunityItem[];
-  portIn: "Yes" | "No";
-  magentaInMetro: "Yes" | "No";
   repLeavingLogs: SurveillanceRepIntervalLog[];
   backroomLogs: SurveillanceRepIntervalLog[];
-  fraudTransactions: IncidentInvoiceItem[];
-  paymentFrauds: IncidentInvoiceItem[];
   refundInvoices: string[];
   receiptBuyingCustomers: Array<{ invoice: string; status: string }>;
   accessoriesGivenBundles: string[];
@@ -451,6 +452,8 @@ function computeSummaryFromReport(
         endingAmount: isMeaningfulText(r.bundleEndB)
           ? r.bundleEndB.trim()
           : r.totalTaken || r.invoiceAmount || "$0.00",
+        accGiven: isAffirmative(r.bundleAccGiven) ? "Yes" : "No",
+        accGivenDetails: (r.bundleAccGivenDetails || "").trim(),
       });
     }
   });
@@ -468,33 +471,48 @@ function computeSummaryFromReport(
       itemSummary: r.bundleNb.trim(),
       startingAmount: isMeaningfulText(r.bundleStartB) ? r.bundleStartB.trim() : "$00",
       endingAmount: isMeaningfulText(r.bundleEndB) ? r.bundleEndB.trim() : "$00",
+      accGiven: isAffirmative(r.bundleAccGiven) ? "Yes" : "No",
+      accGivenDetails: (r.bundleAccGivenDetails || "").trim(),
     });
   });
 
   // Policy & Compliance flags
   const maximizing: "Yes" | "No" = rawRows.some((r) => isAffirmative(r.maximize)) ? "Yes" : "No";
-  const flipping: "Yes" | "No" = rawRows.some((r) => isAffirmative(r.flipping)) ? "Yes" : "No";
-  const smartPay: "Yes" | "No" = rawRows.some((r) => isAffirmative(r.smartPayMentioned))
-    ? "Yes"
-    : "No";
-  const anyOnlineRejected = rawRows.some((r) => isAffirmative(r.onlineRejectedPayment));
-  const paymentsMadeOnline: "Yes" | "No" =
-    meta.paymentsMadeOnline || (anyOnlineRejected ? "Yes" : "No");
-  const paymentsRejected: "Yes" | "No" =
-    meta.paymentsRejected || (anyOnlineRejected ? "Yes" : "No");
-  const splitPayments: "Yes" | "No" = rawRows.some(
-    (r) =>
-      isAffirmative(r.splitPayments) ||
-      (r.paymentType || "").trim().toLowerCase() === "mix payment",
-  )
-    ? "Yes"
-    : "No";
-  const aalSwap: "Yes" | "No" = rawRows.some((r) => isAffirmative(r.aalSwap)) ? "Yes" : "No";
-  const aalBillSame: "Yes" | "No" = rawRows.some((r) => isAffirmative(r.aalBillSame))
-    ? "Yes"
-    : "No";
-  const portIn: "Yes" | "No" = rawRows.some((r) => isAffirmative(r.portIn)) ? "Yes" : "No";
-  const magentaInMetro: "Yes" | "No" = rawRows.some((r) => isAffirmative(r.mim)) ? "Yes" : "No";
+
+  // Each flag only appears in the grid if at least one row was flagged Yes
+  // AND has a written note - no bare Yes/No pills, just the notes for
+  // whichever rows triggered the flag. A flag with no written notes anywhere
+  // (even if marked Yes somewhere) is simply omitted.
+  const complianceFlags: Array<{ label: string; notes: string[] }> = [
+    { label: "Flipping", notes: collectFlagNotes(rawRows, "flipping", "flippingDetails") },
+    { label: "SmartPay", notes: collectFlagNotes(rawRows, "smartPayMentioned", "smartPayMentionedDetails") },
+    { label: "Payments Rejected", notes: collectFlagNotes(rawRows, "onlineRejectedPayment", "onlineRejectedPaymentDetails") },
+    { label: "AAL Swap", notes: collectFlagNotes(rawRows, "aalSwap", "aalSwapDetails") },
+    { label: "AAL Bill Same", notes: collectFlagNotes(rawRows, "aalBillSame", "aalBillSameDetails") },
+    { label: "Port IN", notes: collectFlagNotes(rawRows, "portIn", "portInDetails") },
+    { label: "Magenta In Metro", notes: collectFlagNotes(rawRows, "mim", "mimDetails") },
+    { label: "Fraud Transaction", notes: collectFlagNotes(rawRows, "fraudTransactions", "fraudTransactionsDetails") },
+    { label: "Payment Fraud", notes: collectFlagNotes(rawRows, "paymentFraud", "paymentFraudDetails") },
+    { label: "Non-Up", notes: collectFlagNotes(rawRows, "nonUp", "nonUpDetails") },
+  ].filter((flag) => flag.notes.length > 0);
+
+  // Transaction Notes - shown on the audit row only when the customer bought
+  // but wasn't shown a Phone/Tablet/HINT device (see the matching condition
+  // in SurveillanceReportsPage's audit row form). Collected here under one
+  // heading the same way the compliance flags above are.
+  const transactionNotes: string[] = rawRows
+    .filter((r) => {
+      const transTypeParts = (r.transType || "")
+        .split("/")
+        .map((p) => p.trim())
+        .filter(Boolean);
+      const hasDeviceType = transTypeParts.some((p) =>
+        ["Phone", "Tablet", "HINT"].includes(p),
+      );
+      return isRowBuying(r) && transTypeParts.length > 0 && !hasDeviceType;
+    })
+    .map((r) => (r.notes || "").trim())
+    .filter((note) => note.length > 0);
 
   // Miss Opportunities
   const missOpportunities: MissOpportunityItem[] = rawRows
@@ -514,9 +532,11 @@ function computeSummaryFromReport(
     }
     if (report.repTimings && report.repTimings.length > 0) {
       const map = new Map<string, Array<{ start: string; end: string }>>();
-      report.repTimings.forEach((t) => {
-        const left = (t.timeLeft || "").trim();
-        const ret = (t.timeReturned || "").trim();
+      report.repTimings
+        .filter((t) => t.timingType !== "Back Room")
+        .forEach((t) => {
+        const left = (t.timeIn || "").trim();
+        const ret = (t.timeOut || "").trim();
         if (!isMeaningfulText(left) && !isMeaningfulText(ret)) return;
         const rep = (isMeaningfulText(t.repName) ? t.repName! : "Representative").trim();
         const list = map.get(rep) || [];
@@ -548,9 +568,11 @@ function computeSummaryFromReport(
     }
     if (report.repTimings && report.repTimings.length > 0) {
       const map = new Map<string, Array<{ start: string; end: string }>>();
-      report.repTimings.forEach((t) => {
-        const timeIn = (t.backRoomTimeIn || "").trim();
-        const timeOut = (t.backRoomTimeOut || "").trim();
+      report.repTimings
+        .filter((t) => t.timingType === "Back Room")
+        .forEach((t) => {
+        const timeIn = (t.timeIn || "").trim();
+        const timeOut = (t.timeOut || "").trim();
         if (!isMeaningfulText(timeIn) && !isMeaningfulText(timeOut)) return;
         const rep = (isMeaningfulText(t.repName) ? t.repName! : "Representative").trim();
         const list = map.get(rep) || [];
@@ -575,27 +597,6 @@ function computeSummaryFromReport(
     });
     return Array.from(map.entries()).map(([repName, intervals]) => ({ repName, intervals }));
   })();
-
-  // Fraud Transactions & Payment Fraud
-  const fraudTransactions: IncidentInvoiceItem[] = rawRows
-    .filter((r) => isAffirmative(r.fraudTransactions))
-    .map((r) => ({
-      invoice: (r.invoice || "N/A").trim(),
-      description:
-        (r.fraudTransactionsDetails || "").trim() ||
-        (r.notes || "").trim() ||
-        "Flagged fraud transaction observed during audit.",
-    }));
-
-  const paymentFrauds: IncidentInvoiceItem[] = rawRows
-    .filter((r) => isAffirmative(r.paymentFraud))
-    .map((r) => ({
-      invoice: (r.invoice || "N/A").trim(),
-      description:
-        (r.paymentFraudDetails || "").trim() ||
-        (r.notes || "").trim() ||
-        "Flagged payment discrepancy observed during audit.",
-    }));
 
   // Refund Invoices, Receipt Buying Customers, Accessories Given Bundle Customer
   const refundInvoices = Array.from(
@@ -665,20 +666,11 @@ function computeSummaryFromReport(
     bundleNonBuying,
     totalAccessoriesOffered,
     maximizing,
-    flipping,
-    smartPay,
-    paymentsMadeOnline,
-    paymentsRejected,
-    splitPayments,
-    aalSwap,
-    aalBillSame,
+    complianceFlags,
+    transactionNotes,
     missOpportunities,
-    portIn,
-    magentaInMetro,
     repLeavingLogs,
     backroomLogs,
-    fraudTransactions,
-    paymentFrauds,
     refundInvoices,
     receiptBuyingCustomers,
     accessoriesGivenBundles,
@@ -816,6 +808,15 @@ export default function RequestedSurveillanceSummaryPage() {
               <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
                 Surveillance Audit Summary
               </h1>
+              {report.status === "Draft" && (
+                <Badge
+                  variant="outline"
+                  className="border-amber-300 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 text-xs font-semibold gap-1"
+                >
+                  <Clock className="h-3.5 w-3.5" />
+                  In Progress
+                </Badge>
+              )}
               {report.status === "Approved" && (
                 <Badge
                   variant="outline"
@@ -1076,7 +1077,7 @@ export default function RequestedSurveillanceSummaryPage() {
             <div className="flex items-center gap-2.5">
               <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400" />
               <h2 className="font-display text-base font-bold text-foreground">
-                Pitch Amount Non-Buying
+                Pitch Non-Buying
               </h2>
             </div>
             <span className="text-2xl font-bold font-display text-violet-600 dark:text-violet-400 tabular-nums">
@@ -1310,6 +1311,11 @@ export default function RequestedSurveillanceSummaryPage() {
                     Ending amount:{" "}
                     <span className="font-semibold text-foreground">{b.endingAmount}</span>
                   </div>
+                  <div className="text-muted-foreground">
+                    Accessory Given:{" "}
+                    <span className="font-semibold text-foreground">{b.accGiven}</span>
+                    {b.accGivenDetails ? ` - ${b.accGivenDetails}` : ""}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1344,6 +1350,11 @@ export default function RequestedSurveillanceSummaryPage() {
                     Ending amount:{" "}
                     <span className="font-semibold text-foreground">{b.endingAmount}</span>
                   </div>
+                  <div className="text-muted-foreground">
+                    Accessory Given:{" "}
+                    <span className="font-semibold text-foreground">{b.accGiven}</span>
+                    {b.accGivenDetails ? ` - ${b.accGivenDetails}` : ""}
+                  </div>
                 </div>
               ))}
             </div>
@@ -1359,27 +1370,29 @@ export default function RequestedSurveillanceSummaryPage() {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
-          {[
-            { label: "Flipping", value: summary.flipping },
-            { label: "SmartPay", value: summary.smartPay },
-            { label: "Payments made online", value: summary.paymentsMadeOnline },
-            { label: "Payments rejected", value: summary.paymentsRejected },
-            { label: "Split Payments", value: summary.splitPayments },
-            { label: "AAL Swap", value: summary.aalSwap },
-            { label: "AAL Bill Same", value: summary.aalBillSame },
-            { label: "Port IN", value: summary.portIn },
-            { label: "Magenta In Metro", value: summary.magentaInMetro },
-          ].map((flag) => (
-            <div
-              key={flag.label}
-              className="flex items-center justify-between gap-2 rounded-xl border border-border/60 bg-muted/20 px-3.5 py-2.5"
-            >
-              <span className="font-medium text-muted-foreground">{flag.label}</span>
-              <FlagStatusPill value={flag.value} />
-            </div>
-          ))}
-        </div>
+        {summary.complianceFlags.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            No compliance or payment policy issues noted on any audit row.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            {summary.complianceFlags.map((flag) => (
+              <div
+                key={flag.label}
+                className="rounded-xl border border-border/60 bg-muted/20 px-3.5 py-2.5 space-y-1.5"
+              >
+                <span className="font-semibold text-foreground">{flag.label}</span>
+                <ul className="space-y-1">
+                  {flag.notes.map((note, idx) => (
+                    <li key={idx} className="text-muted-foreground">
+                      • {note}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Miss Opportunity */}
         <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 dark:border-amber-900/50 dark:bg-amber-950/25 p-4 space-y-2.5">
@@ -1417,6 +1430,22 @@ export default function RequestedSurveillanceSummaryPage() {
           )}
         </div>
       </Card>
+
+      {/* Reason - buyer, no Phone/Tablet/HINT device shown */}
+      {summary.transactionNotes.length > 0 && (
+        <Card className="p-6 rounded-2xl border-border/70 shadow-xs space-y-5">
+          <div className="border-b border-border/60 pb-3">
+            <h2 className="font-display text-base font-bold text-foreground">Reason</h2>
+          </div>
+          <ul className="space-y-1 text-xs">
+            {summary.transactionNotes.map((note, idx) => (
+              <li key={idx} className="text-muted-foreground">
+                • {note}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {/* 7. Floor Presence: Reps Leaving Store & Backroom In & Out */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -1491,83 +1520,6 @@ export default function RequestedSurveillanceSummaryPage() {
                         <span className="font-medium text-foreground">{iv.end}</span>
                       </div>
                     ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* 8. Fraud Transaction & Payment Fraud */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-        <Card className="p-6 rounded-2xl border-border/70 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-border/60 pb-3">
-            <div className="flex items-center gap-2.5">
-              <ShieldAlert className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-              <h2 className="font-display text-base font-bold text-foreground">
-                Fraud Transaction
-              </h2>
-            </div>
-            <Badge
-              variant="outline"
-              className="border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-300 text-xs font-bold tabular-nums"
-            >
-              {padTwo(summary.fraudTransactions.length)}
-            </Badge>
-          </div>
-
-          {summary.fraudTransactions.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No fraud transactions observed.</p>
-          ) : (
-            <div className="space-y-3">
-              {summary.fraudTransactions.map((ft, idx) => (
-                <div
-                  key={idx}
-                  className="rounded-xl border border-rose-200/80 bg-rose-50/40 dark:border-rose-900/50 dark:bg-rose-950/20 p-3.5 space-y-1 text-xs"
-                >
-                  <div className="font-bold text-rose-800 dark:text-rose-300 tabular-nums">
-                    • Invoice#{ft.invoice}
-                  </div>
-                  <div className="text-foreground leading-relaxed">
-                    <span className="font-semibold text-muted-foreground">Description: </span>
-                    {ft.description}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-
-        <Card className="p-6 rounded-2xl border-border/70 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-border/60 pb-3">
-            <div className="flex items-center gap-2.5">
-              <DollarSign className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-              <h2 className="font-display text-base font-bold text-foreground">Payment Fraud</h2>
-            </div>
-            <Badge
-              variant="outline"
-              className="border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/50 dark:text-rose-300 text-xs font-bold tabular-nums"
-            >
-              {padTwo(summary.paymentFrauds.length)}
-            </Badge>
-          </div>
-
-          {summary.paymentFrauds.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No payment fraud observed.</p>
-          ) : (
-            <div className="space-y-3">
-              {summary.paymentFrauds.map((pf, idx) => (
-                <div
-                  key={idx}
-                  className="rounded-xl border border-rose-200/80 bg-rose-50/40 dark:border-rose-900/50 dark:bg-rose-950/20 p-3.5 space-y-1 text-xs"
-                >
-                  <div className="font-bold text-rose-800 dark:text-rose-300 tabular-nums">
-                    • Invoice#{pf.invoice}
-                  </div>
-                  <div className="text-foreground leading-relaxed">
-                    <span className="font-semibold text-muted-foreground">Description: </span>
-                    {pf.description}
                   </div>
                 </div>
               ))}

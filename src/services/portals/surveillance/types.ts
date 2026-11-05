@@ -167,10 +167,9 @@ export interface SurveillanceAuditRow {
 export interface SurveillanceRepTiming {
   id: string;
   repName?: string;
-  timeLeft?: string;
-  timeReturned?: string;
-  backRoomTimeIn?: string;
-  backRoomTimeOut?: string;
+  timingType?: "Store Left" | "Back Room";
+  timeIn?: string;
+  timeOut?: string;
 }
 
 export interface SurveillanceCameraLog {
@@ -192,13 +191,9 @@ export type SurveillanceRepTimingType = "Store Left" | "Back Room";
 export interface SurveillanceSessionRepTimingRow {
   id: string;
   repName: string;
-  timingType?: SurveillanceRepTimingType;
-  timeIn?: string;
-  timeOut?: string;
-  timeLeft: string;
-  timeReturned: string;
-  backRoomTimeIn: string;
-  backRoomTimeOut: string;
+  timingType: SurveillanceRepTimingType;
+  timeIn: string;
+  timeOut: string;
 }
 
 export interface SurveillanceSessionCameraUptimeRow {
@@ -222,6 +217,7 @@ export interface SurveillanceAuditSessionMeta {
   headerGeneralNotes: string;
   loomisMachineUrl?: string;
   safeLockerUrl?: string;
+  differenceNotes?: string;
   repTimingRows: SurveillanceSessionRepTimingRow[];
   cameraUptimeRows: SurveillanceSessionCameraUptimeRow[];
   isFloorPresenceEnabled: boolean;
@@ -261,6 +257,8 @@ export interface SurveillanceReportSummaryMeta {
   paymentsRejected?: "Yes" | "No";
   generalOtherNotes?: string;
   amountDifferenceOverride?: string;
+  // Required when the summed difference across all audit rows is more than
+  // +/- $5 - see SurveillanceReportsPage's totals footer.
   reasonForDifference?: string;
   qaName?: string;
 }
@@ -680,6 +678,18 @@ export interface SurveillanceValidationItem {
   surveyEndsAt?: string;
   managerRating?: number;
   managerComments?: string;
+
+  // Every assign/reassign for this request, oldest first - lets the
+  // Validate & Assign table show every agent who has touched it, not just
+  // the current one, when a manager reassigns mid-audit.
+  assignmentHistory?: SurveillanceAssignmentHistoryItem[];
+}
+
+export interface SurveillanceAssignmentHistoryItem {
+  agentName?: string;
+  agentEmail?: string;
+  assignedByName?: string;
+  assignedAt: string;
 }
 
 export interface ValidateAndAssignPayload {
