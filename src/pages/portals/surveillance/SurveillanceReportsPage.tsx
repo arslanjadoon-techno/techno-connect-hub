@@ -74,6 +74,7 @@ import {
   Loader2,
   ChevronsUpDown,
   Link2,
+  RotateCcw,
 } from "lucide-react";
 import { FilterReset } from "@/components/filter-reset";
 import { toast } from "sonner";
@@ -1402,11 +1403,33 @@ export default function SurveillanceReportsPage() {
   // Editable Report Form state (opened when clicking "Submit Report" inside Report Details)
   const [isEditingReport, setIsEditingReport] = useState(false);
   const [editableRows, setEditableRows] = useState<SurveillanceAuditRow[]>([]);
+
+  // Summed across every audit row currently in the form - drives both the
+  // totals footer and whether Difference Notes becomes mandatory (> +/- $5).
+  const totalAuditAmount = useMemo(
+    () =>
+      editableRows.reduce((sum, row) => {
+        const parsed = parseCurrencyNumber(row.invoiceAmount);
+        return sum + (parsed.valid ? parsed.value : 0);
+      }, 0),
+    [editableRows],
+  );
+  const totalAuditDifference = useMemo(
+    () =>
+      editableRows.reduce((sum, row) => {
+        const parsed = parseCurrencyNumber(row.difference);
+        return sum + (parsed.valid ? parsed.value : 0);
+      }, 0),
+    [editableRows],
+  );
+  const isDifferenceNotesRequired = Math.abs(totalAuditDifference) > 5;
   const [expandedRowIds, setExpandedRowIds] = useState<Record<string, boolean>>({});
   const [savedRowTimestamps, setSavedRowTimestamps] = useState<Record<string, string>>({});
   const [dirtyRowIds, setDirtyRowIds] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
+  const [confirmWithdrawOpen, setConfirmWithdrawOpen] = useState(false);
   // Real backend report id for the audit currently being edited - set once
   // the first audit row is saved (saveReportProgress creates the report as
   // Status "Draft"). Required before Floor Presence / Camera Uptime can be
@@ -1437,6 +1460,7 @@ export default function SurveillanceReportsPage() {
   // Loomis Machine & Safe Locker URL fields
   const [loomisMachineUrl, setLoomisMachineUrl] = useState<string>("");
   const [safeLockerUrl, setSafeLockerUrl] = useState<string>("");
+  const [differenceNotes, setDifferenceNotes] = useState<string>("");
 
   // Standalone Floor Presence & Rep Timings rows
   const [repTimingRows, setRepTimingRows] = useState<RepTimingRow[]>([
@@ -1473,6 +1497,7 @@ export default function SurveillanceReportsPage() {
       headerGeneralNotes,
       loomisMachineUrl,
       safeLockerUrl,
+      differenceNotes,
       repTimingRows,
       cameraUptimeRows,
       isFloorPresenceEnabled,
@@ -1486,6 +1511,7 @@ export default function SurveillanceReportsPage() {
     headerGeneralNotes,
     loomisMachineUrl,
     safeLockerUrl,
+    differenceNotes,
     repTimingRows,
     cameraUptimeRows,
     isFloorPresenceEnabled,
@@ -1660,6 +1686,7 @@ export default function SurveillanceReportsPage() {
       setHeaderGeneralNotes(sessionMeta.headerGeneralNotes || "");
       setLoomisMachineUrl(sessionMeta.loomisMachineUrl || "");
       setSafeLockerUrl(sessionMeta.safeLockerUrl || "");
+      setDifferenceNotes(sessionMeta.differenceNotes || "");
       setRepTimingRows(
         sessionMeta.repTimingRows.length > 0
           ? sessionMeta.repTimingRows.map(hydrateRepTimingRow)
@@ -1747,6 +1774,9 @@ export default function SurveillanceReportsPage() {
       );
       setSafeLockerUrl(
         dbReport.summaryMeta?.safeLockerLink || localSessionMeta?.safeLockerUrl || "",
+      );
+      setDifferenceNotes(
+        dbReport.summaryMeta?.reasonForDifference || localSessionMeta?.differenceNotes || "",
       );
       const dbRepTimings = dbReport.repTimings || [];
       setRepTimingRows(
@@ -1838,6 +1868,7 @@ export default function SurveillanceReportsPage() {
         setHeaderGeneralNotes(sessionMeta.headerGeneralNotes || "");
         setLoomisMachineUrl(sessionMeta.loomisMachineUrl || "");
         setSafeLockerUrl(sessionMeta.safeLockerUrl || "");
+        setDifferenceNotes(sessionMeta.differenceNotes || "");
         setRepTimingRows(
           sessionMeta.repTimingRows.length > 0
             ? sessionMeta.repTimingRows.map(hydrateRepTimingRow)
@@ -1856,6 +1887,7 @@ export default function SurveillanceReportsPage() {
         setHeaderGeneralNotes("");
         setLoomisMachineUrl("");
         setSafeLockerUrl("");
+        setDifferenceNotes("");
         setRepTimingRows([createEmptyRepTimingRow()]);
         setCameraUptimeRows([createEmptyCameraUptimeRow()]);
         setIsFloorPresenceEnabled(false);
@@ -1878,10 +1910,14 @@ export default function SurveillanceReportsPage() {
     }
 
     // 2. Otherwise initialize from a saved session draft (header/timing/camera
-    // saved before any audit row was added), an existing report, or blank
-    const existingReport = reports.find(
-      (rep) => rep.id === reqItem.linkedReportId || rep.requestId === reqItem.id,
-    );
+    // saved before any audit row was added), an existing report, or blank.
+    // The reports list only carries header fields now (rows/timings/camera
+    // logs/attachments are fetched on demand), so when a linked report id is
+    // known but getReportByRequestId above came back empty, fetch that one
+    // report's full detail directly instead of reading it off the list.
+    const existingReport = reqItem.linkedReportId
+      ? await surveillanceService.getReport(reqItem.linkedReportId).catch(() => undefined)
+      : undefined;
     const sessionMeta = surveillanceService.getSessionMeta(reqItem.id);
 
     const initialDate = formatSurveillanceDate(reqItem.incidentDate);
@@ -1899,6 +1935,7 @@ export default function SurveillanceReportsPage() {
       setHeaderGeneralNotes(sessionMeta.headerGeneralNotes || "");
       setLoomisMachineUrl(sessionMeta.loomisMachineUrl || "");
       setSafeLockerUrl(sessionMeta.safeLockerUrl || "");
+      setDifferenceNotes(sessionMeta.differenceNotes || "");
       setRepTimingRows(
         sessionMeta.repTimingRows.length > 0
           ? sessionMeta.repTimingRows.map(hydrateRepTimingRow)
@@ -1922,6 +1959,7 @@ export default function SurveillanceReportsPage() {
       setHeaderGeneralNotes(existingReport.notes || "");
       setLoomisMachineUrl(existingReport.summaryMeta?.loomisLink || "");
       setSafeLockerUrl(existingReport.summaryMeta?.safeLockerLink || "");
+      setDifferenceNotes(existingReport.summaryMeta?.reasonForDifference || "");
       if (existingReport.repTimings && existingReport.repTimings.length > 0) {
         setRepTimingRows(existingReport.repTimings.map(hydrateRepTimingRow));
       } else if (
@@ -1950,6 +1988,7 @@ export default function SurveillanceReportsPage() {
       setHeaderGeneralNotes("");
       setLoomisMachineUrl("");
       setSafeLockerUrl("");
+      setDifferenceNotes("");
       setRepTimingRows([createEmptyRepTimingRow()]);
       setCameraUptimeRows([createEmptyCameraUptimeRow()]);
     }
@@ -2088,12 +2127,13 @@ export default function SurveillanceReportsPage() {
           storeCloseTime: headerStoreCloseTime || undefined,
           notes: headerGeneralNotes || undefined,
           summaryMeta:
-            loomisMachineUrl.trim() || safeLockerUrl.trim()
+            loomisMachineUrl.trim() || safeLockerUrl.trim() || differenceNotes.trim()
               ? {
                   loomisMachineVisible: loomisMachineUrl.trim() ? "Yes" : undefined,
                   loomisLink: loomisMachineUrl.trim() || undefined,
                   safeLockerVisible: safeLockerUrl.trim() ? "Yes" : undefined,
                   safeLockerLink: safeLockerUrl.trim() || undefined,
+                  reasonForDifference: differenceNotes.trim() || undefined,
                 }
               : undefined,
           row,
@@ -2563,6 +2603,13 @@ export default function SurveillanceReportsPage() {
       }
     }
 
+    if (isDifferenceNotesRequired && !differenceNotes.trim()) {
+      toast.error(
+        "Difference Notes is required when the total difference across all rows exceeds +/- $5.",
+      );
+      return false;
+    }
+
     return true;
   };
 
@@ -2825,10 +2872,9 @@ export default function SurveillanceReportsPage() {
       repTimings: activeRepTimingRows.map((r) => ({
         id: r.id,
         repName: r.repName,
-        timeLeft: r.timingType === "Store Left" ? r.timeIn : "",
-        timeReturned: r.timingType === "Store Left" ? r.timeOut : "",
-        backRoomTimeIn: r.timingType === "Back Room" ? r.timeIn : "",
-        backRoomTimeOut: r.timingType === "Back Room" ? r.timeOut : "",
+        timingType: r.timingType,
+        timeIn: r.timeIn,
+        timeOut: r.timeOut,
       })),
       cameraLogs: isCameraUptimeEnabled
         ? cameraUptimeRows
@@ -2841,12 +2887,16 @@ export default function SurveillanceReportsPage() {
             }))
         : [],
       summaryMeta:
-        loomisMachineUrl.trim() || safeLockerUrl.trim() || activeRepTimingRows.length > 0
+        loomisMachineUrl.trim() ||
+        safeLockerUrl.trim() ||
+        differenceNotes.trim() ||
+        activeRepTimingRows.length > 0
           ? {
               loomisMachineVisible: loomisMachineUrl.trim() ? "Yes" : undefined,
               loomisLink: loomisMachineUrl.trim() || undefined,
               safeLockerVisible: safeLockerUrl.trim() ? "Yes" : undefined,
               safeLockerLink: safeLockerUrl.trim() || undefined,
+              reasonForDifference: differenceNotes.trim() || undefined,
             }
           : undefined,
       date: formatSurveillanceDate(primaryRow.date || reqItem.incidentDate),
@@ -2980,6 +3030,31 @@ export default function SurveillanceReportsPage() {
     setIsEditingReport(false);
 
     toast.success("Surveillance audit report has been submitted successfully.");
+  };
+
+  // Pulls a just-submitted report back to Draft so the agent can fix
+  // something they noticed right after hitting Submit - only works while
+  // it's still awaiting manager review (enforced server-side too).
+  const handleWithdrawSubmission = async (reportId: string, reqItem: SurveillanceRequest) => {
+    setConfirmWithdrawOpen(false);
+    setIsWithdrawing(true);
+    setBlockingMessage("Withdrawing submission...");
+    try {
+      await surveillanceService.withdrawSubmission(reportId);
+      await Promise.all([reloadReports(), reloadAgentRequests()]);
+      setSelectedDetail({
+        ...reqItem,
+        status: "Report Requested",
+        reportStatus: undefined,
+        surveyEndsAt: undefined,
+      });
+      toast.success("Submission withdrawn. You can continue editing the audit.");
+    } catch (error) {
+      toast.error(`Failed to withdraw submission: ${(error as Error).message}`);
+    } finally {
+      setIsWithdrawing(false);
+      setBlockingMessage(null);
+    }
   };
 
   // Strictly the 5 requested columns: Store Name, Market, Requested Date, Requested By, Status
@@ -3163,9 +3238,15 @@ export default function SurveillanceReportsPage() {
               )}
               <Button
                 type="button"
-                onClick={() =>
-                  handleAddAuditRow(activeItem.storeName, activeItem.marketName, defaultDate)
-                }
+                onClick={async () => {
+                  // Persist whatever rows are already on screen before adding
+                  // a new blank one, so a row never gets silently dropped by
+                  // starting the next one without being saved first.
+                  if (editableRows.length > 0) {
+                    await handleSaveAllAuditRows(activeItem.id);
+                  }
+                  handleAddAuditRow(activeItem.storeName, activeItem.marketName, defaultDate);
+                }}
                 className="h-9 gap-1.5 text-xs font-semibold shadow-2xs"
               >
                 <Plus className="h-4 w-4" />
@@ -3645,18 +3726,24 @@ export default function SurveillanceReportsPage() {
                           </div>
                         )}
 
-                        {/* Shared Transaction Notes (stays below all primary & additional invoices) */}
-                        <div className="space-y-1 pt-2 border-t border-border/60">
-                          <Label className="text-[11px] font-semibold">Transaction Notes</Label>
-                          <Input
-                            value={row.notes || ""}
-                            onChange={(e) =>
-                              handleUpdateRowField(row.id, "notes", e.target.value)
-                            }
-                            placeholder="Enter transaction-related notes for all invoices in this row..."
-                            className="w-full"
-                          />
-                        </div>
+                        {/* Shared Transaction Notes (stays below all primary & additional invoices) -
+                            hidden by default, only shown when the customer bought but wasn't shown
+                            a Phone/Tablet/HINT device. */}
+                        {row.clientType === "Buyer" &&
+                          Boolean(row.transType) &&
+                          !["Phone", "Tablet", "HINT"].includes(row.transType) && (
+                            <div className="space-y-1 pt-2 border-t border-border/60">
+                              <Label className="text-[11px] font-semibold">Transaction Notes</Label>
+                              <Input
+                                value={row.notes || ""}
+                                onChange={(e) =>
+                                  handleUpdateRowField(row.id, "notes", e.target.value)
+                                }
+                                placeholder="Enter transaction-related notes for all invoices in this row..."
+                                className="w-full"
+                              />
+                            </div>
+                          )}
                       </div>
 
                       {/* 2. Fraud & Compliance Verification */}
@@ -3901,15 +3988,48 @@ export default function SurveillanceReportsPage() {
           )}
 
           {editableRows.length > 0 && (
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                onClick={() => handleSaveAllAuditRows(activeItem.id)}
-                className="h-9 gap-1.5 px-4 text-xs font-semibold shadow-2xs"
-              >
-                <Save className="h-3.5 w-3.5" />
-                Save All Audit Rows
-              </Button>
+            <div className="space-y-2.5 bg-muted/20 border p-3 rounded-xl">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-slate-700 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300">
+                    Total Rows:
+                    <span className="font-bold">{editableRows.length}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-400">
+                    Total Amount:
+                    <span className="font-bold">${totalAuditAmount.toFixed(2)}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-400">
+                    Total Difference:
+                    <span className="font-bold">${totalAuditDifference.toFixed(2)}</span>
+                  </span>
+                </div>
+                <Button
+                  type="button"
+                  onClick={() => handleSaveAllAuditRows(activeItem.id)}
+                  className="h-9 gap-1.5 px-4 text-xs font-semibold shadow-2xs"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  Save All Audit Rows
+                </Button>
+              </div>
+
+              {isDifferenceNotesRequired && (
+                <div className="space-y-1 pt-1">
+                  <Label className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                    Difference Notes <span className="text-rose-600">*</span>
+                    <span className="ml-1 font-normal text-muted-foreground">
+                      (required - total difference exceeds +/- $5)
+                    </span>
+                  </Label>
+                  <Input
+                    value={differenceNotes}
+                    onChange={(e) => setDifferenceNotes(e.target.value)}
+                    placeholder="Explain the reason for this difference..."
+                    className="w-full border-amber-300 focus-visible:ring-amber-400"
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -4359,17 +4479,52 @@ export default function SurveillanceReportsPage() {
               </Button>
             ) : (
               Boolean(targetReportId) && (
-                <Button
-                  onClick={() => navigate(`/surveillance/reports/submitted/${targetReportId}`)}
-                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
-                >
-                  <Eye className="h-4 w-4" />
-                  View Report
-                </Button>
+                <>
+                  {item.status === "Report Received" && (
+                    <Button
+                      variant="outline"
+                      disabled={isWithdrawing}
+                      onClick={() => setConfirmWithdrawOpen(true)}
+                      className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold border-amber-200 bg-amber-50/70 text-amber-700 hover:bg-amber-100/80 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/70 shadow-xs whitespace-nowrap shrink-0"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      Withdraw Submission
+                    </Button>
+                  )}
+                  <Button
+                    onClick={() => navigate(`/surveillance/reports/submitted/${targetReportId}`)}
+                    className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
+                  >
+                    <Eye className="h-4 w-4" />
+                    View Report
+                  </Button>
+                </>
               )
             )}
           </div>
         </div>
+
+        {/* Withdraw Submission Confirmation Modal */}
+        <AlertDialog open={confirmWithdrawOpen} onOpenChange={setConfirmWithdrawOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Withdraw Submission?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This pulls the report back to draft so you can keep editing it. Your manager will
+                no longer see it as submitted until you resubmit.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isWithdrawing}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={isWithdrawing}
+                onClick={() => targetReportId && handleWithdrawSubmission(targetReportId, item)}
+              >
+                {isWithdrawing ? "Withdrawing..." : "Withdraw Submission"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Store Header with Right-Aligned Market Tag + 6 Ordered Summary Cards */}
         <Card className="p-6 rounded-2xl border-border/70 shadow-xs space-y-5">

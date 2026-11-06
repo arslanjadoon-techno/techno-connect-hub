@@ -598,16 +598,46 @@ export default function ValidateAndAssignPage() {
       {
         key: "assignedAgent",
         header: "Assigned To",
-        searchValue: (r) => r.assignedAgentName || "-",
+        searchValue: (r) =>
+          r.assignmentHistory?.length
+            ? r.assignmentHistory.map((h) => h.agentName).join(" ")
+            : r.assignedAgentName || "-",
         accessor: (r) => {
-          if (r.assignedAgentName) {
+          // Dedup assignment history names in order, oldest first, so a
+          // reassigned request shows every agent who has worked it (not just
+          // the current one) - e.g. "Test User -> Nabeel Khan".
+          const names = Array.from(
+            new Set(
+              (r.assignmentHistory || [])
+                .map((h) => h.agentName?.trim())
+                .filter((n): n is string => Boolean(n)),
+            ),
+          );
+          if (names.length === 0 && r.assignedAgentName) {
+            names.push(r.assignedAgentName);
+          }
+          if (names.length === 0) {
+            return <span className="text-sm text-muted-foreground whitespace-nowrap">-</span>;
+          }
+          if (names.length === 1) {
             return (
               <span className="text-sm font-medium text-foreground whitespace-nowrap">
-                {r.assignedAgentName}
+                {names[0]}
               </span>
             );
           }
-          return <span className="text-sm text-muted-foreground whitespace-nowrap">-</span>;
+          return (
+            <span className="text-sm font-medium text-foreground whitespace-nowrap">
+              {names.map((name, idx) => (
+                <span key={name}>
+                  {idx > 0 && <span className="mx-1 text-muted-foreground">→</span>}
+                  <span className={idx === names.length - 1 ? "" : "text-muted-foreground line-through decoration-1"}>
+                    {name}
+                  </span>
+                </span>
+              ))}
+            </span>
+          );
         },
       },
       {
@@ -709,21 +739,21 @@ export default function ValidateAndAssignPage() {
 
               {Boolean(selectedDetail.linkedReportId) && (
                 <>
-                  {(selectedDetailDisplayStatus === "Completed" ||
-                    selectedDetailDisplayStatus === "Pending Verification") && (
-                    <Button
-                      variant="outline"
-                      onClick={() =>
-                        navigate(
-                          `/surveillance/validate-and-assign/summary/${selectedDetail.linkedReportId}`,
-                        )
-                      }
-                      className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold border-blue-200 bg-blue-50/70 text-blue-700 hover:bg-blue-100/80 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70 shadow-xs whitespace-nowrap shrink-0"
-                    >
-                      <FileText className="h-4 w-4" />
-                      View Summary
-                    </Button>
-                  )}
+                  {/* Available as soon as a draft exists (first progress save),
+                      not just once the report is finished - lets a manager see
+                      the data an agent is still entering mid-audit. */}
+                  <Button
+                    variant="outline"
+                    onClick={() =>
+                      navigate(
+                        `/surveillance/validate-and-assign/summary/${selectedDetail.linkedReportId}`,
+                      )
+                    }
+                    className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold border-blue-200 bg-blue-50/70 text-blue-700 hover:bg-blue-100/80 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-300 dark:hover:bg-blue-950/70 shadow-xs whitespace-nowrap shrink-0"
+                  >
+                    <FileText className="h-4 w-4" />
+                    View Summary
+                  </Button>
                   <Button
                     onClick={() =>
                       navigate(

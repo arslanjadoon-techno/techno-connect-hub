@@ -39,6 +39,18 @@ const surveillanceDraftMMKV = new MMKV({
 
 const ACTIVE_SESSION_KEY = "active-session";
 
+// In-memory cache for the portal-wide lists (requests, reports, markets,
+// validation queue). Surveillance's pages are all independently routed, so
+// without this every tab switch remounts the page and re-fetches everything
+// from scratch - including the "reports" list, which is slow server-side.
+// Each GET below returns the cached array until a mutation below it
+// invalidates the relevant entry, so navigating between tabs is instant
+// unless something that would actually change that list happened.
+let requestsCache: SurveillanceRequest[] | null = null;
+let reportsCache: SurveillanceReport[] | null = null;
+let marketsCache: SurveillanceMarketOption[] | null = null;
+let validationQueueCache: SurveillanceValidationItem[] | null = null;
+
 export class SurveillanceService {
   private getRowKey(requestId: string, rowId: string): string {
     return `request:${requestId}:row:${rowId}`;
@@ -184,9 +196,11 @@ export class SurveillanceService {
     surveillanceDraftMMKV.delete(ACTIVE_SESSION_KEY);
   }
 
-  async getRequests(): Promise<SurveillanceRequest[]> {
+  async getRequests(forceRefresh = false): Promise<SurveillanceRequest[]> {
+    if (!forceRefresh && requestsCache) return requestsCache;
     const res = await http.get<SurveillanceRequest[]>("/api/surveillance/requests");
-    return res.data;
+    requestsCache = res.data;
+    return requestsCache;
   }
 
   async getRequest(id: string | number): Promise<SurveillanceRequest> {
@@ -198,22 +212,29 @@ export class SurveillanceService {
     payload: CreateSurveillanceRequestPayload,
   ): Promise<SurveillanceRequest & { isDuplicate?: boolean; duplicateOfRequestId?: string; duplicateRequestedBy?: string }> {
     const res = await http.post<SurveillanceRequest>("/api/surveillance/requests", payload);
+    requestsCache = null;
     return res.data as SurveillanceRequest & { isDuplicate?: boolean; duplicateOfRequestId?: string; duplicateRequestedBy?: string };
   }
 
   async approveRequest(id: string | number, notes?: string): Promise<SurveillanceRequest> {
     const res = await http.post<SurveillanceRequest>(`/api/surveillance/requests/${id}/approve`, { notes });
+    requestsCache = null;
+    validationQueueCache = null;
     return res.data;
   }
 
   async rejectRequest(id: string | number, reason: string): Promise<SurveillanceRequest> {
     const res = await http.post<SurveillanceRequest>(`/api/surveillance/requests/${id}/reject`, { reason });
+    requestsCache = null;
+    validationQueueCache = null;
     return res.data;
   }
 
-  async getReports(): Promise<SurveillanceReport[]> {
+  async getReports(forceRefresh = false): Promise<SurveillanceReport[]> {
+    if (!forceRefresh && reportsCache) return reportsCache;
     const res = await http.get<SurveillanceReport[]>("/api/surveillance/reports");
-    return res.data;
+    reportsCache = res.data;
+    return reportsCache;
   }
 
   async getReport(id: string | number): Promise<SurveillanceReport> {
@@ -223,6 +244,9 @@ export class SurveillanceService {
 
   async submitReport(payload: CreateSurveillanceReportPayload): Promise<SurveillanceReport> {
     const res = await http.post<SurveillanceReport>("/api/surveillance/reports", payload);
+    reportsCache = null;
+    requestsCache = null;
+    validationQueueCache = null;
     return res.data;
   }
 
@@ -230,6 +254,16 @@ export class SurveillanceService {
   // creates the report as Status "Draft" on first call, reuses it after.
   async saveReportProgress(payload: SaveReportProgressPayload): Promise<SurveillanceReport> {
     const res = await http.post<SurveillanceReport>("/api/surveillance/reports/progress", payload);
+    return res.data;
+  }
+
+  // Pulls a just-submitted ("Report Received") report back to Draft so the
+  // agent can keep editing - only works before a manager has reviewed it.
+  async withdrawSubmission(reportId: string): Promise<SurveillanceReport> {
+    const res = await http.post<SurveillanceReport>(`/api/surveillance/reports/${reportId}/withdraw`, {});
+    reportsCache = null;
+    requestsCache = null;
+    validationQueueCache = null;
     return res.data;
   }
 
@@ -270,20 +304,27 @@ export class SurveillanceService {
     payload: ReviewSubmittedReportPayload,
   ): Promise<SurveillanceReport> {
     const res = await http.post<SurveillanceReport>(`/api/surveillance/reports/${id}/review`, payload);
+    reportsCache = null;
+    requestsCache = null;
+    validationQueueCache = null;
     return res.data;
   }
 
-  async getValidationQueue(): Promise<SurveillanceValidationItem[]> {
+  async getValidationQueue(forceRefresh = false): Promise<SurveillanceValidationItem[]> {
+    if (!forceRefresh && validationQueueCache) return validationQueueCache;
     const res = await http.get<SurveillanceValidationItem[]>("/api/surveillance/validation-queue");
-    return res.data;
+    validationQueueCache = res.data;
+    return validationQueueCache;
   }
 
-  async getMarkets(page = 0, size = 500): Promise<SurveillanceMarketOption[]> {
+  async getMarkets(page = 0, size = 500, forceRefresh = false): Promise<SurveillanceMarketOption[]> {
+    if (!forceRefresh && marketsCache) return marketsCache;
     const res = await http.get<SurveillanceMarketOption[]>(MARKET_API_PATHS.getAll, {
       page,
       size,
     });
-    return res.data || [];
+    marketsCache = res.data || [];
+    return marketsCache;
   }
 
   // With `search`, the DB query itself is narrowed by name/email server-side
@@ -310,6 +351,8 @@ export class SurveillanceService {
     payload: ValidateAndAssignPayload,
   ): Promise<SurveillanceValidationItem> {
     const res = await http.post<SurveillanceValidationItem>("/api/surveillance/validate-and-assign", payload);
+    requestsCache = null;
+    validationQueueCache = null;
     return res.data;
   }
 
@@ -317,6 +360,8 @@ export class SurveillanceService {
     payload: RejectValidationPayload,
   ): Promise<SurveillanceValidationItem> {
     const res = await http.post<SurveillanceValidationItem>("/api/surveillance/reject-validation", payload);
+    requestsCache = null;
+    validationQueueCache = null;
     return res.data;
   }
 }
