@@ -16,13 +16,13 @@ import { useChatClear } from "./useChatClear";
 import { useChatMarkRead } from "./useChatMarkRead";
 import { useChatMute } from "./useChatMute";
 import { useChatPresence } from "./useChatPresence";
-import { useChatAvatar } from "./useChatAvatar";
 import { useChatOlderMessages } from "./useChatOlderMessages";
 import { getActiveConversationCallsService } from "@/services/Team-chat/chat.service";
 import { getChatMessagesService } from "@/services/Team-chat/chat.service";
 import { getStoredUser } from "@/lib/api/client";
 import { normalizeCall, PENDING_CALL_STORAGE_KEY } from "./ChatSystemUtils";
 import { normalizeChatMessages } from "./chatMessageNormalization";
+import { CHAT_APP_BASE_PATH } from "./chatRoutes";
 
 type ChatRecord = Record<string, any>;
 type ChatRuntimeOptions = Record<string, any>;
@@ -66,16 +66,14 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     setSendError,
     setStatusSaving,
     setTypingUsersByChat,
-    setAvatarUploading,
-    avatarUploading,
     statusSaving,
     setMessagePaginationByChat,
     setLoadingOlderMessages,
-    chatBoxRef,
     filterBlockedMessages,
     loadingOlderMessages,
     messagePaginationByChat,
     searchTerm,
+    onNotification,
   } = options;
   const handleRealtimeMessageUpdated = useChatRealtimeMessageUpdate({
     channels,
@@ -114,6 +112,7 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     setCurrentStatus,
     setProfileUser,
     setBuddies,
+    setChannels,
     setSelectedChat,
   });
   const handleRealtimeAvatar = useChatRealtimeAvatar({
@@ -128,7 +127,6 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     selectedChat,
     loadingOlderMessages,
     messagePaginationByChat,
-    chatBoxRef,
     filterBlockedMessages,
     setLoadingOlderMessages,
     setMessagesByChat,
@@ -305,8 +303,77 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     selectedChat,
     navigate,
     setChannels,
+    setMessagesByChat,
     setSelectedChat,
   });
+
+  const handleRealtimeConversationUpdated = useCallback(
+    (payload: any = {}) => {
+      const chatId = String(payload?.chatId || payload?.conversationId || "");
+      const conversation = payload?.conversation;
+      if (!chatId || !conversation) return;
+
+      setChannels((previous: ChatRecord[]) =>
+        previous.map((item) =>
+          [item?.id, item?.chatId, item?.chat_id, getChannelId(item)]
+            .filter(Boolean)
+            .map(String)
+            .includes(chatId)
+            ? { ...item, ...conversation }
+            : item,
+        ),
+      );
+      setSelectedChat((previous: ChatRecord | null) => {
+        if (!previous) return previous;
+        const ids = [previous.id, previous.chatId].filter(Boolean).map(String);
+        if (!ids.includes(chatId)) return previous;
+        return {
+          ...previous,
+          // The API uses type="group" while the existing UI uses type="channel" for
+          // both group and channel conversations. Preserve the UI discriminator.
+          ...conversation,
+          type: previous.type,
+          title: conversation.title || previous.title,
+          participants: conversation.participants || previous.participants,
+          raw: { ...(previous.raw || {}), ...conversation },
+        };
+      });
+    },
+    [setChannels, setSelectedChat],
+  );
+
+  const handleRealtimeConversationDeleted = useCallback(
+    (payload: any = {}) => {
+      const chatId = String(payload?.chatId || payload?.conversationId || "");
+      if (!chatId) return;
+      setChannels((previous: ChatRecord[]) =>
+        previous.filter(
+          (item) =>
+            ![item?.id, item?.chatId, item?.chat_id, getChannelId(item)]
+              .filter(Boolean)
+              .map(String)
+              .includes(chatId),
+        ),
+      );
+      setMessagesByChat((previous: Record<string, ChatRecord[]>) => {
+        const next = { ...previous };
+        delete next[chatId];
+        return next;
+      });
+      if ([selectedChat?.id, selectedChat?.chatId].filter(Boolean).map(String).includes(chatId)) {
+        setSelectedChat(null);
+        navigate(CHAT_APP_BASE_PATH);
+      }
+    },
+    [
+      navigate,
+      selectedChat?.chatId,
+      selectedChat?.id,
+      setChannels,
+      setMessagesByChat,
+      setSelectedChat,
+    ],
+  );
 
   const callSocketRef = useChatRealtime({
     enabled: Boolean(currentUserId),
@@ -325,9 +392,12 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     }, []),
     onMessageRead: handleRealtimeMessageRead,
     onMemberRemoved: handleRealtimeMemberRemoved,
+    onConversationUpdated: handleRealtimeConversationUpdated,
+    onConversationDeleted: handleRealtimeConversationDeleted,
     onReactionAdded: handleRealtimeReactionAdded,
     onPresence: handleRealtimePresence,
     onAvatar: handleRealtimeAvatar,
+    onNotification,
     onCallStarted: handleRealtimeCallAccepted,
     onCallRinging: handleRealtimeCallRinging,
     onCallAccepted: handleRealtimeCallAccepted,
@@ -376,13 +446,6 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     selectedChat,
     clearUnreadForChat,
     normalizePresence,
-  });
-  const { handleAvatarUpload } = useChatAvatar({
-    avatarUploading,
-    profileUser: currentUser,
-    setAvatarUploading,
-    setLoadError,
-    setProfileUser,
   });
   const { handleToggleChatMute } = useChatMute({
     mutedChatIds,
@@ -438,7 +501,6 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     callSocketRef,
     clearUnreadForChat,
     handleStatusChange,
-    handleAvatarUpload,
     handleToggleChatMute,
     handleClearChat,
     markChatAsRead,

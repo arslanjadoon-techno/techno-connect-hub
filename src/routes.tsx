@@ -374,6 +374,8 @@ export function AppRoutes() {
       >
         {/* ---------- Dashboard ---------- */}
         <Route path="/ai-chat" element={<AiChatPage />} />
+        {/* Preserve old bookmarks while Chat Settings now lives in MIS Settings. */}
+        <Route path="/chat/settings" element={<Navigate to="/settings" replace />} />
         <Route path="/chat/*" element={<ChatSystem />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route

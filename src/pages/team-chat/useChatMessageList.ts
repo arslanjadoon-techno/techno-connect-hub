@@ -37,8 +37,14 @@ export function useChatMessageList({ selectedChat, messagesByChat }: any) {
     const secondTime = new Date(
       second.sentAt || second.createdAt || second.created_at || second.timestamp || 0,
     ).getTime();
-    return (Number.isFinite(firstTime) ? firstTime : 0) -
+    const timeOrder =
+      (Number.isFinite(firstTime) ? firstTime : 0) -
       (Number.isFinite(secondTime) ? secondTime : 0);
+    if (timeOrder !== 0) return timeOrder;
+
+    const firstId = String(first.id ?? first.messageId ?? first.message_id ?? "");
+    const secondId = String(second.id ?? second.messageId ?? second.message_id ?? "");
+    return firstId.localeCompare(secondId);
   });
   const currentMessages = selectedChat
     ? (storedMessages.length ? storedMessages : undefined) ||

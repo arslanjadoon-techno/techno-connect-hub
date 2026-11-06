@@ -223,15 +223,6 @@ export const getChatUsersService = (params: ChatParams = {}) =>
 export const updateChatStatusService = (presence: string) =>
   api.patch("/api/v1/chat/users/me/presence", { presence }, CHAT_HEADERS);
 
-export const updateChatAvatarService = (file: File) => {
-  const formData = new FormData();
-  formData.append("file", file, file.name || "avatar");
-  return api.post("/api/v1/chat/users/me/avatar", formData, CHAT_HEADERS);
-};
-
-export const updateChatAvatarUrlService = (avatarUrl: string) =>
-  api.patch("/api/v1/chat/users/me/avatar", { avatarUrl }, CHAT_HEADERS);
-
 // ==================================================================
 //  Settings
 // ==================================================================

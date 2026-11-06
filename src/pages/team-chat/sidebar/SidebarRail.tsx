@@ -2,12 +2,10 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Paperclip,
-  Settings,
   Shield,
   MessageCircle,
   UsersRound,
   StickyNote,
-  Loader2,
 } from "lucide-react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -19,14 +17,12 @@ import { CHAT_APP_BASE_PATH } from "../chatRoutes";
 import { getChatConversationsService } from "@/services/Team-chat/chat.service";
 
 interface Props {
-  avatarUploading?: boolean;
   currentUser?: Record<string, any>;
   currentUserName: string;
   onOpenCalls: () => void;
   onOpenMedia: () => void;
   onOpenNotes: () => void;
   onCreateGroup: () => void;
-  onSettingsOpen: () => void;
   onTabSelect: (key: string) => void;
   totalUnreadCount?: number;
   embedded?: boolean;
@@ -45,14 +41,12 @@ const iconClass =
   "group-hover:drop-shadow-[0_0_5px_rgba(255,255,255,0.6)]";
 
 export default function SidebarRail({
-  avatarUploading = false,
   currentUser,
   currentUserName,
   onOpenCalls,
   onOpenMedia,
   onOpenNotes,
   onCreateGroup,
-  onSettingsOpen,
   onTabSelect,
   totalUnreadCount = 0,
   embedded = false,
@@ -121,13 +115,7 @@ export default function SidebarRail({
           >
             <AvatarImage src={getImageUrl(currentUser)} />
 
-            <AvatarFallback>
-              {avatarUploading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                getInitial(currentUserName)
-              )}
-            </AvatarFallback>
+            <AvatarFallback>{getInitial(currentUserName)}</AvatarFallback>
           </Avatar>
 
           <div className="h-px w-8 bg-border" />
@@ -209,17 +197,6 @@ export default function SidebarRail({
         </Button>
       )}
 
-      <Button
-        title="Settings"
-        variant="ghost"
-        size="icon"
-        className={buttonClass}
-        onClick={onSettingsOpen}
-      >
-        <Settings className={iconClass} />
-
-        {embedded && <span className={labelClass}>Settings</span>}
-      </Button>
     </aside>
   );
 }

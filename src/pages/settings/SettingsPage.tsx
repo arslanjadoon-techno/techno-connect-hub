@@ -37,6 +37,7 @@ import { toast } from "sonner";
 import { PALETTES, useTheme } from "@/lib/theme";
 import { hierarchyApi, usersApi, StatesApi, MarketsApi, DistrictsApi } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth";
+import ChatSettingsSection from "./ChatSettingsSection";
 
 interface StoredUser {
   id: number;
@@ -44,10 +45,16 @@ interface StoredUser {
   email: string;
   phone?: string | null;
   profileImage?: string | null;
+  avatarUrl?: string | null;
+  imageUrl?: string | null;
   department?: { id: number; name: string } | null;
   departmentName?: string | null;
   bypassTwoFactor?: boolean;
   [k: string]: any;
+}
+
+function getStoredProfileImage(user: StoredUser | null | undefined): string {
+  return String(user?.profileImage ?? user?.avatarUrl ?? user?.imageUrl ?? "").trim();
 }
 
 function readStoredUser(): StoredUser | null {
@@ -70,6 +77,7 @@ export default function SettingsPage() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
+  const avatarDirtyRef = useRef(false);
   const { palette, setPalette } = useTheme();
 
   const [storedUser, setStoredUser] = useState<StoredUser | null>(() => readStoredUser());
@@ -77,7 +85,42 @@ export default function SettingsPage() {
   const [fullName, setFullName] = useState(storedUser?.fullName ?? "");
   const [email, setEmail] = useState(storedUser?.email ?? "");
   const [phone, setPhone] = useState(storedUser?.phone ?? "");
-  const [avatarUrl, setAvatarUrl] = useState<string>(storedUser?.profileImage ?? "");
+  const [avatarUrl, setAvatarUrl] = useState<string>(() => getStoredProfileImage(storedUser));
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+
+  // Re-read the persisted User Management profile. The local user object may
+  // be from an older login response or another browser tab.
+  useEffect(() => {
+    const userId = storedUser?.id;
+    if (!userId) return;
+
+    let active = true;
+    usersApi
+      .get(userId)
+      .then((response) => {
+        if (!active) return;
+        const persisted = (response.data || {}) as StoredUser;
+        const persistedImage = getStoredProfileImage(persisted);
+        if (!avatarDirtyRef.current) setAvatarUrl(persistedImage);
+
+        const merged: StoredUser = {
+          ...storedUser,
+          ...persisted,
+          profileImage: persistedImage || null,
+          avatarUrl: persistedImage || null,
+          imageUrl: persistedImage || null,
+        };
+        writeStoredUser(merged);
+        setStoredUser(merged);
+      })
+      .catch(() => {
+        // Keep the local profile available if the refresh endpoint is unavailable.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [storedUser?.id]);
 
   const [departments, setDepartments] = useState<{ id: number; name: string }[]>([]);
   const [loadingDepts, setLoadingDepts] = useState<boolean>(true);
@@ -332,6 +375,12 @@ export default function SettingsPage() {
       toast.error("Image must be under 2MB");
       return;
     }
+    if (!/^image\/(jpeg|jpg|png)$/i.test(file.type)) {
+      toast.error("Only JPG and PNG images are supported");
+      return;
+    }
+    avatarDirtyRef.current = true;
+    setAvatarFile(file);
     const reader = new FileReader();
     reader.onload = () => setAvatarUrl(reader.result as string);
     reader.readAsDataURL(file);
@@ -376,13 +425,18 @@ export default function SettingsPage() {
         portalAccess: storedUser.portalAccess ?? [],
         houses: storedUser.houses ?? [],
         stores: storedUser.stores ?? [],
-        // profileImage isn't part of AddUserPayload typings yet — send via cast
-        ...(avatarUrl ? ({ profileImage: avatarUrl } as any) : {}),
       };
 
       const res = await usersApi.update(updatePayload);
+      const imageRes = avatarFile
+        ? await usersApi.uploadProfileImage(storedUser.id, avatarFile)
+        : null;
 
-      const merged: StoredUser = { ...storedUser, ...(res.data as any) };
+      const merged: StoredUser = {
+        ...storedUser,
+        ...(res.data as any),
+        ...(imageRes?.data as any),
+      };
       // Ensure these fields are persisted even if backend response is sparse
       merged.fullName = fullName.trim();
       merged.email = email.trim();
@@ -433,9 +487,19 @@ export default function SettingsPage() {
         merged.districts = [];
       }
 
-      if (avatarUrl) merged.profileImage = avatarUrl;
+      const persistedImage =
+        getStoredProfileImage(imageRes?.data as StoredUser | null) || getStoredProfileImage(merged);
+      if (persistedImage) {
+        merged.profileImage = persistedImage;
+        setAvatarUrl(persistedImage);
+      }
+      merged.avatarUrl = merged.profileImage ?? null;
+      merged.imageUrl = merged.profileImage ?? null;
+      setAvatarFile(null);
+      avatarDirtyRef.current = false;
       writeStoredUser(merged);
       setStoredUser(merged);
+      window.dispatchEvent(new CustomEvent("user:profile-updated", { detail: merged }));
       toast.success(res.message || "Profile updated");
     } catch (err: any) {
       toast.error(err?.message || "Profile update failed");
@@ -581,7 +645,9 @@ export default function SettingsPage() {
     <div className="mx-auto max-w-3xl space-y-5 animate-fade-in">
       <header>
         <h1 className="font-display text-2xl font-semibold">Settings</h1>
-        <p className="text-sm text-muted-foreground">Update your profile, password, and theme.</p>
+        <p className="text-sm text-muted-foreground">
+          Update your profile, password, theme, and chat preferences.
+        </p>
       </header>
 
       {/* Profile */}
@@ -609,7 +675,7 @@ export default function SettingsPage() {
             <input
               ref={fileRef}
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -767,6 +833,9 @@ export default function SettingsPage() {
           </Button>
         </div>
       </Card>
+
+      {/* Chat */}
+      <ChatSettingsSection />
 
       {/* Password */}
       <Card className="p-6 hover-lift">

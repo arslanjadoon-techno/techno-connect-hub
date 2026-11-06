@@ -219,6 +219,15 @@ export function useChatRealtimeMessage({
         });
       }
 
+      const conversationType = String(
+        payload?.conversationType ||
+          payload?.conversation_type ||
+          message?.conversationType ||
+          message?.conversation_type ||
+          "direct",
+      ).toLowerCase();
+      const isGroupConversation = conversationType === "group" || conversationType === "channel";
+
       // Update the conversation preview and unread count.
       setChannels((prev: ChatRecord[]) =>
         updateConversationPreview(prev, {
@@ -252,9 +261,12 @@ export function useChatRealtimeMessage({
             return {
               id: String(chatId),
               chat_id: String(chatId),
-              type: "direct",
-              isDirect: true,
-              title: senderUser.name,
+              type: isGroupConversation ? "group" : "direct",
+              conversationType,
+              isDirect: !isGroupConversation,
+              title: isGroupConversation
+                ? payload?.conversationTitle || payload?.conversation_title || "Group"
+                : senderUser.name,
               participants: [senderUser, currentUser].filter(Boolean),
               unreadCount: initialUnreadCount,
               unread_count: initialUnreadCount,
@@ -315,13 +327,14 @@ export function useChatRealtimeMessage({
             matchingBuddy?.name ||
             "Someone";
 
-          showChatNotification({
+          const shown = showChatNotification({
             title: shouldNotifyMention ? `${senderName} mentioned you` : senderName,
             body: shouldNotifyMention
               ? `${senderName}: ${getMessageText(message)}`
               : getMessageText(message),
             icon: getImageUrl(message?.sender),
             tag: `chat-${chatId}`,
+            dedupeKey: `chat-message:${String(normalizedMessageId || messageId)}`,
             url: localKey
               ? `${CHAT_APP_BASE_PATH}/${encodeURIComponent(localKey)}`
               : CHAT_APP_BASE_PATH,
@@ -332,7 +345,7 @@ export function useChatRealtimeMessage({
             },
           });
 
-          playMessageNotificationSound();
+          if (shown) playMessageNotificationSound();
         }
       }
 

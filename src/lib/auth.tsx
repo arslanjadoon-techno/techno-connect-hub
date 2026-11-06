@@ -137,17 +137,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     getStoredPermissions(),
   );
 
-  // Keep React state in sync if the stored user changes elsewhere.
+  // Keep React state in sync if the stored user changes elsewhere, including
+  // the Settings profile update event emitted in the same browser tab.
   useEffect(() => {
-    const stored = getStoredUser<any>();
-    if (stored && !user) setUser(mapBackendUser(stored));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const syncStoredUser = (event?: Event) => {
+      const detail = event instanceof CustomEvent ? event.detail : null;
+      const stored = detail && typeof detail === "object" ? detail : getStoredUser<any>();
+      if (stored) setUser(mapBackendUser(stored));
+    };
+
+    window.addEventListener("user:profile-updated", syncStoredUser);
+    window.addEventListener("storage", syncStoredUser);
+    syncStoredUser();
+
+    return () => {
+      window.removeEventListener("user:profile-updated", syncStoredUser);
+      window.removeEventListener("storage", syncStoredUser);
+    };
+  }, []);
 
   const setSession = useCallback(
     (token: string, backendUser: any, newPermissions?: UserPermissionEntry[]): User => {
       setToken(token);
       setStoredUser(backendUser);
       setStoredPermissions(newPermissions ?? []);
+      // Presence is a session state. Every successful login starts as
+      // Available, even if the previous session ended while Offline/DND.
+      // Chat's existing status bootstrap will synchronize this with the API.
+      try {
+        window.localStorage.setItem("chat_presence", "online");
+      } catch {
+        // The authenticated session remains usable if storage is unavailable.
+      }
       const u = mapBackendUser(backendUser);
       setUser(u);
       setPermissions(newPermissions ?? []);
@@ -201,6 +222,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null);
     setStoredUser(null);
     setStoredPermissions(null);
+    try {
+      window.localStorage.removeItem("chat_presence");
+    } catch {
+      // Ignore storage failures during logout.
+    }
     setUser(null);
     setPermissions([]);
     invalidateChatTokenCache();

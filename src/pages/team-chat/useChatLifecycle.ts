@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import {
   getBuddyEmail,
   getBuddyName,
@@ -11,14 +11,12 @@ type ChatRecord = Record<string, any>;
 
 type ChatLifecycleOptions = {
   activeCall: ChatRecord | null;
-  chatBoxRef: { current: HTMLDivElement | null };
   conversationItems: ChatRecord[];
   fetchChatData: () => Promise<unknown>;
   initialFetchStartedRef: { current: boolean };
   loadChannelHistory: (chat: ChatRecord) => Promise<unknown>;
   loadDirectChatHistory: (chat: ChatRecord) => Promise<unknown>;
   loadedChatHistoryRef: { current: Set<string> };
-  messagesByChat: Record<string, ChatRecord[]>;
   searchTerm: string;
   selectedChat: ChatRecord | null;
   setCallMinimized: (value: boolean) => void;
@@ -29,14 +27,12 @@ type ChatLifecycleOptions = {
 
 export function useChatLifecycle({
   activeCall,
-  chatBoxRef,
   conversationItems,
   fetchChatData,
   initialFetchStartedRef,
   loadChannelHistory,
   loadDirectChatHistory,
   loadedChatHistoryRef,
-  messagesByChat,
   searchTerm,
   selectedChat,
   setCallMinimized,
@@ -44,9 +40,6 @@ export function useChatLifecycle({
   setPendingFiles,
   setReplyToMessage,
 }: ChatLifecycleOptions) {
-  const previousChatIdRef = useRef<string | null>(null);
-  const initiallyPositionedChatRef = useRef<string | null>(null);
-
   useEffect(() => {
     if (initialFetchStartedRef.current) return;
 
@@ -73,40 +66,6 @@ export function useChatLifecycle({
       loadChannelHistory(selectedChat);
     }
   }, [loadChannelHistory, selectedChat]);
-
-  useEffect(() => {
-    const currentChatId = selectedChat?.chatId || selectedChat?.id || null;
-    const chatChanged = String(previousChatIdRef.current || "") !== String(currentChatId || "");
-    previousChatIdRef.current = currentChatId ? String(currentChatId) : null;
-
-    const scrollToLatestIfAppropriate = () => {
-      const container = chatBoxRef.current;
-      if (!container) return;
-
-      const chatKey = String(currentChatId || "");
-      const hasRenderedMessages = Boolean(container.querySelector("[data-message-id]"));
-      const needsInitialPosition =
-        chatChanged ||
-        (hasRenderedMessages && initiallyPositionedChatRef.current !== chatKey);
-
-      const distanceFromBottom =
-        container.scrollHeight - container.scrollTop - container.clientHeight;
-
-      // WhatsApp keeps the reader's position when they are viewing older
-      // messages, but opens a newly selected conversation at the latest one.
-      if (needsInitialPosition || distanceFromBottom <= 120) {
-        container.scrollTop = container.scrollHeight;
-        if (hasRenderedMessages) initiallyPositionedChatRef.current = chatKey;
-      }
-    };
-
-    const frame = requestAnimationFrame(scrollToLatestIfAppropriate);
-    const timer = window.setTimeout(scrollToLatestIfAppropriate, 50);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.clearTimeout(timer);
-    };
-  }, [messagesByChat, selectedChat]);
 
   useEffect(() => {
     setPendingFiles([]);

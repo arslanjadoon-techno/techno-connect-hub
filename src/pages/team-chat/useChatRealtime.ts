@@ -31,9 +31,12 @@ type RealtimeOptions = {
   onTyping?: RealtimeHandler;
   onMessageRead?: RealtimeHandler;
   onMemberRemoved?: RealtimeHandler;
+  onConversationUpdated?: RealtimeHandler;
+  onConversationDeleted?: RealtimeHandler;
   onReactionAdded?: RealtimeHandler;
   onPresence?: RealtimeHandler;
   onAvatar?: RealtimeHandler;
+  onNotification?: RealtimeHandler;
 
   onCallStarted?: RealtimeHandler;
   onCallRinging?: RealtimeHandler;
@@ -84,9 +87,12 @@ export function useChatRealtime({
   onTyping,
   onMessageRead,
   onMemberRemoved,
+  onConversationUpdated,
+  onConversationDeleted,
   onReactionAdded,
   onPresence,
   onAvatar,
+  onNotification,
   onCallStarted,
   onCallRinging,
   onCallAccepted,
@@ -118,9 +124,12 @@ export function useChatRealtime({
     onTyping,
     onMessageRead,
     onMemberRemoved,
+    onConversationUpdated,
+    onConversationDeleted,
     onReactionAdded,
     onPresence,
     onAvatar,
+    onNotification,
     onCallStarted,
     onCallRinging,
     onCallAccepted,
@@ -160,9 +169,12 @@ export function useChatRealtime({
       "typing:update": "onTyping",
       "message:read": "onMessageRead",
       "conversation:member-removed": "onMemberRemoved",
+      "conversation:updated": "onConversationUpdated",
+      "conversation:deleted": "onConversationDeleted",
       "reaction:added": "onReactionAdded",
       "presence:update": "onPresence",
       "avatar:update": "onAvatar",
+      "notification:new": "onNotification",
       "call:started": "onCallStarted",
       "call:ringing": "onCallRinging",
       "call:accepted": "onCallAccepted",

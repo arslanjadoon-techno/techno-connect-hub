@@ -3,6 +3,7 @@ import {
   getBuddyName,
   getBuddySendId,
   getChannelId,
+  getImageUrl,
   getUnreadCount,
 } from "./chatHealper";
 
@@ -68,6 +69,38 @@ const activityTime = (conversation: ChatRecord | null | undefined) => {
   if (Number.isFinite(numeric)) return numeric < 1e12 ? numeric * 1000 : numeric;
   const parsed = new Date(value).getTime();
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const normalizeIdentityText = (value: unknown): string =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase();
+
+/**
+ * Direct rows can be assembled from both the contacts endpoint and the
+ * conversation endpoint. Those endpoints do not always use the same user-id
+ * alias, so an id-only key can render the same person twice. A current profile
+ * image plus display name is a stronger cross-endpoint identity than the
+ * transport-specific id and also handles legacy rows with different ids.
+ */
+const directListKey = (item: ChatRecord): string => {
+  const name = normalizeIdentityText(getBuddyName(item));
+  const image = normalizeIdentityText(getImageUrl(item));
+  if (name && name !== "chat user" && image) return `profile:${name}:${image}`;
+
+  const email = normalizeIdentityText(
+    item?.email ||
+      item?.email_id ||
+      item?.provider_email ||
+      item?.providerEmail ||
+      item?.primary_email ||
+      item?.emailid ||
+      "",
+  );
+  if (email) return `email:${email}`;
+
+  const identity = normalizeIdentityText(getBuddySendId(item));
+  return identity ? `id:${identity}` : `name:${name}`;
 };
 
 const toDirectRow = ({
@@ -304,7 +337,7 @@ export function buildConversationItems({
       filtered.map((item) => [
         item.__conversationType === "channel"
           ? `group:${getChannelId(item)}`
-          : `chat:${getBuddySendId(item) || getBuddyEmail(item)}`,
+          : `chat:${directListKey(item)}`,
         item,
       ]),
     ).values(),

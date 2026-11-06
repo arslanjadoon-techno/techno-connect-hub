@@ -8,7 +8,6 @@ export function useChatOlderMessages({
   selectedChat,
   loadingOlderMessages,
   messagePaginationByChat,
-  chatBoxRef,
   filterBlockedMessages,
   setLoadingOlderMessages,
   setMessagesByChat,
@@ -22,7 +21,6 @@ export function useChatOlderMessages({
     if (!pagination?.hasMore || !pagination.nextCursor) return;
 
     const chatId = selectedChat.chatId || selectedChat.id;
-    const previousHeight = chatBoxRef.current?.scrollHeight || 0;
     setLoadingOlderMessages(true);
     try {
       const response: any = await getChatMessagesService(chatId, {
@@ -58,18 +56,12 @@ export function useChatOlderMessages({
         [chatKey]: payload?.pagination || { hasMore: false },
       }));
 
-      requestAnimationFrame(() => {
-        if (chatBoxRef.current) {
-          chatBoxRef.current.scrollTop += chatBoxRef.current.scrollHeight - previousHeight;
-        }
-      });
     } catch (error) {
       setSendError(normalizeChatError(error));
     } finally {
       setLoadingOlderMessages(false);
     }
   }, [
-    chatBoxRef,
     filterBlockedMessages,
     loadingOlderMessages,
     messagePaginationByChat,

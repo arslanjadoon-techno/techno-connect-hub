@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import type { ChatBodyView } from "./ChatBodyPanels";
 // import {
@@ -34,7 +34,6 @@ type ChatState = Record<string, any> | null;
 export default function ChatSystem({ standalone = false, adminPage = false }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const settingsPage = location.pathname.endsWith("/settings");
   const groupPage = location.pathname.endsWith("/groups/new");
   const bodyView: ChatBodyView = location.pathname.endsWith("/calls")
     ? "calls"
@@ -52,7 +51,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     addMembersDialogOpen,
     addMembersError,
     addingMembers,
-    avatarUploading,
     buddies,
     callError,
     callMinimized,
@@ -63,7 +61,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     chatBoxRef,
     chatClearVersionsRef,
     creatingGroup,
-    currentStatus,
     currentUser,
     currentUserEmail,
     currentUserId,
@@ -86,7 +83,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     loadingOlderMessages,
     managedUsers,
     managedUsersLoading,
-    mentionNotifications,
     messageInfoVersions,
     messagePaginationByChat,
     messagesByChat,
@@ -98,16 +94,19 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     realtimeStartedAtRef,
     searchTerm,
     selectedChat,
-    statusSaving,
     typingUsersByChat,
   } = pageState;
+
+  const handleRealtimeNotification = useCallback((payload: any) => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent("app:notification", { detail: payload }));
+  }, []);
   const {
     setActiveCall,
     setAddMemberUserIds,
     setAddMembersDialogOpen,
     setAddMembersError,
     setAddingMembers,
-    setAvatarUploading,
     setBuddies,
     setCallError,
     setCallMinimized,
@@ -244,7 +243,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     isSelfConversation,
     loadOlderMessages,
     handleStatusChange,
-    handleAvatarUpload,
     handleToggleChatMute,
     handleClearChat,
     markChatAsRead,
@@ -253,6 +251,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     blockedUserIds,
     filterBlockedMessages,
     navigate,
+    onNotification: handleRealtimeNotification,
     requestConfirmation,
     setSendError,
     callsEnabled: CALLS_ENABLED,
@@ -286,14 +285,12 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
 
   const { activeCallIsAccepted, filteredItems } = useChatLifecycle({
     activeCall,
-    chatBoxRef,
     conversationItems,
     fetchChatData,
     initialFetchStartedRef,
     loadChannelHistory,
     loadDirectChatHistory,
     loadedChatHistoryRef,
-    messagesByChat,
     searchTerm,
     selectedChat,
     setCallMinimized,
@@ -345,7 +342,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
 
   const handleSend = useChatSend({
     blockedUserIds,
-    chatBoxRef,
     currentUser,
     currentUserId,
     editingMessage,
@@ -413,7 +409,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         activeCall,
         activeCallIsAccepted,
         adminPage,
-        avatarUploading,
         bodyView,
         blockedUserIds,
         buddies,
@@ -430,7 +425,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         conversationItems,
         creatingGroup,
         currentMessages,
-        currentStatus,
         currentUser,
         deleteNote,
         editingMessage,
@@ -443,7 +437,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         groupSearch,
         groupTitle,
         handleAddGroupMembers,
-        handleAvatarUpload,
         handleBlockUser,
         handleCancelComposerMode,
         handleClearChat,
@@ -465,7 +458,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         handleSend,
         handleStartConversationCall,
         openAddMembersDialog,
-        handleStatusChange,
         handleToggleChatMute,
         handleTransferOwnership,
         handleVoiceMessage,
@@ -480,7 +472,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         loading,
         loadingOlderMessages,
         managedUsersLoading,
-        mentionNotifications,
         messageInfoVersions,
         mutedChatIds,
         navigate,
@@ -506,15 +497,12 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         setInputValue,
         setCallMinimized,
         setCallNotice,
-        setMentionNotifications,
         setNotes,
         setNotesError,
         setSearchTerm,
         setSelectedChat,
-        settingsPage,
         showConversationSidebar,
         standalone,
-        statusSaving,
         toggleAddMemberUser,
         toggleGroupUser,
         typingUsersByChat,

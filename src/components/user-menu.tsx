@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   LogOut,
@@ -21,7 +21,21 @@ import {
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { payslipService } from "@/services/payslips";
+import { usersApi } from "@/lib/api/client";
 import { toast } from "sonner";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getImageUrl } from "@/pages/team-chat/chatHealper";
+
+function readStoredUser(): Record<string, any> | null {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem("user");
+    return raw ? (JSON.parse(raw) as Record<string, any>) : null;
+  } catch {
+    return null;
+  }
+}
 
 function getCurrentPortalRole(user: any, pathname: string): string {
   if (!user || !Array.isArray(user.portalAccess)) return "—";
@@ -48,15 +62,63 @@ function formatRoleName(roleStr: string): string {
 }
 
 export function UserMenu() {
-  const { logout } = useAuth();
+  const { logout, user: authUser } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const pathname = useLocation().pathname;
   const [loadingPayroll, setLoadingPayroll] = useState(false);
+  const [storedUser, setStoredUser] = useState<Record<string, any> | null>(() => readStoredUser());
 
-  const localUserData = typeof window !== "undefined" ? localStorage.getItem("user") : null;
-  if (!localUserData) return null;
-  const user = JSON.parse(localUserData);
+  useEffect(() => {
+    const syncUser = (event?: Event) => {
+      const detail = event instanceof CustomEvent ? event.detail : null;
+      setStoredUser(
+        detail && typeof detail === "object" ? (detail as Record<string, any>) : readStoredUser(),
+      );
+    };
+
+    window.addEventListener("user:profile-updated", syncUser);
+    window.addEventListener("storage", syncUser);
+    syncUser();
+
+    return () => {
+      window.removeEventListener("user:profile-updated", syncUser);
+      window.removeEventListener("storage", syncUser);
+    };
+  }, []);
+
+  useEffect(() => {
+    const userId = storedUser?.id || authUser?.id;
+    if (!userId) return;
+
+    let active = true;
+    usersApi
+      .get(userId)
+      .then((response) => {
+        if (!active || !response.data) return;
+
+        setStoredUser((previous) => {
+          const nextUser = { ...(previous || {}), ...(response.data as Record<string, any>) };
+          try {
+            window.localStorage.setItem("user", JSON.stringify(nextUser));
+          } catch {
+            // Keep the in-memory profile available if storage is unavailable.
+          }
+          window.dispatchEvent(new CustomEvent("user:profile-updated", { detail: nextUser }));
+          return nextUser;
+        });
+      })
+      .catch(() => {
+        // The cached profile remains usable if the refresh endpoint is unavailable.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [authUser?.id, storedUser?.id]);
+
+  const user = storedUser || (authUser as Record<string, any> | null);
+  if (!user) return null;
 
   const rawRole = getCurrentPortalRole(user, pathname);
   const formattedRole = formatRoleName(rawRole);
@@ -120,12 +182,13 @@ export function UserMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="flex items-center gap-2 rounded-full pl-1 pr-2 py-1 transition-colors hover:bg-accent">
-          <div
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white uppercase"
+          <Avatar
+            className="h-8 w-8 shrink-0 text-xs font-semibold text-white uppercase"
             style={{ backgroundColor: user.avatarColor ?? "#0d7a5f" }}
           >
-            {initials}
-          </div>
+            <AvatarImage src={getImageUrl(user)} alt={user.fullName || "User profile"} />
+            <AvatarFallback className="bg-transparent text-inherit">{initials}</AvatarFallback>
+          </Avatar>
           <div className="hidden sm:block min-w-0 text-left">
             <div className="truncate text-sm font-medium leading-tight">
               {user.fullName || "User"}

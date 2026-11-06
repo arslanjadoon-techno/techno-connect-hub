@@ -6,6 +6,7 @@ type ChatNotificationOptions = {
   body?: string;
   icon?: string;
   tag?: string;
+  dedupeKey?: string;
   onClick?: () => void;
   url?: string;
   preserveCall?: boolean;
@@ -13,6 +14,47 @@ type ChatNotificationOptions = {
 };
 
 const hasNotificationApi = () => typeof window !== "undefined" && "Notification" in window;
+
+/** Presence policy shared by Chat and the root MIS notification listener. */
+export const isChatDoNotDisturb = (): boolean => {
+  if (typeof window === "undefined") return false;
+
+  try {
+    const presence = String(window.localStorage.getItem("chat_presence") || "")
+      .trim()
+      .toLowerCase();
+    // Offline is also a quiet state when selected manually. Realtime messages
+    // and in-app notification items are still processed; only browser alerts
+    // and notification sounds are suppressed until the user becomes available.
+    return presence === "dnd" || presence === "do not disturb" || presence === "offline";
+  } catch {
+    return false;
+  }
+};
+
+const claimDesktopNotification = (dedupeKey?: string): boolean => {
+  if (!dedupeKey || typeof window === "undefined") return true;
+
+  const storageKey = "chat:desktop-notification-claims";
+  const now = Date.now();
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(storageKey) || "{}") as Record<
+      string,
+      number
+    >;
+    const claims = Object.fromEntries(
+      Object.entries(stored).filter(([, timestamp]) => now - Number(timestamp) < 60_000),
+    ) as Record<string, number>;
+    // This covers duplicate SignalR connections and multiple MIS tabs without
+    // suppressing a genuinely new event after a reconnect.
+    if (Number.isFinite(claims[dedupeKey]) && now - claims[dedupeKey] < 60_000) return false;
+    claims[dedupeKey] = now;
+    window.localStorage.setItem(storageKey, JSON.stringify(claims));
+  } catch {
+    // Browser storage can be disabled; the notification API remains usable.
+  }
+  return true;
+};
 
 export const areChatNotificationsEnabled = () => {
   if (!hasNotificationApi()) return false;
@@ -101,6 +143,7 @@ export const showChatNotification = ({
   body,
   icon,
   tag,
+  dedupeKey,
   onClick,
   url,
   preserveCall = false,
@@ -120,6 +163,11 @@ export const showChatNotification = ({
     );
     return null;
   }
+  if (isChatDoNotDisturb()) {
+    console.debug("[Chat notifications] Skipped: user presence is quiet (DND/offline)");
+    return null;
+  }
+  if (!claimDesktopNotification(dedupeKey)) return null;
 
   // Keep incoming-call alerts on the page's Notification object to avoid
   // reloading the client and interrupting an active WebRTC call.
@@ -190,7 +238,7 @@ export const showChatNotification = ({
 };
 
 export const playMessageNotificationSound = () => {
-  if (!areChatNotificationsEnabled()) return;
+  if (!areChatNotificationsEnabled() || isChatDoNotDisturb()) return;
 
   try {
     const AudioContextClass =
@@ -219,7 +267,7 @@ export const playMessageNotificationSound = () => {
 };
 
 export const playCallNotificationSound = () => {
-  if (!areChatNotificationsEnabled()) return;
+  if (!areChatNotificationsEnabled() || isChatDoNotDisturb()) return;
 
   try {
     const AudioContextClass =

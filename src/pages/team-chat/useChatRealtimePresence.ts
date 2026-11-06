@@ -6,12 +6,35 @@ export function useChatRealtimePresence({
   setCurrentStatus,
   setProfileUser,
   setBuddies,
+  setChannels,
   setSelectedChat,
 }: any) {
   return useCallback(
     ({ userId, presence, user }: any) => {
       if (!userId) return;
       const nextPresence = normalizePresence(presence || user?.presence || user?.status);
+      const eventEmail = String(
+        user?.email || user?.email_id || user?.mailid || user?.providerEmail || "",
+      )
+        .trim()
+        .toLowerCase();
+      const matchesUser = (record: any) => {
+        const recordId = String(getBuddySendId(record) || "");
+        if (recordId && recordId === String(userId)) return true;
+        if (!eventEmail) return false;
+        const recordEmail = String(
+          record?.email ||
+            record?.email_id ||
+            record?.mailid ||
+            record?.providerEmail ||
+            record?.provider_email ||
+            "",
+        )
+          .trim()
+          .toLowerCase();
+        return Boolean(recordEmail && recordEmail === eventEmail);
+      };
+      const presencePatch = { ...(user || {}), presence: nextPresence, status: nextPresence };
 
       if (String(userId) === String(currentUserId)) {
         setCurrentStatus(nextPresence);
@@ -26,10 +49,40 @@ export function useChatRealtimePresence({
 
       setBuddies((previous: any[]) =>
         previous.map((buddy) =>
-          String(getBuddySendId(buddy)) === String(userId)
-            ? { ...buddy, ...user, presence: nextPresence, status: nextPresence }
-            : buddy,
+          matchesUser(buddy) ? { ...buddy, ...presencePatch } : buddy,
         ),
+      );
+
+      // Some direct conversations are rendered from the conversation endpoint
+      // instead of the contacts endpoint. Keep those participants and last
+      // message senders in sync as well, especially for group member presence.
+      setChannels((previous: any[]) =>
+        previous.map((conversation) => ({
+          ...conversation,
+          ...(Array.isArray(conversation?.participants)
+            ? {
+                participants: conversation.participants.map((participant: any) =>
+                  matchesUser(participant) ? { ...participant, ...presencePatch } : participant,
+                ),
+              }
+            : {}),
+          ...(conversation?.lastMessage?.sender && matchesUser(conversation.lastMessage.sender)
+            ? {
+                lastMessage: {
+                  ...conversation.lastMessage,
+                  sender: { ...conversation.lastMessage.sender, ...presencePatch },
+                },
+              }
+            : {}),
+          ...(conversation?.last_message?.sender && matchesUser(conversation.last_message.sender)
+            ? {
+                last_message: {
+                  ...conversation.last_message,
+                  sender: { ...conversation.last_message.sender, ...presencePatch },
+                },
+              }
+            : {}),
+        })),
       );
 
       setSelectedChat((previous: any) => {
@@ -54,6 +107,6 @@ export function useChatRealtimePresence({
         };
       });
     },
-    [currentUserId, setBuddies, setCurrentStatus, setProfileUser, setSelectedChat],
+    [currentUserId, setBuddies, setChannels, setCurrentStatus, setProfileUser, setSelectedChat],
   );
 }

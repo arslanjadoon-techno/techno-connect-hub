@@ -83,6 +83,8 @@ export interface User {
 export interface AppNotification {
   id: string;
   userId?: string;
+  requestId?: string | number;
+  type?: string;
   title: string;
   body: string;
   link?: string;

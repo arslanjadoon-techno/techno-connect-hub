@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronDown } from "lucide-react";
 import {
   formatMessageDateLabel,
   getBuddyName,
@@ -12,6 +11,21 @@ import { ReadyToSendState } from "./ChatWindowStates";
 import MessageRow from "./MessageRow";
 
 type ChatMessage = Record<string, any>;
+
+function messageIdOf(message: ChatMessage | undefined): string {
+  return String(
+    message?.id ??
+      message?.messageId ??
+      message?.message_id ??
+      message?.clientMessageId ??
+      message?.client_message_id ??
+      "",
+  );
+}
+
+function distanceFromBottom(container: HTMLElement): number {
+  return container.scrollHeight - container.scrollTop - container.clientHeight;
+}
 
 export default function ChatMessageList(props: Record<string, any>) {
   const {
@@ -45,10 +59,17 @@ export default function ChatMessageList(props: Record<string, any>) {
   } = props;
 
   const olderMessagesSentinelRef = useRef<HTMLDivElement | null>(null);
+  const contentRef = useRef<HTMLDivElement | null>(null);
   const loadingOlderRef = useRef(false);
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const previousMessageSnapshotRef = useRef({ count: 0, lastId: "" });
-  const [showNewMessages, setShowNewMessages] = useState(false);
+  const atBottomRef = useRef(true);
+  const scrollSnapshotRef = useRef({
+    chatKey: "",
+    count: 0,
+    firstId: "",
+    lastId: "",
+    scrollHeight: 0,
+  });
   // Keep the loading guard synchronized with the parent loading state.
   useEffect(() => {
     loadingOlderRef.current = loadingOlderMessages;
@@ -96,53 +117,81 @@ export default function ChatMessageList(props: Record<string, any>) {
     };
   }, []);
 
-  // Keep the WhatsApp-style new-message affordance visible only when the
-  // reader is away from the latest message.
+  // Remember whether the reader was at the latest message before React inserts
+  // the next message. This lets incoming messages append without moving a
+  // reader who is browsing older history.
   useEffect(() => {
     const container = chatBoxRef?.current;
     if (!container) return;
 
     const handleScroll = () => {
-      const distanceFromBottom =
-        container.scrollHeight - container.scrollTop - container.clientHeight;
-      if (distanceFromBottom <= 120) setShowNewMessages(false);
+      atBottomRef.current = distanceFromBottom(container) <= 32;
     };
 
+    handleScroll();
     container.addEventListener("scroll", handleScroll, { passive: true });
     return () => container.removeEventListener("scroll", handleScroll);
   }, [chatBoxRef]);
 
-  useEffect(() => {
-    const lastMessage = currentMessages[currentMessages.length - 1] as ChatMessage | undefined;
-    const lastId = String(
-      lastMessage?.id ||
-        lastMessage?.messageId ||
-        lastMessage?.message_id ||
-        lastMessage?.sentAt ||
-        "",
-    );
-    const previous = previousMessageSnapshotRef.current;
+  // Scroll only after the message DOM has been committed. Initial loads and
+  // chat switches go to the latest message; appends go there only when the
+  // reader was already at the bottom; prepends preserve the visible message.
+  useLayoutEffect(() => {
     const container = chatBoxRef?.current;
-    const distanceFromBottom = container
-      ? container.scrollHeight - container.scrollTop - container.clientHeight
-      : 0;
+    if (!container) return;
 
-    if (
-      previous.count > 0 &&
-      currentMessages.length > previous.count &&
-      lastId !== previous.lastId &&
-      distanceFromBottom > 120 &&
-      lastMessage?.direction !== "outbound" &&
-      lastMessage?.deliveryStatus !== "read" &&
-      lastMessage?.deliveryStatus !== "seen"
-    ) {
-      setShowNewMessages(true);
-    } else if (distanceFromBottom <= 120) {
-      setShowNewMessages(false);
+    const chatKey = String(chatId ?? selectedChat?.id ?? "");
+    const firstId = messageIdOf(currentMessages[0]);
+    const lastId = messageIdOf(currentMessages[currentMessages.length - 1]);
+    const previous = scrollSnapshotRef.current;
+    const chatChanged = previous.chatKey !== chatKey;
+    const initialMessagesLoaded =
+      !chatChanged && previous.count === 0 && currentMessages.length > 0;
+    const addedMessages = currentMessages.length > previous.count;
+    const prependedMessages =
+      !chatChanged &&
+      addedMessages &&
+      firstId !== previous.firstId;
+    const appendedMessages =
+      !chatChanged &&
+      addedMessages &&
+      !prependedMessages &&
+      lastId !== previous.lastId;
+
+    if (chatChanged || initialMessagesLoaded) {
+      container.scrollTop = container.scrollHeight;
+      atBottomRef.current = true;
+    } else if (prependedMessages) {
+      container.scrollTop += container.scrollHeight - previous.scrollHeight;
+    } else if (appendedMessages && atBottomRef.current) {
+      container.scrollTop = container.scrollHeight;
+      atBottomRef.current = true;
     }
 
-    previousMessageSnapshotRef.current = { count: currentMessages.length, lastId };
-  }, [chatBoxRef, currentMessages]);
+    scrollSnapshotRef.current = {
+      chatKey,
+      count: currentMessages.length,
+      firstId,
+      lastId,
+      scrollHeight: container.scrollHeight,
+    };
+  }, [chatBoxRef, chatId, currentMessages, selectedChat?.id]);
+
+  // Attachments and avatar images can change the content height after the
+  // message render. Keep a reader who was already at the bottom anchored there
+  // without disturbing someone browsing older messages.
+  useEffect(() => {
+    const container = chatBoxRef?.current;
+    const content = contentRef.current;
+    if (!container || !content || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(() => {
+      if (atBottomRef.current) container.scrollTop = container.scrollHeight;
+      scrollSnapshotRef.current.scrollHeight = container.scrollHeight;
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [chatBoxRef]);
 
   // Build a lookup map for replies instead of repeatedly scanning all messages.
   const messageById = useMemo(() => {
@@ -195,9 +244,10 @@ export default function ChatMessageList(props: Record<string, any>) {
       ref={chatBoxRef}
       className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-transparent px-1 pb-0 pt-2 sm:px-2 sm:pt-3"
     >
-      <div ref={olderMessagesSentinelRef} aria-hidden="true" className="h-px w-full" />
+      <div ref={contentRef}>
+        <div ref={olderMessagesSentinelRef} aria-hidden="true" className="h-px w-full" />
 
-      {selectedMessageIds.length > 0 && (
+        {selectedMessageIds.length > 0 && (
         <div className="sticky top-0 z-10 mb-2 flex items-center justify-between rounded-lg border bg-background px-3 py-2 text-xs shadow-sm">
           <span>{selectedMessageIds.length} message(s) selected</span>
 
@@ -224,25 +274,7 @@ export default function ChatMessageList(props: Record<string, any>) {
         </div>
       )}
 
-      {hasOlderMessages && (
-        <div className="mb-3 text-center">
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={loadingOlderMessages}
-            onClick={() => {
-              if (!loadingOlderRef.current && typeof onLoadOlderMessages === "function") {
-                loadingOlderRef.current = true;
-                onLoadOlderMessages();
-              }
-            }}
-          >
-            {loadingOlderMessages ? "Loading…" : "Load older messages"}
-          </Button>
-        </div>
-      )}
-
-      {currentMessages.length === 0 ? (
+        {currentMessages.length === 0 ? (
         <ReadyToSendState selectedChat={selectedChat} />
       ) : (
         (currentMessages as ChatMessage[]).map((message, index) => {
@@ -277,11 +309,16 @@ export default function ChatMessageList(props: Record<string, any>) {
               String(previousAuthor ?? "") !== String(currentAuthor ?? "") ||
               previousDirection !== currentDirection);
 
-          const senderProfile = (selectedChat?.participants || selectedChat?.raw?.participants || [])
-            .find((participant: ChatMessage) => {
-              const participantId = String(getBuddySendId(participant) || "");
-              return participantId && participantId === String(currentAuthor ?? "");
-            });
+          const senderProfile =
+            (selectedChat?.participants || selectedChat?.raw?.participants || []).find(
+              (participant: ChatMessage) => {
+                const participantId = String(getBuddySendId(participant) || "");
+                return participantId && participantId === String(currentAuthor ?? "");
+              },
+            ) ||
+            (selectedChat?.type === "person"
+              ? selectedChat?.raw || selectedChat
+              : undefined);
 
           return (
             <div
@@ -307,10 +344,8 @@ export default function ChatMessageList(props: Record<string, any>) {
                 message={{
                   ...message,
                   authorAvatarUrl:
-                    message.authorAvatarUrl ||
-                    getImageUrl(message.sender) ||
                     getImageUrl(senderProfile) ||
-                    getImageUrl(selectedChat),
+                    getImageUrl(message.sender),
                   repliedMessage: repliedMessage || message.repliedMessage,
                 }}
                 mentionableUsers={selectedChat?.type === "channel" ? mentionableUsers : []}
@@ -348,25 +383,9 @@ export default function ChatMessageList(props: Record<string, any>) {
             </div>
           );
         })
-      )}
+        )}
+      </div>
 
-      {showNewMessages && (
-        <div className="sticky bottom-3 z-20 flex justify-end px-3 pointer-events-none">
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            className="pointer-events-auto rounded-full border border-primary/30 bg-primary px-3 text-primary-foreground shadow-md hover:bg-primary/90"
-            onClick={() => {
-              if (chatBoxRef.current) chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
-              setShowNewMessages(false);
-            }}
-          >
-            New messages
-            <ChevronDown className="ml-1 h-4 w-4" />
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

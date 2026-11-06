@@ -11,7 +11,6 @@ import {
 } from "./chatwindow/GroupDialogs";
 import { ChatConfirmationDialog, ChatNotice } from "./ChatSystemOverlays";
 import ChatCallOverlay from "./ChatCallOverlay";
-import { getBuddySendId } from "./chatHealper";
 import { updateNote } from "@/services/Team-chat/chat.service";
 
 export default function ChatSystemView(props: Record<string, any>) {
@@ -24,7 +23,6 @@ export default function ChatSystemView(props: Record<string, any>) {
     activeCall,
     activeCallIsAccepted,
     // adminPage,
-    avatarUploading,
     bodyView,
     blockedUserIds,
     buddies,
@@ -41,10 +39,8 @@ export default function ChatSystemView(props: Record<string, any>) {
     conversationItems,
     creatingGroup,
     currentMessages,
-    currentStatus,
     currentUser,
     deleteNote,
-    desktopNotifications,
     editingMessage,
     fetchChatData,
     filteredItems,
@@ -55,7 +51,6 @@ export default function ChatSystemView(props: Record<string, any>) {
     groupSearch,
     groupTitle,
     handleAddGroupMembers,
-    handleAvatarUpload,
     handleBlockUser,
     handleCancelComposerMode,
     handleClearChat,
@@ -77,8 +72,6 @@ export default function ChatSystemView(props: Record<string, any>) {
     handleSend,
     handleStartConversationCall,
     openAddMembersDialog,
-    onDesktopNotificationsChange,
-    handleStatusChange,
     handleToggleChatMute,
     handleTransferOwnership,
     handleVoiceMessage,
@@ -93,7 +86,6 @@ export default function ChatSystemView(props: Record<string, any>) {
     loading,
     loadingOlderMessages,
     managedUsersLoading,
-    mentionNotifications,
     messageInfoVersions,
     mutedChatIds,
     navigate,
@@ -119,15 +111,12 @@ export default function ChatSystemView(props: Record<string, any>) {
     setInputValue,
     setCallMinimized,
     setCallNotice,
-    setMentionNotifications,
     setNotes,
     setNotesError,
     setSearchTerm,
     setSelectedChat,
-    settingsPage,
     showConversationSidebar,
     standalone,
-    statusSaving,
     toggleAddMemberUser,
     toggleGroupUser,
     typingUsersByChat,
@@ -142,53 +131,23 @@ export default function ChatSystemView(props: Record<string, any>) {
             ? "h-[100dvh] min-h-[100dvh]"
             : "w-full h-full min-h-0 sm:-mx-4 sm:-mt-4 sm:-mb-4 sm:w-[calc(100%+2rem)] sm:h-[calc(100%+2rem)] lg:-mx-6 lg:-mt-6 lg:-mb-6 lg:w-[calc(100%+3rem)] lg:h-[calc(100%+3rem)]"
         } ${
-          showConversationSidebar
-            ? "grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]"
-            : "grid-cols-1"
+          showConversationSidebar ? "grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]" : "grid-cols-1"
         }`}
       >
         {showConversationSidebar && (
           <ChatSidebar
-            avatarUploading={avatarUploading}
-            currentStatus={currentStatus}
-            mentionNotifications={mentionNotifications}
-            onMentionNotificationsChange={setMentionNotifications}
-            onOpenNotes={() => navigate(`${CHAT_APP_BASE_PATH}/notes`)}
-            desktopNotifications={desktopNotifications}
-            onDesktopNotificationsChange={onDesktopNotificationsChange}
             filteredItems={filteredItems}
             loadError={loadError}
             loading={loading}
-            onAvatarUpload={handleAvatarUpload}
-            settingsPage={settingsPage}
-            onSettingsClose={() => navigate(CHAT_APP_BASE_PATH)}
             onRefresh={fetchChatData}
             onSelectBuddy={selectBuddy}
             onSelectChannel={selectChannel}
-            onStatusChange={handleStatusChange}
-            blockedUsers={[...buddies, ...conversationItems].filter((user, index, all) => {
-              const id = String(getBuddySendId(user) || user.id || user.userId || "");
-              return (
-                blockedUserIds.includes(id) &&
-                all.findIndex(
-                  (item) => String(getBuddySendId(item) || item.id || item.userId || "") === id,
-                ) === index
-              );
-            })}
-            onUnblockUser={(userId) => handleBlockUser({ authorId: userId })}
             searchTerm={searchTerm}
             selectedChat={selectedChat}
-            statusSaving={statusSaving}
-            currentUser={currentUser}
             setSearchTerm={setSearchTerm}
           />
         )}
-        {settingsPage ? (
-          <div aria-hidden="true" className="hidden" />
-        ) : // : adminPage ? (
-        //   <AdminPage embedded />
-        // )
-        groupPage ? (
+        {groupPage ? (
           <GroupCreationPage
             onClose={() => navigate(CHAT_APP_BASE_PATH)}
             onCreate={handleCreateGroup}

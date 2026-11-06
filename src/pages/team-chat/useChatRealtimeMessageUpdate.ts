@@ -34,14 +34,25 @@ export function useChatRealtimeMessageUpdate({
 
       if (!localKey || !normalizedMessage) return;
 
-      setMessagesByChat((previous: Record<string, any[]>) => ({
-        ...previous,
-        [localKey]: (previous[localKey] || []).map((item) =>
-          String(item.id) === String(normalizedMessage.id)
-            ? { ...item, ...normalizedMessage }
-            : item,
+      const stateKeys = Array.from(
+        new Set(
+          [localKey, chatId, selectedChat?.id, selectedChat?.chatId]
+            .filter(Boolean)
+            .map(String),
         ),
-      }));
+      );
+
+      setMessagesByChat((previous: Record<string, any[]>) => {
+        const next = { ...previous };
+        stateKeys.forEach((key) => {
+          next[key] = (previous[key] || []).map((item) =>
+            String(item.id) === String(normalizedMessage.id)
+              ? { ...item, ...normalizedMessage }
+              : item,
+          );
+        });
+        return next;
+      });
     },
     [buddies, channels, currentUserId, selectedChat, setMessagesByChat],
   );

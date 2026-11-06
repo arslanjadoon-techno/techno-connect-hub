@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getArrayPayload,
   getBuddyEmail,
@@ -26,6 +26,46 @@ import { getStoredUser } from "@/lib/api/client";
 
 type ChatRecord = Record<string, any>;
 
+function getMessageKey(message: ChatRecord): string {
+  const id =
+    message.id ??
+    message.messageId ??
+    message.message_id ??
+    message.clientMessageId ??
+    message.client_message_id;
+
+  if (id !== undefined && id !== null && String(id).trim() !== "") return String(id);
+
+  return [
+    message.senderId ?? message.sender_id ?? message.authorId ?? "",
+    message.sentAt ?? message.sent_at ?? message.createdAt ?? message.created_at ?? "",
+    message.content ?? message.message ?? message.text ?? "",
+  ].join("|");
+}
+
+function mergeMessages(...groups: ChatRecord[][]): ChatRecord[] {
+  const merged = new Map<string, ChatRecord>();
+  for (const group of groups) {
+    for (const message of group) {
+      const key = getMessageKey(message);
+      merged.set(key, { ...merged.get(key), ...message });
+    }
+  }
+
+  return Array.from(merged.values()).sort((first, second) => {
+    const firstTime = new Date(
+      first.sentAt || first.createdAt || first.created_at || first.timestamp || 0,
+    ).getTime();
+    const secondTime = new Date(
+      second.sentAt || second.createdAt || second.created_at || second.timestamp || 0,
+    ).getTime();
+    const timeOrder =
+      (Number.isFinite(firstTime) ? firstTime : 0) -
+      (Number.isFinite(secondTime) ? secondTime : 0);
+    return timeOrder || getMessageKey(first).localeCompare(getMessageKey(second));
+  });
+}
+
 type ChatDataOptions = {
   chatClearVersionsRef: { current: Map<string, number> };
   clearUnreadForChat: (chat: ChatRecord) => void;
@@ -35,6 +75,7 @@ type ChatDataOptions = {
   isSelfConversation: (conversation: ChatRecord) => boolean;
   loadedChatHistoryRef: { current: Set<string> };
   loadingChatHistoryRef: { current: Set<string> };
+  messagesByChat: Record<string, ChatRecord[]>;
   selectedChat: ChatRecord | null;
   setBlockedUserIds: (value: any) => void;
   setBuddies: (value: any) => void;
@@ -88,6 +129,7 @@ export function useChatData({
   isSelfConversation,
   loadedChatHistoryRef,
   loadingChatHistoryRef,
+  messagesByChat,
   selectedChat,
   setBlockedUserIds,
   setBuddies,
@@ -107,6 +149,121 @@ export function useChatData({
   // Owned by the hook; passed down to <ChatSidebar /> as a prop so it doesn't
   // fetch settings a second time.
   const [desktopNotifications, setDesktopNotifications] = useState<boolean | undefined>();
+  const messagesByChatRef = useRef(messagesByChat);
+  messagesByChatRef.current = messagesByChat;
+
+  useEffect(() => {
+    const isCurrentUser = (record: ChatRecord | null | undefined, profile: ChatRecord) => {
+      if (!record) return false;
+      const recordIds = [
+        record.id,
+        record.userId,
+        record.user_id,
+        record.appUserId,
+        record.app_user_id,
+      ]
+        .filter((value) => value != null && String(value).trim() !== "")
+        .map(String);
+      const profileIds = [profile.id, profile.userId, profile.appUserId]
+        .filter((value) => value != null && String(value).trim() !== "")
+        .map(String);
+      const recordEmail = String(record.email || record.providerEmail || "").trim().toLowerCase();
+      const profileEmail = String(profile.email || profile.providerEmail || "")
+        .trim()
+        .toLowerCase();
+      return (
+        recordIds.some((value) => profileIds.includes(value)) ||
+        Boolean(recordEmail && profileEmail && recordEmail === profileEmail)
+      );
+    };
+
+    const applyProfile = (profile: ChatRecord | null | undefined) => {
+      if (!profile) return;
+
+      const imageUrl = getImageUrl(profile);
+      const profileFields = {
+        ...profile,
+        ...(Object.prototype.hasOwnProperty.call(profile, "profileImage")
+          ? { profileImage: profile.profileImage }
+          : {}),
+        avatarUrl: imageUrl,
+        imageUrl,
+      };
+
+      setProfileUser((previous: ChatRecord | null) => ({
+        ...(previous || {}),
+        ...profileFields,
+      }));
+      setBuddies((previous: ChatRecord[]) =>
+        previous.map((record) =>
+          isCurrentUser(record, profile) ? { ...record, ...profileFields } : record,
+        ),
+      );
+      setChannels((previous: ChatRecord[]) =>
+        previous.map((conversation) => ({
+          ...conversation,
+          ...(Array.isArray(conversation.participants)
+            ? {
+                participants: conversation.participants.map((participant: ChatRecord) =>
+                  isCurrentUser(participant, profile)
+                    ? { ...participant, ...profileFields }
+                    : participant,
+                ),
+              }
+            : {}),
+          ...(conversation.lastMessage?.sender && isCurrentUser(conversation.lastMessage.sender, profile)
+            ? {
+                lastMessage: {
+                  ...conversation.lastMessage,
+                  sender: { ...conversation.lastMessage.sender, ...profileFields },
+                },
+              }
+            : {}),
+        })),
+      );
+      setMessagesByChat((previous: Record<string, ChatRecord[]>) => {
+        const next = { ...previous };
+        Object.entries(previous).forEach(([chatKey, messages]) => {
+          next[chatKey] = messages.map((message) => {
+            const senderMatches = isCurrentUser(message.sender, profile) ||
+              isCurrentUser(
+                {
+                  id: message.authorId || message.author_id || message.senderId || message.sender_id,
+                  email: message.authorEmail || message.author_email,
+                },
+                profile,
+              );
+            return senderMatches
+              ? {
+                  ...message,
+                  authorAvatarUrl: imageUrl,
+                  sender: { ...(message.sender || {}), ...profileFields },
+                }
+              : message;
+          });
+        });
+        return next;
+      });
+    };
+
+    const onProfileUpdated = (event: Event) =>
+      applyProfile((event as CustomEvent<ChatRecord>).detail);
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== "user" || !event.newValue) return;
+      try {
+        applyProfile(JSON.parse(event.newValue) as ChatRecord);
+      } catch {
+        // Ignore malformed local storage values.
+      }
+    };
+
+    window.addEventListener("user:profile-updated", onProfileUpdated);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("user:profile-updated", onProfileUpdated);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [setBuddies, setChannels, setMessagesByChat, setProfileUser]);
 
   const loadDirectChatHistory = useCallback(
     async (chat: ChatRecord) => {
@@ -146,11 +303,14 @@ export function useChatData({
         }
 
         if (cachedMessages.length > 0) {
-          setMessagesByChat((prev: Record<string, ChatRecord[]>) => ({
-            ...prev,
-            [chat.id]: cachedMessages,
-            [chatId]: cachedMessages,
-          }));
+          setMessagesByChat((prev: Record<string, ChatRecord[]>) => {
+            const merged = mergeMessages(
+              cachedMessages,
+              prev[chat.id] || [],
+              prev[chatId] || [],
+            );
+            return { ...prev, [chat.id]: merged, [chatId]: merged };
+          });
         }
 
         // 2. Fetch fresh history.
@@ -186,47 +346,27 @@ export function useChatData({
         );
         const firstUnreadMessageId = messagesWithUnreadState.find((message) => message.isUnread)?.id;
 
-        // 3. Merge server history with cached messages without duplicates.
-        const existingMessages = cachedMessages.length > 0 ? cachedMessages : [];
+        // 3. Merge server history, cache, and any SignalR messages that arrived
+        // while the request was in flight. The server wins for the same ID, but
+        // a genuinely newer realtime message is never discarded.
+        const currentMessages = mergeMessages(
+          messagesByChatRef.current[chat.id] || [],
+          messagesByChatRef.current[chatId] || [],
+        );
+        const mergedMessages = mergeMessages(
+          cachedMessages,
+          messagesWithUnreadState,
+          currentMessages,
+        );
 
-        const mergedMap = new Map<string, ChatRecord>();
-
-        for (const message of [...existingMessages, ...messagesWithUnreadState]) {
-          const messageId = String(
-            message.id ??
-              message.messageId ??
-              message.message_id ??
-              message.clientMessageId ??
-              message.client_message_id ??
-              [
-                message.senderId ?? message.sender_id ?? "",
-                message.createdAt ?? message.created_at ?? "",
-                message.content ?? message.message ?? message.text ?? "",
-              ].join("|"),
+        setMessagesByChat((prev: Record<string, ChatRecord[]>) => {
+          const latest = mergeMessages(
+            mergedMessages,
+            prev[chat.id] || [],
+            prev[chatId] || [],
           );
-
-          mergedMap.set(messageId, {
-            ...mergedMap.get(messageId),
-            ...message,
-          });
-        }
-
-        const mergedMessages = Array.from(mergedMap.values()).sort((first, second) => {
-          const firstTime = new Date(
-            first.sentAt || first.createdAt || first.created_at || 0,
-          ).getTime();
-          const secondTime = new Date(
-            second.sentAt || second.createdAt || second.created_at || 0,
-          ).getTime();
-          return (Number.isFinite(firstTime) ? firstTime : 0) -
-            (Number.isFinite(secondTime) ? secondTime : 0);
+          return { ...prev, [chat.id]: latest, [chatId]: latest };
         });
-
-        setMessagesByChat((prev: Record<string, ChatRecord[]>) => ({
-          ...prev,
-          [chat.id]: mergedMessages,
-          [chatId]: mergedMessages,
-        }));
 
         setSelectedChat((prev: ChatRecord | null) =>
           prev?.id === chat.id
@@ -245,6 +385,7 @@ export function useChatData({
 
         console.log("[ChatCache] Direct history cached:", chat.id, mergedMessages.length);
       } catch (error) {
+        loadedChatHistoryRef.current.delete(chatKey);
         setSendError(normalizeChatError(error));
         console.error("[ChatCache] Direct history failed:", error);
       } finally {
@@ -298,16 +439,19 @@ export function useChatData({
           }),
         );
 
-        setMessagesByChat((prev: Record<string, ChatRecord[]>) => ({
-          ...prev,
-          [chat.id]: messagesWithUnreadState,
-        }));
+        const currentMessages = mergeMessages(messagesByChatRef.current[chat.id] || []);
+        const mergedMessages = mergeMessages(messagesWithUnreadState, currentMessages);
+
+        setMessagesByChat((prev: Record<string, ChatRecord[]>) => {
+          const latest = mergeMessages(mergedMessages, prev[chat.id] || []);
+          return { ...prev, [chat.id]: latest };
+        });
         setSelectedChat((prev: ChatRecord | null) =>
           prev?.id === chat.id
             ? {
                 ...prev,
                 firstUnreadMessageId:
-                  messagesWithUnreadState.find((message) => message.isUnread)?.id || null,
+                  mergedMessages.find((message) => message.isUnread)?.id || null,
               }
             : prev,
         );
@@ -316,6 +460,7 @@ export function useChatData({
           [chat.id]: historyPayload?.pagination || { hasMore: false },
         }));
       } catch (error) {
+        loadedChatHistoryRef.current.delete(chatKey);
         setSendError(normalizeChatError(error));
       }
     },
@@ -395,12 +540,17 @@ export function useChatData({
 
       const savedPresence = normalizePresence(localStorage.getItem("chat_presence"));
       const serverPresence = normalizePresence(backendUser?.presence || backendUser?.status);
-      const restoredPresence =
-        savedPresence && savedPresence !== "online" && serverPresence === "online"
-          ? savedPresence
-          : serverPresence || savedPresence || "online";
+      // The browser value represents the current authenticated session. The
+      // backend value can still be Offline briefly while the new SignalR
+      // connection is coming online, so do not restore the previous session's
+      // status over the fresh login default.
+      const restoredPresence = savedPresence || serverPresence || "online";
 
       setCurrentStatus(restoredPresence);
+      // Keep the root MIS notification listener on the same presence policy
+      // when the user leaves the Chat page. The chat page still owns the
+      // authoritative API update; this value is only the local policy cache.
+      localStorage.setItem("chat_presence", restoredPresence);
 
       if (savedPresence && savedPresence !== "online" && serverPresence !== savedPresence) {
         updateChatStatusService(savedPresence).catch(() => {});
@@ -408,12 +558,19 @@ export function useChatData({
 
       if (backendUser) {
         setProfileUser((prev: ChatRecord | null) => {
+          const backendImage = getImageUrl(backendUser);
+          const previousImage = getImageUrl(prev);
+          const storedImage = getImageUrl(getStoredUser() as ChatRecord | null);
+          // User Management is authoritative. If the chat identity has not been
+          // refreshed yet, do not overwrite a valid persisted profile with null.
+          const resolvedImage = backendImage || previousImage || storedImage;
           const nextUser = {
             ...(getStoredUser() || {}),
             ...(prev || {}),
             ...backendUser,
-            avatarUrl: getImageUrl(backendUser) || getImageUrl(prev),
-            imageUrl: getImageUrl(backendUser) || getImageUrl(prev),
+            profileImage: resolvedImage || null,
+            avatarUrl: resolvedImage,
+            imageUrl: resolvedImage,
           };
           localStorage.setItem("user", JSON.stringify(nextUser));
           return nextUser;

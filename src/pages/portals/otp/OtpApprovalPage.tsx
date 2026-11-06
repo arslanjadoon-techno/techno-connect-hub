@@ -128,8 +128,8 @@ export default function OtpApprovalPage({ kind = "manager" }: { kind?: "manager"
 
   const decide = async (id: string, decision: "approve" | "reject", otp?: string) => {
     if (decision === "reject" && !window.confirm("Reject this OTP request? This cannot be undone.")) return;
-    if (decision === "approve" && kind === "backoffice" && !otp?.trim()) {
-      setOtpDialogError("Enter the OTP before approving.");
+    if (decision === "approve" && kind === "backoffice" && !/^\d{4}$/.test(otp?.trim() ?? "")) {
+      setOtpDialogError("OTP must be exactly 4 digits.");
       return;
     }
 
@@ -386,6 +386,8 @@ export default function OtpApprovalPage({ kind = "manager" }: { kind?: "manager"
               value={otpValue}
               onChange={(event) => { setOtpValue(event.target.value); setOtpDialogError(""); }}
               placeholder="Enter OTP"
+              maxLength={4}
+              pattern="[0-9]{4}"
               autoComplete="one-time-code"
               inputMode="numeric"
               className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-lg tracking-[0.2em] outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-100"

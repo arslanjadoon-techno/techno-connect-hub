@@ -61,27 +61,31 @@ export function useChatMessageHistory({
 
     const primaryChatId = String(chat.id ?? chatId);
     const requestedChatId = String(chatId);
+    const isGroupConversation = chat.type === "channel";
 
-    // 1. Load cached messages first.
-    try {
-      const cachedMessages = await getCachedChatMessages(primaryChatId);
+    // Group history is participant-scoped on the server. Never reintroduce an
+    // older cached page after the API has applied the member's join cutoff.
+    if (!isGroupConversation) {
+      try {
+        const cachedMessages = await getCachedChatMessages(primaryChatId);
 
-      if (cachedMessages.length > 0) {
-        setMessagesByChat((prev) => {
-          const existing = mergeMessages(prev[primaryChatId] ?? [], prev[requestedChatId] ?? []);
+        if (cachedMessages.length > 0) {
+          setMessagesByChat((prev) => {
+            const existing = mergeMessages(prev[primaryChatId] ?? [], prev[requestedChatId] ?? []);
 
-          const merged = mergeMessages(cachedMessages, existing);
+            const merged = mergeMessages(cachedMessages, existing);
 
-          return {
-            ...prev,
-            [primaryChatId]: merged,
-            [requestedChatId]: merged,
-          };
-        });
+            return {
+              ...prev,
+              [primaryChatId]: merged,
+              [requestedChatId]: merged,
+            };
+          });
+        }
+      } catch (error) {
+        // Cache failure must not prevent server history loading.
+        console.error("[ChatCache] Failed to read IndexedDB:", error);
       }
-    } catch (error) {
-      // Cache failure must not prevent server history loading.
-      console.error("[ChatCache] Failed to read IndexedDB:", error);
     }
 
     // 2. Fetch the latest server history.
@@ -94,12 +98,14 @@ export function useChatMessageHistory({
 
       const normalizedMessages: ChatMessage[] = normalizeChatMessages(responseData, chat);
 
-      // 3. Merge with the latest React state.
-      // Keep existing real-time and cached messages.
+      // 3. Merge with the latest React state for direct chats only. Group state
+      // must be replaced by the participant-filtered server page.
       setMessagesByChat((prev) => {
         const existing = mergeMessages(prev[primaryChatId] ?? [], prev[requestedChatId] ?? []);
 
-        const merged = mergeMessages(existing, normalizedMessages);
+        const merged = isGroupConversation
+          ? normalizedMessages
+          : mergeMessages(existing, normalizedMessages);
 
         return {
           ...prev,
@@ -110,11 +116,11 @@ export function useChatMessageHistory({
 
       // 4. Persist the latest history.
       // Do not depend on React's state updater running synchronously.
-      const latestCachedMessages = await getCachedChatMessages(primaryChatId);
-
-      const messagesToSave = mergeMessages(latestCachedMessages, normalizedMessages);
-
-      await saveCachedChatMessages(primaryChatId, messagesToSave);
+      if (!isGroupConversation) {
+        const latestCachedMessages = await getCachedChatMessages(primaryChatId);
+        const messagesToSave = mergeMessages(latestCachedMessages, normalizedMessages);
+        await saveCachedChatMessages(primaryChatId, messagesToSave);
+      }
 
     } catch (error) {
       console.error("[ChatCache] Server history refresh failed:", error);

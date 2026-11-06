@@ -79,7 +79,6 @@ const updateDirectBuddyPreview = (
 
 type ChatSendOptions = {
   blockedUserIds: string[];
-  chatBoxRef?: { current: HTMLDivElement | null };
   currentUser: ChatRecord | null;
   currentUserId: string;
   editingMessage: ChatRecord | null;
@@ -108,7 +107,6 @@ type ChatSendOptions = {
 
 export function useChatSend({
   blockedUserIds,
-  chatBoxRef,
   currentUser,
   currentUserId,
   editingMessage,
@@ -191,17 +189,6 @@ export function useChatSend({
         });
         return next;
       });
-
-      // Sending your own message always moves the WhatsApp-style chat view to
-      // the latest message. Incoming messages preserve the reader's scroll
-      // position and use the unread/new-message affordance instead.
-      const scrollToLatest = () => {
-        if (chatBoxRef?.current) {
-          chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
-        }
-      };
-      requestAnimationFrame(scrollToLatest);
-      window.setTimeout(scrollToLatest, 50);
 
       const optimisticChatId =
         selectedChat.type === "channel" ? selectedChat.id : selectedChat.chatId || selectedChat.id;

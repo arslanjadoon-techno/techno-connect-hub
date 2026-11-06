@@ -170,9 +170,12 @@ function MessageRow({
       currentUser?.id ||
       "",
   );
+  const messageAvatarUrl = String(
+    message.authorAvatarUrl || message.author_avatar_url || "",
+  ).trim();
   const avatarUrl = isMe
     ? getImageUrl(currentUser)
-    : message.authorAvatarUrl ||
+    : messageAvatarUrl ||
       getImageUrl(message.sender) ||
       (String(message.authorId || "") === currentUserIdentity ? getImageUrl(currentUser) : "");
   const messageUser = {

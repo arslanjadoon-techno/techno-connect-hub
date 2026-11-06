@@ -795,7 +795,6 @@ export function AppSidebar() {
                   onOpenMedia={() => navigate("/chat/media")}
                   onOpenNotes={() => navigate("/chat/notes")}
                   onCreateGroup={() => navigate("/chat/groups/new")}
-                  onSettingsOpen={() => navigate("/chat/settings")}
                   onTabSelect={() => navigate("/chat")}
                 />
               </div>

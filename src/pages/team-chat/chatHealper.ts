@@ -102,24 +102,35 @@ const normalizeAssetUrl = (value: unknown): string => {
   return url;
 };
 
-export const getImageUrl = (item: ChatRecord | null | undefined): string =>
-  normalizeAssetUrl(
-    item?.avatarUrl ||
-      item?.imageUrl ||
-      item?.profilePicture ||
-      item?.profile_picture ||
-      item?.picture ||
-      item?.photo ||
-      item?.image_url ||
-      item?.photo_url ||
-      item?.profile_image ||
-      item?.profile_image_url ||
-      item?.avatar_url ||
-      item?.thumbnail_url ||
-      item?.icon_url ||
-      item?.image ||
+export const getImageUrl = (item: ChatRecord | null | undefined): string => {
+  if (!item) return "";
+
+  // The User Management Settings profile is the only chat avatar source.
+  // If that field exists, including when it is cleared, never fall back to a
+  // legacy chat/avatar value that may still be present in an older payload.
+  const hasManagementProfile =
+    Object.prototype.hasOwnProperty.call(item, "profileImage") ||
+    Object.prototype.hasOwnProperty.call(item, "profile_image");
+  if (hasManagementProfile) {
+    return normalizeAssetUrl(item.profileImage ?? item.profile_image ?? "");
+  }
+
+  return normalizeAssetUrl(
+    item.avatarUrl ||
+      item.imageUrl ||
+      item.profilePicture ||
+      item.picture ||
+      item.photo ||
+      item.image_url ||
+      item.photo_url ||
+      item.profile_image_url ||
+      item.avatar_url ||
+      item.thumbnail_url ||
+      item.icon_url ||
+      item.image ||
       "",
   );
+};
 
 const pickStatusValue = (value: unknown): unknown => {
   if (value == null) return "";
@@ -255,13 +266,29 @@ export const normalizeChatError = (error: unknown): string => {
   );
 };
 
+const resolveMessageText = (value: unknown, depth = 0): string => {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object" || depth > 2) return "";
+
+  const record = value as ChatRecord;
+  const candidates = [
+    record.content?.text,
+    record.content?.message,
+    record.content?.file_name,
+    record.text,
+    record.message,
+  ];
+
+  for (const candidate of candidates) {
+    const text = resolveMessageText(candidate, depth + 1);
+    if (text) return text;
+  }
+
+  return "";
+};
+
 export const getMessageText = (message: ChatRecord | null | undefined): string =>
-  message?.content?.text ||
-  message?.content?.message ||
-  message?.content?.file_name ||
-  message?.text ||
-  message?.message ||
-  "";
+  resolveMessageText(message);
 
 export const CHAT_URL_PATTERN = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
 

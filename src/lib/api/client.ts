@@ -110,8 +110,9 @@ interface RequestOpts {
 }
 
 export async function apiRequest<T>(path: string, opts: RequestOpts = {}): Promise<ApiEnvelope<T>> {
+  const isFormData = typeof FormData !== "undefined" && opts.body instanceof FormData;
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     accept: "*/*",
     Accept: "*/*",
   };
@@ -125,7 +126,12 @@ export async function apiRequest<T>(path: string, opts: RequestOpts = {}): Promi
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: opts.method ?? "GET",
     headers,
-    body: opts.body != null ? JSON.stringify(opts.body) : undefined,
+    body:
+      opts.body == null
+        ? undefined
+        : isFormData
+          ? (opts.body as FormData)
+          : JSON.stringify(opts.body),
   });
   let json: ApiEnvelope<T>;
   try {
@@ -289,6 +295,15 @@ export const usersApi = {
 
   update: (payload: Partial<AddUserPayload> & { id: number }) =>
     apiRequest<BackendUser>(USER_API_PATHS.updateUser, { method: "PUT", body: payload }),
+
+  uploadProfileImage: (id: string | number, file: File) => {
+    const body = new FormData();
+    body.append("file", file, file.name);
+    return apiRequest<BackendUser>(`/api/users/${id}/profile-image`, {
+      method: "POST",
+      body,
+    });
+  },
 
   delete: (id: number | string | { id: number | string }) => {
     const numericId = typeof id === "object" && id !== null ? (id as any).id : Number(id);

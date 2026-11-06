@@ -10,15 +10,27 @@ export function useChatRealtimeAvatar({
   setSelectedChat,
 }: any) {
   return useCallback(
-    ({ userId, avatarUrl, user }: any) => {
+    ({ userId, user, profileImage, profile_image, avatarUrl, imageUrl }: any) => {
       if (!userId) return;
-      const nextAvatarUrl = avatarUrl || getImageUrl(user);
-      const avatarFields = { avatarUrl: nextAvatarUrl, imageUrl: nextAvatarUrl };
+
+      // User Management broadcasts only the resolved profile fields. Older
+      // deployments may still send a complete user object, so accept both
+      // shapes while keeping User Management as the source of truth.
+      const profile = user || {
+        id: userId,
+        profileImage: profileImage ?? profile_image ?? avatarUrl ?? imageUrl ?? null,
+      };
+      const nextAvatarUrl = getImageUrl(profile);
+      const avatarFields = {
+        profileImage: nextAvatarUrl || null,
+        avatarUrl: nextAvatarUrl,
+        imageUrl: nextAvatarUrl,
+      };
       const matchesUser = (record: any) =>
         String(getBuddySendId(record) || "") === String(userId);
       const mergeAvatar = (record: any) => ({
         ...(record || {}),
-        ...(user || {}),
+        ...(profile || {}),
         ...avatarFields,
       });
 

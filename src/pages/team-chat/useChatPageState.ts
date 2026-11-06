@@ -77,7 +77,6 @@ export function useChatPageState() {
     normalizePresence(localStorage.getItem("chat_presence")),
   );
   const [statusSaving, setStatusSaving] = useState(false);
-  const [avatarUploading, setAvatarUploading] = useState(false);
   const [activeCall, setActiveCall] = useState<ChatState>(null);
   const [callMinimized, setCallMinimized] = useState(false);
   const [incomingCall, setIncomingCall] = useState<ChatState>(null);
@@ -93,7 +92,6 @@ export function useChatPageState() {
     addMembersDialogOpen,
     addMembersError,
     addingMembers,
-    avatarUploading,
     buddies,
     callError,
     callMinimized,
@@ -146,7 +144,6 @@ export function useChatPageState() {
     setAddMembersDialogOpen,
     setAddMembersError,
     setAddingMembers,
-    setAvatarUploading,
     setBuddies,
     setCallError,
     setCallMinimized,

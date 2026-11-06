@@ -1,6 +1,6 @@
 import { MessageCircle, Users } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getAvailability } from "../chatHealper";
+import { getAvailability, getImageUrl } from "../chatHealper";
 
 interface ChatItem {
   id: string | number;
@@ -104,7 +104,7 @@ export function ReadyToSendState({ selectedChat }: { selectedChat: ChatItem }) {
     <div className="flex min-h-full items-center justify-center px-4 py-8">
       <div className="w-full max-w-md rounded-xl border border-dashed border-border bg-card px-6 py-8 text-center shadow-xs">
         <Avatar className="mx-auto mb-3 h-14 w-14 rounded-xl bg-primary/10 text-xl font-semibold text-primary">
-          <AvatarImage src={selectedChat.imageUrl} />
+          <AvatarImage src={getImageUrl(selectedChat) || selectedChat.imageUrl} />
           <AvatarFallback>
             {selectedChat.type === "channel" ? <Users /> : selectedChat.title.charAt(0)}
           </AvatarFallback>
