@@ -205,6 +205,13 @@ export default function ReportRequestsPage() {
   const [initialLoading, setInitialLoading] = useState(true);
   // Full-screen blocking overlay shown while a backend mutation (submit request) is in flight.
   const [blockingMessage, setBlockingMessage] = useState<string | null>(null);
+
+  // Cancel own request (reason required) - lets the requester back out of a
+  // request they made before it's been completed, same as a supervisor can
+  // cancel an assignment on the Validate & Assign page.
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [submittingCancel, setSubmittingCancel] = useState(false);
   const blockingOverlay = blockingMessage ? (
     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-3 rounded-xl bg-background/30 backdrop-blur-[2px]">
       <Loader2 className="h-9 w-9 animate-spin text-primary" />
@@ -376,6 +383,30 @@ export default function ReportRequestsPage() {
     }
   };
 
+  const handleConfirmCancelRequest = async () => {
+    if (!selectedDetailId) return;
+    const trimmedReason = cancelReason.trim();
+    if (!trimmedReason) {
+      toast.error("Please enter a reason for cancelling this request.");
+      return;
+    }
+
+    setSubmittingCancel(true);
+    setBlockingMessage("Cancelling surveillance request...");
+    try {
+      await surveillanceService.cancelOwnRequest(selectedDetailId, trimmedReason);
+      await loadRequests();
+      setCancelModalOpen(false);
+      setSelectedDetailId(null);
+      toast.success("Surveillance request cancelled successfully.");
+    } catch (error) {
+      toast.error(`Failed to cancel request: ${(error as Error).message}`);
+    } finally {
+      setSubmittingCancel(false);
+      setBlockingMessage(null);
+    }
+  };
+
   // Filtered requests
   const filteredRequests = useMemo(() => {
     return requests.filter((r) => {
@@ -427,19 +458,6 @@ export default function ReportRequestsPage() {
         accessor: (r) => <span className="text-foreground text-sm line-clamp-1">{r.title}</span>,
       },
       {
-        key: "priority",
-        header: "Priority",
-        searchValue: (r) => r.priority,
-        accessor: (r) => (
-          <Badge
-            variant="outline"
-            className={`capitalize text-xs font-medium ${PRIORITY_TONES[r.priority]}`}
-          >
-            {r.priority}
-          </Badge>
-        ),
-      },
-      {
         key: "requestedBy",
         header: "Requested By",
         searchValue: (r) => r.requestedBy,
@@ -453,6 +471,36 @@ export default function ReportRequestsPage() {
         accessor: (r) => (
           <span className="text-foreground text-sm">
             {normalizeRequestStatus(r) === "Completed" ? r.preparedBy || "-" : "-"}
+          </span>
+        ),
+      },
+      {
+        key: "requestedDate",
+        header: "Requested Date (Manager)",
+        searchValue: (r) => formatDateTimeDisplay(r.createdAt),
+        accessor: (r) => (
+          <span className="text-foreground text-sm whitespace-nowrap">
+            {formatDateTimeDisplay(r.createdAt)}
+          </span>
+        ),
+      },
+      {
+        key: "assignedDate",
+        header: "Assigned Date (Agent)",
+        searchValue: (r) => formatDateTimeDisplay(r.assignedAt),
+        accessor: (r) => (
+          <span className="text-foreground text-sm whitespace-nowrap">
+            {formatDateTimeDisplay(r.assignedAt)}
+          </span>
+        ),
+      },
+      {
+        key: "completedDate",
+        header: "Completed Date (Agent)",
+        searchValue: (r) => formatDateTimeDisplay(r.surveyEndsAt),
+        accessor: (r) => (
+          <span className="text-foreground text-sm whitespace-nowrap">
+            {formatDateTimeDisplay(r.surveyEndsAt)}
           </span>
         ),
       },
@@ -533,6 +581,19 @@ export default function ReportRequestsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {normalizedStatus === "Pending" && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setCancelReason("");
+                  setCancelModalOpen(true);
+                }}
+                className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold border-rose-200 bg-rose-50/70 text-rose-700 hover:bg-rose-100/80 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/70 shadow-xs whitespace-nowrap shrink-0"
+              >
+                <XCircle className="h-4 w-4" />
+                Cancel Request
+              </Button>
+            )}
             {normalizedStatus === "Completed" && Boolean(targetReportId) && (
               <>
                 <Button
@@ -943,6 +1004,46 @@ export default function ReportRequestsPage() {
             )}
           </Card>
         </div>
+
+        <Dialog open={cancelModalOpen} onOpenChange={setCancelModalOpen}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Cancel Surveillance Request</DialogTitle>
+              <DialogDescription>
+                Provide a clear reason for cancelling this request you made. This cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-1.5 pt-1 text-xs">
+              <Label className="text-xs font-semibold">
+                Cancellation Reason <span className="text-destructive">*</span>
+              </Label>
+              <Textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Enter the reason for cancelling this request..."
+                rows={4}
+              />
+            </div>
+
+            <DialogFooter className="mt-2">
+              <Button
+                variant="outline"
+                onClick={() => setCancelModalOpen(false)}
+                disabled={submittingCancel}
+              >
+                Keep Request
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleConfirmCancelRequest}
+                disabled={submittingCancel || !cancelReason.trim()}
+              >
+                {submittingCancel ? "Cancelling..." : "Cancel Request"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }

@@ -311,6 +311,7 @@ const AUDIT_DATA_FIELDS: AuditDataField[] = [
   { key: "bdiTime", label: "BDI TIME" },
   { key: "salesRep", label: "Sales Rep" },
   { key: "transType", label: "Transaction Type" },
+  { key: "deviceQuantity", label: "Device Quantity" },
   { key: "clientType", label: "Client Type" },
   { key: "invoiceAmount", label: "Invoice Amount" },
   { key: "totalTaken", label: "Total Taken" },

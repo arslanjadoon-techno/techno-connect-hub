@@ -459,8 +459,12 @@ export default function ValidateAndAssignPage() {
     setAssignModalOpen(true);
   }, []);
 
+  // Supervisor can cancel a request with a reason both before assignment
+  // (rejects it outright) and after it's been assigned to an agent (cancels
+  // the assignment) - not once a report has been submitted for review.
   const openRejectModal = useCallback((item: SurveillanceValidationItem) => {
-    if (resolveValidationDisplayStatus(item) !== "Unassigned") return;
+    const status = resolveValidationDisplayStatus(item);
+    if (status !== "Unassigned" && status !== "Assigned") return;
     setTargetRejectItem(item);
     setRejectReason("");
     setRejectModalOpen(true);
@@ -468,14 +472,15 @@ export default function ValidateAndAssignPage() {
 
   const handleConfirmReject = async () => {
     if (!targetRejectItem) return;
+    const isCancelling = resolveValidationDisplayStatus(targetRejectItem) === "Assigned";
     const trimmedReason = rejectReason.trim();
     if (!trimmedReason) {
-      toast.error("Please enter a reason for rejecting this surveillance request.");
+      toast.error("Please enter a reason.");
       return;
     }
 
     setSubmittingReject(true);
-    setBlockingMessage("Rejecting surveillance request...");
+    setBlockingMessage(isCancelling ? "Cancelling assignment..." : "Rejecting surveillance request...");
     try {
       await surveillanceService.rejectValidationRequest({
         requestId: targetRejectItem.id,
@@ -483,9 +488,11 @@ export default function ValidateAndAssignPage() {
       });
       await loadQueue();
       setRejectModalOpen(false);
-      toast.success("Surveillance request rejected successfully.");
+      toast.success(
+        isCancelling ? "Assignment cancelled successfully." : "Surveillance request rejected successfully.",
+      );
     } catch (error) {
-      toast.error(`Failed to reject request: ${(error as Error).message}`);
+      toast.error(`Failed: ${(error as Error).message}`);
     } finally {
       setSubmittingReject(false);
       setBlockingMessage(null);
@@ -575,24 +582,41 @@ export default function ValidateAndAssignPage() {
         ),
       },
       {
-        key: "priority",
-        header: "Priority",
-        searchValue: (r) => r.priority,
-        accessor: (r) => (
-          <Badge
-            variant="outline"
-            className={`capitalize text-xs font-medium whitespace-nowrap ${PRIORITY_TONES[r.priority]}`}
-          >
-            {r.priority}
-          </Badge>
-        ),
-      },
-      {
         key: "requestedBy",
         header: "Requested By",
         searchValue: (r) => `${r.requestedBy} ${r.requesterRole}`,
         accessor: (r) => (
           <span className="text-sm text-foreground whitespace-nowrap">{r.requestedBy}</span>
+        ),
+      },
+      {
+        key: "requestedDate",
+        header: "Requested Date (Manager)",
+        searchValue: (r) => formatDateTimeDisplay(r.createdAt),
+        accessor: (r) => (
+          <span className="text-sm text-foreground whitespace-nowrap">
+            {formatDateTimeDisplay(r.createdAt)}
+          </span>
+        ),
+      },
+      {
+        key: "assignedDate",
+        header: "Assigned Date (Agent)",
+        searchValue: (r) => formatDateTimeDisplay(r.assignedAt),
+        accessor: (r) => (
+          <span className="text-sm text-foreground whitespace-nowrap">
+            {formatDateTimeDisplay(r.assignedAt)}
+          </span>
+        ),
+      },
+      {
+        key: "completedDate",
+        header: "Completed Date (Agent)",
+        searchValue: (r) => formatDateTimeDisplay(r.surveyEndsAt || r.reportSubmittedAt),
+        accessor: (r) => (
+          <span className="text-sm text-foreground whitespace-nowrap">
+            {formatDateTimeDisplay(r.surveyEndsAt || r.reportSubmittedAt)}
+          </span>
         ),
       },
       {
@@ -728,13 +752,23 @@ export default function ValidateAndAssignPage() {
               )}
 
               {selectedDetailDisplayStatus === "Assigned" && (
-                <Button
-                  onClick={() => openAssignModal(selectedDetail)}
-                  className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
-                >
-                  <RefreshCw className="h-3.5 w-3.5" />
-                  Reassign
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => openRejectModal(selectedDetail)}
+                    className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold border-rose-200 bg-rose-50/70 text-rose-700 hover:bg-rose-100/80 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/70 shadow-xs whitespace-nowrap shrink-0"
+                  >
+                    <XCircle className="h-4 w-4" />
+                    Cancel Assignment
+                  </Button>
+                  <Button
+                    onClick={() => openAssignModal(selectedDetail)}
+                    className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white shadow-xs whitespace-nowrap shrink-0"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Reassign
+                  </Button>
+                </>
               )}
 
               {Boolean(selectedDetail.linkedReportId) && (
@@ -1715,10 +1749,15 @@ export default function ValidateAndAssignPage() {
       <Dialog open={rejectModalOpen} onOpenChange={setRejectModalOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Reject Surveillance Request</DialogTitle>
+            <DialogTitle>
+              {targetRejectItem && resolveValidationDisplayStatus(targetRejectItem) === "Assigned"
+                ? "Cancel Assignment"
+                : "Reject Surveillance Request"}
+            </DialogTitle>
             <DialogDescription>
-              Provide a clear reason for rejecting this incoming surveillance request. The requester
-              will see this status and reason under Rejected requests.
+              {targetRejectItem && resolveValidationDisplayStatus(targetRejectItem) === "Assigned"
+                ? "Provide a clear reason for cancelling this already-assigned request. The requester and assigned agent will see this status and reason under Rejected requests."
+                : "Provide a clear reason for rejecting this incoming surveillance request. The requester will see this status and reason under Rejected requests."}
             </DialogDescription>
           </DialogHeader>
 
@@ -1762,12 +1801,15 @@ export default function ValidateAndAssignPage() {
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold">
-                  Rejection Reason <span className="text-destructive">*</span>
+                  {resolveValidationDisplayStatus(targetRejectItem) === "Assigned"
+                    ? "Cancellation Reason"
+                    : "Rejection Reason"}{" "}
+                  <span className="text-destructive">*</span>
                 </Label>
                 <Textarea
                   value={rejectReason}
                   onChange={(e) => setRejectReason(e.target.value)}
-                  placeholder="Enter the reason for rejecting this surveillance request..."
+                  placeholder="Enter the reason..."
                   rows={4}
                 />
               </div>
@@ -1787,7 +1829,11 @@ export default function ValidateAndAssignPage() {
               onClick={handleConfirmReject}
               disabled={submittingReject || !rejectReason.trim()}
             >
-              {submittingReject ? "Rejecting..." : "Reject Request"}
+              {submittingReject
+                ? "Submitting..."
+                : targetRejectItem && resolveValidationDisplayStatus(targetRejectItem) === "Assigned"
+                  ? "Cancel Assignment"
+                  : "Reject Request"}
             </Button>
           </DialogFooter>
         </DialogContent>
