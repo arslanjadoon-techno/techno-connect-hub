@@ -6,6 +6,7 @@ import type { AppNotification } from "@/lib/types";
 import { useChatRealtime } from "../team-chat/useChatRealtime";
 import {
   getImageUrl,
+  getBuddyName,
   getMessageSenderId,
   getMessageText,
 } from "../team-chat/chatHealper";
@@ -124,8 +125,9 @@ export default function GlobalChatNotifications() {
       if (notificationsRef.current.some((item) => item.id === notificationId)) return;
 
       const sender = message?.sender || {};
-      const senderName =
-        sender?.name || sender?.displayName || sender?.display_name || sender?.email || "New message";
+      const senderName = [getBuddyName(sender), sender?.email || sender?.email_id].find(
+        (name) => name && !/^(chat\s*user|chatuser)$/i.test(String(name).trim()),
+      ) || "New message";
       const body = getMessageText(message) || "You received a new chat message.";
       const link = `${CHAT_APP_BASE_PATH}/${encodeURIComponent(String(chatId))}`;
       const persistentType = `chat_message:${String(chatId)}`;

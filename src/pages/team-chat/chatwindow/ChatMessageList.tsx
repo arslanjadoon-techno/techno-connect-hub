@@ -27,6 +27,12 @@ function distanceFromBottom(container: HTMLElement): number {
   return container.scrollHeight - container.scrollTop - container.clientHeight;
 }
 
+function usableAuthorName(value: unknown): string {
+  const name = String(value || "").trim();
+  if (!name || /^(chat\s*user|chatuser)$/i.test(name) || /^\d+$/.test(name)) return "";
+  return name;
+}
+
 export default function ChatMessageList(props: Record<string, any>) {
   const {
     blockedUserIds = [],
@@ -320,6 +326,14 @@ export default function ChatMessageList(props: Record<string, any>) {
               ? selectedChat?.raw || selectedChat
               : undefined);
 
+          // Older/live message payloads can contain a generic authorName even
+          // though the selected conversation already has the real User
+          // Management profile. Prefer the profile before showing "Chat User".
+          const authorName =
+            [message.authorName, getBuddyName(message.sender), getBuddyName(senderProfile)]
+              .map(usableAuthorName)
+              .find(Boolean) || "Chat user";
+
           return (
             <div
               key={messageId || `${dayKey}-${index}`}
@@ -338,7 +352,7 @@ export default function ChatMessageList(props: Record<string, any>) {
               )}
 
               <MessageRow
-                authorName={message.authorName || getBuddyName(message.sender) || getBuddyName(senderProfile)}
+                authorName={authorName}
                 chatId={chatId}
                 currentUser={currentUser}
                 message={{

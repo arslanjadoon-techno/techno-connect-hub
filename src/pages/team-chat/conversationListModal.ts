@@ -2,10 +2,12 @@ import {
   getBuddyEmail,
   getBuddyName,
   getBuddySendId,
-  getChannelId,
-  getImageUrl,
   getUnreadCount,
 } from "./chatHealper";
+import {
+  dedupeConversationRecords,
+  getConversationRecordId,
+} from "./chatConversationKeys";
 
 type ChatRecord = Record<string, any>;
 type MessageMap = Record<string, ChatRecord[]>;
@@ -16,19 +18,20 @@ const valuesFor = (item: ChatRecord) =>
   [
     getBuddySendId(item),
     getBuddyEmail(item),
-    getBuddyName(item),
-    item?.id,
-    item?.userId,
-    item?.user_id,
     item?.appUserId,
     item?.app_user_id,
-    item?.username,
+    item?.userId,
+    item?.user_id,
+    item?.email,
+    item?.email_id,
+    item?.providerEmail,
+    item?.provider_email,
   ]
     .filter(Boolean)
     .map((value) => String(value).toLowerCase());
 
 const conversationId = (conversation: ChatRecord | null | undefined) =>
-  conversation?.chat_id || conversation?.chatId || conversation?.id || "";
+  getConversationRecordId(conversation);
 
 const messageTime = (message: ChatRecord | null | undefined) => {
   const value =
@@ -69,38 +72,6 @@ const activityTime = (conversation: ChatRecord | null | undefined) => {
   if (Number.isFinite(numeric)) return numeric < 1e12 ? numeric * 1000 : numeric;
   const parsed = new Date(value).getTime();
   return Number.isFinite(parsed) ? parsed : 0;
-};
-
-const normalizeIdentityText = (value: unknown): string =>
-  String(value ?? "")
-    .trim()
-    .toLowerCase();
-
-/**
- * Direct rows can be assembled from both the contacts endpoint and the
- * conversation endpoint. Those endpoints do not always use the same user-id
- * alias, so an id-only key can render the same person twice. A current profile
- * image plus display name is a stronger cross-endpoint identity than the
- * transport-specific id and also handles legacy rows with different ids.
- */
-const directListKey = (item: ChatRecord): string => {
-  const name = normalizeIdentityText(getBuddyName(item));
-  const image = normalizeIdentityText(getImageUrl(item));
-  if (name && name !== "chat user" && image) return `profile:${name}:${image}`;
-
-  const email = normalizeIdentityText(
-    item?.email ||
-      item?.email_id ||
-      item?.provider_email ||
-      item?.providerEmail ||
-      item?.primary_email ||
-      item?.emailid ||
-      "",
-  );
-  if (email) return `email:${email}`;
-
-  const identity = normalizeIdentityText(getBuddySendId(item));
-  return identity ? `id:${identity}` : `name:${name}`;
 };
 
 const toDirectRow = ({
@@ -161,12 +132,9 @@ const toDirectRow = ({
     display_name: displayName,
     userId: buddy?.userId || buddy?.appUserId || getBuddySendId(buddy) || getBuddySendId(peer),
     user_id: buddy?.user_id || getBuddySendId(buddy) || getBuddySendId(peer),
-    directConversationId:
-      conversationId(conversation) ||
-      buddy?.directConversationId ||
-      buddy?.chat_id ||
-      buddy?.chatId ||
-      "",
+    // A buddy id is a participant id, not a persisted conversation id. Keep
+    // it as the placeholder identity only until the API returns a conversation.
+    directConversationId: conversationId(conversation) || "",
     unreadCount: conversation ? unread(conversation) : unread(buddy),
     lastMessage: latestMessage,
     last_message: latestMessage,
@@ -184,6 +152,8 @@ const toDirectRow = ({
       conversation?.last_message_at ||
       buddy?.lastMessageAt ||
       buddy?.last_message_at,
+    isDirect: true,
+    type: "direct",
     __conversationType: "person",
   };
 };
@@ -236,11 +206,12 @@ export function buildConversationItems({
         (participant: ChatRecord) => !isCurrentUserRecord(participant),
       );
       if (!peer) return;
-      const peerValues = valuesFor(peer);
-      const exists = directRows.some((row) =>
-        valuesFor(row).some((value) => peerValues.includes(value)),
+      const channelConversationId = conversationId(channel);
+      const exists = directRows.some(
+        (row) => conversationId(row) === channelConversationId && Boolean(channelConversationId),
       );
       if (exists) return;
+      const peerValues = valuesFor(peer);
       const buddy =
         allVisibleBuddies.find((candidate) =>
           valuesFor(candidate).some((value) => peerValues.includes(value)),
@@ -332,16 +303,7 @@ export function buildConversationItems({
     );
   });
 
-  const unique = Array.from(
-    new Map(
-      filtered.map((item) => [
-        item.__conversationType === "channel"
-          ? `group:${getChannelId(item)}`
-          : `chat:${directListKey(item)}`,
-        item,
-      ]),
-    ).values(),
-  );
+  const unique = dedupeConversationRecords(filtered);
 
   return unique
     .map((item, index) => ({ item, index }))

@@ -1,6 +1,7 @@
 import { useCallback, useRef } from "react";
 import {
   getBuddySendId,
+  getBuddyName,
   getImageUrl,
   getMessageSenderId,
   getMessageText,
@@ -247,12 +248,9 @@ export function useChatRealtimeMessage({
               ...sender,
               id: senderId,
               user_id: senderId,
-              name:
-                sender?.name ||
-                sender?.display_name ||
-                sender?.displayName ||
-                matchingBuddy?.name ||
-                "Chat user",
+              name: [getBuddyName(sender), getBuddyName(matchingBuddy)].find(
+                (name) => name && !/^(chat\s*user|chatuser)$/i.test(name),
+              ) || "Chat user",
               email: sender?.email || sender?.email_id || matchingBuddy?.email || "",
             };
 
@@ -321,11 +319,9 @@ export function useChatRealtimeMessage({
             (buddy) => String(getBuddySendId(buddy)) === String(senderId),
           );
 
-          const senderName =
-            message?.sender?.name ||
-            message?.sender?.display_name ||
-            matchingBuddy?.name ||
-            "Someone";
+          const senderName = [getBuddyName(message?.sender), getBuddyName(matchingBuddy)].find(
+            (name) => name && !/^(chat\s*user|chatuser)$/i.test(name),
+          ) || "Someone";
 
           const shown = showChatNotification({
             title: shouldNotifyMention ? `${senderName} mentioned you` : senderName,

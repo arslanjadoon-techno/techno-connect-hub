@@ -23,6 +23,7 @@ import { getStoredUser } from "@/lib/api/client";
 import { normalizeCall, PENDING_CALL_STORAGE_KEY } from "./ChatSystemUtils";
 import { normalizeChatMessages } from "./chatMessageNormalization";
 import { CHAT_APP_BASE_PATH } from "./chatRoutes";
+import { getConversationRecordId, upsertConversationRecord } from "./chatConversationKeys";
 
 type ChatRecord = Record<string, any>;
 type ChatRuntimeOptions = Record<string, any>;
@@ -313,15 +314,13 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
       const conversation = payload?.conversation;
       if (!chatId || !conversation) return;
 
+      const normalizedConversation = {
+        ...conversation,
+        id: conversation.id || conversation.conversationId || conversation.chatId || chatId,
+      };
+
       setChannels((previous: ChatRecord[]) =>
-        previous.map((item) =>
-          [item?.id, item?.chatId, item?.chat_id, getChannelId(item)]
-            .filter(Boolean)
-            .map(String)
-            .includes(chatId)
-            ? { ...item, ...conversation }
-            : item,
-        ),
+        upsertConversationRecord(previous, normalizedConversation),
       );
       setSelectedChat((previous: ChatRecord | null) => {
         if (!previous) return previous;
@@ -331,11 +330,11 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
           ...previous,
           // The API uses type="group" while the existing UI uses type="channel" for
           // both group and channel conversations. Preserve the UI discriminator.
-          ...conversation,
+          ...normalizedConversation,
           type: previous.type,
-          title: conversation.title || previous.title,
-          participants: conversation.participants || previous.participants,
-          raw: { ...(previous.raw || {}), ...conversation },
+          title: normalizedConversation.title || previous.title,
+          participants: normalizedConversation.participants || previous.participants,
+          raw: { ...(previous.raw || {}), ...normalizedConversation },
         };
       });
     },
@@ -348,11 +347,7 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
       if (!chatId) return;
       setChannels((previous: ChatRecord[]) =>
         previous.filter(
-          (item) =>
-            ![item?.id, item?.chatId, item?.chat_id, getChannelId(item)]
-              .filter(Boolean)
-              .map(String)
-              .includes(chatId),
+          (item) => getConversationRecordId(item) !== chatId,
         ),
       );
       setMessagesByChat((previous: Record<string, ChatRecord[]>) => {

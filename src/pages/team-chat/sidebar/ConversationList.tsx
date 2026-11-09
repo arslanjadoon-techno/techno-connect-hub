@@ -2,14 +2,9 @@ import { useMemo, useState } from "react";
 import { Loader2, MessageCircle } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import {
-  getBuddyName,
-  getBuddySendId,
-  getChannelId,
-  getChannelName,
-  getUnreadCount,
-} from "../chatHealper";
+import { getUnreadCount } from "../chatHealper";
 import ConversationListItem from "./ConversationListItem";
+import { getConversationKey } from "../chatConversationKeys";
 
 type Conversation = Record<string, any>;
 type Filter = "direct" | "groups";
@@ -120,9 +115,7 @@ export default function ConversationList({
         ) : (
           visibleItems.map((item) => {
             const channel = item.__conversationType === "channel";
-            const key = channel
-              ? getChannelId(item) || getChannelName(item)
-              : getBuddySendId(item) || getBuddyName(item);
+            const key = getConversationKey(item);
             return (
               <ConversationListItem
                 key={`${item.__conversationType}-${key}`}

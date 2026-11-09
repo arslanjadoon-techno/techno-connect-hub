@@ -162,7 +162,9 @@ function MessageRow({
   const longPressed = useRef(false);
 
   const isMe = message.direction === "outbound";
-  const name = isMe ? getBuddyName(currentUser) : authorName;
+  const name = isMe
+    ? getBuddyName(currentUser)
+    : getBuddyName({ ...(message.sender || {}), name: authorName });
   const currentUserIdentity = String(
     currentUser?.appUserId ||
       currentUser?.app_user_id ||
@@ -182,6 +184,11 @@ function MessageRow({
     ...(isMe ? currentUser : message.sender || {}),
     id: (isMe ? currentUser?.id : message.sender?.id) || message.authorId,
     name: isMe ? getBuddyName(currentUser) : name,
+    email:
+      (isMe ? currentUser?.email : message.sender?.email) ||
+      message.authorEmail ||
+      message.author_email ||
+      "",
     avatarUrl,
   };
 
@@ -289,7 +296,7 @@ function MessageRow({
 
   const renderRecipient = (recipient: RecordValue) => {
     const read = String(recipient.status || "").toLowerCase() === "read";
-    const recipientName = recipient.user?.name || recipient.user?.email || "Recipient";
+    const recipientName = getBuddyName(recipient.user) || "Recipient";
     const when = formatDate(read ? recipient.readAt : recipient.deliveredAt);
     return (
       <div key={recipient.user?.id || recipientName} className="flex items-center gap-3 py-2">

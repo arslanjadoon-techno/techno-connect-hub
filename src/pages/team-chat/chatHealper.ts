@@ -55,8 +55,6 @@ export const getBuddyEmail = (buddy: ChatRecord | null | undefined): string =>
   buddy?.mailid ||
   buddy?.primary_email ||
   buddy?.emailid ||
-  buddy?.user_id ||
-  buddy?.id ||
   "";
 
 export const getBuddySendId = (buddy: ChatRecord | null | undefined): ChatId =>
@@ -83,9 +81,15 @@ export const getBuddyName = (buddy: ChatRecord | null | undefined): string => {
   ];
   const name = candidates.find((value) => {
     const text = String(value || "").trim();
-    return text && text.toLowerCase() !== "chat user" && !/^[0-9a-f-]{30,}$/i.test(text);
+    return (
+      text &&
+      text.toLowerCase() !== "chat user" &&
+      !/^\d+$/.test(text) &&
+      !/^[0-9a-f-]{30,}$/i.test(text)
+    );
   });
-  return name || getBuddyEmail(buddy) || "Chat User";
+  const fallback = String(getBuddyEmail(buddy) || "").trim();
+  return name || (fallback && !/^\d+$/.test(fallback) ? fallback : "Chat User");
 };
 
 const normalizeAssetUrl = (value: unknown): string => {
@@ -226,16 +230,17 @@ export const getPhoneNumber = (item: ChatRecord | null | undefined): string | nu
   "";
 
 export const getChannelId = (channel: ChatRecord | null | undefined): ChatId =>
+  channel?.id ||
+  channel?.conversationId ||
+  channel?.conversation_id ||
+  channel?.chatId ||
+  channel?.chat_id ||
+  channel?.groupId ||
+  channel?.group_id ||
+  channel?.channelId ||
+  channel?.channel_id ||
   channel?.unique_name ||
   channel?.uniqueName ||
-  channel?.channel_id ||
-  channel?.chat_id ||
-  channel?.group_id ||
-  channel?.groupId ||
-  channel?.name ||
-  channel?.groupName ||
-  channel?.group_name ||
-  channel?.id ||
   "";
 
 export const getChannelName = (channel: ChatRecord | null | undefined): string | number =>

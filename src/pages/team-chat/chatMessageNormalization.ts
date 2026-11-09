@@ -10,6 +10,8 @@ import {
   getMessageSenderId,
   getMessageText,
   getMessageTime,
+  getBuddyName,
+  getBuddyEmail,
 } from "./chatHealper";
 
 const normalizeMessageReactions = (reactions: ChatRecord[] = [], currentUserId = "") => {
@@ -123,18 +125,18 @@ export const normalizeChatMessages = (
           null,
         chatId: message?.chatId || message?.chat_id || message?.conversationId || null,
         chat_id: message?.chat_id || message?.chatId || message?.conversationId || null,
+        authorEmail:
+          getBuddyEmail(message?.sender) ||
+          message?.authorEmail ||
+          message?.author_email ||
+          "",
         text: deletedAt
           ? "Message deleted"
           : text || (attachments.length ? "" : "[Unsupported message]"),
         sentAt: getMessageTime(message),
         timestamp: formatMessageTime(getMessageTime(message)),
         authorId: senderId,
-        authorName:
-          message?.sender?.name ||
-          message?.sender?.display_name ||
-          message?.sender?.displayName ||
-          message?.sender?.email ||
-          "Chat user",
+        authorName: getBuddyName(message?.sender) || "Chat user",
         authorAvatarUrl: getImageUrl(message?.sender),
         direction,
         deliveryStatus:

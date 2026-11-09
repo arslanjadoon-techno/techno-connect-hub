@@ -301,7 +301,16 @@ export default function ChatWindow({
     return role === "owner";
   }, [isGroup, groupMembers, currentUser, chatRole, selectedChat?.raw]);
 
-  const isGroupMuted = mutedGroupIds.includes(String(selectedChat?.id));
+  // Direct chats use the other user's id as `selectedChat.id`, but mute
+  // preferences are stored by conversation id. A new direct chat may not
+  // have a conversation id yet, so it must not fall back to the user id.
+  const muteConversationId =
+    selectedChat?.type === "person"
+      ? selectedChat?.chatId || selectedChat?.raw?.chatId || selectedChat?.raw?.conversationId
+      : selectedChat?.chatId || selectedChat?.id;
+  const isGroupMuted = Boolean(
+    muteConversationId && mutedGroupIds.includes(String(muteConversationId)),
+  );
 
   const { latestPinnedMessage, pinnedCount } = useMemo(() => {
     let latest: MessageRecord | null = null;
@@ -579,7 +588,9 @@ export default function ChatWindow({
 
   const title = getChatTitle(selectedChat);
   const viewedUserName = viewedUser ? getBuddyName(viewedUser) : "Chat user";
-  const viewedUserEmail = viewedUser ? getBuddyEmail(viewedUser) : "";
+  const viewedUserEmail = viewedUser
+    ? viewedUser.authorEmail || viewedUser.author_email || getBuddyEmail(viewedUser)
+    : "";
   const viewedUserImage = getImageUrl(viewedUser);
   const viewedUserAvailability = getAvailability(viewedUser);
 
@@ -615,6 +626,7 @@ export default function ChatWindow({
           onScheduleCall,
           onSearchMessages,
           onToggleGroupMute,
+          muteConversationId,
           onTransferOwnership,
           onViewUser: (user: ChatRecord) => setViewedUser(user),
           selectedChat,

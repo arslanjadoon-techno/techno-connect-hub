@@ -6,7 +6,11 @@ import {
   normalizeChatError,
 } from "./chatHealper";
 import { normalizeRealtimeMessage } from "./chatMessageNormalization";
-import { getConversationPreviewTimestamp, updateConversationPreview } from "./chatConversationKeys";
+import {
+  dedupeConversationRecords,
+  getConversationPreviewTimestamp,
+  updateConversationPreview,
+} from "./chatConversationKeys";
 import { getConversationIdFromResponse, textContainsMention } from "./ChatSystemUtils";
 import {
   createClientMessageId,
@@ -25,6 +29,25 @@ import {
 } from "@/services/Team-chat/chat.service";
 
 type ChatRecord = Record<string, any>;
+
+const deliveryStatusRank = (status: unknown): number => {
+  switch (String(status || "").toLowerCase()) {
+    case "seen":
+    case "read":
+      return 3;
+    case "delivered":
+      return 2;
+    case "sent":
+      return 1;
+    default:
+      return 0;
+  }
+};
+
+const preserveDeliveryStatus = (current: unknown, confirmed: unknown): string => {
+  const next = String(confirmed || "sent");
+  return deliveryStatusRank(current) > deliveryStatusRank(next) ? String(current) : next;
+};
 
 const updateDirectBuddyPreview = (
   buddies: ChatRecord[],
@@ -308,7 +331,7 @@ export function useChatSend({
           ...(confirmed || {}),
           id: confirmed?.id || message.id,
           sendState: "sent",
-          deliveryStatus: confirmed?.deliveryStatus || "sent",
+          deliveryStatus: preserveDeliveryStatus(message.deliveryStatus, confirmed?.deliveryStatus),
         })),
       );
       logChatTiming("optimistic_reconciled", {
@@ -375,15 +398,21 @@ export function useChatSend({
                 conversationResponse.data?.data ?? conversationResponse.data,
               );
               setChannels(() => {
-                const conversations = [...refreshedConversations];
+                const conversations = dedupeConversationRecords(refreshedConversations);
                 if (selectedChat.type !== "person") return conversations;
 
                 const conversationKey = String(chatId);
-                const alreadyPresent = conversations.some(
-                  (conversation) =>
-                    String(
-                      conversation?.id || conversation?.chatId || conversation?.chat_id || "",
-                    ) === conversationKey,
+                const alreadyPresent = conversations.some((conversation) =>
+                  [
+                    conversation?.id,
+                    conversation?.conversationId,
+                    conversation?.conversation_id,
+                    conversation?.chatId,
+                    conversation?.chat_id,
+                  ]
+                    .filter(Boolean)
+                    .map(String)
+                    .includes(conversationKey),
                 );
                 if (alreadyPresent) return conversations;
 

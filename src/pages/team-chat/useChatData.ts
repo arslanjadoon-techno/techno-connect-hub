@@ -13,6 +13,7 @@ import {
 import { getCachedChatMessages, saveCachedChatMessages } from "./chatMessageIndexedDb";
 import { setChatNotificationsEnabled } from "./chatNotifications";
 import { normalizeChatMessages } from "./chatMessageNormalization";
+import { dedupeConversationRecords } from "./chatConversationKeys";
 import {
   markConversationReadService,
   getChatConversationsService,
@@ -524,9 +525,11 @@ export function useChatData({
       const chatUsers: ChatRecord[] = getArrayPayload(
         buddyResponse?.data?.data ?? buddyResponse?.data,
       ) as ChatRecord[];
-      const chatConversations: ChatRecord[] = getArrayPayload(
-        channelResponse?.data?.data ?? channelResponse?.data,
-      ) as ChatRecord[];
+      const chatConversations: ChatRecord[] = dedupeConversationRecords(
+        getArrayPayload(
+          channelResponse?.data?.data ?? channelResponse?.data,
+        ) as ChatRecord[],
+      );
 
       const otherConversations = chatConversations.filter(
         (conversation) => !isSelfConversation(conversation),

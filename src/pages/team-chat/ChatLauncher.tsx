@@ -16,6 +16,7 @@ import {
   getImageUrl,
   getUnreadCount,
 } from "./chatHealper";
+import { dedupeConversationRecords, getConversationKey } from "./chatConversationKeys";
 import {
   getChatConversationsService,
   getChatUsersService,
@@ -59,7 +60,7 @@ export default function ChatLauncher() {
       const buddyData = getArrayPayload((buddyResponse as any)?.data?.data);
       const channelData = getArrayPayload((channelResponse as any)?.data?.data);
       setBuddies(buddyData.filter((buddy) => !isCurrentUserRecord(buddy, currentUser)).slice(0, 8));
-      setChannels(channelData.slice(0, 5));
+      setChannels(dedupeConversationRecords(channelData).slice(0, 5));
     } catch {
       setBuddies([]);
       setChannels([]);
@@ -178,7 +179,7 @@ export default function ChatLauncher() {
                 const name = String(getChannelName(channel));
                 return (
                   <button
-                    key={id || name}
+                    key={getConversationKey(channel) || String(id)}
                     type="button"
                     className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-accent"
                     onClick={() => openChatInNewTab(id)}

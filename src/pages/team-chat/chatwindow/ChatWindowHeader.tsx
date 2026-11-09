@@ -71,6 +71,7 @@ export default function ChatWindowHeader(props: Record<string, any>) {
     onScheduleCall,
     onSearchMessages,
     onToggleGroupMute,
+    muteConversationId,
     onTransferOwnership,
     onViewUser,
     isGroupOwner,
@@ -333,7 +334,7 @@ export default function ChatWindowHeader(props: Record<string, any>) {
 
             <MenuItem
               icon={isGroupMuted ? Bell : BellOff}
-              onClick={closeMenuAnd(() => onToggleGroupMute?.(selectedChat?.id))}
+              onClick={closeMenuAnd(() => onToggleGroupMute?.(muteConversationId))}
             >
               {isGroupMuted ? "Unmute notifications" : "Mute notifications"}
             </MenuItem>
@@ -385,7 +386,7 @@ export default function ChatWindowHeader(props: Record<string, any>) {
           onOpenMedia={() => setMediaDialogOpen(true)}
           onClearChat={onClearChat}
           onOpenLeaveConfirm={() => setLeaveConfirmOpen(true)}
-          onToggleMute={() => onToggleGroupMute?.(selectedChat?.id)}
+          onToggleMute={() => onToggleGroupMute?.(muteConversationId)}
           open={Boolean(groupMenuAnchor)}
           selectedChat={selectedChat}
         />

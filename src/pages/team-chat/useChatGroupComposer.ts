@@ -10,6 +10,7 @@ import {
   normalizeChatError,
 } from "./chatHealper";
 import { CHAT_APP_BASE_PATH } from "./chatRoutes";
+import { upsertConversationRecord } from "./chatConversationKeys";
 import { addGroupMembersService, createGroupChatService } from "@/services/Team-chat/group.service";
 import { usersService } from "@/services/user-manager/users.service";
 
@@ -120,7 +121,7 @@ export function useChatGroupComposer({
       const conversation = response?.data?.data ?? response?.data ?? response;
       const channelId = getChannelId(conversation);
 
-      setChannels((prev: ChatRecord[]) => [conversation, ...prev]);
+      setChannels((prev: ChatRecord[]) => upsertConversationRecord(prev, conversation));
       setSelectedChat({
         type: "channel",
         source: "local",
