@@ -231,6 +231,8 @@ const CLIENT_TYPE_OPTIONS = [
   { value: "__empty__", label: "-" },
   { value: "Buyer", label: "Buyer" },
   { value: "Non-Buyer", label: "Non-Buyer" },
+  { value: "Absence of Customer", label: "Absence of Customer" },
+  { value: "Presence of Another Customer", label: "Presence of Another Customer" },
 ];
 
 const PAYMENT_TYPE_OPTIONS = [
@@ -491,6 +493,8 @@ function normalizeClientType(raw: string | undefined, b?: string, nb?: string): 
   const trimmed = (raw || "").trim();
   if (trimmed === "Buyer" || trimmed === "Billable") return "Buyer";
   if (trimmed === "Non-Buyer" || trimmed === "Non Billable") return "Non-Buyer";
+  if (trimmed === "Absence of Customer") return "Absence of Customer";
+  if (trimmed === "Presence of Another Customer") return "Presence of Another Customer";
   if (trimmed) return trimmed;
   if (b?.trim().toUpperCase() === "B") return "Buyer";
   if (nb?.trim().toUpperCase() === "NB") return "Non-Buyer";
@@ -893,12 +897,54 @@ function parse24HourValue(raw: string | undefined): {
   return { hour: "09", minute: "00", hasValue: false };
 }
 
+function parseTimeToMinutes(timeStr: string | undefined): number | null {
+  if (!timeStr || !timeStr.trim()) return null;
+  const s = timeStr.trim();
+  const match = s.match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+  if (match) {
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const ampm = match[3]?.toUpperCase();
+    if (ampm === "PM" && hours < 12) hours += 12;
+    if (ampm === "AM" && hours === 12) hours = 0;
+    return hours * 60 + minutes;
+  }
+  return null;
+}
+
+function calculateElapsedTime(timeIn: string | undefined, timeOut: string | undefined): string {
+  const startMins = parseTimeToMinutes(timeIn);
+  const endMins = parseTimeToMinutes(timeOut);
+  if (startMins === null || endMins === null) return "";
+
+  let diffMins = endMins - startMins;
+  if (diffMins < 0) {
+    diffMins += 24 * 60;
+  }
+
+  const hours = Math.floor(diffMins / 60);
+  const mins = diffMins % 60;
+
+  if (hours === 0 && mins === 0) {
+    return "0 mins";
+  }
+  if (hours === 0) {
+    return `${mins} min${mins === 1 ? "" : "s"}`;
+  }
+  if (mins === 0) {
+    return `${hours} hr${hours === 1 ? "" : "s"}`;
+  }
+  return `${hours} hr${hours === 1 ? "" : "s"} ${mins} min${mins === 1 ? "" : "s"}`;
+}
+
 function AmPmTimePicker({
   value,
   onChange,
+  disabled = false,
 }: {
   value: string;
   onChange: (nextVal: string) => void;
+  disabled?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const parsed = parse24HourValue(value);
@@ -908,11 +954,16 @@ function AmPmTimePicker({
   };
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={disabled ? false : open} onOpenChange={disabled ? undefined : setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-xs transition-colors hover:bg-accent/40 focus:outline-none focus:ring-1 focus:ring-ring"
+          disabled={disabled}
+          className={`flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-xs transition-colors focus:outline-none focus:ring-1 focus:ring-ring ${
+            disabled
+              ? "opacity-50 cursor-not-allowed bg-muted/20"
+              : "hover:bg-accent/40"
+          }`}
         >
           <span className="flex items-center gap-2 truncate">
             <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -1113,12 +1164,14 @@ export interface RepTimingRow {
   timeReturned: string;
   backRoomTimeIn: string;
   backRoomTimeOut: string;
+  totalTime?: string;
 }
 
 function syncRepTimingDerivedFields(
-  base: Pick<RepTimingRow, "id" | "repName" | "timingType" | "timeIn" | "timeOut">,
+  base: Pick<RepTimingRow, "id" | "repName" | "timingType" | "timeIn" | "timeOut"> & { totalTime?: string },
 ): RepTimingRow {
   const isBackRoom = base.timingType === "Back Room";
+  const calculated = calculateElapsedTime(base.timeIn, base.timeOut);
   return {
     id: base.id,
     repName: base.repName,
@@ -1129,6 +1182,7 @@ function syncRepTimingDerivedFields(
     timeReturned: isBackRoom ? "" : base.timeOut,
     backRoomTimeIn: isBackRoom ? base.timeIn : "",
     backRoomTimeOut: isBackRoom ? base.timeOut : "",
+    totalTime: calculated || base.totalTime || "",
   };
 }
 
@@ -1142,6 +1196,7 @@ function hydrateRepTimingRow(raw: {
   timeReturned?: string;
   backRoomTimeIn?: string;
   backRoomTimeOut?: string;
+  totalTime?: string;
 }): RepTimingRow {
   const id = raw.id || `rep-timing-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const repName = raw.repName || "";
@@ -1167,7 +1222,7 @@ function hydrateRepTimingRow(raw: {
       : timingType === "Back Room"
         ? raw.backRoomTimeOut || ""
         : raw.timeReturned || "";
-  return syncRepTimingDerivedFields({ id, repName, timingType, timeIn, timeOut });
+  return syncRepTimingDerivedFields({ id, repName, timingType, timeIn, timeOut, totalTime: raw.totalTime });
 }
 
 function createEmptyRepTimingRow(): RepTimingRow {
@@ -1177,6 +1232,7 @@ function createEmptyRepTimingRow(): RepTimingRow {
     timingType: "Store Left",
     timeIn: "",
     timeOut: "",
+    totalTime: "",
   });
 }
 
@@ -1297,6 +1353,9 @@ function buildFallbackRowFromReport(
   const isCustomClient =
     ctTrimmed.toLowerCase() === "custom" || ctTrimmed.toLowerCase() === "other";
   const isBuyer = ctTrimmed === "Buyer" || ctTrimmed === "Billable";
+  const isNonBuyer = ctTrimmed === "Non-Buyer" || ctTrimmed === "Non Billable";
+  const isAbsence = ctTrimmed === "Absence of Customer";
+  const isPresence = ctTrimmed === "Presence of Another Customer";
   const isCash = report.paymentMode === "Cash";
   const isCard = report.paymentMode === "Card";
   const yesNoOrCustom = (v?: string) => {
@@ -1325,9 +1384,19 @@ function buildFallbackRowFromReport(
     salesRep: report.salesRep,
     transType: report.transType,
     transTypeDetails: report.transTypeDetails || "",
-    clientType: isCustomClient ? "Custom" : isBuyer ? "Buyer" : "Non-Buyer",
+    clientType: isCustomClient
+      ? "Custom"
+      : isBuyer
+        ? "Buyer"
+        : isAbsence
+          ? "Absence of Customer"
+          : isPresence
+            ? "Presence of Another Customer"
+            : isNonBuyer
+              ? "Non-Buyer"
+              : ctTrimmed,
     clientTypeDetails: report.clientTypeDetails || "",
-    nb: isCustomClient || isBuyer ? "" : "NB",
+    nb: isCustomClient || isBuyer || isAbsence || isPresence ? "" : "NB",
     b: isBuyer ? "B" : "",
     invoiceAmount: report.invoiceAmount,
     totalTaken: report.totalTaken,
@@ -2419,7 +2488,7 @@ export default function SurveillanceReportsPage() {
   };
 
   const handleUpdateRepTimingField = <
-    K extends "repName" | "timingType" | "timeIn" | "timeOut",
+    K extends "repName" | "timingType" | "timeIn" | "timeOut" | "totalTime",
   >(
     id: string,
     field: K,
@@ -2431,6 +2500,9 @@ export default function SurveillanceReportsPage() {
       prev.map((r) => {
         if (r.id !== id) return r;
         const nextBase = { ...r, [field]: value };
+        if (field === "timeIn" && (!value || !String(value).trim())) {
+          nextBase.timeOut = "";
+        }
         return syncRepTimingDerivedFields(nextBase);
       }),
     );
@@ -2592,6 +2664,7 @@ export default function SurveillanceReportsPage() {
     if (!(invoice.invoice || "").trim()) return null;
     if (!(invoice.bdiTime || "").trim()) return `BDI Time is required for ${label} since an Invoice Number was entered.`;
     if (!(invoice.invoiceAmount || "").trim()) return `Invoice Amount is required for ${label} since an Invoice Number was entered.`;
+    if (!(invoice.paymentType || "").trim()) return `Payment Type is required for ${label} since an Invoice Number was entered.`;
     const pt = normalizePaymentTypeSelection(invoice.paymentType, invoice.cash, invoice.card);
     if ((pt === "Cash" || pt === "Mix Payment") && !(invoice.cash || "").trim()) {
       return `Cash Payment is required for ${label} since an Invoice Number was entered.`;
@@ -2959,6 +3032,7 @@ export default function SurveillanceReportsPage() {
         timingType: r.timingType,
         timeIn: r.timeIn,
         timeOut: r.timeOut,
+        totalTime: r.totalTime || calculateElapsedTime(r.timeIn, r.timeOut),
       })),
       cameraLogs: isCameraUptimeEnabled
         ? cameraUptimeRows
@@ -3385,6 +3459,7 @@ export default function SurveillanceReportsPage() {
                 row.cash,
                 row.card,
               );
+              const isInvoiceEntered = Boolean(row.invoice && row.invoice.trim().length > 0);
 
               return (
                 <Card
@@ -3510,7 +3585,9 @@ export default function SurveillanceReportsPage() {
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-[11px] font-semibold">BDI TIME</Label>
+                            <Label className="text-[11px] font-semibold">
+                              BDI Time{isInvoiceEntered && <span className="text-destructive"> *</span>}
+                            </Label>
                             <AmPmTimePicker
                               value={row.bdiTime}
                               onChange={(val) => handleUpdateRowField(row.id, "bdiTime", val)}
@@ -3563,7 +3640,9 @@ export default function SurveillanceReportsPage() {
                           />
 
                           <div className="space-y-1">
-                            <Label className="text-[11px] font-semibold">Invoice Amount</Label>
+                            <Label className="text-[11px] font-semibold">
+                              Invoice Amount{isInvoiceEntered && <span className="text-destructive"> *</span>}
+                            </Label>
                             <Input
                               value={row.invoiceAmount}
                               onChange={(e) =>
@@ -3574,7 +3653,9 @@ export default function SurveillanceReportsPage() {
                           </div>
 
                           <div className="space-y-1">
-                            <Label className="text-[11px] font-semibold">Payment Type</Label>
+                            <Label className="text-[11px] font-semibold">
+                              Payment Type{isInvoiceEntered && <span className="text-destructive"> *</span>}
+                            </Label>
                             <Select
                               value={activePaymentType}
                               onValueChange={(v) =>
@@ -3597,7 +3678,9 @@ export default function SurveillanceReportsPage() {
                           {(activePaymentType === "Cash" ||
                             activePaymentType === "Mix Payment") && (
                             <div className="space-y-1">
-                              <Label className="text-[11px] font-semibold">Cash Payment</Label>
+                              <Label className="text-[11px] font-semibold">
+                                Cash Payment{isInvoiceEntered && <span className="text-destructive"> *</span>}
+                              </Label>
                               <Input
                                 value={row.cash}
                                 onChange={(e) =>
@@ -3611,7 +3694,9 @@ export default function SurveillanceReportsPage() {
                           {(activePaymentType === "Card" ||
                             activePaymentType === "Mix Payment") && (
                             <div className="space-y-1">
-                              <Label className="text-[11px] font-semibold">Card Payment</Label>
+                              <Label className="text-[11px] font-semibold">
+                                Card Payment{isInvoiceEntered && <span className="text-destructive"> *</span>}
+                              </Label>
                               <Input
                                 value={row.card}
                                 onChange={(e) =>
@@ -3623,7 +3708,9 @@ export default function SurveillanceReportsPage() {
                           )}
 
                           <div className="space-y-1">
-                            <Label className="text-[11px] font-semibold">Difference</Label>
+                            <Label className="text-[11px] font-semibold">
+                              Difference{isInvoiceEntered && <span className="text-destructive"> *</span>}
+                            </Label>
                             <Input
                               value={computedDifference}
                               readOnly
@@ -3635,6 +3722,7 @@ export default function SurveillanceReportsPage() {
 
                           <StandardSelect
                             label="Receipt"
+                            required={isInvoiceEntered}
                             options={YES_NO_OPTIONS}
                             value={row.receipt}
                             onValueChange={(val) => handleUpdateRowField(row.id, "receipt", val)}
@@ -3656,6 +3744,7 @@ export default function SurveillanceReportsPage() {
                                 addInv.cash,
                                 addInv.card,
                               );
+                              const isAddInvEntered = Boolean(addInv.invoice && addInv.invoice.trim().length > 0);
                               return (
                                 <div
                                   key={addInv.id}
@@ -3699,7 +3788,9 @@ export default function SurveillanceReportsPage() {
                                     </div>
 
                                     <div className="space-y-1">
-                                      <Label className="text-[11px] font-semibold">BDI Time</Label>
+                                      <Label className="text-[11px] font-semibold">
+                                        BDI Time{isAddInvEntered && <span className="text-destructive"> *</span>}
+                                      </Label>
                                       <AmPmTimePicker
                                         value={addInv.bdiTime}
                                         onChange={(val) =>
@@ -3733,7 +3824,7 @@ export default function SurveillanceReportsPage() {
 
                                     <div className="space-y-1">
                                       <Label className="text-[11px] font-semibold">
-                                        Invoice Amount
+                                        Invoice Amount{isAddInvEntered && <span className="text-destructive"> *</span>}
                                       </Label>
                                       <Input
                                         value={addInv.invoiceAmount}
@@ -3751,7 +3842,7 @@ export default function SurveillanceReportsPage() {
 
                                     <div className="space-y-1">
                                       <Label className="text-[11px] font-semibold">
-                                        Payment Type
+                                        Payment Type{isAddInvEntered && <span className="text-destructive"> *</span>}
                                       </Label>
                                       <Select
                                         value={addInvPt}
@@ -3780,7 +3871,7 @@ export default function SurveillanceReportsPage() {
                                     {(addInvPt === "Cash" || addInvPt === "Mix Payment") && (
                                       <div className="space-y-1">
                                         <Label className="text-[11px] font-semibold">
-                                          Cash Payment
+                                          Cash Payment{isAddInvEntered && <span className="text-destructive"> *</span>}
                                         </Label>
                                         <Input
                                           value={addInv.cash || ""}
@@ -3800,7 +3891,7 @@ export default function SurveillanceReportsPage() {
                                     {(addInvPt === "Card" || addInvPt === "Mix Payment") && (
                                       <div className="space-y-1">
                                         <Label className="text-[11px] font-semibold">
-                                          Card Payment
+                                          Card Payment{isAddInvEntered && <span className="text-destructive"> *</span>}
                                         </Label>
                                         <Input
                                           value={addInv.card || ""}
@@ -3819,7 +3910,7 @@ export default function SurveillanceReportsPage() {
 
                                     <div className="space-y-1">
                                       <Label className="text-[11px] font-semibold">
-                                        Difference
+                                        Difference{isAddInvEntered && <span className="text-destructive"> *</span>}
                                       </Label>
                                       <Input
                                         value={addInvDiff}
@@ -3832,6 +3923,7 @@ export default function SurveillanceReportsPage() {
 
                                     <StandardSelect
                                       label="Receipt"
+                                      required={isAddInvEntered}
                                       options={YES_NO_OPTIONS}
                                       value={addInv.receipt}
                                       onValueChange={(val) =>
@@ -4205,7 +4297,7 @@ export default function SurveillanceReportsPage() {
                   key={timingRow.id}
                   className="py-2.5 first:pt-1 last:pb-1 flex items-end gap-2.5"
                 >
-                  <div className="grid flex-1 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 min-w-0 items-end">
+                  <div className="grid flex-1 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5 min-w-0 items-end">
                     {/* 1. Name of Rep Leaving */}
                     <div className="min-w-0">
                       <RepNameCombobox
@@ -4273,12 +4365,36 @@ export default function SurveillanceReportsPage() {
 
                     {/* 4. Time Out */}
                     <div className="min-w-0 space-y-1">
-                      <Label className="text-[11px] font-semibold text-foreground">Time Out</Label>
+                      <Label
+                        className={`text-[11px] font-semibold ${
+                          !timingRow.timeIn || !timingRow.timeIn.trim()
+                            ? "text-muted-foreground"
+                            : "text-foreground"
+                        }`}
+                      >
+                        Time Out
+                      </Label>
                       <AmPmTimePicker
                         value={timingRow.timeOut}
+                        disabled={!timingRow.timeIn || !timingRow.timeIn.trim()}
                         onChange={(val) =>
                           handleUpdateRepTimingField(timingRow.id, "timeOut", val)
                         }
+                      />
+                    </div>
+
+                    {/* 5. Total Time */}
+                    <div className="min-w-0 space-y-1">
+                      <Label className="text-[11px] font-semibold text-foreground">Total Time</Label>
+                      <Input
+                        value={
+                          timingRow.totalTime ||
+                          calculateElapsedTime(timingRow.timeIn, timingRow.timeOut)
+                        }
+                        readOnly
+                        tabIndex={-1}
+                        className="h-9 bg-muted/30 font-medium text-foreground cursor-default select-none focus-visible:ring-0 text-xs"
+                        placeholder="—"
                       />
                     </div>
                   </div>

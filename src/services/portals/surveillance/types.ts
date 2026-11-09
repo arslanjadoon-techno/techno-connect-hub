@@ -177,6 +177,7 @@ export interface SurveillanceRepTiming {
   timingType?: "Store Left" | "Back Room";
   timeIn?: string;
   timeOut?: string;
+  totalTime?: string;
 }
 
 export interface SurveillanceCameraLog {
@@ -201,6 +202,7 @@ export interface SurveillanceSessionRepTimingRow {
   timingType: SurveillanceRepTimingType;
   timeIn: string;
   timeOut: string;
+  totalTime?: string;
 }
 
 export interface SurveillanceSessionCameraUptimeRow {
@@ -594,11 +596,7 @@ export function canValidateSurveillance(role: SurveillanceRole | "other"): boole
  * - Single-page roles (user, surveillance_agent)
  */
 export function canAccessSurveillanceReports(role: SurveillanceRole | "other"): boolean {
-  return (
-    hasFullSurveillanceAccess(role) ||
-    role === "user" ||
-    role === "surveillance_agent"
-  );
+  return hasFullSurveillanceAccess(role) || role === "user" || role === "surveillance_agent";
 }
 
 /**
