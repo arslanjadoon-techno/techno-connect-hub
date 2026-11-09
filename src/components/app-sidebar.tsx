@@ -650,11 +650,9 @@ export function AppSidebar() {
     }
 
     // Surveillance Portal Role-Wise Categorization:
-    // - admin: Request Reports + Validate and Assign + Submit Report (all 3 pages)
-    // - marketManager / districtManager: Request Reports only
-    // - SurveillanceManager: Validate and Assign only
-    // - user / SurveillanceAgent: Submit Report only
-    // - All other roles (manager, stateManager, storeManager, backoffice, rep, trainer, etc.): No Access (/surveillance/no-access)
+    // - admin, marketManager, districtManager, SurveillanceManager, manager, stateManager, storeManager: Request Reports + Validate and Assign + Submit Report (all 3 pages)
+    // - user, SurveillanceAgent: Submit Report only
+    // - All other roles (backoffice, rep, trainer, etc.): No Access (/surveillance/no-access)
     if (key === "surveillance") {
       const survRole = getSurveillanceRole(user);
       const filteredItems = master.items.filter((i) => {

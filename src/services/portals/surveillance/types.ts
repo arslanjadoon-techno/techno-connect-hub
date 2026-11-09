@@ -3,6 +3,9 @@ export type SurveillanceRole =
   | "market_manager"
   | "district_manager"
   | "surveillance_manager"
+  | "manager"
+  | "state_manager"
+  | "store_manager"
   | "surveillance_agent"
   | "user";
 
@@ -536,10 +539,13 @@ export function getSurveillanceRole(user: any): SurveillanceRole | "other" {
   if (rawRole === "marketmanager") return "market_manager";
   if (rawRole === "districtmanager") return "district_manager";
   if (rawRole === "surveillancemanager") return "surveillance_manager";
+  if (rawRole === "manager") return "manager";
+  if (rawRole === "statemanager") return "state_manager";
+  if (rawRole === "storemanager") return "store_manager";
   if (rawRole === "surveillanceagent") return "surveillance_agent";
   if (rawRole === "user") return "user";
 
-  // All remaining roles (manager, stateManager, storeManager, backoffice, rep, trainer, etc.) have no access
+  // All remaining roles (backoffice, rep, trainer, etc.) have no access
   return "other";
 }
 
@@ -550,35 +556,57 @@ export function isSurveillanceUserRole(user: any): boolean {
 }
 
 /**
+ * Roles with full access to all 3 Surveillance portal pages:
+ * (admin, marketManager, districtManager, SurveillanceManager, manager, stateManager, storeManager)
+ */
+export function hasFullSurveillanceAccess(role: SurveillanceRole | "other"): boolean {
+  return (
+    role === "admin" ||
+    role === "market_manager" ||
+    role === "district_manager" ||
+    role === "surveillance_manager" ||
+    role === "manager" ||
+    role === "state_manager" ||
+    role === "store_manager"
+  );
+}
+
+/**
  * Page 1: Request Reports (/surveillance/requests)
- * Accessible to: admin, marketManager, districtManager
+ * Accessible to: admin, marketManager, districtManager, SurveillanceManager, manager, stateManager, storeManager
  */
 export function canRequestSurveillance(role: SurveillanceRole | "other"): boolean {
-  return role === "admin" || role === "market_manager" || role === "district_manager";
+  return hasFullSurveillanceAccess(role);
 }
 
 /**
  * Page 2: Validate and Assign (/surveillance/validate-and-assign)
- * Accessible to: admin, SurveillanceManager
+ * Accessible to: admin, marketManager, districtManager, SurveillanceManager, manager, stateManager, storeManager
  */
 export function canValidateSurveillance(role: SurveillanceRole | "other"): boolean {
-  return role === "admin" || role === "surveillance_manager";
+  return hasFullSurveillanceAccess(role);
 }
 
 /**
  * Page 3: Submit Report (/surveillance/reports)
- * Accessible to: admin, user, surveillance_agent
+ * Accessible to:
+ * - Full access roles (admin, marketManager, districtManager, SurveillanceManager, manager, stateManager, storeManager)
+ * - Single-page roles (user, surveillance_agent)
  */
 export function canAccessSurveillanceReports(role: SurveillanceRole | "other"): boolean {
-  return role === "admin" || role === "user" || role === "surveillance_agent";
+  return (
+    hasFullSurveillanceAccess(role) ||
+    role === "user" ||
+    role === "surveillance_agent"
+  );
 }
 
 /**
  * Review / Approve / Reject submitted surveillance audit reports
- * Accessible to: admin, SurveillanceManager
+ * Accessible to full-access roles
  */
 export function canApproveSurveillance(role: SurveillanceRole | "other"): boolean {
-  return role === "admin" || role === "surveillance_manager";
+  return hasFullSurveillanceAccess(role);
 }
 
 /** Check whether user has the Admin role in the Surveillance portal */
@@ -589,8 +617,7 @@ export function isSurveillanceAdmin(user: any): boolean {
 /** Resolve default landing path inside the Surveillance portal for any role */
 export function getSurveillanceDefaultRoute(user: any): string {
   const role = getSurveillanceRole(user);
-  if (canRequestSurveillance(role)) return "/surveillance/requests";
-  if (canValidateSurveillance(role)) return "/surveillance/validate-and-assign";
+  if (hasFullSurveillanceAccess(role)) return "/surveillance/requests";
   if (canAccessSurveillanceReports(role)) return "/surveillance/reports";
   return "/surveillance/no-access";
 }
