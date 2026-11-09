@@ -1283,37 +1283,38 @@ export default function ReportRequestsPage() {
               </Popover>
             </div>
 
-            {/* 3. Date */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">
-                Date <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                type="date"
-                required
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
-            </div>
+            {/* 3. Date & 4. Priority in same line (50/50 width) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">
+                  Date <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  type="date"
+                  required
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
 
-            {/* 4. Priority */}
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold">
-                Priority <span className="text-destructive">*</span>
-              </Label>
-              <Select
-                value={priority}
-                onValueChange={(v) => setPriority(v as SurveillancePriority)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Low</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold">
+                  Priority <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={priority}
+                  onValueChange={(v) => setPriority(v as SurveillancePriority)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* 5. Investigation Reason / Incident Summary */}

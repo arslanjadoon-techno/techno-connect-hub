@@ -48,6 +48,7 @@ export interface User {
 
   roleName?: Role;
   rawRoleName?: string;
+  role?: string | { id?: number; name?: string };
 
   assignedPortals?: string[];
   allowedUserManagement?: boolean;

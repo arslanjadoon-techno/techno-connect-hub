@@ -319,7 +319,9 @@ function OtpRouteGuard({
   const hasPortal = portalRows.some(
     (p) => normalized(p.portalName).includes(kind) && normalized(p.roleName).includes(kind),
   );
-  const role = normalized(user?.roleName || user?.role);
+  const role = normalized(
+    user?.roleName || (typeof user?.role === "string" ? user.role : user?.role?.name),
+  );
   const allowed = hasPortal || role.includes(kind);
   return allowed ? <>{children}</> : <Navigate to="/ai-chat" replace />;
 }
