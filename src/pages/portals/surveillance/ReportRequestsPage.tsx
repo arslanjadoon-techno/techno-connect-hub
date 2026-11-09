@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import {
   Command,
   CommandEmpty,
@@ -289,7 +290,21 @@ export default function ReportRequestsPage() {
   const [selectedMarket, setSelectedMarket] = useState("");
   const [selectedStoreId, setSelectedStoreId] = useState<string>("");
   const [storePickerOpen, setStorePickerOpen] = useState(false);
-  const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const getTodayLocalDateString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  });
   const [priority, setPriority] = useState<SurveillancePriority>("low");
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
@@ -317,8 +332,8 @@ export default function ReportRequestsPage() {
     setSelectedMarket(defaultMarket);
     const firstStore = stores.find((s) => s.market === defaultMarket) || stores[0];
     setSelectedStoreId(firstStore?.id ?? "");
-    const today = new Date().toISOString().split("T")[0];
-    setStartDate(today);
+    setStartDate(getTodayLocalDateString());
+    setDatePickerOpen(false);
     setPriority("low");
     setCreateModalOpen(true);
   };
@@ -1289,12 +1304,52 @@ export default function ReportRequestsPage() {
                 <Label className="text-xs font-semibold">
                   Date <span className="text-destructive">*</span>
                 </Label>
-                <Input
-                  type="date"
-                  required
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                />
+                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 text-xs text-foreground hover:bg-accent focus:outline-none focus:ring-1 focus:ring-ring shadow-2xs transition-colors"
+                    >
+                      <span className="flex items-center gap-2 truncate">
+                        <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <span className="font-medium">
+                          {startDate ? formatDisplayDate(startDate) : "Select date..."}
+                        </span>
+                      </span>
+                      <ChevronsUpDown className="h-3.5 w-3.5 opacity-50 shrink-0" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarPicker
+                      mode="single"
+                      selected={
+                        startDate
+                          ? new Date(
+                              Number(startDate.split("-")[0]),
+                              Number(startDate.split("-")[1]) - 1,
+                              Number(startDate.split("-")[2]),
+                            )
+                          : undefined
+                      }
+                      onSelect={(selectedDay) => {
+                        if (selectedDay) {
+                          const y = selectedDay.getFullYear();
+                          const m = String(selectedDay.getMonth() + 1).padStart(2, "0");
+                          const d = String(selectedDay.getDate()).padStart(2, "0");
+                          setStartDate(`${y}-${m}-${d}`);
+                          setDatePickerOpen(false);
+                        }
+                      }}
+                      disabled={(date) => {
+                        const today = new Date();
+                        today.setHours(23, 59, 59, 999);
+                        return date > today;
+                      }}
+                      initialFocus
+                      className="pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-1.5">
