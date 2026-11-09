@@ -3,6 +3,7 @@ export type SurveillanceRole =
   | "market_manager"
   | "district_manager"
   | "surveillance_manager"
+  | "surveillance_agent"
   | "user";
 
 export type SurveillanceRequestStatus =
@@ -502,7 +503,6 @@ export function getSurveillanceRole(user: any): SurveillanceRole | "other" {
       .replace(/[\s_-]/g, "");
 
   let rawRole = "";
-  let roleId: number | undefined;
 
   // 1. Check portalAccess array for Surveillance portal entry first
   const accessList = Array.isArray(effectiveUser.portalAccess)
@@ -512,17 +512,12 @@ export function getSurveillanceRole(user: any): SurveillanceRole | "other" {
       : [];
 
   const entry = accessList.find((p: any) => norm(p?.portalName || "").includes("surveil"));
-  if (entry) {
-    if (entry.roleName) {
-      rawRole = norm(entry.roleName);
-    }
-    if (typeof entry.roleId === "number") {
-      roleId = entry.roleId;
-    }
+  if (entry && entry.roleName) {
+    rawRole = norm(entry.roleName);
   }
 
   // 2. Fallback to explicit user role if no Surveillance-specific portalAccess entry exists
-  if (!rawRole && roleId === undefined) {
+  if (!rawRole) {
     const fallbackRoleStr =
       effectiveUser.rawRoleName ??
       effectiveUser.role?.name ??
@@ -533,28 +528,25 @@ export function getSurveillanceRole(user: any): SurveillanceRole | "other" {
       (!storedUser ? effectiveUser.roleName : undefined) ??
       "";
     rawRole = norm(fallbackRoleStr);
-
-    const fallbackRoleId = effectiveUser.role?.id ?? storedUser?.role?.id;
-    if (typeof fallbackRoleId === "number") {
-      roleId = fallbackRoleId;
-    }
   }
 
-  if (!rawRole && roleId === undefined) return "other";
+  if (!rawRole) return "other";
 
-  if (rawRole === "admin" || roleId === 1) return "admin";
-  if (rawRole === "marketmanager" || roleId === 5) return "market_manager";
-  if (rawRole === "districtmanager" || roleId === 4) return "district_manager";
-  if (rawRole === "surveillancemanager" || roleId === 26) return "surveillance_manager";
-  if (rawRole === "user" || roleId === 7) return "user";
+  if (rawRole === "admin") return "admin";
+  if (rawRole === "marketmanager") return "market_manager";
+  if (rawRole === "districtmanager") return "district_manager";
+  if (rawRole === "surveillancemanager") return "surveillance_manager";
+  if (rawRole === "surveillanceagent") return "surveillance_agent";
+  if (rawRole === "user") return "user";
 
   // All remaining roles (manager, stateManager, storeManager, backoffice, rep, trainer, etc.) have no access
   return "other";
 }
 
-/** Check whether user strictly has the 'user' role for the Surveillance portal */
+/** Check whether user strictly has the 'user' or 'surveillance_agent' role for the Surveillance portal */
 export function isSurveillanceUserRole(user: any): boolean {
-  return getSurveillanceRole(user) === "user";
+  const role = getSurveillanceRole(user);
+  return role === "user" || role === "surveillance_agent";
 }
 
 /**
@@ -575,10 +567,10 @@ export function canValidateSurveillance(role: SurveillanceRole | "other"): boole
 
 /**
  * Page 3: Submit Report (/surveillance/reports)
- * Accessible to: admin, user
+ * Accessible to: admin, user, surveillance_agent
  */
 export function canAccessSurveillanceReports(role: SurveillanceRole | "other"): boolean {
-  return role === "admin" || role === "user";
+  return role === "admin" || role === "user" || role === "surveillance_agent";
 }
 
 /**

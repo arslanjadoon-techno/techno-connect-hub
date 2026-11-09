@@ -653,7 +653,7 @@ export function AppSidebar() {
     // - admin: Request Reports + Validate and Assign + Submit Report (all 3 pages)
     // - marketManager / districtManager: Request Reports only
     // - SurveillanceManager: Validate and Assign only
-    // - user: Submit Report only
+    // - user / SurveillanceAgent: Submit Report only
     // - All other roles (manager, stateManager, storeManager, backoffice, rep, trainer, etc.): No Access (/surveillance/no-access)
     if (key === "surveillance") {
       const survRole = getSurveillanceRole(user);
