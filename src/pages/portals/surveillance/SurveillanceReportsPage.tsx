@@ -210,6 +210,7 @@ const TRANSACTION_TYPE_OPTIONS = [
   "HINT",
   "Accessories",
   "Activation",
+  "Bill Payment",
   "LOA",
   "Client",
   "FEA",
@@ -246,6 +247,7 @@ const PITCH_QUALITY_OPTIONS = [
 ];
 
 type FraudCheckboxFieldKey =
+  | "fraudTransactions"
   | "missOpportunity"
   | "paymentFraud"
   | "aalSwap"
@@ -263,6 +265,12 @@ const FRAUD_VERIFICATION_ITEMS: {
   label: string;
   notesPlaceholder: string;
 }[] = [
+  {
+    key: "fraudTransactions",
+    detailKey: "fraudTransactionsDetails",
+    label: "Fraud Transaction",
+    notesPlaceholder: "Fraud Transaction notes",
+  },
   {
     key: "missOpportunity",
     detailKey: "missOpportunityDetails",
@@ -423,6 +431,12 @@ function hydrateAuditRowDetails(
     next[prop] = existing;
   }
   return next;
+}
+
+function hasDeviceTypeSelected(raw: string | undefined): boolean {
+  return (raw || "")
+    .split(/\s*\/\s*/)
+    .some((s) => ["Phone", "Tablet", "HINT"].includes(s.trim()));
 }
 
 function hasCustomInTransType(raw: string | undefined): boolean {
@@ -1201,6 +1215,7 @@ function createEmptyAuditRow(
     salesRep: "",
     transType: "",
     transTypeDetails: "",
+    deviceQuantity: "",
     clientType: "",
     clientTypeDetails: "",
     nb: "",
@@ -1419,6 +1434,19 @@ export default function SurveillanceReportsPage() {
       editableRows.reduce((sum, row) => {
         const parsed = parseCurrencyNumber(row.difference);
         return sum + (parsed.valid ? parsed.value : 0);
+      }, 0),
+    [editableRows],
+  );
+  // Counts every invoice number actually entered - the primary row invoice
+  // plus any additional invoices under it - not just the row count.
+  const totalAuditInvoiceCount = useMemo(
+    () =>
+      editableRows.reduce((sum, row) => {
+        const primaryCount = (row.invoice || "").trim() ? 1 : 0;
+        const additionalCount = (row.additionalInvoices || []).filter((addInv) =>
+          (addInv.invoice || "").trim(),
+        ).length;
+        return sum + primaryCount + additionalCount;
       }, 0),
     [editableRows],
   );
@@ -2554,6 +2582,30 @@ export default function SurveillanceReportsPage() {
     );
   };
 
+  // Shared by the primary row and every additional invoice under it - once an
+  // Invoice Number is entered, BDI Time / Payment Type's Cash-or-Card amount /
+  // Invoice Amount / Receipt all become mandatory for that invoice.
+  const validateInvoiceConditionalFields = (
+    invoice: { invoice: string; bdiTime: string; invoiceAmount: string; receipt: string; paymentType?: string; cash?: string; card?: string },
+    label: string,
+  ): string | null => {
+    if (!(invoice.invoice || "").trim()) return null;
+    if (!(invoice.bdiTime || "").trim()) return `BDI Time is required for ${label} since an Invoice Number was entered.`;
+    if (!(invoice.invoiceAmount || "").trim()) return `Invoice Amount is required for ${label} since an Invoice Number was entered.`;
+    const pt = normalizePaymentTypeSelection(invoice.paymentType, invoice.cash, invoice.card);
+    if ((pt === "Cash" || pt === "Mix Payment") && !(invoice.cash || "").trim()) {
+      return `Cash Payment is required for ${label} since an Invoice Number was entered.`;
+    }
+    if ((pt === "Card" || pt === "Mix Payment") && !(invoice.card || "").trim()) {
+      return `Card Payment is required for ${label} since an Invoice Number was entered.`;
+    }
+    const receiptVal = (invoice.receipt || "").trim();
+    if (!receiptVal || receiptVal === "__empty__") {
+      return `Receipt is required for ${label} since an Invoice Number was entered.`;
+    }
+    return null;
+  };
+
   const validateRequiredAuditRows = (): boolean => {
     if (editableRows.length === 0) {
       toast.error("Please add at least one audit row before submitting.");
@@ -2589,6 +2641,25 @@ export default function SurveillanceReportsPage() {
         toast.error(`Please select a Transaction Type for Row #${rowNum} before submitting.`);
         return false;
       }
+      if (!r.time || !r.time.trim()) {
+        setExpandedRowIds((prev) => ({ ...prev, [r.id]: true }));
+        toast.error(`Customer Entrance Time is required for Row #${rowNum}.`);
+        return false;
+      }
+      const effectiveClientType = normalizeClientType(r.clientType, r.b, r.nb);
+      if (!effectiveClientType) {
+        setExpandedRowIds((prev) => ({ ...prev, [r.id]: true }));
+        toast.error(`Please select a Client Type for Row #${rowNum} before submitting.`);
+        return false;
+      }
+
+      const primaryInvoiceError = validateInvoiceConditionalFields(r, `Row #${rowNum}`);
+      if (primaryInvoiceError) {
+        setExpandedRowIds((prev) => ({ ...prev, [r.id]: true }));
+        toast.error(primaryInvoiceError);
+        return false;
+      }
+
       if (r.additionalInvoices && r.additionalInvoices.length > 0) {
         for (let j = 0; j < r.additionalInvoices.length; j++) {
           const addInv = r.additionalInvoices[j];
@@ -2597,6 +2668,15 @@ export default function SurveillanceReportsPage() {
             toast.error(
               `Please select a Transaction Type for Additional Invoice #${j + 2} in Row #${rowNum}.`,
             );
+            return false;
+          }
+          const addInvError = validateInvoiceConditionalFields(
+            addInv,
+            `Additional Invoice #${j + 2} in Row #${rowNum}`,
+          );
+          if (addInvError) {
+            setExpandedRowIds((prev) => ({ ...prev, [r.id]: true }));
+            toast.error(addInvError);
             return false;
           }
         }
@@ -2662,7 +2742,11 @@ export default function SurveillanceReportsPage() {
       const computedTaken = computeTotalTakenFromPayments(normalizedPaymentType, r.cash, r.card);
       const normOpt = (v?: string) => normalizeCustomOption(v);
       const fraudEnabled = Boolean(fraudSectionEnabledByRow[r.id]);
-      const pitchEnabled = Boolean(salesPitchSectionEnabledByRow[r.id]);
+      // Sales Pitch & Bundle Verification isn't needed without an Invoice
+      // Number - guards against stale toggle state if the invoice is cleared
+      // after the section was switched on.
+      const pitchEnabled =
+        Boolean(salesPitchSectionEnabledByRow[r.id]) && Boolean((r.invoice || "").trim());
       const resolvedSalesRep = (r.salesRep || "").trim();
 
       const resolveFraudFlag = (key: FraudCheckboxFieldKey): string =>
@@ -2676,11 +2760,6 @@ export default function SurveillanceReportsPage() {
           ? (r[detailKey] || "").trim()
           : "";
 
-      const anyFraudChecked =
-        fraudEnabled &&
-        FRAUD_VERIFICATION_ITEMS.some(
-          (item) => (r[item.key] || "").trim().toUpperCase() === "YES",
-        );
 
       return {
         id: r.id,
@@ -2695,6 +2774,7 @@ export default function SurveillanceReportsPage() {
         salesRep: resolvedSalesRep,
         transType: normalizeTransTypeString(r.transType),
         transTypeDetails: resolveCustomDetailValue(r, "transType", r.transType),
+        deviceQuantity: hasDeviceTypeSelected(r.transType) ? (r.deviceQuantity || "").trim() : "",
         clientType: normalizedClientType,
         clientTypeDetails: resolveCustomDetailValue(r, "clientType", normalizedClientType),
         nb: r.nb,
@@ -2714,8 +2794,11 @@ export default function SurveillanceReportsPage() {
         receipt: normOpt(r.receipt),
         receiptDetails: resolveCustomDetailValue(r, "receipt", r.receipt),
         splitPayments: normalizedPaymentType === "Mix Payment" ? "YES" : "NO",
-        fraudTransactions: fraudEnabled ? (anyFraudChecked ? "YES" : "NO") : "",
-        fraudTransactionsDetails: "",
+        fraudTransactions: resolveFraudFlag("fraudTransactions"),
+        fraudTransactionsDetails: resolveFraudNotes(
+          "fraudTransactions",
+          "fraudTransactionsDetails",
+        ),
         missOpportunity: resolveFraudFlag("missOpportunity"),
         missOpportunityDetails: resolveFraudNotes("missOpportunity", "missOpportunityDetails"),
         paymentFraud: resolveFraudFlag("paymentFraud"),
@@ -2833,6 +2916,7 @@ export default function SurveillanceReportsPage() {
           bdiTime: inv.bdiTime,
           transType: normalizeTransTypeString(inv.transType),
           transTypeDetails: "",
+          deviceQuantity: "",
           invoiceAmount: inv.invoiceAmount,
           totalTaken: invTaken,
           difference: calculatePaymentDifferenceDisplay(
@@ -2917,6 +3001,9 @@ export default function SurveillanceReportsPage() {
           ? `Shift Audit (${editableRows.length} Entries)`
           : normalizeTransTypeString(primaryRow.transType) || "Audit Entry",
       transTypeDetails: resolveCustomDetailValue(primaryRow, "transType", primaryRow.transType),
+      deviceQuantity: hasDeviceTypeSelected(primaryRow.transType)
+        ? (primaryRow.deviceQuantity || "").trim()
+        : "",
       clientType:
         primaryClientType === "Custom"
           ? "Custom"
@@ -2938,7 +3025,7 @@ export default function SurveillanceReportsPage() {
       receiptDetails: resolveCustomDetailValue(primaryRow, "receipt", primaryRow.receipt),
       splitPayments: primarySerialized.paymentType === "Mix Payment" ? "Yes" : "No",
       fraudTransactions: resolveYesNoValue(primarySerialized.fraudTransactions),
-      fraudTransactionsDetails: "",
+      fraudTransactionsDetails: primarySerialized.fraudTransactionsDetails || "",
       missOpportunity: resolveYesNoValue(primarySerialized.missOpportunity),
       missOpportunityDetails: primarySerialized.missOpportunityDetails || "",
       paymentFraud: resolveYesNoValue(primarySerialized.paymentFraud),
@@ -3081,18 +3168,35 @@ export default function SurveillanceReportsPage() {
         ),
       },
       {
-        key: "requestedDate",
-        header: "Requested Date",
-        searchValue: (r) =>
-          r.createdAt ? new Date(r.createdAt).toLocaleDateString() : r.incidentDate || "-",
+        key: "investigation",
+        header: "Investigation Reason",
+        searchValue: (r) => r.title || "-",
         accessor: (r) => (
-          <span className="text-foreground text-sm">
-            {r.createdAt
-              ? new Date(r.createdAt).toLocaleDateString()
-              : r.incidentDate?.trim()
-                ? r.incidentDate
-                : "-"}
-          </span>
+          <span className="text-foreground text-sm line-clamp-1">{r.title?.trim() ? r.title : "-"}</span>
+        ),
+      },
+      {
+        key: "requestedDate",
+        header: "Requested Date (Manager)",
+        searchValue: (r) => formatDateTimeDisplay(r.createdAt),
+        accessor: (r) => (
+          <span className="text-foreground text-sm">{formatDateTimeDisplay(r.createdAt)}</span>
+        ),
+      },
+      {
+        key: "assignedDate",
+        header: "Assigned Date (Agent)",
+        searchValue: (r) => formatDateTimeDisplay(r.assignedAt),
+        accessor: (r) => (
+          <span className="text-foreground text-sm">{formatDateTimeDisplay(r.assignedAt)}</span>
+        ),
+      },
+      {
+        key: "completedDate",
+        header: "Completed Date (Agent)",
+        searchValue: (r) => formatDateTimeDisplay(r.surveyEndsAt),
+        accessor: (r) => (
+          <span className="text-foreground text-sm">{formatDateTimeDisplay(r.surveyEndsAt)}</span>
         ),
       },
       {
@@ -3397,7 +3501,9 @@ export default function SurveillanceReportsPage() {
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-[11px] font-semibold">Entrance Time</Label>
+                            <Label className="text-[11px] font-semibold">
+                              Entrance Time <span className="text-destructive">*</span>
+                            </Label>
                             <AmPmTimePicker
                               value={row.time}
                               onChange={(val) => handleUpdateRowField(row.id, "time", val)}
@@ -3431,8 +3537,26 @@ export default function SurveillanceReportsPage() {
                             />
                           </div>
 
+                          {hasDeviceTypeSelected(row.transType) && (
+                            <div className="space-y-1">
+                              <Label className="text-[11px] font-semibold">
+                                Device Quantity
+                              </Label>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={row.deviceQuantity || ""}
+                                onChange={(e) =>
+                                  handleUpdateRowField(row.id, "deviceQuantity", e.target.value)
+                                }
+                                placeholder="e.g. 1"
+                              />
+                            </div>
+                          )}
+
                           <StandardSelect
                             label="Client Type"
+                            required
                             options={CLIENT_TYPE_OPTIONS}
                             value={normalizeClientType(row.clientType, row.b, row.nb)}
                             onValueChange={(val) => handleUpdateRowField(row.id, "clientType", val)}
@@ -3727,84 +3851,55 @@ export default function SurveillanceReportsPage() {
                         )}
 
                         {/* Shared Transaction Notes (stays below all primary & additional invoices) -
-                            hidden by default, only shown when the customer bought but wasn't shown
-                            a Phone/Tablet/HINT device. */}
-                        {row.clientType === "Buyer" &&
-                          Boolean(row.transType) &&
-                          !["Phone", "Tablet", "HINT"].includes(row.transType) && (
-                            <div className="space-y-1 pt-2 border-t border-border/60">
-                              <Label className="text-[11px] font-semibold">Transaction Notes</Label>
-                              <Input
-                                value={row.notes || ""}
-                                onChange={(e) =>
-                                  handleUpdateRowField(row.id, "notes", e.target.value)
-                                }
-                                placeholder="Enter transaction-related notes for all invoices in this row..."
-                                className="w-full"
-                              />
-                            </div>
-                          )}
+                            always visible now, not gated to any client/transaction type. */}
+                        <div className="space-y-1 pt-2 border-t border-border/60">
+                          <Label className="text-[11px] font-semibold">Transaction Notes</Label>
+                          <Input
+                            value={row.notes || ""}
+                            onChange={(e) =>
+                              handleUpdateRowField(row.id, "notes", e.target.value)
+                            }
+                            placeholder="Enter transaction-related notes for all invoices in this row..."
+                            className="w-full"
+                          />
+                        </div>
                       </div>
 
-                      {/* 2. Fraud & Compliance Verification */}
+                      {/* 2. Fraud & Compliance Verification - toggled the same way as
+                          Sales Pitch & Bundle Verification (a Switch, not an Add/Remove
+                          button pair). */}
                       <div className="space-y-3 rounded-lg border p-3.5">
                         <div
-                          className={`flex flex-wrap items-center justify-between gap-2 ${
+                          className={`flex items-center gap-2.5 font-semibold text-foreground text-xs uppercase tracking-wide ${
                             fraudSectionEnabledByRow[row.id] ? "border-b pb-2" : ""
                           }`}
                         >
-                          <div className="flex items-center gap-2 font-semibold text-foreground text-xs uppercase tracking-wide">
-                            <ShieldAlert className="h-4 w-4 text-rose-600" />
-                            <span>2. Fraud & Compliance Verification</span>
-                          </div>
-
-                          {!fraudSectionEnabledByRow[row.id] ? (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                setFraudSectionEnabledByRow((prev) => ({
-                                  ...prev,
-                                  [row.id]: true,
-                                }))
-                              }
-                              className="h-7 gap-1.5 px-2.5 text-xs font-semibold"
-                            >
-                              <Plus className="h-3.5 w-3.5" />
-                              Add Fraud
-                            </Button>
-                          ) : (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                setFraudSectionEnabledByRow((prev) => ({
-                                  ...prev,
-                                  [row.id]: false,
-                                }))
-                              }
-                              className="h-7 gap-1 px-2 text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:hover:bg-rose-950/30"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                              Remove
-                            </Button>
-                          )}
+                          <Switch
+                            checked={Boolean(fraudSectionEnabledByRow[row.id])}
+                            onCheckedChange={(checked) =>
+                              setFraudSectionEnabledByRow((prev) => ({
+                                ...prev,
+                                [row.id]: checked,
+                              }))
+                            }
+                            aria-label="Toggle Fraud & Compliance Verification"
+                          />
+                          <ShieldAlert className="h-4 w-4 text-rose-600" />
+                          <span>2. Fraud & Compliance Verification</span>
                         </div>
 
                         {Boolean(fraudSectionEnabledByRow[row.id]) && (
-                          <div className="space-y-2.5 pt-0.5">
-                            {FRAUD_VERIFICATION_ITEMS.map((item) => {
-                              const isChecked =
-                                (row[item.key] || "").trim().toUpperCase() === "YES";
-                              const checkboxId = `${row.id}-fraud-${item.key}`;
-                              return (
-                                <div
-                                  key={item.key}
-                                  className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3"
-                                >
-                                  <div className="flex items-center gap-2.5 sm:w-56 shrink-0">
+                          <div className="space-y-3 pt-0.5">
+                            {/* A single checkbox per item, laid out in a horizontal
+                                grid - checked means YES, unchecked (the default)
+                                means NO. */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                              {FRAUD_VERIFICATION_ITEMS.map((item) => {
+                                const isChecked =
+                                  (row[item.key] || "").trim().toUpperCase() === "YES";
+                                const checkboxId = `${row.id}-fraud-${item.key}`;
+                                return (
+                                  <div key={item.key} className="flex items-center gap-2">
                                     <Checkbox
                                       id={checkboxId}
                                       checked={isChecked}
@@ -3824,11 +3919,26 @@ export default function SurveillanceReportsPage() {
                                       {item.label}
                                     </Label>
                                   </div>
+                                );
+                              })}
+                            </div>
 
-                                  <div className="flex-1">
-                                    <Input
+                            {/* Notes text areas - hidden by default, shown at the
+                                bottom of the section only for items marked YES. */}
+                            {FRAUD_VERIFICATION_ITEMS.filter(
+                              (item) => (row[item.key] || "").trim().toUpperCase() === "YES",
+                            ).length > 0 && (
+                              <div className="space-y-2.5 pt-2 border-t border-border/60">
+                                {FRAUD_VERIFICATION_ITEMS.filter(
+                                  (item) =>
+                                    (row[item.key] || "").trim().toUpperCase() === "YES",
+                                ).map((item) => (
+                                  <div key={item.key} className="space-y-1">
+                                    <Label className="text-[11px] font-semibold">
+                                      {item.label} Notes
+                                    </Label>
+                                    <Textarea
                                       value={row[item.detailKey] || ""}
-                                      disabled={!isChecked}
                                       onChange={(e) =>
                                         handleUpdateRowField(
                                           row.id,
@@ -3837,19 +3947,19 @@ export default function SurveillanceReportsPage() {
                                         )
                                       }
                                       placeholder={item.notesPlaceholder}
-                                      className={
-                                        !isChecked ? "bg-muted/40 opacity-60 cursor-not-allowed" : ""
-                                      }
+                                      className="min-h-16"
                                     />
                                   </div>
-                                </div>
-                              );
-                            })}
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
 
-                      {/* 3. Sales Pitch & Bundle Verification */}
+                      {/* 3. Sales Pitch & Bundle Verification - not needed without an
+                          Invoice Number on this row. */}
+                      {Boolean((row.invoice || "").trim()) && (
                       <div className="space-y-3 rounded-lg border p-3.5">
                         <div
                           className={`flex items-center gap-2.5 font-semibold text-foreground text-xs uppercase tracking-wide ${
@@ -3957,6 +4067,7 @@ export default function SurveillanceReportsPage() {
                           </>
                         )}
                       </div>
+                      )}
 
                       {/* Row-level save status (saving happens via the single
                           "Save All Audit Rows" action above/below the list) */}
@@ -3998,6 +4109,10 @@ export default function SurveillanceReportsPage() {
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-blue-700 dark:border-blue-800 dark:bg-blue-950/40 dark:text-blue-400">
                     Total Amount:
                     <span className="font-bold">${totalAuditAmount.toFixed(2)}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-violet-200 bg-violet-50 px-3 py-1.5 text-violet-700 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-400">
+                    Total No of Invoices:
+                    <span className="font-bold">{totalAuditInvoiceCount}</span>
                   </span>
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-400">
                     Total Difference:

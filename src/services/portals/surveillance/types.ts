@@ -99,6 +99,9 @@ export interface SurveillanceAuditRow {
   salesRep: string;
   transType: string;
   transTypeDetails?: string;
+  // Number of units sold - only meaningful when transType includes a device
+  // type (Phone/Tablet/HINT).
+  deviceQuantity?: string;
   clientType?: string; // "Buyer" | "Non-Buyer" | "Custom" | ""
   clientTypeDetails?: string;
   nb: string; // "NB" or ""
@@ -302,6 +305,7 @@ export interface SurveillanceReport {
   salesRep: string;
   transType: string;
   transTypeDetails?: string;
+  deviceQuantity?: string;
   clientType: "Buyer" | "Non-Buyer" | "Billable" | "Non Billable" | "Custom" | string;
   clientTypeDetails?: string;
   invoiceAmount: string;
@@ -402,6 +406,7 @@ export interface CreateSurveillanceReportPayload {
   salesRep: string;
   transType: string;
   transTypeDetails?: string;
+  deviceQuantity?: string;
   clientType: "Buyer" | "Non-Buyer" | "Billable" | "Non Billable" | "Custom" | string;
   clientTypeDetails?: string;
   invoiceAmount: string;

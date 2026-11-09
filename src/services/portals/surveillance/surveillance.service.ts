@@ -230,6 +230,16 @@ export class SurveillanceService {
     return res.data;
   }
 
+  // Lets the requester (Market Manager / Agent Supervisor) cancel their own
+  // request with a reason, before it's been completed. Ownership is enforced
+  // server-side from the caller's identity, not trusted from the client.
+  async cancelOwnRequest(id: string | number, reason: string): Promise<SurveillanceRequest> {
+    const res = await http.post<SurveillanceRequest>(`/api/surveillance/requests/${id}/cancel`, { reason });
+    requestsCache = null;
+    validationQueueCache = null;
+    return res.data;
+  }
+
   async getReports(forceRefresh = false): Promise<SurveillanceReport[]> {
     if (!forceRefresh && reportsCache) return reportsCache;
     const res = await http.get<SurveillanceReport[]>("/api/surveillance/reports");

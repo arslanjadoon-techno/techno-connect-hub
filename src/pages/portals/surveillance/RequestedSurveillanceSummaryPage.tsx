@@ -496,10 +496,10 @@ function computeSummaryFromReport(
     { label: "Non-Up", notes: collectFlagNotes(rawRows, "nonUp", "nonUpDetails") },
   ].filter((flag) => flag.notes.length > 0);
 
-  // Transaction Notes - shown on the audit row only when the customer bought
-  // but wasn't shown a Phone/Tablet/HINT device (see the matching condition
-  // in SurveillanceReportsPage's audit row form). Collected here under one
-  // heading the same way the compliance flags above are.
+  // Transaction Notes - the audit row field is always editable now, but the
+  // Summary only surfaces it for a buying customer whose transaction type
+  // wasn't a Phone/Tablet/HINT device sale, collected here under one heading
+  // the same way the compliance flags above are.
   const transactionNotes: string[] = rawRows
     .filter((r) => {
       const transTypeParts = (r.transType || "")
@@ -514,15 +514,14 @@ function computeSummaryFromReport(
     .map((r) => (r.notes || "").trim())
     .filter((note) => note.length > 0);
 
-  // Miss Opportunities
+  // Miss Opportunities - only rows flagged Yes AND with an actual written
+  // reason, same "no notes, no entry" rule as the compliance flags above. No
+  // generic placeholder text when the reason field was left blank.
   const missOpportunities: MissOpportunityItem[] = rawRows
-    .filter((r) => isAffirmative(r.missOpportunity))
+    .filter((r) => isAffirmative(r.missOpportunity) && (r.missOpportunityDetails || "").trim())
     .map((r) => ({
       time: (r.time || r.cashTime || r.bdiTime || "—").trim(),
-      description:
-        (r.missOpportunityDetails || "").trim() ||
-        (r.notes || "").trim() ||
-        "Unattended customer walked out of the store.",
+      description: (r.missOpportunityDetails || "").trim(),
     }));
 
   // Floor Presence: Reps Leaving Store & Backroom In & Out
@@ -1366,7 +1365,7 @@ export default function RequestedSurveillanceSummaryPage() {
       <Card className="p-6 rounded-2xl border-border/70 shadow-xs space-y-5">
         <div className="border-b border-border/60 pb-3">
           <h2 className="font-display text-base font-bold text-foreground">
-            Compliance, Payment Policy &amp; Missed Opportunities
+            Fraud &amp; Compliance Verification
           </h2>
         </div>
 
@@ -1394,22 +1393,21 @@ export default function RequestedSurveillanceSummaryPage() {
           </div>
         )}
 
-        {/* Miss Opportunity */}
-        <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 dark:border-amber-900/50 dark:bg-amber-950/25 p-4 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
-              Miss Opportunity
-            </span>
-            <Badge
-              variant="outline"
-              className="border-amber-300 bg-amber-100/80 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200 text-xs font-bold tabular-nums"
-            >
-              {padTwo(summary.missOpportunities.length)}
-            </Badge>
-          </div>
-          {summary.missOpportunities.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No missed opportunities observed.</p>
-          ) : (
+        {/* Miss Opportunity - same "no notes, no entry" rule as the flags
+            above, hidden entirely rather than showing an empty placeholder. */}
+        {summary.missOpportunities.length > 0 && (
+          <div className="rounded-xl border border-amber-200/80 bg-amber-50/50 dark:border-amber-900/50 dark:bg-amber-950/25 p-4 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+                Miss Opportunity
+              </span>
+              <Badge
+                variant="outline"
+                className="border-amber-300 bg-amber-100/80 text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200 text-xs font-bold tabular-nums"
+              >
+                {padTwo(summary.missOpportunities.length)}
+              </Badge>
+            </div>
             <div className="space-y-2.5">
               {summary.missOpportunities.map((mo, idx) => (
                 <div
@@ -1427,8 +1425,8 @@ export default function RequestedSurveillanceSummaryPage() {
                 </div>
               ))}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </Card>
 
       {/* Reason - buyer, no Phone/Tablet/HINT device shown */}
