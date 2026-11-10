@@ -368,67 +368,6 @@ export default function UserDetailPage() {
         </div>
       </div>
 
-      {/* Header card */}
-      <Card>
-        <CardContent className="p-6 flex flex-col md:flex-row md:items-center gap-6">
-          <div
-            className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl text-2xl font-semibold text-white uppercase shadow-md"
-            style={{ backgroundColor: avatarBg }}
-          >
-            {initials}
-          </div>
-          <div className="flex-1 space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="font-display text-2xl font-semibold">{user.fullName}</h1>
-              {user.active ? (
-                <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 border-emerald-200 gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> Active
-                </Badge>
-              ) : (
-                <Badge variant="destructive" className="gap-1">
-                  <XCircle className="h-3 w-3" /> Inactive
-                </Badge>
-              )}
-              {user.allowedUserManagement && (
-                <Badge variant="outline" className="gap-1 text-indigo-600 border-indigo-300">
-                  <Shield className="h-3 w-3" /> User Manager
-                </Badge>
-              )}
-              {user.bypassTwoFactor ? (
-                <Badge
-                  variant="outline"
-                  className="gap-1 text-rose-600 border-rose-300 dark:text-rose-400 dark:border-rose-800"
-                >
-                  2FA Disabled
-                </Badge>
-              ) : (
-                <Badge
-                  variant="outline"
-                  className="gap-1 text-emerald-600 border-emerald-300 dark:text-emerald-400 dark:border-emerald-800"
-                >
-                  2FA Enabled
-                </Badge>
-              )}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 text-sm">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Mail className="h-4 w-4" /> <span className="text-foreground">{user.email}</span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Phone className="h-4 w-4" />{" "}
-                <span className="text-foreground">{user.phone || "—"}</span>
-              </div>
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Building2 className="h-4 w-4" />
-                <span className="text-foreground">
-                  {user.department?.name || user.department || "—"}
-                </span>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {editMode ? (
         <Card>
           <CardHeader className="pb-2">
@@ -499,27 +438,73 @@ export default function UserDetailPage() {
                 {/* Divider */}
                 <div className="w-full border-t border-border/70 my-5" />
 
-                {/* Meta details list */}
-                <div className="w-full space-y-3.5 text-xs">
-                  <div className="flex items-center gap-3 text-muted-foreground">
-                    <CreditCard className="w-4 h-4 shrink-0 text-slate-400 dark:text-slate-500" />
-                    <span className="font-semibold text-foreground tracking-wide">
-                      {user.ntid ||
-                        user.employeeId ||
-                        user.code ||
-                        user.username ||
-                        `USR${user.id}`}
-                    </span>
+                {/* Meta details boxes (Separate bordered boxes for Email, Phone, Department, ID) */}
+                <div className="w-full space-y-2.5">
+                  {/* Email box */}
+                  <div className="rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 p-2.5 flex items-center gap-3">
+                    <div className="p-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700/60 shadow-2xs text-muted-foreground shrink-0">
+                      <Mail className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Email
+                      </div>
+                      <div
+                        className="text-xs font-medium text-foreground truncate"
+                        title={user.email}
+                      >
+                        {user.email || "—"}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 text-muted-foreground">
-                    <Phone className="w-4 h-4 shrink-0 text-slate-400 dark:text-slate-500" />
-                    <span className="text-foreground">{user.phone || "—"}</span>
+
+                  {/* Phone box */}
+                  <div className="rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 p-2.5 flex items-center gap-3">
+                    <div className="p-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700/60 shadow-2xs text-muted-foreground shrink-0">
+                      <Phone className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Phone
+                      </div>
+                      <div className="text-xs font-medium text-foreground truncate">
+                        {user.phone || "—"}
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 text-muted-foreground">
-                    <Building2 className="w-4 h-4 shrink-0 text-slate-400 dark:text-slate-500" />
-                    <span className="text-foreground">
-                      {user.department?.name || user.department || "Sales"}
-                    </span>
+
+                  {/* Department box */}
+                  <div className="rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 p-2.5 flex items-center gap-3">
+                    <div className="p-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700/60 shadow-2xs text-muted-foreground shrink-0">
+                      <Building2 className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        Department
+                      </div>
+                      <div className="text-xs font-medium text-foreground truncate">
+                        {user.department?.name || user.department || "Sales"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* NTID / ID box */}
+                  <div className="rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 p-2.5 flex items-center gap-3">
+                    <div className="p-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700/60 shadow-2xs text-muted-foreground shrink-0">
+                      <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        User ID / NTID
+                      </div>
+                      <div className="text-xs font-medium text-foreground truncate">
+                        {user.ntid ||
+                          user.employeeId ||
+                          user.code ||
+                          user.username ||
+                          `USR${user.id}`}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </CardContent>

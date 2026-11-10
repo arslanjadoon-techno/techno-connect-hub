@@ -34,6 +34,7 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
+  MapPin,
 } from "lucide-react";
 import { getUserAvatarColor } from "./user-colors";
 
