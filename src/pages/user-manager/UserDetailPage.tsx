@@ -36,7 +36,6 @@ import {
   Pencil,
   X,
   Power,
-  CreditCard,
 } from "lucide-react";
 import { getUserAvatarColor } from "./user-colors";
 import { UserForm } from "./UsersPage";
@@ -438,22 +437,22 @@ export default function UserDetailPage() {
                 {/* Divider */}
                 <div className="w-full border-t border-border/70 my-5" />
 
-                {/* Meta details boxes (Separate bordered boxes for Email, Phone, Department, ID) */}
+                {/* Meta details boxes (Separate bordered boxes for Email / NTID, Phone, Department) */}
                 <div className="w-full space-y-2.5">
-                  {/* Email box */}
+                  {/* Email / NTID box */}
                   <div className="rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 p-2.5 flex items-center gap-3">
                     <div className="p-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700/60 shadow-2xs text-muted-foreground shrink-0">
                       <Mail className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        Email
+                        Email / NTID
                       </div>
                       <div
                         className="text-xs font-medium text-foreground truncate"
                         title={user.email}
                       >
-                        {user.email || "—"}
+                        {user.email || user.ntid || "—"}
                       </div>
                     </div>
                   </div>
@@ -484,25 +483,6 @@ export default function UserDetailPage() {
                       </div>
                       <div className="text-xs font-medium text-foreground truncate">
                         {user.department?.name || user.department || "Sales"}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* NTID / ID box */}
-                  <div className="rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-900/40 p-2.5 flex items-center gap-3">
-                    <div className="p-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200/60 dark:border-zinc-700/60 shadow-2xs text-muted-foreground shrink-0">
-                      <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                        User ID / NTID
-                      </div>
-                      <div className="text-xs font-medium text-foreground truncate">
-                        {user.ntid ||
-                          user.employeeId ||
-                          user.code ||
-                          user.username ||
-                          `USR${user.id}`}
                       </div>
                     </div>
                   </div>
