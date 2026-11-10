@@ -36,6 +36,7 @@ import {
   Pencil,
   X,
   Power,
+  CreditCard,
 } from "lucide-react";
 import { getUserAvatarColor } from "./user-colors";
 import { UserForm } from "./UsersPage";
