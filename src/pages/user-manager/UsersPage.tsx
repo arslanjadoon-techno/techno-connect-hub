@@ -536,6 +536,7 @@ function UsersPage() {
           renderForm={(initial, close) => (
             <UserForm
               initial={initial}
+              scrollable={true}
               onSaved={() => {
                 lastFetchedKey.current = "";
                 fetchUsers(page, size, deptFilter, portalFilter);
@@ -557,11 +558,13 @@ export function UserForm({
   dynamicRoles: initialDynamicRoles = [],
   portalsMasterList: initialPortalsMasterList = [],
   onSaved,
+  scrollable = false,
 }: {
   initial: any | null;
   dynamicRoles?: any[];
   portalsMasterList?: any[];
   onSaved: () => void;
+  scrollable?: boolean;
 }) {
   const [fullName, setFullName] = useState(initial?.fullName ?? "");
   const [email, setEmail] = useState(initial?.email ?? "");
@@ -1120,7 +1123,9 @@ export function UserForm({
         submit();
       }}
       autoComplete="off"
-      className="space-y-4 max-h-[82vh] overflow-y-auto px-1 scrollbar-thin"
+      className={`space-y-4 px-1 ${
+        scrollable ? "max-h-[82vh] overflow-y-auto scrollbar-thin" : ""
+      }`}
     >
       {/* Hidden dummy credentials to trap browser autofill */}
       <input
