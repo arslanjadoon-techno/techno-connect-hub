@@ -682,55 +682,52 @@ export function UserForm({
   const isMarketManager = hasRole("market");
   const isStateManager = hasRole("state");
 
-  // Regional state requirements
-  // District manager needs State -> Market -> District
-  // Market manager needs State -> Market
-  // State manager needs State
-  // Store manager needs Store
-  const needsState = isDistrictManager || isMarketManager || isStateManager;
-  const needsMarket = isDistrictManager || isMarketManager;
-  const needsDistrict = isDistrictManager;
-  const needsStore = isStoreManager;
+  // Regional requirements based on role:
+  // - State role (stateManager): State is required
+  // - Market role (marketManager): State and Market are both required
+  // - District role (districtManager): State, Market, and District are all three required
+  // All three dropdowns are always displayed and multi-selectable; if role doesn't require them, they are optional.
+  const isStateRequired = isStateManager || isMarketManager || isDistrictManager;
+  const isMarketRequired = isMarketManager || isDistrictManager;
+  const isDistrictRequired = isDistrictManager;
+  const isStoreRequired = isStoreManager;
 
-  const showRegionalCard = needsState || needsStore;
+  const showRegionalCard = true;
 
-  // Selected single values for regional dropdowns (State, Market, District, Store)
+  // Selected values for regional dropdowns (State, Market, District are multi-select)
   const initialSingleId = (arr: any[] | undefined) =>
     Array.isArray(arr) && arr.length > 0 ? String(arr[0]?.id ?? arr[0]) : "";
 
-  const [selectedStateId, setSelectedStateId] = useState<string>(initialSingleId(initial?.states));
-  const [selectedMarketId, setSelectedMarketId] = useState<string>(
-    initialSingleId(initial?.markets),
+  const initialMultiIds = (arr: any[] | undefined): string[] => {
+    if (!Array.isArray(arr)) return [];
+    return arr.map((item) => String(item?.id ?? item)).filter(Boolean);
+  };
+
+  const [selectedStateIds, setSelectedStateIds] = useState<string[]>(() =>
+    initialMultiIds(initial?.states),
   );
-  const [selectedDistrictId, setSelectedDistrictId] = useState<string>(
-    initialSingleId(initial?.districts),
+  const [selectedMarketIds, setSelectedMarketIds] = useState<string[]>(() =>
+    initialMultiIds(initial?.markets),
+  );
+  const [selectedDistrictIds, setSelectedDistrictIds] = useState<string[]>(() =>
+    initialMultiIds(initial?.districts),
   );
   const [selectedStoreId, setSelectedStoreId] = useState<string>(initialSingleId(initial?.stores));
 
   // Maintain array representations for backend API payload compatibility
-  const stateIds = useMemo(() => (selectedStateId ? [selectedStateId] : []), [selectedStateId]);
-  const marketIds = useMemo(() => (selectedMarketId ? [selectedMarketId] : []), [selectedMarketId]);
-  const districtIds = useMemo(
-    () => (selectedDistrictId ? [selectedDistrictId] : []),
-    [selectedDistrictId],
-  );
+  const stateIds = selectedStateIds;
+  const marketIds = selectedMarketIds;
+  const districtIds = selectedDistrictIds;
   const storeIds = useMemo(() => (selectedStoreId ? [selectedStoreId] : []), [selectedStoreId]);
 
-  // Dynamic cascading option lists
+  // Dynamic lookup option lists
   const [dbStates, setDbStates] = useState<any[]>([]);
   const [dbMarkets, setDbMarkets] = useState<any[]>([]);
   const [dbDistricts, setDbDistricts] = useState<any[]>([]);
   const [dbStores, setDbStores] = useState<any[]>([]);
 
-  // Search input filters for Select dropdowns
-  const [stateSearch, setStateSearch] = useState("");
-  const [marketSearch, setMarketSearch] = useState("");
-  const [districtSearch, setDistrictSearch] = useState("");
+  // Search input filter for Store Select dropdown
   const [storeSearch, setStoreSearch] = useState("");
-
-  const stateSearchRef = useRef<HTMLInputElement>(null);
-  const marketSearchRef = useRef<HTMLInputElement>(null);
-  const districtSearchRef = useRef<HTMLInputElement>(null);
   const storeSearchRef = useRef<HTMLInputElement>(null);
 
   // Loading states
@@ -741,128 +738,48 @@ export function UserForm({
 
   const [submitting, setSubmitting] = useState(false);
 
-  // Flags for preserving initial edit selections
-  const isFirstMarketLoad = useRef(true);
-  const isFirstDistrictLoad = useRef(true);
-
-  // 1. Load States ONLY when needsState is active
+  // 1. Load States, Markets, and Districts on mount so they are always available
   useEffect(() => {
-    if (!needsState) {
-      setDbStates([]);
-      setSelectedStateId("");
-      return;
-    }
     let isMounted = true;
     setLoadingStates(true);
-    statesService
-      .getAll()
-      .then((res) => {
-        if (!isMounted) return;
-        if (res.success && Array.isArray(res.data)) {
-          setDbStates(res.data);
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to load states:", err);
-      })
-      .finally(() => {
-        if (isMounted) setLoadingStates(false);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, [needsState]);
-
-  // 2. Load Markets ONLY when State is selected AND needsMarket is true
-  useEffect(() => {
-    if (!needsMarket || !selectedStateId) {
-      setDbMarkets([]);
-      setSelectedMarketId("");
-      setDbDistricts([]);
-      setSelectedDistrictId("");
-      return;
-    }
-
-    let isMounted = true;
     setLoadingMarkets(true);
-
-    const matchState = dbStates.find((s) => String(s.id) === selectedStateId);
-    const stateParam = matchState ? matchState.name : selectedStateId;
-
-    marketsService
-      .getAll({ State: stateParam })
-      .then((res) => {
-        if (!isMounted) return;
-        if (res.success && Array.isArray(res.data)) {
-          setDbMarkets(res.data);
-          if (isFirstMarketLoad.current) {
-            isFirstMarketLoad.current = false;
-          } else {
-            // When user changes state in form, reset selected market & district
-            setSelectedMarketId("");
-            setSelectedDistrictId("");
-          }
-        }
-      })
-      .catch((err) => {
-        console.error("Failed to load markets:", err);
-      })
-      .finally(() => {
-        if (isMounted) setLoadingMarkets(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [needsMarket, selectedStateId, dbStates]);
-
-  // 3. Load Districts ONLY when Market is selected AND needsDistrict is true
-  useEffect(() => {
-    if (!needsDistrict || !selectedMarketId) {
-      setDbDistricts([]);
-      setSelectedDistrictId("");
-      return;
-    }
-
-    let isMounted = true;
     setLoadingDistricts(true);
 
-    const matchMarket = dbMarkets.find((m) => String(m.id) === selectedMarketId);
-    const marketParam = matchMarket ? matchMarket.name : selectedMarketId;
-
-    districtsService
-      .getAll({ Market: marketParam })
-      .then((res) => {
+    Promise.all([
+      statesService.getAll().catch(() => ({ success: false, data: [] })),
+      marketsService.getAll({ size: 1000 }).catch(() => ({ success: false, data: [] })),
+      districtsService.getAll({ size: 1000 }).catch(() => ({ success: false, data: [] })),
+    ])
+      .then(([statesRes, marketsRes, districtsRes]) => {
         if (!isMounted) return;
-        if (res.success && Array.isArray(res.data)) {
-          setDbDistricts(res.data);
-          if (isFirstDistrictLoad.current) {
-            isFirstDistrictLoad.current = false;
-          } else {
-            // When user changes market in form, reset selected district
-            setSelectedDistrictId("");
-          }
+        if (statesRes.success && Array.isArray(statesRes.data)) {
+          setDbStates(statesRes.data);
+        }
+        if (marketsRes.success && Array.isArray(marketsRes.data)) {
+          setDbMarkets(marketsRes.data);
+        }
+        if (districtsRes.success && Array.isArray(districtsRes.data)) {
+          setDbDistricts(districtsRes.data);
         }
       })
       .catch((err) => {
-        console.error("Failed to load districts:", err);
+        console.error("Failed to load regional data:", err);
       })
       .finally(() => {
-        if (isMounted) setLoadingDistricts(false);
+        if (isMounted) {
+          setLoadingStates(false);
+          setLoadingMarkets(false);
+          setLoadingDistricts(false);
+        }
       });
 
     return () => {
       isMounted = false;
     };
-  }, [needsDistrict, selectedMarketId, dbMarkets]);
+  }, []);
 
-  // 4. Load Stores ONLY when Store Manager role is selected
+  // 2. Load Stores (for store assignment)
   useEffect(() => {
-    if (!needsStore) {
-      setDbStores([]);
-      setSelectedStoreId("");
-      return;
-    }
     let isMounted = true;
     setLoadingStores(true);
     storesService
@@ -882,20 +799,90 @@ export function UserForm({
     return () => {
       isMounted = false;
     };
-  }, [needsStore]);
+  }, []);
 
-  // Filtered dropdown lists based on inline search
-  const filteredDbStates = useMemo(() => {
-    return dbStates.filter((s) => s.name.toLowerCase().includes(stateSearch.toLowerCase()));
-  }, [dbStates, stateSearch]);
+  // State options
+  const stateOptions = useMemo(() => {
+    return dbStates.map((s) => ({ value: String(s.id), label: s.name }));
+  }, [dbStates]);
 
-  const filteredDbMarkets = useMemo(() => {
-    return dbMarkets.filter((m) => m.name.toLowerCase().includes(marketSearch.toLowerCase()));
-  }, [dbMarkets, marketSearch]);
+  // Cascading market options based on selected states (if any selected, otherwise all markets)
+  const marketOptions = useMemo(() => {
+    let list = dbMarkets;
+    if (selectedStateIds.length > 0) {
+      list = list.filter((m) => {
+        const mStateId = String(m.state?.id ?? m.stateId ?? "");
+        const mStateName = (m.state?.name ?? "").toLowerCase().trim();
+        return (
+          selectedStateIds.includes(mStateId) ||
+          selectedStateIds.some((sId) => {
+            const sObj = dbStates.find((st) => String(st.id) === sId);
+            return sObj && sObj.name.toLowerCase().trim() === mStateName;
+          })
+        );
+      });
+    }
+    // Retain any initially selected market options
+    const selectedObjs = (initial?.markets || []).filter((im: any) =>
+      selectedMarketIds.includes(String(im.id)),
+    );
+    const merged = [...list];
+    selectedObjs.forEach((so: any) => {
+      if (!merged.some((m) => String(m.id) === String(so.id))) {
+        merged.push(so);
+      }
+    });
+    return merged.map((m) => ({ value: String(m.id), label: m.name }));
+  }, [dbMarkets, selectedStateIds, dbStates, selectedMarketIds, initial?.markets]);
 
-  const filteredDbDistricts = useMemo(() => {
-    return dbDistricts.filter((d) => d.name.toLowerCase().includes(districtSearch.toLowerCase()));
-  }, [dbDistricts, districtSearch]);
+  // Cascading district options based on selected markets or states
+  const districtOptions = useMemo(() => {
+    let list = dbDistricts;
+    if (selectedMarketIds.length > 0) {
+      list = list.filter((d) => {
+        const dMarketId = String(d.market?.id ?? d.marketId ?? "");
+        const dMarketName = (d.market?.name ?? "").toLowerCase().trim();
+        return (
+          selectedMarketIds.includes(dMarketId) ||
+          selectedMarketIds.some((mId) => {
+            const mObj = dbMarkets.find((mk) => String(mk.id) === mId);
+            return mObj && mObj.name.toLowerCase().trim() === dMarketName;
+          })
+        );
+      });
+    } else if (selectedStateIds.length > 0) {
+      list = list.filter((d) => {
+        const dStateId = String(d.state?.id ?? d.stateId ?? "");
+        const dStateName = (d.state?.name ?? "").toLowerCase().trim();
+        return (
+          selectedStateIds.includes(dStateId) ||
+          selectedStateIds.some((sId) => {
+            const sObj = dbStates.find((st) => String(st.id) === sId);
+            return sObj && sObj.name.toLowerCase().trim() === dStateName;
+          })
+        );
+      });
+    }
+    // Retain any initially selected district options
+    const selectedObjs = (initial?.districts || []).filter((idist: any) =>
+      selectedDistrictIds.includes(String(idist.id)),
+    );
+    const merged = [...list];
+    selectedObjs.forEach((so: any) => {
+      if (!merged.some((d) => String(d.id) === String(so.id))) {
+        merged.push(so);
+      }
+    });
+    return merged.map((d) => ({ value: String(d.id), label: d.name }));
+  }, [
+    dbDistricts,
+    selectedMarketIds,
+    selectedStateIds,
+    dbMarkets,
+    dbStates,
+    selectedDistrictIds,
+    initial?.districts,
+  ]);
 
   const filteredDbStores = useMemo(() => {
     return dbStores.filter((s) => {
@@ -958,24 +945,26 @@ export function UserForm({
   }, [hasSelectedPortals]);
 
   const stateError = useMemo(() => {
-    if (needsState && !selectedStateId) return "Please select a state";
+    if (isStateRequired && selectedStateIds.length === 0) return "Please select at least one state";
     return null;
-  }, [needsState, selectedStateId]);
+  }, [isStateRequired, selectedStateIds]);
 
   const marketError = useMemo(() => {
-    if (needsMarket && !selectedMarketId) return "Please select a market";
+    if (isMarketRequired && selectedMarketIds.length === 0)
+      return "Please select at least one market";
     return null;
-  }, [needsMarket, selectedMarketId]);
+  }, [isMarketRequired, selectedMarketIds]);
 
   const districtError = useMemo(() => {
-    if (needsDistrict && !selectedDistrictId) return "Please select a district";
+    if (isDistrictRequired && selectedDistrictIds.length === 0)
+      return "Please select at least one district";
     return null;
-  }, [needsDistrict, selectedDistrictId]);
+  }, [isDistrictRequired, selectedDistrictIds]);
 
   const storeError = useMemo(() => {
-    if (needsStore && !selectedStoreId) return "Please select a store";
+    if (isStoreRequired && !selectedStoreId) return "Please select a store";
     return null;
-  }, [needsStore, selectedStoreId]);
+  }, [isStoreRequired, selectedStoreId]);
 
   const canSave =
     !fullNameError &&
@@ -1049,17 +1038,34 @@ export function UserForm({
         }
       });
 
-      const pickObjs = (list: any[], ids: string[]) =>
+      const pickAllObjs = (list: any[], initialList: any[] | undefined, ids: string[]) => {
+        const map = new Map<number, string>();
+        list.forEach((x) => {
+          if (ids.includes(String(x.id))) {
+            map.set(Number(x.id), x.name);
+          }
+        });
+        if (Array.isArray(initialList)) {
+          initialList.forEach((x) => {
+            if (ids.includes(String(x.id))) {
+              map.set(Number(x.id), x.name);
+            }
+          });
+        }
+        return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+      };
+
+      const pickSingleObjs = (list: any[], ids: string[]) =>
         list
           .filter((x) => ids.includes(String(x.id)))
           .map((x) => ({ id: Number(x.id), name: x.name }));
 
-      const selectedStates = pickObjs(dbStates, stateIds);
-      const selectedMarkets = pickObjs(dbMarkets, marketIds);
-      const selectedDistricts = pickObjs(dbDistricts, districtIds);
+      const selectedStates = pickAllObjs(dbStates, initial?.states, selectedStateIds);
+      const selectedMarkets = pickAllObjs(dbMarkets, initial?.markets, selectedMarketIds);
+      const selectedDistricts = pickAllObjs(dbDistricts, initial?.districts, selectedDistrictIds);
       const selectedStores =
-        pickObjs(dbStores, storeIds).length > 0
-          ? pickObjs(dbStores, storeIds)
+        pickSingleObjs(dbStores, storeIds).length > 0
+          ? pickSingleObjs(dbStores, storeIds)
           : (initial?.stores || [])
               .filter((x: any) => storeIds.includes(String(x.id)))
               .map((x: any) => ({ id: Number(x.id), name: x.name }));
@@ -1075,10 +1081,10 @@ export function UserForm({
         active,
         assignedPortals,
         portalAccess,
-        states: needsState ? selectedStates : [],
-        markets: needsMarket ? selectedMarkets : [],
-        districts: needsDistrict ? selectedDistricts : [],
-        stores: needsStore ? selectedStores : [],
+        states: selectedStates,
+        markets: selectedMarkets,
+        districts: selectedDistricts,
+        stores: isStoreRequired || selectedStoreId ? selectedStores : [],
       };
 
       if (initial) {
@@ -1437,296 +1443,176 @@ export function UserForm({
         )}
       </div>
 
-      {/* Regional Hierarchy Configuration Setup (Single Selection with Search) */}
-      {showRegionalCard && (
-        <div className="p-4 bg-zinc-50/50 dark:bg-zinc-900/40 rounded-xl border border-dashed border-zinc-200 dark:border-zinc-800 space-y-3 animate-fade-in">
-          <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-600 dark:text-amber-400 pb-1 border-b border-zinc-200/60">
-            <AlertCircle className="h-3.5 w-3.5" /> Regional Authority Hierarchy Configuration Setup
+      {/* Regional Hierarchy Configuration Setup (Always visible, Multi-Selectable for State, Market, District) */}
+      <div className="p-4 bg-zinc-50/50 dark:bg-zinc-900/40 rounded-xl border border-zinc-200 dark:border-zinc-800 space-y-3 animate-fade-in">
+        <div className="flex items-center justify-between pb-1 border-b border-zinc-200/60 dark:border-zinc-800">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+            <MapPin className="h-3.5 w-3.5 text-primary" /> Regional Coverage & Assignment
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {/* 1. STATE SELECTION (Single Select: Visible for State Manager, Market Manager, District Manager) */}
-            {needsState && (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label>
-                    State <span className="text-destructive font-semibold">*</span>
-                  </Label>
-                  {loadingStates && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
-                </div>
-                <Select
-                  value={selectedStateId}
-                  disabled={loadingStates}
-                  onValueChange={setSelectedStateId}
-                  onOpenChange={(open) => {
-                    if (!open) setStateSearch("");
-                    else setTimeout(() => stateSearchRef.current?.focus(), 100);
-                  }}
-                >
-                  <SelectTrigger
-                    className={`w-full bg-white dark:bg-zinc-950 ${
-                      shouldShowStateError ? "border-destructive ring-1 ring-destructive/30" : ""
-                    }`}
-                  >
-                    <SelectValue
-                      placeholder={loadingStates ? "Loading states..." : "Select state"}
-                    />
-                  </SelectTrigger>
-                  <SelectContent
-                    onKeyDown={(e) => e.stopPropagation()}
-                    onKeyUp={(e) => e.stopPropagation()}
-                  >
-                    <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
-                      <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
-                      <input
-                        ref={stateSearchRef}
-                        placeholder="Search states..."
-                        value={stateSearch}
-                        onChange={(e) => {
-                          setStateSearch(e.target.value);
-                          setTimeout(() => stateSearchRef.current?.focus(), 0);
-                        }}
-                        className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
-                      />
-                    </div>
-                    {filteredDbStates.length === 0 ? (
-                      <p className="text-[11px] text-center text-muted-foreground p-2">
-                        {loadingStates ? "Fetching states..." : "No states found"}
-                      </p>
-                    ) : (
-                      filteredDbStates.map((s) => (
-                        <SelectItem key={s.id} value={String(s.id)}>
-                          {s.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-                {shouldShowStateError && (
-                  <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
-                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                    {stateError}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* 2. MARKET SELECTION (Single Select: Visible for Market Manager, District Manager. Disabled until State is selected) */}
-            {needsMarket && (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label>
-                    Market <span className="text-destructive font-semibold">*</span>
-                  </Label>
-                  {loadingMarkets && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
-                </div>
-                <Select
-                  value={selectedMarketId}
-                  disabled={!selectedStateId || loadingMarkets}
-                  onValueChange={setSelectedMarketId}
-                  onOpenChange={(open) => {
-                    if (!open) setMarketSearch("");
-                    else setTimeout(() => marketSearchRef.current?.focus(), 100);
-                  }}
-                >
-                  <SelectTrigger
-                    className={`w-full bg-white dark:bg-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed ${
-                      shouldShowMarketError ? "border-destructive ring-1 ring-destructive/30" : ""
-                    }`}
-                  >
-                    <SelectValue
-                      placeholder={
-                        !selectedStateId
-                          ? "Select State First"
-                          : loadingMarkets
-                            ? "Loading markets..."
-                            : filteredDbMarkets.length === 0
-                              ? "No markets available"
-                              : "Select market"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent
-                    onKeyDown={(e) => e.stopPropagation()}
-                    onKeyUp={(e) => e.stopPropagation()}
-                  >
-                    <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
-                      <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
-                      <input
-                        ref={marketSearchRef}
-                        placeholder="Search markets..."
-                        value={marketSearch}
-                        onChange={(e) => {
-                          setMarketSearch(e.target.value);
-                          setTimeout(() => marketSearchRef.current?.focus(), 0);
-                        }}
-                        className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
-                      />
-                    </div>
-                    {filteredDbMarkets.length === 0 ? (
-                      <p className="text-[11px] text-center text-muted-foreground p-2">
-                        {loadingMarkets ? "Fetching markets..." : "No markets found"}
-                      </p>
-                    ) : (
-                      filteredDbMarkets.map((m) => (
-                        <SelectItem key={m.id} value={String(m.id)}>
-                          {m.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-                {shouldShowMarketError && (
-                  <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
-                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                    {marketError}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* 3. DISTRICT SELECTION (Single Select: Visible for District Manager. Disabled until Market is selected) */}
-            {needsDistrict && (
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label>
-                    District <span className="text-destructive font-semibold">*</span>
-                  </Label>
-                  {loadingDistricts && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
-                </div>
-                <Select
-                  value={selectedDistrictId}
-                  disabled={!selectedMarketId || loadingDistricts}
-                  onValueChange={setSelectedDistrictId}
-                  onOpenChange={(open) => {
-                    if (!open) setDistrictSearch("");
-                    else setTimeout(() => districtSearchRef.current?.focus(), 100);
-                  }}
-                >
-                  <SelectTrigger
-                    className={`w-full bg-white dark:bg-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed ${
-                      shouldShowDistrictError ? "border-destructive ring-1 ring-destructive/30" : ""
-                    }`}
-                  >
-                    <SelectValue
-                      placeholder={
-                        !selectedMarketId
-                          ? "Select Market First"
-                          : loadingDistricts
-                            ? "Loading districts..."
-                            : filteredDbDistricts.length === 0
-                              ? "No districts available"
-                              : "Select district"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent
-                    onKeyDown={(e) => e.stopPropagation()}
-                    onKeyUp={(e) => e.stopPropagation()}
-                  >
-                    <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
-                      <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
-                      <input
-                        ref={districtSearchRef}
-                        placeholder="Search districts..."
-                        value={districtSearch}
-                        onChange={(e) => {
-                          setDistrictSearch(e.target.value);
-                          setTimeout(() => districtSearchRef.current?.focus(), 0);
-                        }}
-                        className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
-                      />
-                    </div>
-                    {filteredDbDistricts.length === 0 ? (
-                      <p className="text-[11px] text-center text-muted-foreground p-2">
-                        {loadingDistricts ? "Fetching districts..." : "No districts found"}
-                      </p>
-                    ) : (
-                      filteredDbDistricts.map((d) => (
-                        <SelectItem key={d.id} value={String(d.id)}>
-                          {d.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-                {shouldShowDistrictError && (
-                  <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
-                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                    {districtError}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {/* 4. STORE SELECTION (Single Select: Visible ONLY for Store Manager) */}
-            {needsStore && (
-              <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
-                <div className="flex items-center justify-between">
-                  <Label>
-                    Store <span className="text-destructive font-semibold">*</span>
-                  </Label>
-                  {loadingStores && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
-                </div>
-                <Select
-                  value={selectedStoreId}
-                  disabled={loadingStores}
-                  onValueChange={setSelectedStoreId}
-                  onOpenChange={(open) => {
-                    if (!open) setStoreSearch("");
-                    else setTimeout(() => storeSearchRef.current?.focus(), 100);
-                  }}
-                >
-                  <SelectTrigger
-                    className={`w-full bg-white dark:bg-zinc-950 ${
-                      shouldShowStoreError ? "border-destructive ring-1 ring-destructive/30" : ""
-                    }`}
-                  >
-                    <SelectValue
-                      placeholder={loadingStores ? "Loading stores..." : "Select store"}
-                    />
-                  </SelectTrigger>
-                  <SelectContent
-                    onKeyDown={(e) => e.stopPropagation()}
-                    onKeyUp={(e) => e.stopPropagation()}
-                  >
-                    <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
-                      <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
-                      <input
-                        ref={storeSearchRef}
-                        placeholder="Search stores..."
-                        value={storeSearch}
-                        onChange={(e) => {
-                          setStoreSearch(e.target.value);
-                          setTimeout(() => storeSearchRef.current?.focus(), 0);
-                        }}
-                        className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
-                      />
-                    </div>
-                    {filteredDbStores.length === 0 ? (
-                      <p className="text-[11px] text-center text-muted-foreground p-2">
-                        {loadingStores ? "Fetching stores..." : "No stores found"}
-                      </p>
-                    ) : (
-                      filteredDbStores.map((s) => (
-                        <SelectItem key={s.id} value={String(s.id)}>
-                          {s.name} {s.number ? `(${s.number})` : ""}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-                {shouldShowStoreError && (
-                  <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
-                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                    {storeError}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
+          <span className="text-[11px] text-muted-foreground font-medium">
+            State · Market · District
+          </span>
         </div>
-      )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {/* 1. STATE SELECTION (Multi-Select, Always visible) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold">
+                State{" "}
+                {isStateRequired ? (
+                  <span className="text-destructive">*</span>
+                ) : (
+                  <span className="text-muted-foreground text-[11px] font-normal">(Optional)</span>
+                )}
+              </Label>
+              {loadingStates && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+            </div>
+            <MultiSelect
+              options={stateOptions}
+              value={selectedStateIds}
+              onChange={setSelectedStateIds}
+              placeholder={loadingStates ? "Loading states..." : "Select states..."}
+              disabled={loadingStates}
+              className={
+                shouldShowStateError ? "border-destructive ring-1 ring-destructive/30" : ""
+              }
+            />
+            {shouldShowStateError && (
+              <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {stateError}
+              </p>
+            )}
+          </div>
+
+          {/* 2. MARKET SELECTION (Multi-Select, Always visible) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold">
+                Market{" "}
+                {isMarketRequired ? (
+                  <span className="text-destructive">*</span>
+                ) : (
+                  <span className="text-muted-foreground text-[11px] font-normal">(Optional)</span>
+                )}
+              </Label>
+              {loadingMarkets && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+            </div>
+            <MultiSelect
+              options={marketOptions}
+              value={selectedMarketIds}
+              onChange={setSelectedMarketIds}
+              placeholder={loadingMarkets ? "Loading markets..." : "Select markets..."}
+              disabled={loadingMarkets}
+              className={
+                shouldShowMarketError ? "border-destructive ring-1 ring-destructive/30" : ""
+              }
+            />
+            {shouldShowMarketError && (
+              <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {marketError}
+              </p>
+            )}
+          </div>
+
+          {/* 3. DISTRICT SELECTION (Multi-Select, Always visible) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-semibold">
+                District{" "}
+                {isDistrictRequired ? (
+                  <span className="text-destructive">*</span>
+                ) : (
+                  <span className="text-muted-foreground text-[11px] font-normal">(Optional)</span>
+                )}
+              </Label>
+              {loadingDistricts && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+            </div>
+            <MultiSelect
+              options={districtOptions}
+              value={selectedDistrictIds}
+              onChange={setSelectedDistrictIds}
+              placeholder={loadingDistricts ? "Loading districts..." : "Select districts..."}
+              disabled={loadingDistricts}
+              className={
+                shouldShowDistrictError ? "border-destructive ring-1 ring-destructive/30" : ""
+              }
+            />
+            {shouldShowDistrictError && (
+              <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                {districtError}
+              </p>
+            )}
+          </div>
+
+          {/* 4. STORE SELECTION (Visible for Store Manager or when store is assigned) */}
+          {(isStoreRequired || selectedStoreId) && (
+            <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">
+                  Store {isStoreRequired && <span className="text-destructive">*</span>}
+                </Label>
+                {loadingStores && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+              </div>
+              <Select
+                value={selectedStoreId}
+                disabled={loadingStores}
+                onValueChange={setSelectedStoreId}
+                onOpenChange={(open) => {
+                  if (!open) setStoreSearch("");
+                  else setTimeout(() => storeSearchRef.current?.focus(), 100);
+                }}
+              >
+                <SelectTrigger
+                  className={`w-full bg-white dark:bg-zinc-950 ${
+                    shouldShowStoreError ? "border-destructive ring-1 ring-destructive/30" : ""
+                  }`}
+                >
+                  <SelectValue placeholder={loadingStores ? "Loading stores..." : "Select store"} />
+                </SelectTrigger>
+                <SelectContent
+                  onKeyDown={(e) => e.stopPropagation()}
+                  onKeyUp={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
+                    <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
+                    <input
+                      ref={storeSearchRef}
+                      placeholder="Search stores..."
+                      value={storeSearch}
+                      onChange={(e) => {
+                        setStoreSearch(e.target.value);
+                        setTimeout(() => storeSearchRef.current?.focus(), 0);
+                      }}
+                      className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
+                    />
+                  </div>
+                  {filteredDbStores.length === 0 ? (
+                    <p className="text-[11px] text-center text-muted-foreground p-2">
+                      {loadingStores ? "Fetching stores..." : "No stores found"}
+                    </p>
+                  ) : (
+                    filteredDbStores.map((s) => (
+                      <SelectItem key={s.id} value={String(s.id)}>
+                        {s.name} {s.number ? `(${s.number})` : ""}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              {shouldShowStoreError && (
+                <p className="text-xs text-destructive flex items-center gap-1 font-medium mt-1">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  {storeError}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
       <Button
         className="w-full flex items-center justify-center gap-2 mt-2 h-10 font-medium cursor-pointer"

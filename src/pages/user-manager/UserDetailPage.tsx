@@ -453,54 +453,294 @@ export default function UserDetailPage() {
           </CardContent>
         </Card>
       ) : (
-        <>
-          {/* Portal access */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-                <Layers className="h-4 w-4 text-primary" /> Portal Access
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              {Array.isArray(user.portalAccess) && user.portalAccess.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {user.portalAccess.map((pa: any, idx: number) => (
-                    <div
-                      key={pa.portalId}
-                      className={`rounded-lg border p-3 transition hover:shadow-sm ${portalTone(pa.portalName, idx)}`}
-                    >
-                      <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                        {pa.portalName}
-                      </div>
-                      <div className="font-semibold capitalize">{pa.roleName}</div>
-                    </div>
-                  ))}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+          {/* Left Column: Profile Card */}
+          <div className="lg:col-span-4 xl:col-span-3">
+            <Card className="border border-border/80 shadow-xs">
+              <CardContent className="p-6 flex flex-col items-center">
+                {/* Avatar Box (Peach/Apricot) */}
+                <div className="w-24 h-24 rounded-2xl flex items-center justify-center text-2xl font-bold bg-[#FCE1B6] text-[#78480D] dark:bg-[#78480D]/40 dark:text-[#FCE1B6] shadow-xs">
+                  {initials}
                 </div>
-              ) : (
-                <p className="text-xs italic text-muted-foreground">No portal access assigned</p>
-              )}
-            </CardContent>
-          </Card>
 
-          {/* Hierarchy sections */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Section icon={MapPin} title="States">
-              {(user.states ?? []).map((s: any) => chip(s.name, s.id))}
-            </Section>
-            <Section icon={MapIcon} title="Districts">
-              {(user.districts ?? []).map((s: any) => chip(s.name, s.id))}
-            </Section>
-            <Section icon={Store} title="Markets">
-              {(user.markets ?? []).map((s: any) => chip(s.name, s.id))}
-            </Section>
-            <Section icon={Store} title="Stores">
-              {(user.stores ?? []).map((s: any) => chip(s.name, s.id))}
-            </Section>
-            <Section icon={Home} title="Houses">
-              {(user.houses ?? []).map((s: any) => chip(s.name, s.id))}
-            </Section>
+                {/* Name & Subtitle */}
+                <h2 className="text-base font-bold text-foreground mt-3.5 text-center">
+                  {user.fullName || "—"}
+                </h2>
+                <p className="text-xs text-muted-foreground text-center mt-0.5">
+                  {user.department?.name || user.department || "Sales"}
+                </p>
+
+                {/* Status Badges */}
+                <div className="flex items-center justify-center gap-2 mt-3 flex-wrap">
+                  {user.active ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />{" "}
+                      Active
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
+                      <XCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" /> Inactive
+                    </span>
+                  )}
+
+                  {user.bypassTwoFactor ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
+                      <Shield className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" /> 2FA off
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200/80 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800">
+                      <Shield className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" /> 2FA on
+                    </span>
+                  )}
+                </div>
+
+                {/* Divider */}
+                <div className="w-full border-t border-border/70 my-5" />
+
+                {/* Meta details list */}
+                <div className="w-full space-y-3.5 text-xs">
+                  <div className="flex items-center gap-3 text-muted-foreground">
+                    <CreditCard className="w-4 h-4 shrink-0 text-slate-400 dark:text-slate-500" />
+                    <span className="font-semibold text-foreground tracking-wide">
+                      {user.ntid ||
+                        user.employeeId ||
+                        user.code ||
+                        user.username ||
+                        `USR${user.id}`}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-muted-foreground">
+                    <Phone className="w-4 h-4 shrink-0 text-slate-400 dark:text-slate-500" />
+                    <span className="text-foreground">{user.phone || "—"}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-muted-foreground">
+                    <Building2 className="w-4 h-4 shrink-0 text-slate-400 dark:text-slate-500" />
+                    <span className="text-foreground">
+                      {user.department?.name || user.department || "Sales"}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-        </>
+
+          {/* Right Column: Stacked Detail Cards */}
+          <div className="lg:col-span-8 xl:col-span-9 space-y-4">
+            {/* 1. Portal access card */}
+            <Card className="border border-border/80 shadow-xs">
+              <CardHeader className="pb-3 pt-4 px-5 flex flex-row items-center justify-between space-y-0">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                  <Layers className="h-4 w-4 text-blue-600 dark:text-blue-400" /> Portal access
+                </CardTitle>
+                <button
+                  type="button"
+                  className="text-muted-foreground hover:text-foreground p-1 rounded-md transition-colors"
+                  aria-label="More options"
+                >
+                  <span className="text-lg leading-none font-bold tracking-widest text-slate-400">
+                    ···
+                  </span>
+                </button>
+              </CardHeader>
+              <CardContent className="px-5 pb-5 pt-0">
+                {Array.isArray(user.portalAccess) && user.portalAccess.length > 0 ? (
+                  <div className="space-y-2.5">
+                    {user.portalAccess.map((pa: any) => (
+                      <div
+                        key={pa.portalId}
+                        className="rounded-xl border border-blue-200/80 bg-[#dbeafe]/60 dark:bg-blue-950/30 dark:border-blue-900/50 px-4 py-3 flex items-center justify-between"
+                      >
+                        <div>
+                          <div className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">
+                            PORTAL
+                          </div>
+                          <div className="text-sm font-bold text-slate-800 dark:text-slate-100 capitalize">
+                            {pa.portalName}
+                          </div>
+                        </div>
+                        <span className="inline-flex items-center px-4 py-1 rounded-full text-xs font-semibold bg-white text-slate-700 dark:bg-slate-900 dark:text-slate-200 shadow-xs border border-slate-100 dark:border-slate-800 capitalize">
+                          {pa.roleName || "User"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs italic text-muted-foreground">Nothing assigned</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 2. Coverage card */}
+            <Card className="border border-border/80 shadow-xs">
+              <CardHeader className="pb-3 pt-4 px-5 flex flex-row items-center justify-between space-y-0">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                  <div className="flex items-center justify-center">
+                    <span className="text-blue-600 dark:text-blue-400 font-bold text-sm">☍</span>
+                  </div>
+                  Coverage
+                </CardTitle>
+                <span className="text-xs text-muted-foreground font-normal">
+                  State · Market · District
+                </span>
+              </CardHeader>
+              <CardContent className="px-5 pb-5 pt-1">
+                <div className="space-y-0">
+                  {/* State row */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-full bg-[#1d4ed8] text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <MapPin className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300 w-14 shrink-0">
+                      State
+                    </span>
+                    <div className="flex flex-wrap gap-1.5 flex-1">
+                      {Array.isArray(user.states) && user.states.length > 0 ? (
+                        user.states.map((s: any) => (
+                          <span
+                            key={s.id}
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200"
+                          >
+                            {s.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Not assigned</span>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground font-normal ml-auto pl-2">
+                      {user.states?.length || 0}
+                    </span>
+                  </div>
+
+                  {/* Connected line between State and Market */}
+                  <div className="ml-3.5 w-0.5 h-4 border-l-2 border-dashed border-blue-400 dark:border-blue-700 my-0.5" />
+
+                  {/* Market row */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-full bg-[#1d4ed8] text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Store className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300 w-14 shrink-0">
+                      Market
+                    </span>
+                    <div className="flex flex-wrap gap-1.5 flex-1">
+                      {Array.isArray(user.markets) && user.markets.length > 0 ? (
+                        user.markets.map((m: any) => (
+                          <span
+                            key={m.id}
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200"
+                          >
+                            {m.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Not assigned</span>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground font-normal ml-auto pl-2">
+                      {user.markets?.length || 0}
+                    </span>
+                  </div>
+
+                  {/* Connected line between Market and District */}
+                  <div className="ml-3.5 w-0.5 h-4 border-l-2 border-dashed border-slate-300 dark:border-slate-700 my-0.5" />
+
+                  {/* District row */}
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+                        Array.isArray(user.districts) && user.districts.length > 0
+                          ? "bg-[#1d4ed8] text-white shadow-xs"
+                          : "border border-slate-300 dark:border-slate-700 bg-transparent text-slate-400"
+                      }`}
+                    >
+                      <MapIcon className="w-3.5 h-3.5" />
+                    </div>
+                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300 w-14 shrink-0">
+                      District
+                    </span>
+                    <div className="flex flex-wrap gap-1.5 flex-1">
+                      {Array.isArray(user.districts) && user.districts.length > 0 ? (
+                        user.districts.map((d: any) => (
+                          <span
+                            key={d.id}
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200"
+                          >
+                            {d.name}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Not assigned</span>
+                      )}
+                    </div>
+                    <span className="text-xs text-muted-foreground font-normal ml-auto pl-2">
+                      {user.districts?.length || 0}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* 3. Stores card */}
+            <Card className="border border-border/80 shadow-xs">
+              <CardHeader className="pb-3 pt-4 px-5 flex flex-row items-center justify-between space-y-0">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                  <Store className="h-4 w-4 text-blue-600 dark:text-blue-400" /> Stores
+                </CardTitle>
+                <span className="text-xs text-muted-foreground font-normal">
+                  {user.stores?.length || 0} assigned
+                </span>
+              </CardHeader>
+              <CardContent className="px-5 pb-5 pt-0">
+                {Array.isArray(user.stores) && user.stores.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {user.stores.map((st: any) => (
+                      <span
+                        key={st.id}
+                        className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-muted text-foreground border border-border"
+                      >
+                        {st.name || st.code || st.storeName}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Nothing assigned</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 4. House card */}
+            <Card className="border border-border/80 shadow-xs">
+              <CardHeader className="pb-3 pt-4 px-5 flex flex-row items-center justify-between space-y-0">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                  <Home className="h-4 w-4 text-blue-600 dark:text-blue-400" /> House
+                </CardTitle>
+                <span className="text-xs text-muted-foreground font-normal">
+                  {Array.isArray(user.houses) && user.houses.length > 1
+                    ? `${user.houses.length} assigned`
+                    : "Single"}
+                </span>
+              </CardHeader>
+              <CardContent className="px-5 pb-5 pt-0">
+                {Array.isArray(user.houses) && user.houses.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {user.houses.map((h: any) => (
+                      <span
+                        key={h.id}
+                        className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-muted text-foreground border border-border"
+                      >
+                        {h.name}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Nothing assigned</p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       )}
     </div>
   );
