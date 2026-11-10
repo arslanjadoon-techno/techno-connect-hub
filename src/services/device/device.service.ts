@@ -25,12 +25,12 @@ export class DeviceService {
     this.baseUrl =
       baseUrl ||
       (import.meta.env.VITE_DEVICE_API_URL as string | undefined) ||
-      "http://localhost:5001";
+      "https://misapis.active8wireless.com";
   }
 
   /**
    * Registers a hardware device for a designated portal user.
-   * Endpoint: POST http://localhost:5001/api/Device/AddDevice
+   * Endpoint: POST https://misapis.active8wireless.com/api/Device/AddDevice
    *
    * @param payload Device attributes including ID, portal name, credentials level, and employee name.
    */
@@ -46,20 +46,32 @@ export class DeviceService {
       employeeName: String(payload.employeeName || "").trim(),
     };
 
+    const headers: Record<string, string> = {
+      accept: "*/*",
+      "Content-Type": "application/json",
+    };
+
+    try {
+      const token = typeof window !== "undefined" ? window.localStorage.getItem("token") : null;
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+        headers["token"] = token;
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+
     let response: Response;
     try {
       response = await fetch(url, {
         method: "POST",
-        headers: {
-          accept: "*/*",
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify(requestBody),
       });
     } catch (networkError: unknown) {
       const err = networkError as Error;
       throw new Error(
-        `Unable to reach device service at ${url}. ${err?.message || "Please ensure the local service is running on port 5001."}`,
+        `Unable to reach device service at ${url}. ${err?.message || "Please check your network connection or verify service status."}`,
       );
     }
 
