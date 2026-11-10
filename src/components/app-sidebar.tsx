@@ -46,7 +46,9 @@ import {
   FolderKanban,
   Video,
   ClipboardCheck,
+  Smartphone,
 } from "lucide-react";
+import { canAccessAddDevices } from "@/lib/device-access";
 
 import {
   Sidebar,
@@ -889,6 +891,26 @@ export function AppSidebar() {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              {canAccessAddDevices(user?.email) && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isActive("/mis/add-devices")}
+                    tooltip="Add Devices"
+                  >
+                    <Link
+                      to="/mis/add-devices"
+                      onClick={() => {
+                        if (isMobile) setOpenMobile(false);
+                      }}
+                      className="flex items-center gap-2"
+                    >
+                      <Smartphone className="h-4 w-4" />
+                      {!collapsed && <span>Add Devices</span>}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

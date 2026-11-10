@@ -103,6 +103,8 @@ import CreatePermissionPage from "@/pages/user-manager/permissions/CreatePermiss
 import AssignPermissionsPage from "@/pages/user-manager/permissions/AssignPermissionsPage";
 import MisPrivacyPage from "@/pages/mis/MisPrivacyPage";
 import MisSupportPage from "@/pages/mis/MisSupportPage";
+import AddDevicesPage from "@/pages/mis/AddDevicesPage";
+import { canAccessAddDevices } from "@/lib/device-access";
 import NotFoundInApp from "@/pages/shell/NotFoundInApp";
 import ComingSoon from "@/pages/shell/ComingSoon";
 import ReportingApp from "./pages/portals/reporting/ReportingApp";
@@ -334,6 +336,14 @@ function RankerPortalGuard() {
       <RankerUserAccessModal isOpen={auth.isRankerUser} />
     </>
   );
+}
+
+function AddDevicesRouteGuard({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  if (!canAccessAddDevices(user?.email)) {
+    return <Navigate to="/ai-chat" replace />;
+  }
+  return <>{children}</>;
 }
 
 function NotFound() {
@@ -1009,6 +1019,15 @@ export function AppRoutes() {
         {/* MIS Information Routes */}
         <Route path="/mis/privacy" element={<MisPrivacyPage />} />
         <Route path="/mis/support" element={<MisSupportPage />} />
+        <Route
+          path="/mis/add-devices"
+          element={
+            <AddDevicesRouteGuard>
+              <AddDevicesPage />
+            </AddDevicesRouteGuard>
+          }
+        />
+        <Route path="/add-devices" element={<Navigate to="/mis/add-devices" replace />} />
         {/* Custom 404 page — keeps sidebar + header visible */}
         <Route path="*" element={<NotFoundInApp />} />
       </Route>
