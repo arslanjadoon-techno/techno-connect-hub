@@ -10,8 +10,8 @@
  */
 
 import { http } from "../../http";
-import { MARKET_API_PATHS } from "@/lib/config";
 import { MMKV } from "@/lib/mmkv-storage";
+import type { Store } from "@/lib/api/client";
 import type {
   SurveillanceRequest,
   SurveillanceReport,
@@ -49,6 +49,7 @@ const ACTIVE_SESSION_KEY = "active-session";
 let requestsCache: SurveillanceRequest[] | null = null;
 let reportsCache: SurveillanceReport[] | null = null;
 let marketsCache: SurveillanceMarketOption[] | null = null;
+let storesCache: Store[] | null = null;
 let validationQueueCache: SurveillanceValidationItem[] | null = null;
 
 export class SurveillanceService {
@@ -327,14 +328,25 @@ export class SurveillanceService {
     return validationQueueCache;
   }
 
-  async getMarkets(page = 0, size = 500, forceRefresh = false): Promise<SurveillanceMarketOption[]> {
+  // Scoped to the caller's assigned market(s)/district(s) - a Market Manager
+  // or plain Surveillance user only sees their own market(s), a District
+  // Manager only the market their district belongs to. Deliberately NOT
+  // /api/markets (that stays unscoped for the admin Market management page).
+  async getMarkets(forceRefresh = false): Promise<SurveillanceMarketOption[]> {
     if (!forceRefresh && marketsCache) return marketsCache;
-    const res = await http.get<SurveillanceMarketOption[]>(MARKET_API_PATHS.getAll, {
-      page,
-      size,
-    });
+    const res = await http.get<SurveillanceMarketOption[]>("/api/surveillance/markets");
     marketsCache = res.data || [];
     return marketsCache;
+  }
+
+  // Scoped the same way as getMarkets - a store is visible if it's in one of
+  // the caller's markets or their assigned district. Deliberately NOT
+  // /api/stores (that stays unscoped for the admin Store management page).
+  async getStores(forceRefresh = false): Promise<Store[]> {
+    if (!forceRefresh && storesCache) return storesCache;
+    const res = await http.get<Store[]>("/api/surveillance/stores");
+    storesCache = res.data || [];
+    return storesCache;
   }
 
   // With `search`, the DB query itself is narrowed by name/email server-side

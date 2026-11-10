@@ -59,7 +59,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { surveillanceService } from "@/services/portals/surveillance/surveillance.service";
-import { storesService } from "@/services/user-manager/stores.service";
 import type {
   SurveillanceRequest,
   SurveillanceReport,
@@ -236,14 +235,14 @@ export default function ReportRequestsPage() {
         .then(setReports)
         .catch((error) => toast.error(`Failed to load surveillance reports: ${(error as Error).message}`)),
       surveillanceService
-        .getMarkets(0, 500)
+        .getMarkets()
         .then(setMarketOptions)
         .catch((error) => toast.error(`Failed to load markets: ${(error as Error).message}`)),
-      storesService
-        .getAll({ size: 2000 })
-        .then((res) =>
+      surveillanceService
+        .getStores()
+        .then((stores) =>
           setStores(
-            (res.data || []).map((s) => ({
+            stores.map((s) => ({
               id: String(s.id),
               name: s.name,
               number: s.number || "",

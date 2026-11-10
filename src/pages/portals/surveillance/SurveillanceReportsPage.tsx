@@ -1678,7 +1678,7 @@ export default function SurveillanceReportsPage() {
 
   const reloadMarkets = async () => {
     try {
-      setMarketOptions(await surveillanceService.getMarkets(0, 500));
+      setMarketOptions(await surveillanceService.getMarkets());
     } catch (error) {
       toast.error(`Failed to load markets: ${(error as Error).message}`);
     }
