@@ -39,6 +39,7 @@ import {
   Store as StoreIcon,
   UserCheck,
   Users,
+  Video,
   X,
   XCircle,
 } from "lucide-react";
@@ -163,6 +164,67 @@ function formatCurrencySigned(amount: number): string {
   return amount < 0 ? `-$${absFormatted}` : `$${absFormatted}`;
 }
 
+function parseTimeToMinutes(timeStr: string | undefined): number | null {
+  if (!timeStr || !timeStr.trim()) return null;
+  const s = timeStr.trim();
+  const match = s.match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+  if (match) {
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const ampm = match[3]?.toUpperCase();
+    if (ampm === "PM" && hours < 12) hours += 12;
+    if (ampm === "AM" && hours === 12) hours = 0;
+    return hours * 60 + minutes;
+  }
+  return null;
+}
+
+function calculateElapsedMinutes(start: string | undefined, end: string | undefined): number {
+  const startMins = parseTimeToMinutes(start);
+  const endMins = parseTimeToMinutes(end);
+  if (startMins === null || endMins === null) return 0;
+  let diff = endMins - startMins;
+  if (diff < 0) {
+    diff += 24 * 60;
+  }
+  return diff;
+}
+
+function calculateCameraIntervalMinutes(t1?: string, t2?: string): number {
+  const m1 = parseTimeToMinutes(t1);
+  const m2 = parseTimeToMinutes(t2);
+  if (m1 === null || m2 === null) return 0;
+  let diff = Math.abs(m2 - m1);
+  if (diff > 12 * 60) {
+    diff = 24 * 60 - diff;
+  }
+  return diff;
+}
+
+function formatMinutesToDuration(totalMinutes: number): string {
+  if (totalMinutes <= 0) return "0 mins";
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  if (hours === 0) {
+    return `${mins} min${mins === 1 ? "" : "s"}`;
+  }
+  if (mins === 0) {
+    return `${hours} hr${hours === 1 ? "" : "s"}`;
+  }
+  return `${hours} hr${hours === 1 ? "" : "s"} ${mins} min${mins === 1 ? "" : "s"}`;
+}
+
+function calculateElapsedTime(
+  start: string | undefined,
+  end: string | undefined,
+  fallback?: string,
+): string {
+  if (fallback && fallback.trim() && fallback.trim() !== "—") return fallback.trim();
+  const mins = calculateElapsedMinutes(start, end);
+  if (mins <= 0 && (!start || !end || start === "—" || end === "—")) return "";
+  return formatMinutesToDuration(mins);
+}
+
 function isRowBuying(row: SurveillanceAuditRow): boolean {
   const ct = (row.clientType || "").trim().toLowerCase();
   if (ct === "buyer" || ct === "billable") return true;
@@ -226,6 +288,29 @@ interface MissOpportunityItem {
   description: string;
 }
 
+interface ProcessedRepTimingInterval {
+  start: string;
+  end: string;
+  duration: string;
+  durationMinutes: number;
+}
+
+interface ProcessedRepTimingLog {
+  repName: string;
+  intervals: ProcessedRepTimingInterval[];
+  totalMinutes: number;
+  totalTimeFormatted: string;
+}
+
+interface ProcessedCameraLog {
+  id: string;
+  cameraName: string;
+  onlineTime: string;
+  offlineTime: string;
+  duration: string;
+  durationMinutes: number;
+}
+
 interface ComputedSurveillanceSummary {
   dateDisplay: string;
   storeName: string;
@@ -248,8 +333,15 @@ interface ComputedSurveillanceSummary {
   complianceFlags: Array<{ label: string; notes: string[] }>;
   transactionNotes: string[];
   missOpportunities: MissOpportunityItem[];
-  repLeavingLogs: SurveillanceRepIntervalLog[];
-  backroomLogs: SurveillanceRepIntervalLog[];
+  repLeavingLogs: ProcessedRepTimingLog[];
+  overallStoreLeftMinutes: number;
+  overallStoreLeftFormatted: string;
+  backroomLogs: ProcessedRepTimingLog[];
+  overallBackroomMinutes: number;
+  overallBackroomFormatted: string;
+  cameraLogs: ProcessedCameraLog[];
+  totalCameraDurationMinutes: number;
+  totalCameraDurationFormatted: string;
   refundInvoices: string[];
   receiptBuyingCustomers: Array<{ invoice: string; status: string }>;
   accessoriesGivenBundles: string[];
@@ -259,6 +351,8 @@ interface ComputedSurveillanceSummary {
   safeLockerLink: string;
   generalOtherNotes: string;
   amountDifference: string;
+  numericDifference: number;
+  showReasonForDifference: boolean;
   reasonForDifference: string;
   qaName: string;
 }
@@ -282,8 +376,7 @@ function buildFallbackRowFromReport(report: SurveillanceReport): SurveillanceAud
     b: isBuyer ? "B" : "",
     invoiceAmount: report.invoiceAmount || "",
     totalTaken: report.totalTaken || "",
-    paymentType:
-      report.paymentMode === "Split" ? "Mix Payment" : report.paymentMode || "",
+    paymentType: report.paymentMode === "Split" ? "Mix Payment" : report.paymentMode || "",
     cash: report.paymentMode === "Cash" ? report.totalTaken : "",
     card: report.paymentMode === "Card" ? report.totalTaken : "",
     difference: report.difference || "$0.00",
@@ -379,9 +472,7 @@ function computeSummaryFromReport(
     const buying = groupRows.some((r) => isRowBuying(r));
     const closedNb =
       !buying &&
-      groupRows.some(
-        (r) => isMeaningfulText(r.bundleNb) || isAffirmative(r.bundleAccGiven),
-      );
+      groupRows.some((r) => isMeaningfulText(r.bundleNb) || isAffirmative(r.bundleAccGiven));
     const pitchedNb =
       !buying &&
       groupRows.some(
@@ -389,9 +480,8 @@ function computeSummaryFromReport(
       );
     const showedPhone = pitchedNb && groupRows.some((r) => isAffirmative(r.showingPhone));
     const qualityBucket =
-      groupRows
-        .map((r) => normalizePitchQualityBucket(r.pitchQuality))
-        .find((q) => q !== null) || null;
+      groupRows.map((r) => normalizePitchQualityBucket(r.pitchQuality)).find((q) => q !== null) ||
+      null;
     const accOffered = groupRows.some((r) => isAffirmative(r.accOffered));
     const notesList = groupRows
       .map((r) => (r.pitchNotes || "").trim())
@@ -538,14 +628,29 @@ function computeSummaryFromReport(
   // (even if marked Yes somewhere) is simply omitted.
   const complianceFlags: Array<{ label: string; notes: string[] }> = [
     { label: "Flipping", notes: collectFlagNotes(rawRows, "flipping", "flippingDetails") },
-    { label: "SmartPay", notes: collectFlagNotes(rawRows, "smartPayMentioned", "smartPayMentionedDetails") },
-    { label: "Payments Rejected", notes: collectFlagNotes(rawRows, "onlineRejectedPayment", "onlineRejectedPaymentDetails") },
+    {
+      label: "SmartPay",
+      notes: collectFlagNotes(rawRows, "smartPayMentioned", "smartPayMentionedDetails"),
+    },
+    {
+      label: "Payments Rejected",
+      notes: collectFlagNotes(rawRows, "onlineRejectedPayment", "onlineRejectedPaymentDetails"),
+    },
     { label: "AAL Swap", notes: collectFlagNotes(rawRows, "aalSwap", "aalSwapDetails") },
-    { label: "AAL Bill Same", notes: collectFlagNotes(rawRows, "aalBillSame", "aalBillSameDetails") },
+    {
+      label: "AAL Bill Same",
+      notes: collectFlagNotes(rawRows, "aalBillSame", "aalBillSameDetails"),
+    },
     { label: "Port IN", notes: collectFlagNotes(rawRows, "portIn", "portInDetails") },
     { label: "Magenta In Metro", notes: collectFlagNotes(rawRows, "mim", "mimDetails") },
-    { label: "Fraud Transaction", notes: collectFlagNotes(rawRows, "fraudTransactions", "fraudTransactionsDetails") },
-    { label: "Payment Fraud", notes: collectFlagNotes(rawRows, "paymentFraud", "paymentFraudDetails") },
+    {
+      label: "Fraud Transaction",
+      notes: collectFlagNotes(rawRows, "fraudTransactions", "fraudTransactionsDetails"),
+    },
+    {
+      label: "Payment Fraud",
+      notes: collectFlagNotes(rawRows, "paymentFraud", "paymentFraudDetails"),
+    },
     { label: "Non-Up", notes: collectFlagNotes(rawRows, "nonUp", "nonUpDetails") },
   ].filter((flag) => flag.notes.length > 0);
 
@@ -559,9 +664,7 @@ function computeSummaryFromReport(
         .split("/")
         .map((p) => p.trim())
         .filter(Boolean);
-      const hasDeviceType = transTypeParts.some((p) =>
-        ["Phone", "Tablet", "HINT"].includes(p),
-      );
+      const hasDeviceType = transTypeParts.some((p) => ["Phone", "Tablet", "HINT"].includes(p));
       return isRowBuying(r) && transTypeParts.length > 0 && !hasDeviceType;
     })
     .map((r) => (r.notes || "").trim())
@@ -578,28 +681,71 @@ function computeSummaryFromReport(
     }));
 
   // Floor Presence: Reps Leaving Store & Backroom In & Out
-  const repLeavingLogs: SurveillanceRepIntervalLog[] = (() => {
+  const processRepTimingLogs = (
+    rawIntervalLogs: Array<{
+      repName: string;
+      intervals: Array<{ start: string; end: string; duration?: string }>;
+    }>,
+  ): {
+    logs: ProcessedRepTimingLog[];
+    overallMinutes: number;
+    overallFormatted: string;
+  } => {
+    let overallMinutes = 0;
+    const logs: ProcessedRepTimingLog[] = rawIntervalLogs.map((log) => {
+      let repMinutes = 0;
+      const intervals: ProcessedRepTimingInterval[] = log.intervals.map((iv) => {
+        const mins = calculateElapsedMinutes(iv.start, iv.end);
+        const duration = calculateElapsedTime(iv.start, iv.end, iv.duration);
+        repMinutes += mins;
+        return {
+          start: iv.start,
+          end: iv.end,
+          duration,
+          durationMinutes: mins,
+        };
+      });
+      overallMinutes += repMinutes;
+      return {
+        repName: log.repName,
+        intervals,
+        totalMinutes: repMinutes,
+        totalTimeFormatted: formatMinutesToDuration(repMinutes),
+      };
+    });
+
+    return {
+      logs,
+      overallMinutes,
+      overallFormatted: formatMinutesToDuration(overallMinutes),
+    };
+  };
+
+  const rawRepLeavingLogs: Array<{
+    repName: string;
+    intervals: Array<{ start: string; end: string; duration?: string }>;
+  }> = (() => {
     if (meta.repLeavingLogs && meta.repLeavingLogs.length > 0) {
       return meta.repLeavingLogs;
     }
     if (report.repTimings && report.repTimings.length > 0) {
-      const map = new Map<string, Array<{ start: string; end: string }>>();
+      const map = new Map<string, Array<{ start: string; end: string; duration?: string }>>();
       report.repTimings
         .filter((t) => t.timingType !== "Back Room")
         .forEach((t) => {
-        const left = (t.timeIn || "").trim();
-        const ret = (t.timeOut || "").trim();
-        if (!isMeaningfulText(left) && !isMeaningfulText(ret)) return;
-        const rep = (isMeaningfulText(t.repName) ? t.repName! : "Representative").trim();
-        const list = map.get(rep) || [];
-        list.push({ start: left || "—", end: ret || "—" });
-        map.set(rep, list);
-      });
+          const left = (t.timeIn || "").trim();
+          const ret = (t.timeOut || "").trim();
+          if (!isMeaningfulText(left) && !isMeaningfulText(ret)) return;
+          const rep = (isMeaningfulText(t.repName) ? t.repName! : "Representative").trim();
+          const list = map.get(rep) || [];
+          list.push({ start: left || "—", end: ret || "—", duration: t.totalTime });
+          map.set(rep, list);
+        });
       if (map.size > 0) {
         return Array.from(map.entries()).map(([repName, intervals]) => ({ repName, intervals }));
       }
     }
-    const map = new Map<string, Array<{ start: string; end: string }>>();
+    const map = new Map<string, Array<{ start: string; end: string; duration?: string }>>();
     rawRows.forEach((r) => {
       const left = (r.timeLeft || "").trim();
       const ret = (r.timeReturned || "").trim();
@@ -614,28 +760,37 @@ function computeSummaryFromReport(
     return Array.from(map.entries()).map(([repName, intervals]) => ({ repName, intervals }));
   })();
 
-  const backroomLogs: SurveillanceRepIntervalLog[] = (() => {
+  const {
+    logs: repLeavingLogs,
+    overallMinutes: overallStoreLeftMinutes,
+    overallFormatted: overallStoreLeftFormatted,
+  } = processRepTimingLogs(rawRepLeavingLogs);
+
+  const rawBackroomLogs: Array<{
+    repName: string;
+    intervals: Array<{ start: string; end: string; duration?: string }>;
+  }> = (() => {
     if (meta.backroomLogs && meta.backroomLogs.length > 0) {
       return meta.backroomLogs;
     }
     if (report.repTimings && report.repTimings.length > 0) {
-      const map = new Map<string, Array<{ start: string; end: string }>>();
+      const map = new Map<string, Array<{ start: string; end: string; duration?: string }>>();
       report.repTimings
         .filter((t) => t.timingType === "Back Room")
         .forEach((t) => {
-        const timeIn = (t.timeIn || "").trim();
-        const timeOut = (t.timeOut || "").trim();
-        if (!isMeaningfulText(timeIn) && !isMeaningfulText(timeOut)) return;
-        const rep = (isMeaningfulText(t.repName) ? t.repName! : "Representative").trim();
-        const list = map.get(rep) || [];
-        list.push({ start: timeIn || "—", end: timeOut || "—" });
-        map.set(rep, list);
-      });
+          const timeIn = (t.timeIn || "").trim();
+          const timeOut = (t.timeOut || "").trim();
+          if (!isMeaningfulText(timeIn) && !isMeaningfulText(timeOut)) return;
+          const rep = (isMeaningfulText(t.repName) ? t.repName! : "Representative").trim();
+          const list = map.get(rep) || [];
+          list.push({ start: timeIn || "—", end: timeOut || "—", duration: t.totalTime });
+          map.set(rep, list);
+        });
       if (map.size > 0) {
         return Array.from(map.entries()).map(([repName, intervals]) => ({ repName, intervals }));
       }
     }
-    const map = new Map<string, Array<{ start: string; end: string }>>();
+    const map = new Map<string, Array<{ start: string; end: string; duration?: string }>>();
     rawRows.forEach((r) => {
       const timeIn = (r.backRoomTimeIn || "").trim();
       const timeOut = (r.backRoomTimeOut || "").trim();
@@ -649,6 +804,48 @@ function computeSummaryFromReport(
     });
     return Array.from(map.entries()).map(([repName, intervals]) => ({ repName, intervals }));
   })();
+
+  const {
+    logs: backroomLogs,
+    overallMinutes: overallBackroomMinutes,
+    overallFormatted: overallBackroomFormatted,
+  } = processRepTimingLogs(rawBackroomLogs);
+
+  // Camera Activity (On / Offline)
+  const rawCameraLogs = (() => {
+    if (report.cameraLogs && report.cameraLogs.length > 0) {
+      return report.cameraLogs;
+    }
+    const metaCameras = (meta as any).cameraLogs || (meta as any).cameraUptimeRows;
+    if (Array.isArray(metaCameras) && metaCameras.length > 0) {
+      return metaCameras;
+    }
+    return [];
+  })();
+
+  let totalCameraMinutes = 0;
+  const cameraLogs: ProcessedCameraLog[] = [];
+  rawCameraLogs.forEach((c: any, index: number) => {
+    const name = (c.cameraName || "").trim();
+    const online = (c.onlineTime || "").trim();
+    const offline = (c.offlineTime || "").trim();
+    if (!name && !online && !offline) return;
+
+    let mins = 0;
+    if (online && offline && online !== "—" && offline !== "—") {
+      mins = calculateCameraIntervalMinutes(online, offline);
+    }
+    totalCameraMinutes += mins;
+    cameraLogs.push({
+      id: c.id || `cam-${index}`,
+      cameraName: name || `Camera #${index + 1}`,
+      onlineTime: online || "—",
+      offlineTime: offline || "—",
+      duration: mins > 0 ? formatMinutesToDuration(mins) : "",
+      durationMinutes: mins,
+    });
+  });
+  const totalCameraDurationFormatted = formatMinutesToDuration(totalCameraMinutes);
 
   // Refund Invoices, Receipt Buying Customers, Accessories Given Bundle Customer
   const refundInvoices = Array.from(
@@ -686,12 +883,12 @@ function computeSummaryFromReport(
   );
 
   // Net Amount Difference
-  const netDiffNumeric = rawRows.reduce(
-    (sum, r) => sum + parseCurrencyDifference(r.difference),
-    0,
-  );
-  const amountDifference =
-    meta.amountDifferenceOverride || formatCurrencySigned(netDiffNumeric);
+  const netDiffNumeric = rawRows.reduce((sum, r) => sum + parseCurrencyDifference(r.difference), 0);
+  const amountDifference = meta.amountDifferenceOverride || formatCurrencySigned(netDiffNumeric);
+
+  const numericDifference = Math.abs(parseCurrencyDifference(amountDifference) || netDiffNumeric);
+  // Show Reason for Difference ONLY when the difference is strictly greater than $5
+  const showReasonForDifference = numericDifference > 5;
 
   const reasonForDifference =
     meta.reasonForDifference ||
@@ -722,7 +919,14 @@ function computeSummaryFromReport(
     transactionNotes,
     missOpportunities,
     repLeavingLogs,
+    overallStoreLeftMinutes,
+    overallStoreLeftFormatted,
     backroomLogs,
+    overallBackroomMinutes,
+    overallBackroomFormatted,
+    cameraLogs,
+    totalCameraDurationMinutes: totalCameraMinutes,
+    totalCameraDurationFormatted,
     refundInvoices,
     receiptBuyingCustomers,
     accessoriesGivenBundles,
@@ -733,12 +937,12 @@ function computeSummaryFromReport(
     generalOtherNotes:
       meta.generalOtherNotes || (isMeaningfulText(report.notes) ? report.notes!.trim() : "No"),
     amountDifference,
+    numericDifference,
+    showReasonForDifference,
     reasonForDifference,
     qaName: meta.qaName || report.investigatorName || linkedRequest?.preparedBy || "—",
   };
 }
-
-
 
 function FlagStatusPill({ value }: { value: "Yes" | "No" }) {
   const isYes = value === "Yes";
@@ -1032,7 +1236,8 @@ export default function RequestedSurveillanceSummaryPage() {
             </div>
             {report.reviewedBy && (
               <span className="text-xs text-muted-foreground">
-                Rejected by <strong className="font-semibold text-foreground">{report.reviewedBy}</strong>
+                Rejected by{" "}
+                <strong className="font-semibold text-foreground">{report.reviewedBy}</strong>
                 {report.reviewedAt ? ` on ${report.reviewedAt}` : ""}
               </span>
             )}
@@ -1258,9 +1463,7 @@ export default function RequestedSurveillanceSummaryPage() {
           <div className="flex items-center justify-between border-b border-border/60 pb-3.5">
             <div className="flex items-center gap-2.5">
               <Sparkles className="h-4 w-4 text-violet-600 dark:text-violet-400" />
-              <h2 className="font-display text-base font-bold text-foreground">
-                Pitch Non-Buying
-              </h2>
+              <h2 className="font-display text-base font-bold text-foreground">Pitch Non-Buying</h2>
             </div>
             <span className="text-2xl font-bold font-display text-violet-600 dark:text-violet-400 tabular-nums">
               {padTwo(summary.totalPitchNonBuying)}
@@ -1615,11 +1818,21 @@ export default function RequestedSurveillanceSummaryPage() {
       {/* 7. Floor Presence: Reps Leaving Store & Backroom In & Out */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         <Card className="p-6 rounded-2xl border-border/70 shadow-xs space-y-4">
-          <div className="flex items-center gap-2.5 border-b border-border/60 pb-3">
-            <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <h2 className="font-display text-base font-bold text-foreground">
-              Reps Leaving Store
-            </h2>
+          <div className="flex items-center justify-between border-b border-border/60 pb-3">
+            <div className="flex items-center gap-2.5">
+              <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <h2 className="font-display text-base font-bold text-foreground">
+                Reps Leaving Store
+              </h2>
+            </div>
+            {summary.repLeavingLogs.length > 0 && summary.overallStoreLeftMinutes > 0 && (
+              <Badge
+                variant="secondary"
+                className="font-semibold text-xs tabular-nums bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800/60"
+              >
+                Total Time: {summary.overallStoreLeftFormatted}
+              </Badge>
+            )}
           </div>
 
           {summary.repLeavingLogs.length === 0 ? (
@@ -1631,19 +1844,31 @@ export default function RequestedSurveillanceSummaryPage() {
                   key={`leave-${log.repName}`}
                   className="rounded-xl border border-border/60 bg-muted/20 p-3.5 space-y-2"
                 >
-                  <div className="text-xs font-semibold text-foreground">
-                    Rep Name:{" "}
-                    <span className="text-blue-600 dark:text-blue-400">{log.repName}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs font-semibold text-foreground">
+                      Rep Name:{" "}
+                      <span className="text-blue-600 dark:text-blue-400">{log.repName}</span>
+                    </div>
+                    {log.totalMinutes > 0 && (
+                      <span className="text-xs font-semibold text-muted-foreground tabular-nums">
+                        Total: <span className="text-foreground">{log.totalTimeFormatted}</span>
+                      </span>
+                    )}
                   </div>
                   <div className="space-y-1.5 text-xs tabular-nums">
                     {log.intervals.map((iv, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between rounded-lg bg-background px-3 py-1.5 border border-border/50"
+                        className="flex items-center justify-between rounded-lg bg-background px-3 py-1.5 border border-border/50 text-xs tabular-nums"
                       >
                         <span className="font-medium text-foreground">* {iv.start}</span>
-                        <span className="text-muted-foreground">to</span>
+                        <span className="text-muted-foreground text-[11px]">to</span>
                         <span className="font-medium text-foreground">{iv.end}</span>
+                        {iv.duration && iv.durationMinutes > 0 && (
+                          <span className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded border border-blue-200/50 dark:border-blue-900/50">
+                            {iv.duration}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1654,11 +1879,21 @@ export default function RequestedSurveillanceSummaryPage() {
         </Card>
 
         <Card className="p-6 rounded-2xl border-border/70 shadow-xs space-y-4">
-          <div className="flex items-center gap-2.5 border-b border-border/60 pb-3">
-            <Clock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-            <h2 className="font-display text-base font-bold text-foreground">
-              Backroom In &amp; Out
-            </h2>
+          <div className="flex items-center justify-between border-b border-border/60 pb-3">
+            <div className="flex items-center gap-2.5">
+              <Clock className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+              <h2 className="font-display text-base font-bold text-foreground">
+                Backroom In &amp; Out
+              </h2>
+            </div>
+            {summary.backroomLogs.length > 0 && summary.overallBackroomMinutes > 0 && (
+              <Badge
+                variant="secondary"
+                className="font-semibold text-xs tabular-nums bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800/60"
+              >
+                Total Time: {summary.overallBackroomFormatted}
+              </Badge>
+            )}
           </div>
 
           {summary.backroomLogs.length === 0 ? (
@@ -1670,19 +1905,31 @@ export default function RequestedSurveillanceSummaryPage() {
                   key={`back-${log.repName}`}
                   className="rounded-xl border border-border/60 bg-muted/20 p-3.5 space-y-2"
                 >
-                  <div className="text-xs font-semibold text-foreground">
-                    Rep Name:{" "}
-                    <span className="text-indigo-600 dark:text-indigo-400">{log.repName}</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs font-semibold text-foreground">
+                      Rep Name:{" "}
+                      <span className="text-indigo-600 dark:text-indigo-400">{log.repName}</span>
+                    </div>
+                    {log.totalMinutes > 0 && (
+                      <span className="text-xs font-semibold text-muted-foreground tabular-nums">
+                        Total: <span className="text-foreground">{log.totalTimeFormatted}</span>
+                      </span>
+                    )}
                   </div>
                   <div className="space-y-1.5 text-xs tabular-nums">
                     {log.intervals.map((iv, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between rounded-lg bg-background px-3 py-1.5 border border-border/50"
+                        className="flex items-center justify-between rounded-lg bg-background px-3 py-1.5 border border-border/50 text-xs tabular-nums"
                       >
                         <span className="font-medium text-foreground">* {iv.start}</span>
-                        <span className="text-muted-foreground">to</span>
+                        <span className="text-muted-foreground text-[11px]">to</span>
                         <span className="font-medium text-foreground">{iv.end}</span>
+                        {iv.duration && iv.durationMinutes > 0 && (
+                          <span className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded border border-indigo-200/50 dark:border-indigo-900/50">
+                            {iv.duration}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1692,6 +1939,65 @@ export default function RequestedSurveillanceSummaryPage() {
           )}
         </Card>
       </div>
+
+      {/* 8. Camera Activity (On / Offline) - rendered when available */}
+      {summary.cameraLogs.length > 0 && (
+        <Card className="p-6 rounded-2xl border-border/70 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-border/60 pb-3">
+            <div className="flex items-center gap-2.5">
+              <Video className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              <h2 className="font-display text-base font-bold text-foreground">
+                Camera Activity (On / Offline)
+              </h2>
+            </div>
+            {summary.totalCameraDurationMinutes > 0 && (
+              <Badge
+                variant="secondary"
+                className="font-semibold text-xs tabular-nums bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/40 dark:text-purple-300 dark:border-purple-800/60"
+              >
+                Total Duration: {summary.totalCameraDurationFormatted}
+              </Badge>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {summary.cameraLogs.map((cam) => (
+              <div
+                key={cam.id}
+                className="rounded-xl border border-border/60 bg-muted/20 p-3.5 space-y-2.5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className="text-xs font-semibold text-foreground truncate"
+                    title={cam.cameraName}
+                  >
+                    {cam.cameraName}
+                  </span>
+                  {cam.duration && cam.durationMinutes > 0 && (
+                    <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded border border-purple-200/50 dark:border-purple-900/50 tabular-nums shrink-0">
+                      {cam.duration}
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs tabular-nums">
+                  <div className="rounded-lg bg-background p-2 border border-border/50 space-y-0.5">
+                    <div className="text-[10px] uppercase font-semibold text-emerald-600 dark:text-emerald-400">
+                      Online Time
+                    </div>
+                    <div className="font-medium text-foreground">{cam.onlineTime}</div>
+                  </div>
+                  <div className="rounded-lg bg-background p-2 border border-border/50 space-y-0.5">
+                    <div className="text-[10px] uppercase font-semibold text-rose-600 dark:text-rose-400">
+                      Offline Time
+                    </div>
+                    <div className="font-medium text-foreground">{cam.offlineTime}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {/* 9. Receipts, Refunds, Security Visibility, Variance & QA Sign-Off */}
       <Card className="p-6 rounded-2xl border-border/70 shadow-xs space-y-5">
@@ -1800,11 +2106,13 @@ export default function RequestedSurveillanceSummaryPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 text-xs pt-1">
+        <div
+          className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${
+            summary.showReasonForDifference ? "lg:grid-cols-4" : "lg:grid-cols-3"
+          } text-xs pt-1`}
+        >
           <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-1">
-            <div className="text-[11px] font-medium text-muted-foreground">
-              General Other Notes
-            </div>
+            <div className="text-[11px] font-medium text-muted-foreground">General Other Notes</div>
             <div className="font-semibold text-foreground">{summary.generalOtherNotes}</div>
           </div>
 
@@ -1821,12 +2129,14 @@ export default function RequestedSurveillanceSummaryPage() {
             </div>
           </div>
 
-          <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-1">
-            <div className="text-[11px] font-medium text-muted-foreground">
-              Reason for Difference
+          {summary.showReasonForDifference && (
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-1">
+              <div className="text-[11px] font-medium text-muted-foreground">
+                Reason for Difference
+              </div>
+              <div className="font-semibold text-foreground">{summary.reasonForDifference}</div>
             </div>
-            <div className="font-semibold text-foreground">{summary.reasonForDifference}</div>
-          </div>
+          )}
 
           <div className="rounded-xl border border-blue-200/80 bg-blue-50/50 dark:border-blue-900/50 dark:bg-blue-950/25 p-4 space-y-1">
             <div className="text-[11px] font-medium text-blue-700 dark:text-blue-300">QA</div>
@@ -1915,7 +2225,8 @@ export default function RequestedSurveillanceSummaryPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Report Completion</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to mark this surveillance audit report as Completed? Once completed, this report will be finalized and made visible on the requester dashboard.
+              Are you sure you want to mark this surveillance audit report as Completed? Once
+              completed, this report will be finalized and made visible on the requester dashboard.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
