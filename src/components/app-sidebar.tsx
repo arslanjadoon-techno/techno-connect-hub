@@ -914,11 +914,11 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border/60 py-2.5 px-3">
         <div className="flex items-center justify-center select-none tracking-tight">
           {collapsed ? (
-            <span title="Version 3.1.9" className="text-[10px]">
-              v3.1.9
+            <span title="Version 3.2.1" className="text-[10px]">
+              v3.2.1
             </span>
           ) : (
-            <span className="text-[14px] text-white font-medium">Version - 3.1.9</span>
+            <span className="text-[14px] text-white font-medium">Version - 3.2.1</span>
           )}
         </div>
       </SidebarFooter>
