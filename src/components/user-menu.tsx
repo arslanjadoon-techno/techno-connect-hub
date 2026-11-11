@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   LogOut,
@@ -25,6 +25,7 @@ import { usersApi } from "@/lib/api/client";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getImageUrl } from "@/pages/team-chat/chatHealper";
+import { getSurveillanceRole } from "@/services/portals/surveillance/types";
 
 function readStoredUser(): Record<string, any> | null {
   if (typeof window === "undefined") return null;
@@ -37,27 +38,140 @@ function readStoredUser(): Record<string, any> | null {
   }
 }
 
+function detectPortalFromPath(pathname: string): string | null {
+  const normPath = String(pathname || "").toLowerCase();
+  const first = normPath.split("/")[1] || "";
+
+  if (first === "commission") return "commission";
+  if (first === "leasing" || first === "lease") return "leasing";
+  if (first === "ranker") return "ranker";
+  if (first === "ticketing") return "ticketing";
+  if (first === "surveillance") return "surveillance";
+  if (first === "leave" || first === "attendance") return "leave";
+  if (first === "scheduling") return "scheduling";
+  if (first === "reporting") return "reporting";
+  if (first === "chat" || first === "ai-chat") return "chat";
+  if (first === "admin" || first === "user-manager") return "admin";
+  if (first === "otp") return "otp";
+  if (first === "mis") return "mis";
+
+  return null;
+}
+
+function findPortalAccessEntry(portalKey: string, portalAccess: any[]): any {
+  if (!Array.isArray(portalAccess) || portalAccess.length === 0) return null;
+
+  const norm = (s: string) =>
+    String(s || "")
+      .toLowerCase()
+      .replace(/[\s_-]/g, "");
+
+  const target = norm(portalKey);
+
+  // 1. Direct normalized match
+  let found = portalAccess.find((p: any) => norm(p?.portalName || p?.name || "") === target);
+  if (found) return found;
+
+  // 2. Domain matching
+  found = portalAccess.find((p: any) => {
+    const pn = norm(p?.portalName || p?.name || "");
+    if (!pn) return false;
+
+    if (target === "commission") return pn.includes("commiss");
+    if (target === "leasing") return pn.includes("leas") || pn.includes("rent");
+    if (target === "ranker") return pn.includes("rank");
+    if (target === "ticketing") return pn.includes("ticket");
+    if (target === "surveillance") return pn.includes("surveil");
+    if (target === "leave") return pn.includes("leave") || pn.includes("attendance");
+    if (target === "scheduling") return pn.includes("schedul") || pn.includes("attendance");
+    if (target === "reporting") return pn.includes("report");
+    if (target === "chat") return pn.includes("chat") || pn.includes("team");
+    if (target === "admin") return pn.includes("admin") || pn.includes("user") || pn.includes("management");
+    if (target === "otp") return pn.includes("otp") || pn.includes("manager") || pn.includes("backoffice");
+
+    return pn.includes(target) || target.includes(pn);
+  });
+
+  return found || null;
+}
+
 function getCurrentPortalRole(user: any, pathname: string): string {
-  if (!user || !Array.isArray(user.portalAccess)) return "—";
-  const currentPortal = pathname.split("/")[1]?.toLowerCase();
+  if (!user) return "—";
+
+  const accessList: any[] = Array.isArray(user.portalAccess) ? user.portalAccess : [];
+  const currentPortal = detectPortalFromPath(pathname);
+
   if (currentPortal) {
-    const access = user.portalAccess.find(
-      (p: any) => p.portalName?.toLowerCase() === currentPortal,
-    );
-    if (access?.roleName) return access.roleName;
+    try {
+      if (typeof window !== "undefined") {
+        window.sessionStorage.setItem("mis_last_active_portal", currentPortal);
+      }
+    } catch {
+      /* ignore */
+    }
+
+    if (currentPortal === "surveillance") {
+      const survRole = getSurveillanceRole(user);
+      if (survRole && survRole !== "other") {
+        return survRole;
+      }
+    }
+
+    const access = findPortalAccessEntry(currentPortal, accessList);
+    const roleName =
+      access?.roleName ||
+      access?.role?.name ||
+      (typeof access?.role === "string" ? access.role : undefined);
+    if (roleName) return roleName;
+  } else {
+    try {
+      if (typeof window !== "undefined") {
+        const lastPortal = window.sessionStorage.getItem("mis_last_active_portal");
+        if (lastPortal) {
+          if (lastPortal === "surveillance") {
+            const survRole = getSurveillanceRole(user);
+            if (survRole && survRole !== "other") return survRole;
+          }
+          const access = findPortalAccessEntry(lastPortal, accessList);
+          const roleName =
+            access?.roleName ||
+            access?.role?.name ||
+            (typeof access?.role === "string" ? access.role : undefined);
+          if (roleName) return roleName;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
   }
-  if (user.portalAccess.length > 0) return user.portalAccess[0].roleName;
-  return "—";
+
+  // Fallbacks:
+  if (accessList.length > 0 && accessList[0]?.roleName) {
+    return accessList[0].roleName;
+  }
+
+  return (
+    user.roleName ||
+    user.rawRoleName ||
+    user.role?.name ||
+    (typeof user.role === "string" ? user.role : "") ||
+    "—"
+  );
 }
 
 function formatRoleName(roleStr: string): string {
-  if (!roleStr) return "—";
+  if (!roleStr || roleStr === "—") return "—";
+  const upperAcronyms = new Set(["QA", "HR", "IT", "SDR", "OTP", "CEO", "CTO", "COO", "MIS"]);
   let spaced = roleStr.replace(/([A-Z])/g, " $1").replace(/_/g, " ");
   spaced = spaced.replace(/(?<!\s)(manager)/i, " Manager");
   return spaced
     .trim()
     .split(/\s+/)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .map((w) => {
+      const up = w.toUpperCase();
+      if (upperAcronyms.has(up)) return up;
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    })
     .join(" ");
 }
 
@@ -117,8 +231,28 @@ export function UserMenu() {
     };
   }, [authUser?.id, storedUser?.id]);
 
-  const user = storedUser || (authUser as Record<string, any> | null);
-  if (!user) return null;
+  const user = useMemo(() => {
+    const raw = readStoredUser();
+    const merged = {
+      ...(raw || {}),
+      ...(authUser || {}),
+      ...(storedUser || {}),
+    };
+    const accessList =
+      Array.isArray(storedUser?.portalAccess) && storedUser.portalAccess.length > 0
+        ? storedUser.portalAccess
+        : Array.isArray(authUser?.portalAccess) && authUser.portalAccess.length > 0
+          ? authUser.portalAccess
+          : Array.isArray(raw?.portalAccess) && raw.portalAccess.length > 0
+            ? raw.portalAccess
+            : [];
+    return {
+      ...merged,
+      portalAccess: accessList,
+    };
+  }, [authUser, storedUser]);
+
+  if (!user || (!user.id && !user.fullName && !user.email)) return null;
 
   const rawRole = getCurrentPortalRole(user, pathname);
   const formattedRole = formatRoleName(rawRole);
@@ -204,6 +338,9 @@ export function UserMenu() {
         <DropdownMenuLabel className="space-y-0.5">
           <div className="text-sm font-medium">{user.fullName}</div>
           <div className="text-xs font-normal text-muted-foreground">{user.email}</div>
+          <div className="text-[11px] font-semibold text-amber-600 dark:text-amber-400 pt-0.5">
+            {formattedRole}
+          </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <div className="px-2.5 py-2">

@@ -428,7 +428,8 @@ function getCurrentPortalRole(user: any, pathname: string): string {
     String(s || "")
       .toLowerCase()
       .replace(/[\s_-]/g, "");
-  const currentPortal = norm(pathname.split("/")[1] || "");
+  const first = norm(pathname.split("/")[1] || "");
+  const currentPortal = first === "lease" ? "leasing" : first;
 
   if (currentPortal && Array.isArray(user.portalAccess)) {
     const access = user.portalAccess.find((p: any) => {
@@ -442,7 +443,10 @@ function getCurrentPortalRole(user: any, pathname: string): string {
         (currentPortal === "surveillance" && (pn.includes("surveil") || pn === "surveillance")) ||
         (currentPortal === "leasing" && pn.includes("leas")) ||
         (currentPortal === "ranker" && pn.includes("rank")) ||
-        (currentPortal === "reporting" && pn.includes("report"))
+        (currentPortal === "reporting" && pn.includes("report")) ||
+        (currentPortal === "chat" && (pn.includes("chat") || pn.includes("team"))) ||
+        (currentPortal === "admin" &&
+          (pn.includes("admin") || pn.includes("user") || pn.includes("management")))
       );
     });
     if (access?.roleName) {
@@ -658,9 +662,11 @@ export function AppSidebar() {
     }
 
     // Surveillance Portal Role-Wise Categorization:
-    // - admin, marketManager, districtManager, SurveillanceManager, manager, stateManager, storeManager: Request Reports + Validate and Assign + Submit Report (all 3 pages)
-    // - user, SurveillanceAgent: Submit Report only
-    // - All other roles (backoffice, rep, trainer, etc.): No Access (/surveillance/no-access)
+    // - admin: Request Reports + Validate and Assign + Submit Report (all 3 pages)
+    // - surveillance_manager: Request Reports + Validate and Assign (2 pages)
+    // - state_manager, market_manager, district_manager: Request Reports only (1 page)
+    // - surveillance_agent: Submit Report only (1 page)
+    // - All other roles: No Access (/surveillance/no-access)
     if (key === "surveillance") {
       const survRole = getSurveillanceRole(user);
       const filteredItems = master.items.filter((i) => {

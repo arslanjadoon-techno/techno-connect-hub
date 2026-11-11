@@ -764,7 +764,7 @@ export default function RequestedSurveillanceSummaryPage() {
 
   if (
     !isFromValidateAndAssign &&
-    (role === "market_manager" || role === "district_manager") &&
+    (role === "market_manager" || role === "district_manager" || role === "state_manager") &&
     report.status !== "Approved"
   ) {
     return (
