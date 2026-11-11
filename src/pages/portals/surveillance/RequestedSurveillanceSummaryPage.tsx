@@ -5,7 +5,28 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
   ArrowLeft,
+  Check,
   CheckCircle2,
   Clock,
   Download,
@@ -18,9 +39,12 @@ import {
   Store as StoreIcon,
   UserCheck,
   Users,
+  X,
   XCircle,
 } from "lucide-react";
+import { toast } from "sonner";
 import {
+  canApproveSurveillance,
   getSurveillanceRole,
   type SurveillanceAuditRow,
   type SurveillanceBadPitchItem,
@@ -30,6 +54,35 @@ import {
 } from "@/services/portals/surveillance";
 import { surveillanceService } from "@/services/portals/surveillance/surveillance.service";
 import { SurveillanceSummaryPageSkeleton } from "./SurveillanceSkeletons";
+
+function renderTextWithLinks(text: string) {
+  if (!text) return null;
+  const parts = text.split(/(https?:\/\/[^\s]+|www\.[^\s]+)/g);
+
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (/^(https?:\/\/|www\.)/i.test(part)) {
+          const href = /^https?:\/\//i.test(part) ? part : `https://${part}`;
+          return (
+            <a
+              key={i}
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline font-medium break-all"
+            >
+              <span>{part}</span>
+              <ExternalLink className="h-3 w-3 inline shrink-0" />
+            </a>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
+}
 
 function padTwo(num: number): string {
   if (num < 0) return String(num);
@@ -714,6 +767,74 @@ export default function RequestedSurveillanceSummaryPage() {
   const [linkedRequest, setLinkedRequest] = useState<SurveillanceRequest | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const userRole = getSurveillanceRole(user);
+  const canReviewReport = canApproveSurveillance(userRole);
+  const isReportFinalized = report?.status === "Approved" || report?.status === "Rejected";
+  const canTakeReviewAction = Boolean(report) && canReviewReport && !isReportFinalized;
+
+  const [declineModalOpen, setDeclineModalOpen] = useState(false);
+  const [declineReason, setDeclineReason] = useState<string>("");
+  const [completeModalOpen, setCompleteModalOpen] = useState(false);
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  const handleConfirmMarkAsCompleted = async () => {
+    if (!report) return;
+
+    setSubmittingReview(true);
+    try {
+      const updated = await surveillanceService.reviewReport(report.id, {
+        action: "approve",
+      });
+      setReport(updated);
+      try {
+        setLinkedRequest(await surveillanceService.getRequest(updated.requestId));
+      } catch {
+        setLinkedRequest(null);
+      }
+      setCompleteModalOpen(false);
+      toast.success(
+        "Surveillance audit report marked as Completed and is now visible on the requester dashboard.",
+      );
+    } catch (error) {
+      toast.error(`Failed to mark report as completed: ${(error as Error).message}`);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const handleOpenDeclineModal = () => {
+    setDeclineReason("");
+    setDeclineModalOpen(true);
+  };
+
+  const handleConfirmDeclineReport = async () => {
+    if (!report) return;
+    if (!declineReason.trim()) {
+      toast.error("Please provide a reason for declining this report.");
+      return;
+    }
+
+    setSubmittingReview(true);
+    try {
+      const updated = await surveillanceService.reviewReport(report.id, {
+        action: "reject",
+        comments: declineReason.trim(),
+      });
+      setReport(updated);
+      try {
+        setLinkedRequest(await surveillanceService.getRequest(updated.requestId));
+      } catch {
+        setLinkedRequest(null);
+      }
+      setDeclineModalOpen(false);
+      toast.success("Surveillance audit report has been rejected with reason.");
+    } catch (error) {
+      toast.error(`Failed to decline report: ${(error as Error).message}`);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
   useEffect(() => {
     if (!id) {
       setLoading(false);
@@ -848,6 +969,31 @@ export default function RequestedSurveillanceSummaryPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {canTakeReviewAction && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleOpenDeclineModal}
+                disabled={submittingReview}
+                className="h-9 gap-1.5 rounded-xl px-3.5 text-xs font-semibold border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-900/60 dark:text-rose-400"
+              >
+                <X className="h-3.5 w-3.5" />
+                Decline Report
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setCompleteModalOpen(true)}
+                disabled={submittingReview}
+                className="h-9 gap-1.5 rounded-xl px-3.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+              >
+                <Check className="h-3.5 w-3.5" />
+                Mark as Completed
+              </Button>
+            </>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -875,6 +1021,27 @@ export default function RequestedSurveillanceSummaryPage() {
           </Button>
         </div>
       </div>
+
+      {/* Rejection Reason Banner (shown if report was declined / rejected) */}
+      {report.status === "Rejected" && (
+        <Card className="p-5 rounded-2xl border-rose-200/90 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/60 space-y-2.5 shadow-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-rose-900 dark:text-rose-200 font-semibold text-sm">
+              <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
+              <span>Rejection Reason</span>
+            </div>
+            {report.reviewedBy && (
+              <span className="text-xs text-muted-foreground">
+                Rejected by <strong className="font-semibold text-foreground">{report.reviewedBy}</strong>
+                {report.reviewedAt ? ` on ${report.reviewedAt}` : ""}
+              </span>
+            )}
+          </div>
+          <div className="p-3.5 rounded-xl border border-rose-200/80 bg-background text-foreground text-xs leading-relaxed whitespace-pre-wrap">
+            {report.managerComments || "Report was declined during review."}
+          </div>
+        </Card>
+      )}
 
       {/* 1. Executive Header Overview Card */}
       <Card className="p-6 rounded-2xl border-border/70 shadow-xs">
@@ -1067,6 +1234,22 @@ export default function RequestedSurveillanceSummaryPage() {
           </div>
         </Card>
       </div>
+
+      {/* Reason - buyer, no Phone/Tablet/HINT device shown */}
+      {summary.transactionNotes.length > 0 && (
+        <Card className="p-6 rounded-2xl border-border/70 shadow-xs space-y-5">
+          <div className="border-b border-border/60 pb-3">
+            <h2 className="font-display text-base font-bold text-foreground">Reason</h2>
+          </div>
+          <ul className="space-y-1 text-xs">
+            {summary.transactionNotes.map((note, idx) => (
+              <li key={idx} className="text-muted-foreground">
+                • {renderTextWithLinks(note)}
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       {/* 3. Pitch Amount Non-Buying, Quality & Accessories Offered */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -1384,7 +1567,7 @@ export default function RequestedSurveillanceSummaryPage() {
                 <ul className="space-y-1">
                   {flag.notes.map((note, idx) => (
                     <li key={idx} className="text-muted-foreground">
-                      • {note}
+                      • {renderTextWithLinks(note)}
                     </li>
                   ))}
                 </ul>
@@ -1420,7 +1603,7 @@ export default function RequestedSurveillanceSummaryPage() {
                   </div>
                   <div>
                     <span className="font-semibold text-muted-foreground">Description: </span>
-                    <span className="text-foreground">{mo.description}</span>
+                    <span className="text-foreground">{renderTextWithLinks(mo.description)}</span>
                   </div>
                 </div>
               ))}
@@ -1428,22 +1611,6 @@ export default function RequestedSurveillanceSummaryPage() {
           </div>
         )}
       </Card>
-
-      {/* Reason - buyer, no Phone/Tablet/HINT device shown */}
-      {summary.transactionNotes.length > 0 && (
-        <Card className="p-6 rounded-2xl border-border/70 shadow-xs space-y-5">
-          <div className="border-b border-border/60 pb-3">
-            <h2 className="font-display text-base font-bold text-foreground">Reason</h2>
-          </div>
-          <ul className="space-y-1 text-xs">
-            {summary.transactionNotes.map((note, idx) => (
-              <li key={idx} className="text-muted-foreground">
-                • {note}
-              </li>
-            ))}
-          </ul>
-        </Card>
-      )}
 
       {/* 7. Floor Presence: Reps Leaving Store & Backroom In & Out */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -1669,6 +1836,100 @@ export default function RequestedSurveillanceSummaryPage() {
           </div>
         </div>
       </Card>
+
+      {/* Bottom Action Bar for Decline / Complete */}
+      {canTakeReviewAction && (
+        <div className="flex flex-wrap items-center justify-end gap-2.5 border-t pt-4 print:hidden">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleOpenDeclineModal}
+            disabled={submittingReview}
+            className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-900/60 dark:text-rose-400"
+          >
+            <X className="h-3.5 w-3.5" />
+            Decline Report
+          </Button>
+          <Button
+            type="button"
+            onClick={() => setCompleteModalOpen(true)}
+            disabled={submittingReview}
+            className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+          >
+            <Check className="h-3.5 w-3.5" />
+            Mark as Completed
+          </Button>
+        </div>
+      )}
+
+      {/* Decline Report Reason Dialog */}
+      <Dialog open={declineModalOpen} onOpenChange={setDeclineModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Decline Surveillance Report</DialogTitle>
+            <DialogDescription>
+              Provide the reason for declining this surveillance audit report. The report status
+              will be updated to Rejected with this reason.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 py-1">
+            <Label htmlFor="decline-report-reason-summary" className="text-xs font-semibold">
+              Reason for Declining <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              id="decline-report-reason-summary"
+              required
+              rows={4}
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              placeholder="Enter the reason for declining this report..."
+              className="text-xs resize-none"
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeclineModalOpen(false)}
+              disabled={submittingReview}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleConfirmDeclineReport}
+              disabled={submittingReview || !declineReason.trim()}
+            >
+              {submittingReview ? "Declining..." : "Decline Report"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mark as Completed Confirmation Modal */}
+      <AlertDialog open={completeModalOpen} onOpenChange={setCompleteModalOpen}>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Report Completion</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to mark this surveillance audit report as Completed? Once completed, this report will be finalized and made visible on the requester dashboard.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={submittingReview}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmMarkAsCompleted}
+              disabled={submittingReview}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {submittingReview ? "Completing..." : "Confirm & Complete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
