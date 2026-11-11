@@ -73,6 +73,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
+import { hasOtpAccess, hasPortalAccess } from "@/lib/otp-access";
 import { LEASING_PAGE_PERMISSION_KEYS } from "@/lib/leasing-permissions";
 import SidebarRail from "@/pages/team-chat/sidebar/SidebarRail";
 import {
@@ -234,7 +235,8 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
   },
 };
 
-// Note: Portals are purely filtered by user.assignedPortals and user.portalAccess. No portals are forced.
+// Regular portals are filtered by assignedPortals and portalAccess. Manager-portal
+// users additionally receive both OTP approval groups below.
 
 const adminGroup: Group = {
   title: "User Manager",
@@ -527,6 +529,10 @@ export function AppSidebar() {
       .toLowerCase()
       .replace(/[\s_-]/g, "");
 
+  const workspaceItems = topItems.filter(
+    (item) => item.url !== "/chat" || hasPortalAccess(user, "chat"),
+  );
+
   const isPortalAllowed = (portalKey: string): boolean => {
     const target = norm(portalKey);
 
@@ -700,26 +706,9 @@ export function AppSidebar() {
     })
     .filter((g: Group | undefined): g is Group => Boolean(g && g.items.length > 0));
 
-  const portalRoles = (user.portalAccess ?? []) as any[];
-  const hasOtpPortalRole = (kind: "backoffice" | "manager") =>
-    portalRoles.some((p) => {
-      const portal = String(p.portalName ?? "")
-        .toLowerCase()
-        .replace(/[\s_-]/g, "");
-      const role = String(p.roleName ?? "")
-        .toLowerCase()
-        .replace(/[\s_-]/g, "");
-      return portal.includes(kind) && (role.includes(kind) || role === "admin");
-    });
-  const roleText = `${user.roleName ?? ""} ${user.role ?? ""}`.toLowerCase().replace(/[\s_-]/g, "");
   const otpGroups = [
-    hasOtpPortalRole("backoffice") || roleText.includes("backoffice") ? otpBackofficeGroup : null,
-    hasOtpPortalRole("manager") ||
-    ["manager", "marketmanager", "statemanager", "districtmanager", "storemanager"].includes(
-      roleText,
-    )
-      ? otpManagerGroup
-      : null,
+    hasOtpAccess(permissions, "backoffice", user) ? otpBackofficeGroup : null,
+    hasOtpAccess(permissions, "manager", user) ? otpManagerGroup : null,
   ].filter((g): g is Group => Boolean(g));
 
   return (
@@ -750,7 +739,7 @@ export function AppSidebar() {
           {!collapsed && <SidebarGroupLabel>Workspace</SidebarGroupLabel>}
           <SidebarGroupContent>
             <SidebarMenu>
-              {topItems.map((item) => (
+              {workspaceItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   {item.url === "/chat" ? (
                     <SidebarMenuButton

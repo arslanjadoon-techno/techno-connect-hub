@@ -19,6 +19,7 @@ import { getBuddyEmail, getBuddyName, getBuddySendId } from "../chatHealper";
 import { AttachmentPreview } from "./AttachmentPreview";
 import OTPDialog from "./OTPDialog";
 import { canRequestOtp as userCanRequestOtp } from "@/lib/otp-access";
+import { useAuth } from "@/lib/auth";
 
 const MAX_INPUT_HEIGHT = 224; // px, about 9 lines; scrolls after this
 // Planned chat controls; keep the implementation in place but do not expose them yet.
@@ -31,6 +32,7 @@ type MentionCandidate = {
 };
 
 export default function ChatComposerPanel(props: Record<string, any>) {
+  const { permissions } = useAuth();
   const {
     actionsMessage,
     availableChats = [],
@@ -83,7 +85,7 @@ export default function ChatComposerPanel(props: Record<string, any>) {
 
   const busy = Boolean(uploading || (editingMessage && sending));
   const canSend = !busy && (inputValue.trim().length > 0 || pendingFiles.length > 0);
-  const canRequestOtp = userCanRequestOtp(currentUser);
+  const canRequestOtp = userCanRequestOtp(permissions);
 
   const mentionCandidates = useMemo<MentionCandidate[]>(() => {
     if (selectedChat?.type !== "channel" && selectedChat?.type !== "group") {

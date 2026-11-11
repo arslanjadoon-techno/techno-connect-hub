@@ -160,8 +160,17 @@ export interface BackendUser {
   store: { id: string; name: string } | null;
   profileImage?: string | null;
   active?: boolean;
+  managerId?: number | null;
+  manager?: ManagerCandidate | null;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface ManagerCandidate {
+  id: number;
+  fullName: string;
+  email?: string | null;
+  phone?: string | null;
 }
 
 // ---------- Auth ---------- //
@@ -255,6 +264,8 @@ export interface AddUserPayload {
   marketId?: number | null;
   storeId?: number | null;
   phone?: string | null;
+  managerId?: number | null;
+  removeManager?: boolean;
 }
 
 export const usersApi = {
@@ -287,6 +298,13 @@ export const usersApi = {
       queryParts.push(`department=${encodeURIComponent(deptVal)}`);
     }
     return apiRequest<BackendUser[]>(`${USER_API_PATHS.search}?${queryParts.join("&")}`);
+  },
+
+  getManagerCandidates: (excludeUserId?: string | number) => {
+    const query = excludeUserId == null
+      ? ""
+      : `?excludeUserId=${encodeURIComponent(excludeUserId)}`;
+    return apiRequest<ManagerCandidate[]>(`${USER_API_PATHS.managerCandidates}${query}`);
   },
 
   get: (id: string | number) => apiRequest<BackendUser>(USER_API_PATHS.user(id)),

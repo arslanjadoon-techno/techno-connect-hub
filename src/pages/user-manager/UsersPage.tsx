@@ -73,6 +73,8 @@ function mapBackendToFrontendUser(bu: any): any {
     districts: bu.districts || [],
     markets: bu.markets || [],
     stores: bu.stores || [],
+    managerId: bu.managerId ?? bu.manager?.id ?? null,
+    manager: bu.manager || null,
     allowedUserManagement: bu.allowedUserManagement ?? false,
     active: bu.active ?? true,
     avatarColor: getUserAvatarColor(bu.id),
@@ -469,6 +471,12 @@ function UsersPage() {
                 typeof u.department === "string" ? u.department : u.department?.name || "",
             },
             {
+              key: "manager",
+              header: "Manager",
+              accessor: (u) => u.manager?.fullName || "Top-level",
+              searchValue: (u) => u.manager?.fullName || "",
+            },
+            {
               key: "active",
               header: "Active",
               className: "w-24",
@@ -586,6 +594,10 @@ export function UserForm({
       ? "placeholder"
       : (initial?.department?.name ?? initial?.department ?? "placeholder"),
   );
+  const initialManagerId = initial?.managerId ?? initial?.manager?.id ?? null;
+  const [managerSelection, setManagerSelection] = useState<string>(
+    initialManagerId == null ? "none" : String(initialManagerId),
+  );
   const [allowedUserManagement, setAllowedUserManagement] = useState<boolean>(
     initial?.allowedUserManagement ?? false,
   );
@@ -595,6 +607,7 @@ export function UserForm({
   const [dynamicRoles, setDynamicRoles] = useState<any[]>(initialDynamicRoles);
   const [portalsMasterList, setPortalsMasterList] = useState<any[]>(initialPortalsMasterList);
   const [dbDepts, setDbDepts] = useState<any[]>([]);
+  const [managerCandidates, setManagerCandidates] = useState<any[]>([]);
   const [loadingInitialModalData, setLoadingInitialModalData] = useState(true);
 
   // Portal access config map
@@ -621,10 +634,11 @@ export function UserForm({
     const loadModalLookups = async () => {
       try {
         setLoadingInitialModalData(true);
-        const [rolesRes, deptsRes, portalsRes] = await Promise.all([
+        const [rolesRes, deptsRes, portalsRes, managersRes] = await Promise.all([
           hierarchyApi.getRoles(),
           departmentsService.getAll(),
           portalsService.getAll(),
+          usersApi.getManagerCandidates(initial?.id).catch(() => null),
         ]);
         if (!isMounted) return;
         if (rolesRes.success && Array.isArray(rolesRes.data)) {
@@ -632,6 +646,16 @@ export function UserForm({
         }
         if (deptsRes.success && Array.isArray(deptsRes.data)) {
           setDbDepts(deptsRes.data);
+        }
+        if (managersRes?.success && Array.isArray(managersRes.data)) {
+          const candidates = [...managersRes.data];
+          if (
+            initial?.manager &&
+            !candidates.some((candidate: any) => String(candidate.id) === String(initial.manager.id))
+          ) {
+            candidates.push(initial.manager);
+          }
+          setManagerCandidates(candidates);
         }
         if (portalsRes.success && Array.isArray(portalsRes.data)) {
           setPortalsMasterList(portalsRes.data);
@@ -1075,12 +1099,18 @@ export function UserForm({
               .map((x: any) => ({ id: Number(x.id), name: x.name }));
 
       const selectedDeptObj = dbDepts.find((d) => d.name === department);
+      const selectedManagerId = managerSelection === "none" ? null : Number(managerSelection);
+      const removeManager = Boolean(
+        initial && initialManagerId != null && managerSelection === "none",
+      );
 
       const payload = {
         fullName: fullName.trim(),
         email: email.trim(),
         phone: phone.trim() || null,
         department: selectedDeptObj ? { id: selectedDeptObj.id, name: selectedDeptObj.name } : null,
+        managerId: selectedManagerId,
+        removeManager,
         allowedUserManagement,
         active,
         assignedPortals,
@@ -1253,6 +1283,27 @@ export function UserForm({
             </p>
           )}
         </div>
+      </div>
+
+      {/* Reporting manager */}
+      <div className="space-y-1.5">
+        <Label htmlFor="user-manager">
+          Manager <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+        </Label>
+        <Select value={managerSelection} onValueChange={setManagerSelection}>
+          <SelectTrigger id="user-manager" className="w-full">
+            <SelectValue placeholder="Select manager" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">No manager (top-level)</SelectItem>
+            {managerCandidates.map((manager: any) => (
+              <SelectItem key={manager.id} value={String(manager.id)}>
+                {manager.fullName}
+                {manager.email ? ` (${manager.email})` : ""}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Password fields only on create */}

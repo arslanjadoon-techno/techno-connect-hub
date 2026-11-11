@@ -29,9 +29,11 @@ import { useChatPageState } from "./useChatPageState";
 import ChatSystemView from "./ChatSystemView";
 import { useCallTone } from "./calls/useCallTone";
 import { canRequestOtp } from "@/lib/otp-access";
+import { useAuth } from "@/lib/auth";
 const CALLS_ENABLED = false;
 type ChatState = Record<string, any> | null;
 export default function ChatSystem({ standalone = false, adminPage = false }) {
+  const { permissions } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const groupPage = location.pathname.endsWith("/groups/new");
@@ -371,8 +373,8 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     amount: number;
     notes: string;
   }) => {
-    if (!canRequestOtp(currentUser)) {
-      setSendError("Only Reps and Trainers can request an OTP.");
+    if (!canRequestOtp(permissions)) {
+      setSendError("You do not have permission to request an OTP.");
       return;
     }
 

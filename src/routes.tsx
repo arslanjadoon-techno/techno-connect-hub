@@ -4,6 +4,7 @@ import { type ReactNode } from "react";
 import { RankerUserAccessModal } from "@/components/ranker/RankerUserAccessModal";
 import { useRankerAuth } from "@/services/portals/ranker/ranker-auth";
 import { getStoredPermissions } from "@/lib/api/client";
+import { hasOtpAccess } from "@/lib/otp-access";
 import PublicPrivacyPage from "@/pages/public/PublicPrivacyPage";
 import PublicContactPage from "@/pages/public/PublicContactPage";
 
@@ -313,19 +314,7 @@ function OtpRouteGuard({
   children: ReactNode;
 }) {
   const { user, permissions } = useAuth();
-  const normalized = (v: unknown) =>
-    String(v ?? "")
-      .toLowerCase()
-      .replace(/[\s_-]/g, "");
-  const portalRows = [...(user?.portalAccess ?? [])] as any[];
-  const hasPortal = portalRows.some(
-    (p) => normalized(p.portalName).includes(kind) && normalized(p.roleName).includes(kind),
-  );
-  const role = normalized(
-    user?.roleName || (typeof user?.role === "string" ? user.role : user?.role?.name),
-  );
-  const allowed = hasPortal || role.includes(kind);
-  return allowed ? <>{children}</> : <Navigate to="/ai-chat" replace />;
+  return hasOtpAccess(permissions, kind, user) ? <>{children}</> : <Navigate to="/ai-chat" replace />;
 }
 
 function RankerPortalGuard() {
@@ -388,7 +377,14 @@ export function AppRoutes() {
         <Route path="/ai-chat" element={<AiChatPage />} />
         {/* Preserve old bookmarks while Chat Settings now lives in MIS Settings. */}
         <Route path="/chat/settings" element={<Navigate to="/settings" replace />} />
-        <Route path="/chat/*" element={<ChatSystem />} />
+        <Route
+          path="/chat/*"
+          element={
+            <PortalRouteGuard portalKey="chat">
+              <ChatSystem />
+            </PortalRouteGuard>
+          }
+        />
         <Route path="/settings" element={<SettingsPage />} />
         <Route
           path="/otp/backoffice"
