@@ -152,7 +152,7 @@ export async function deleteCachedChatMessage(
  * Adapt this function to your actual message response shape.
  */
 function getMessageId(message: any): string | number | undefined {
-  return message.id ?? message.messageId ?? message.publicId;
+  return message.id ?? message.messageId ?? message.message_id ?? message.publicId;
 }
 
 /**

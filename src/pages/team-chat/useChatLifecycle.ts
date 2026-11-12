@@ -13,6 +13,7 @@ type ChatLifecycleOptions = {
   activeCall: ChatRecord | null;
   conversationItems: ChatRecord[];
   fetchChatData: () => Promise<unknown>;
+  searchChatUsers: (search: string) => Promise<unknown>;
   initialFetchStartedRef: { current: boolean };
   loadChannelHistory: (chat: ChatRecord) => Promise<unknown>;
   loadDirectChatHistory: (chat: ChatRecord) => Promise<unknown>;
@@ -29,6 +30,7 @@ export function useChatLifecycle({
   activeCall,
   conversationItems,
   fetchChatData,
+  searchChatUsers,
   initialFetchStartedRef,
   loadChannelHistory,
   loadDirectChatHistory,
@@ -46,6 +48,20 @@ export function useChatLifecycle({
     initialFetchStartedRef.current = true;
     fetchChatData();
   }, [fetchChatData]);
+
+  useEffect(() => {
+    const query = searchTerm.trim();
+    const timer = window.setTimeout(
+      () => {
+        searchChatUsers(query).catch(() => {
+          // Keep the previous list visible when a search request fails.
+        });
+      },
+      query ? 250 : 0,
+    );
+
+    return () => window.clearTimeout(timer);
+  }, [searchChatUsers, searchTerm]);
 
   useEffect(() => {
     if (

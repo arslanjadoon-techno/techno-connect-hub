@@ -151,6 +151,9 @@ export function useChatData({
   // fetch settings a second time.
   const [desktopNotifications, setDesktopNotifications] = useState<boolean | undefined>();
   const messagesByChatRef = useRef(messagesByChat);
+  const initialChatUsersRef = useRef<ChatRecord[]>([]);
+  const latestUserSearchRef = useRef("");
+  const userSearchRequestRef = useRef(0);
   messagesByChatRef.current = messagesByChat;
 
   useEffect(() => {
@@ -535,7 +538,8 @@ export function useChatData({
         (conversation) => !isSelfConversation(conversation),
       );
 
-      setBuddies(chatUsers);
+      initialChatUsersRef.current = chatUsers;
+      if (!latestUserSearchRef.current) setBuddies(chatUsers);
       setChannels(chatConversations);
 
       const statusPayload = unwrapEnvelope<Record<string, any>>(statusResponse);
@@ -741,8 +745,40 @@ export function useChatData({
     setTab,
   ]);
 
+  const searchChatUsers = useCallback(
+    async (search: string) => {
+      const query = search.trim();
+      const requestId = ++userSearchRequestRef.current;
+      latestUserSearchRef.current = query;
+
+      if (!query) {
+        setBuddies(initialChatUsersRef.current);
+        return;
+      }
+
+      const response: any = await getChatUsersService({
+        excludeSelf: true,
+        search: query,
+        limit: 50,
+      });
+      const chatUsers: ChatRecord[] = getArrayPayload(
+        response?.data?.data ?? response?.data,
+      ) as ChatRecord[];
+
+      // A slower response for an older term must never replace the current
+      // search results.
+      if (requestId !== userSearchRequestRef.current || latestUserSearchRef.current !== query) {
+        return;
+      }
+
+      setBuddies(chatUsers);
+    },
+    [setBuddies],
+  );
+
   return {
     fetchChatData,
+    searchChatUsers,
     loadDirectChatHistory,
     loadChannelHistory,
     desktopNotifications,

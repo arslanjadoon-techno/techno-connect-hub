@@ -1,6 +1,7 @@
 import { deleteConversationMessageService } from "@/services/Team-chat/chat.service";
 import { normalizeChatError } from "./chatHealper";
 import { normalizeRealtimeMessage } from "./chatMessageNormalization";
+import { deleteCachedChatMessage } from "./chatMessageIndexedDb";
 
 type ChatRecord = Record<string, any>;
 
@@ -113,6 +114,21 @@ export function useChatDeleteMessages({
         });
         return next;
       });
+
+      // Keep the local history cache consistent with the successful server
+      // delete. Cache cleanup must not turn a successful delete into a failed
+      // chat action if IndexedDB is unavailable or temporarily locked.
+      const cacheResults = await Promise.allSettled(
+        keys.flatMap((key) =>
+          [...successfulIds].map((messageId) => deleteCachedChatMessage(key, messageId)),
+        ),
+      );
+      const failedCacheUpdates = cacheResults.filter((result) => result.status === "rejected");
+      if (failedCacheUpdates.length > 0) {
+        console.warn("Some deleted chat messages could not be removed from IndexedDB", {
+          failedCount: failedCacheUpdates.length,
+        });
+      }
 
       if (failedIds.size > 0) {
         setSendError(`${failedIds.size} message(s) could not be deleted.`);

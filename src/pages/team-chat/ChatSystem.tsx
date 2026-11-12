@@ -259,7 +259,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     callsEnabled: CALLS_ENABLED,
   });
 
-  const { fetchChatData, loadDirectChatHistory, loadChannelHistory } = useChatData({
+  const { fetchChatData, searchChatUsers, loadDirectChatHistory, loadChannelHistory } = useChatData({
     ...pageState,
     clearUnreadForChat,
     id,
@@ -289,6 +289,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     activeCall,
     conversationItems,
     fetchChatData,
+    searchChatUsers,
     initialFetchStartedRef,
     loadChannelHistory,
     loadDirectChatHistory,

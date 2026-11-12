@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { normalizeRealtimeMessage, resolveLocalChatKey } from "./chatMessageNormalization";
+import { getCachedChatMessages, saveCachedChatMessages } from "./chatMessageIndexedDb";
 
 export function useChatRealtimeMessageUpdate({
   channels,
@@ -52,6 +53,29 @@ export function useChatRealtimeMessageUpdate({
           );
         });
         return next;
+      });
+
+      // A delete/edit can arrive through realtime while this client is not
+      // viewing the conversation. Persist the server update so reopening the
+      // chat does not restore stale IndexedDB content.
+      void Promise.all(
+        stateKeys.map(async (key) => {
+          const cached = await getCachedChatMessages(key);
+          if (cached.length === 0) return;
+
+          const updated = cached.map((item) => {
+            const itemId = item.id ?? item.message_id ?? item.messageId;
+            return String(itemId) === String(normalizedMessage.id)
+              ? { ...item, ...normalizedMessage }
+              : item;
+          });
+
+          if (updated.some((item, index) => item !== cached[index])) {
+            await saveCachedChatMessages(key, updated);
+          }
+        }),
+      ).catch((error) => {
+        console.warn("Could not update cached chat message", error);
       });
     },
     [buddies, channels, currentUserId, selectedChat, setMessagesByChat],

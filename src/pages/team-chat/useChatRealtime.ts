@@ -200,21 +200,45 @@ export function useChatRealtime({
     Object.entries(events).forEach(([event, handlerName]) => {
       connection.on(event, (payload: any) => {
         const callback = handlers.current[handlerName];
-        if (!callback) return;
 
         try {
-          callback(lifecycleEvents.has(event) ? { call: payload } : payload);
-
           // A message is delivered once this client has received and handled
-          // it. This drives the sender's grey double tick in realtime.
+          // it. Acknowledge before running UI code so an exception or an early
+          // return in a notification/message handler cannot lose the receipt.
           if (event === "message:new") {
-            const message = payload?.message || payload;
-            const chatId = payload?.chatId || message?.conversationId || message?.chatId;
-            const messageId = message?.id || message?.messageId || message?.message_id;
+            const message =
+              payload?.message || payload?.data?.message || payload?.data || payload;
+            const chatId =
+              payload?.chatId ||
+              payload?.chat_id ||
+              payload?.conversationId ||
+              payload?.conversation_id ||
+              message?.conversationId ||
+              message?.conversation_id ||
+              message?.chatId ||
+              message?.chat_id;
+            const messageId =
+              message?.id || message?.messageId || message?.message_id || payload?.messageId;
             if (chatId && messageId) {
-              void connection.invoke("AcknowledgeMessageDelivered", String(chatId), String(messageId));
+              void connection
+                .invoke("AcknowledgeMessageDelivered", String(chatId), String(messageId))
+                .then((acknowledgement) => {
+                  if (acknowledgement?.ok === false) {
+                    console.warn("[Chat realtime] Delivery acknowledgement was rejected", {
+                      chatId: String(chatId),
+                      messageId: String(messageId),
+                      code: acknowledgement.code,
+                    });
+                  }
+                })
+                .catch((error) => {
+                  console.warn("[Chat realtime] Delivery acknowledgement failed", error);
+                });
             }
           }
+
+          if (!callback) return;
+          callback(lifecycleEvents.has(event) ? { call: payload } : payload);
         } catch (error) {
           console.error(`[Chat realtime] Handler failed for ${event}`, error);
         }

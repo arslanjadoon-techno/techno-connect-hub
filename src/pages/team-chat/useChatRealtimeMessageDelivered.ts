@@ -8,7 +8,7 @@ export function useChatRealtimeMessageDelivered({
   setMessagesByChat,
 }: any) {
   return useCallback(
-    ({ chatId, messageId, status }: any) => {
+    ({ chatId, messageId, clientMessageId, status }: any) => {
       if (!chatId || !messageId) return;
       const localKey = resolveLocalChatKey({ chatId, channels, buddies, currentUserId });
       if (!localKey) return;
@@ -25,9 +25,19 @@ export function useChatRealtimeMessageDelivered({
           if (!Array.isArray(messages)) return;
 
           const mapped = messages.map((message) => {
+            const storedMessageId = message.id ?? message.message_id ?? message.messageId;
+            const storedClientMessageId =
+              message.clientMessageId ??
+              message.client_message_id ??
+              message.metadata?.clientMessageId ??
+              message.metadata?.client_message_id;
+            const matchesCanonicalId = String(storedMessageId) === String(messageId);
+            const matchesClientId =
+              clientMessageId && String(storedClientMessageId) === String(clientMessageId);
+
             if (
-              String(message.id) !== String(messageId) ||
-              message.deliveryStatus === "seen" ||
+              (!matchesCanonicalId && !matchesClientId) ||
+              ["seen", "read"].includes(String(message.deliveryStatus).toLowerCase()) ||
               status === "read"
             ) {
               return message;
