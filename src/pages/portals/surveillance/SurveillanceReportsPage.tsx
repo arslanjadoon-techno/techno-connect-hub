@@ -3251,7 +3251,7 @@ export default function SurveillanceReportsPage() {
       },
       {
         key: "requestedDate",
-        header: "Requested Date (Manager)",
+        header: "Requested Date",
         searchValue: (r) => formatDateTimeDisplay(r.createdAt),
         accessor: (r) => (
           <span className="text-foreground text-sm">{formatDateTimeDisplay(r.createdAt)}</span>
@@ -3259,7 +3259,7 @@ export default function SurveillanceReportsPage() {
       },
       {
         key: "assignedDate",
-        header: "Assigned Date (Agent)",
+        header: "Assigned Date",
         searchValue: (r) => formatDateTimeDisplay(r.assignedAt),
         accessor: (r) => (
           <span className="text-foreground text-sm">{formatDateTimeDisplay(r.assignedAt)}</span>
@@ -3267,7 +3267,7 @@ export default function SurveillanceReportsPage() {
       },
       {
         key: "completedDate",
-        header: "Completed Date (Agent)",
+        header: "Completed Date",
         searchValue: (r) => formatDateTimeDisplay(r.surveyEndsAt),
         accessor: (r) => (
           <span className="text-foreground text-sm">{formatDateTimeDisplay(r.surveyEndsAt)}</span>

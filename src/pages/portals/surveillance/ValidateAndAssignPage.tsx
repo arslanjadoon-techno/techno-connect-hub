@@ -591,7 +591,7 @@ export default function ValidateAndAssignPage() {
       },
       {
         key: "requestedDate",
-        header: "Requested Date (Manager)",
+        header: "Requested Date",
         searchValue: (r) => formatDateTimeDisplay(r.createdAt),
         accessor: (r) => (
           <span className="text-sm text-foreground whitespace-nowrap">
@@ -601,7 +601,7 @@ export default function ValidateAndAssignPage() {
       },
       {
         key: "assignedDate",
-        header: "Assigned Date (Agent)",
+        header: "Assigned Date",
         searchValue: (r) => formatDateTimeDisplay(r.assignedAt),
         accessor: (r) => (
           <span className="text-sm text-foreground whitespace-nowrap">
@@ -611,7 +611,7 @@ export default function ValidateAndAssignPage() {
       },
       {
         key: "completedDate",
-        header: "Completed Date (Agent)",
+        header: "Completed Date",
         searchValue: (r) => formatDateTimeDisplay(r.surveyEndsAt || r.reportSubmittedAt),
         accessor: (r) => (
           <span className="text-sm text-foreground whitespace-nowrap">

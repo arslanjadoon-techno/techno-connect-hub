@@ -538,73 +538,68 @@ export function getSurveillanceRole(user: any): SurveillanceRole | "other" {
   if (!rawRole) return "other";
 
   if (rawRole === "admin") return "admin";
-  if (rawRole === "marketmanager") return "market_manager";
-  if (rawRole === "districtmanager") return "district_manager";
-  if (rawRole === "surveillancemanager") return "surveillance_manager";
-  if (rawRole === "manager") return "manager";
-  if (rawRole === "statemanager") return "state_manager";
-  if (rawRole === "storemanager") return "store_manager";
-  if (rawRole === "surveillanceagent") return "surveillance_agent";
-  if (rawRole === "user") return "user";
+  if (rawRole === "statemanager" || rawRole === "state_manager") return "state_manager";
+  if (rawRole === "marketmanager" || rawRole === "market_manager") return "market_manager";
+  if (rawRole === "districtmanager" || rawRole === "district_manager") return "district_manager";
+  if (rawRole === "surveillancemanager" || rawRole === "surveillance_manager")
+    return "surveillance_manager";
+  if (rawRole === "surveillanceagent" || rawRole === "surveillance_agent")
+    return "surveillance_agent";
 
-  // All remaining roles (backoffice, rep, trainer, etc.) have no access
+  // All remaining roles (manager, storemanager, user, backoffice, rep, trainer, etc.) have no access
   return "other";
 }
 
-/** Check whether user strictly has the 'user' or 'surveillance_agent' role for the Surveillance portal */
+/** Check whether user strictly has the 'surveillance_agent' role for the Surveillance portal */
 export function isSurveillanceUserRole(user: any): boolean {
   const role = getSurveillanceRole(user);
-  return role === "user" || role === "surveillance_agent";
+  return role === "surveillance_agent";
 }
 
 /**
  * Roles with full access to all 3 Surveillance portal pages:
- * (admin, marketManager, districtManager, SurveillanceManager, manager, stateManager, storeManager)
+ * Only Admin has full access to all 3 pages
  */
 export function hasFullSurveillanceAccess(role: SurveillanceRole | "other"): boolean {
-  return (
-    role === "admin" ||
-    role === "market_manager" ||
-    role === "district_manager" ||
-    role === "surveillance_manager" ||
-    role === "manager" ||
-    role === "state_manager" ||
-    role === "store_manager"
-  );
+  return role === "admin";
 }
 
 /**
  * Page 1: Request Reports (/surveillance/requests)
- * Accessible to: admin, marketManager, districtManager, SurveillanceManager, manager, stateManager, storeManager
+ * Accessible to: admin, state_manager, market_manager, district_manager, surveillance_manager
  */
 export function canRequestSurveillance(role: SurveillanceRole | "other"): boolean {
-  return hasFullSurveillanceAccess(role);
+  return (
+    role === "admin" ||
+    role === "state_manager" ||
+    role === "market_manager" ||
+    role === "district_manager" ||
+    role === "surveillance_manager"
+  );
 }
 
 /**
  * Page 2: Validate and Assign (/surveillance/validate-and-assign)
- * Accessible to: admin, marketManager, districtManager, SurveillanceManager, manager, stateManager, storeManager
+ * Accessible to: admin, surveillance_manager
  */
 export function canValidateSurveillance(role: SurveillanceRole | "other"): boolean {
-  return hasFullSurveillanceAccess(role);
+  return role === "admin" || role === "surveillance_manager";
 }
 
 /**
  * Page 3: Submit Report (/surveillance/reports)
- * Accessible to:
- * - Full access roles (admin, marketManager, districtManager, SurveillanceManager, manager, stateManager, storeManager)
- * - Single-page roles (user, surveillance_agent)
+ * Accessible to: admin, surveillance_agent
  */
 export function canAccessSurveillanceReports(role: SurveillanceRole | "other"): boolean {
-  return hasFullSurveillanceAccess(role) || role === "user" || role === "surveillance_agent";
+  return role === "admin" || role === "surveillance_agent";
 }
 
 /**
  * Review / Approve / Reject submitted surveillance audit reports
- * Accessible to full-access roles
+ * Accessible to validator roles (admin, surveillance_manager)
  */
 export function canApproveSurveillance(role: SurveillanceRole | "other"): boolean {
-  return hasFullSurveillanceAccess(role);
+  return role === "admin" || role === "surveillance_manager";
 }
 
 /** Check whether user has the Admin role in the Surveillance portal */
@@ -615,7 +610,7 @@ export function isSurveillanceAdmin(user: any): boolean {
 /** Resolve default landing path inside the Surveillance portal for any role */
 export function getSurveillanceDefaultRoute(user: any): string {
   const role = getSurveillanceRole(user);
-  if (hasFullSurveillanceAccess(role)) return "/surveillance/requests";
+  if (canRequestSurveillance(role)) return "/surveillance/requests";
   if (canAccessSurveillanceReports(role)) return "/surveillance/reports";
   return "/surveillance/no-access";
 }
