@@ -85,9 +85,9 @@ export function ChatWindowSidebar({
 
 export function EmptyChatState() {
   return (
-    <div className="flex h-full items-center justify-center bg-background px-6 py-8">
-      <div className="w-full max-w-md rounded-xl border border-dashed border-border bg-card px-6 py-10 text-center shadow-xs">
-        <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+    <div className="flex h-full items-center justify-center bg-gradient-to-b from-muted/10 via-background to-background px-6 py-8">
+      <div className="w-full max-w-md rounded-2xl border border-border/70 bg-card/80 px-6 py-10 text-center shadow-sm backdrop-blur">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/15">
           <MessageCircle className="h-6 w-6" />
         </div>
         <h2 className="font-display text-lg font-semibold text-foreground">Your conversations</h2>
@@ -101,9 +101,9 @@ export function EmptyChatState() {
 
 export function ReadyToSendState({ selectedChat }: { selectedChat: ChatItem }) {
   return (
-    <div className="flex min-h-full items-center justify-center px-4 py-8">
-      <div className="w-full max-w-md rounded-xl border border-dashed border-border bg-card px-6 py-8 text-center shadow-xs">
-        <Avatar className="mx-auto mb-3 h-14 w-14 rounded-xl bg-primary/10 text-xl font-semibold text-primary">
+    <div className="flex min-h-full items-center justify-center bg-gradient-to-b from-muted/10 via-background to-background px-4 py-8">
+      <div className="w-full max-w-md rounded-2xl border border-border/70 bg-card/80 px-6 py-8 text-center shadow-sm backdrop-blur">
+        <Avatar className="mx-auto mb-3 h-14 w-14 rounded-2xl bg-primary/10 text-xl font-semibold text-primary ring-1 ring-primary/15">
           <AvatarImage src={getImageUrl(selectedChat) || selectedChat.imageUrl} />
           <AvatarFallback>
             {selectedChat.type === "channel" ? <Users /> : selectedChat.title.charAt(0)}

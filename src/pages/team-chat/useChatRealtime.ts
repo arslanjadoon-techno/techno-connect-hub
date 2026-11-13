@@ -420,21 +420,30 @@ export function useChatRealtime({
 
     ref.current = compat;
 
-    const startPromise = connection.start();
-    startPromise
-      .then(async () => {
-        if (disposed) {
-          await connection.stop();
-          return;
-        }
+    const startPromise = (async () => {
+      const maxInitialAttempts = 3;
 
-        await joinActiveConversation();
-      })
-      .catch((error) => {
-        if (!disposed) {
-          console.error("[Chat realtime] Unable to connect", error);
+      for (let attempt = 0; attempt < maxInitialAttempts && !disposed; attempt += 1) {
+        try {
+          await connection.start();
+          if (disposed) {
+            await connection.stop();
+            return;
+          }
+
+          await joinActiveConversation();
+          return;
+        } catch (error) {
+          if (disposed || attempt === maxInitialAttempts - 1) {
+            if (!disposed) console.error("[Chat realtime] Unable to connect", error);
+            return;
+          }
+
+          const retryDelay = Math.min(1000 * 2 ** attempt, 5000);
+          await new Promise((resolve) => window.setTimeout(resolve, retryDelay));
         }
-      });
+      }
+    })();
 
     return () => {
       disposed = true;

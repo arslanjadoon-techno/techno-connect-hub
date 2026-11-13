@@ -1,6 +1,9 @@
 import { useEffect } from "react";
 import { searchChatMessagesService } from "@/services/Team-chat/chat.service";
-import { normalizeChatMessages } from "./chatMessageNormalization";
+import {
+  normalizeChatMessages,
+  unwrapChatMessagesResponse,
+} from "./chatMessageNormalization";
 
 export function useChatLibrary({
   bodyView,
@@ -22,8 +25,7 @@ export function useChatLibrary({
     searchChatMessagesService(params)
       .then((response: any) => {
         if (cancelled) return;
-        const messages =
-          response.data?.data?.messages || response.data?.data?.data || response.data?.data || [];
+        const messages = unwrapChatMessagesResponse(response);
         setLibraryMessages(normalizeChatMessages(messages, { currentUserId }));
       })
       .catch((error) => {

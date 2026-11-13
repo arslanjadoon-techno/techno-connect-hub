@@ -12,7 +12,7 @@ import {
 import { CHAT_APP_BASE_PATH } from "./chatRoutes";
 import { upsertConversationRecord } from "./chatConversationKeys";
 import { addGroupMembersService, createGroupChatService } from "@/services/Team-chat/group.service";
-import { usersService } from "@/services/user-manager/users.service";
+import { getChatUsersService } from "@/services/Team-chat/chat.service";
 
 type ChatRecord = Record<string, any>;
 
@@ -162,31 +162,20 @@ export function useChatGroupComposer({
     let cancelled = false;
     const timer = window.setTimeout(() => {
       setManagedUsersLoading(true);
-      // Search through User Management so users outside the first page, such
-      // as Arslan, are included in the results.
+      // Use the chat directory for every chat user picker so search results,
+      // IDs, names, presence, and profile images have one response shape.
       const request: Promise<any> = query
-        ? usersService.search({ search: query })
-        : Promise.all([
-            usersService.getAll({ page: 1, size: 1000 }),
-            usersService.getAll({ page: 2, size: 1000 }),
-          ]);
+        ? getChatUsersService({ excludeSelf: true, search: query, limit: 1000 })
+        : getChatUsersService({ excludeSelf: true, limit: 1000 });
 
       request
-        .then(async (response: any) => {
+        .then((response: any) => {
           if (cancelled) return;
-          let users;
-          if (query) {
-            users = getArrayPayload(
-              response?.data?.data ?? response?.data ?? response,
-            ) as ChatRecord[];
-          } else {
-            const pages = Array.isArray(response) ? response : [response];
-            users = pages.flatMap((page: any) =>
-              getArrayPayload(page?.data?.data ?? page?.data ?? page),
-            );
-          }
+          const users = getArrayPayload(response) as ChatRecord[];
           setManagedUsers(
-            (users as ChatRecord[]).filter((user: ChatRecord) => !isCurrentUserRecord(user)),
+            uniqueUsersByIdentity(
+              users.filter((user: ChatRecord) => !isCurrentUserRecord(user)),
+            ),
           );
         })
         .catch(() => {
@@ -201,7 +190,16 @@ export function useChatGroupComposer({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [addMembersDialogOpen, groupDialogOpen, groupPage, groupSearch, isCurrentUserRecord]);
+  }, [
+    addMembersDialogOpen,
+    groupDialogOpen,
+    groupPage,
+    groupSearch,
+    isCurrentUserRecord,
+    setManagedUsers,
+    setManagedUsersLoading,
+    uniqueUsersByIdentity,
+  ]);
 
   const selectedGroupMembers = useMemo(
     () =>
@@ -212,7 +210,7 @@ export function useChatGroupComposer({
             groupUserCacheRef.current.get(String(id)),
         )
         .filter((value): value is ChatRecord => Boolean(value)),
-    [managedUsers, groupUserIds],
+    [groupUserCacheRef, managedUsers, groupUserIds],
   );
 
   const selectedGroupParticipantIds = useMemo(() => {
@@ -268,6 +266,7 @@ export function useChatGroupComposer({
   const openAddMembersDialog = async () => {
     setAddMemberUserIds([]);
     setAddMembersError("");
+    setGroupSearch("");
     setAddMembersDialogOpen(true);
   };
 

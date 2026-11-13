@@ -12,7 +12,11 @@ import {
 } from "./chatHealper";
 import { getCachedChatMessages, saveCachedChatMessages } from "./chatMessageIndexedDb";
 import { setChatNotificationsEnabled } from "./chatNotifications";
-import { normalizeChatMessages } from "./chatMessageNormalization";
+import {
+  normalizeChatMessages,
+  unwrapChatMessagesResponse,
+} from "./chatMessageNormalization";
+import { mergeChatMessages } from "./chatMessageState";
 import { dedupeConversationRecords } from "./chatConversationKeys";
 import {
   markConversationReadService,
@@ -26,46 +30,6 @@ import {
 import { getStoredUser } from "@/lib/api/client";
 
 type ChatRecord = Record<string, any>;
-
-function getMessageKey(message: ChatRecord): string {
-  const id =
-    message.id ??
-    message.messageId ??
-    message.message_id ??
-    message.clientMessageId ??
-    message.client_message_id;
-
-  if (id !== undefined && id !== null && String(id).trim() !== "") return String(id);
-
-  return [
-    message.senderId ?? message.sender_id ?? message.authorId ?? "",
-    message.sentAt ?? message.sent_at ?? message.createdAt ?? message.created_at ?? "",
-    message.content ?? message.message ?? message.text ?? "",
-  ].join("|");
-}
-
-function mergeMessages(...groups: ChatRecord[][]): ChatRecord[] {
-  const merged = new Map<string, ChatRecord>();
-  for (const group of groups) {
-    for (const message of group) {
-      const key = getMessageKey(message);
-      merged.set(key, { ...merged.get(key), ...message });
-    }
-  }
-
-  return Array.from(merged.values()).sort((first, second) => {
-    const firstTime = new Date(
-      first.sentAt || first.createdAt || first.created_at || first.timestamp || 0,
-    ).getTime();
-    const secondTime = new Date(
-      second.sentAt || second.createdAt || second.created_at || second.timestamp || 0,
-    ).getTime();
-    const timeOrder =
-      (Number.isFinite(firstTime) ? firstTime : 0) -
-      (Number.isFinite(secondTime) ? secondTime : 0);
-    return timeOrder || getMessageKey(first).localeCompare(getMessageKey(second));
-  });
-}
 
 type ChatDataOptions = {
   chatClearVersionsRef: { current: Map<string, number> };
@@ -103,24 +67,6 @@ function unwrapEnvelope<T = any>(response: any): T {
   return (response?.data?.data ?? response?.data ?? response) as T;
 }
 
-/**
- * Unwrap a messages response. Handles every envelope shape that legacy
- * backends have returned, without re-evaluating the same property chain
- * four times.
- */
-function unwrapMessagesResponse(response: any): any {
-  if (!response) return {};
-  const candidates: any[] = [
-    response?.data?.data?.data?.messages && response.data.data.data,
-    response?.data?.data?.messages && response.data.data,
-    response?.data?.messages && response.data,
-    response?.data?.data,
-    response?.data,
-    response,
-  ];
-  return candidates.find(Boolean) ?? {};
-}
-
 export function useChatData({
   chatClearVersionsRef,
   clearUnreadForChat,
@@ -150,6 +96,7 @@ export function useChatData({
   // Owned by the hook; passed down to <ChatSidebar /> as a prop so it doesn't
   // fetch settings a second time.
   const [desktopNotifications, setDesktopNotifications] = useState<boolean | undefined>();
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
   const messagesByChatRef = useRef(messagesByChat);
   const initialChatUsersRef = useRef<ChatRecord[]>([]);
   const latestUserSearchRef = useRef("");
@@ -171,7 +118,9 @@ export function useChatData({
       const profileIds = [profile.id, profile.userId, profile.appUserId]
         .filter((value) => value != null && String(value).trim() !== "")
         .map(String);
-      const recordEmail = String(record.email || record.providerEmail || "").trim().toLowerCase();
+      const recordEmail = String(record.email || record.providerEmail || "")
+        .trim()
+        .toLowerCase();
       const profileEmail = String(profile.email || profile.providerEmail || "")
         .trim()
         .toLowerCase();
@@ -215,7 +164,8 @@ export function useChatData({
                 ),
               }
             : {}),
-          ...(conversation.lastMessage?.sender && isCurrentUser(conversation.lastMessage.sender, profile)
+          ...(conversation.lastMessage?.sender &&
+          isCurrentUser(conversation.lastMessage.sender, profile)
             ? {
                 lastMessage: {
                   ...conversation.lastMessage,
@@ -229,10 +179,12 @@ export function useChatData({
         const next = { ...previous };
         Object.entries(previous).forEach(([chatKey, messages]) => {
           next[chatKey] = messages.map((message) => {
-            const senderMatches = isCurrentUser(message.sender, profile) ||
+            const senderMatches =
+              isCurrentUser(message.sender, profile) ||
               isCurrentUser(
                 {
-                  id: message.authorId || message.author_id || message.senderId || message.sender_id,
+                  id:
+                    message.authorId || message.author_id || message.senderId || message.sender_id,
                   email: message.authorEmail || message.author_email,
                 },
                 profile,
@@ -308,7 +260,7 @@ export function useChatData({
 
         if (cachedMessages.length > 0) {
           setMessagesByChat((prev: Record<string, ChatRecord[]>) => {
-            const merged = mergeMessages(
+            const merged = mergeChatMessages(
               cachedMessages,
               prev[chat.id] || [],
               prev[chatId] || [],
@@ -324,7 +276,7 @@ export function useChatData({
           return;
         }
 
-        const historyPayload = unwrapMessagesResponse(messagesResponse);
+        const historyPayload = unwrapChatMessagesResponse(messagesResponse);
 
         const normalizedMessages = normalizeChatMessages(historyPayload, { ...chat, chatId });
 
@@ -348,23 +300,25 @@ export function useChatData({
             isUnread: unreadIds.has(String(message.id)),
           }),
         );
-        const firstUnreadMessageId = messagesWithUnreadState.find((message) => message.isUnread)?.id;
+        const firstUnreadMessageId = messagesWithUnreadState.find(
+          (message) => message.isUnread,
+        )?.id;
 
         // 3. Merge server history, cache, and any SignalR messages that arrived
         // while the request was in flight. The server wins for the same ID, but
         // a genuinely newer realtime message is never discarded.
-        const currentMessages = mergeMessages(
+        const currentMessages = mergeChatMessages(
           messagesByChatRef.current[chat.id] || [],
           messagesByChatRef.current[chatId] || [],
         );
-        const mergedMessages = mergeMessages(
+        const mergedMessages = mergeChatMessages(
           cachedMessages,
-          messagesWithUnreadState,
           currentMessages,
+          messagesWithUnreadState,
         );
 
         setMessagesByChat((prev: Record<string, ChatRecord[]>) => {
-          const latest = mergeMessages(
+          const latest = mergeChatMessages(
             mergedMessages,
             prev[chat.id] || [],
             prev[chatId] || [],
@@ -421,7 +375,7 @@ export function useChatData({
         const messagesResponse: any = await getChatMessagesService(chat.id, { limit: 100 });
         if ((chatClearVersionsRef.current.get(chatKey) || 0) !== requestClearVersion) return;
 
-        const historyPayload = unwrapMessagesResponse(messagesResponse);
+        const historyPayload = unwrapChatMessagesResponse(messagesResponse);
         const normalizedMessages = normalizeChatMessages(historyPayload, {
           ...chat,
           chatId: chat.id,
@@ -443,11 +397,11 @@ export function useChatData({
           }),
         );
 
-        const currentMessages = mergeMessages(messagesByChatRef.current[chat.id] || []);
-        const mergedMessages = mergeMessages(messagesWithUnreadState, currentMessages);
+        const currentMessages = mergeChatMessages(messagesByChatRef.current[chat.id] || []);
+        const mergedMessages = mergeChatMessages(currentMessages, messagesWithUnreadState);
 
         setMessagesByChat((prev: Record<string, ChatRecord[]>) => {
-          const latest = mergeMessages(mergedMessages, prev[chat.id] || []);
+          const latest = mergeChatMessages(mergedMessages, prev[chat.id] || []);
           return { ...prev, [chat.id]: latest };
         });
         setSelectedChat((prev: ChatRecord | null) =>
@@ -482,23 +436,19 @@ export function useChatData({
     setLoadError("");
 
     try {
-      const [
-        buddyResponse,
-        channelResponse,
-        statusResponse,
-        settingsResponse,
-      ]: any[] = await Promise.all([
-        getChatUsersService({ excludeSelf: true }),
-        getChatConversationsService(),
-        getChatStatusService().catch((err) => {
-          console.warn("[chat] status load failed", err);
-          return null;
-        }),
-        getChatSettingsService().catch((err) => {
-          console.warn("[chat] settings load failed", err);
-          return null;
-        }),
-      ]);
+      const [buddyResponse, channelResponse, statusResponse, settingsResponse]: any[] =
+        await Promise.all([
+          getChatUsersService({ excludeSelf: true }),
+          getChatConversationsService(),
+          getChatStatusService().catch((err) => {
+            console.warn("[chat] status load failed", err);
+            return null;
+          }),
+          getChatSettingsService().catch((err) => {
+            console.warn("[chat] settings load failed", err);
+            return null;
+          }),
+        ]);
 
       const persistedSettings = unwrapEnvelope<Record<string, any>>(settingsResponse);
 
@@ -529,9 +479,7 @@ export function useChatData({
         buddyResponse?.data?.data ?? buddyResponse?.data,
       ) as ChatRecord[];
       const chatConversations: ChatRecord[] = dedupeConversationRecords(
-        getArrayPayload(
-          channelResponse?.data?.data ?? channelResponse?.data,
-        ) as ChatRecord[],
+        getArrayPayload(channelResponse?.data?.data ?? channelResponse?.data) as ChatRecord[],
       );
 
       const otherConversations = chatConversations.filter(
@@ -752,26 +700,30 @@ export function useChatData({
       latestUserSearchRef.current = query;
 
       if (!query) {
+        setUserSearchLoading(false);
         setBuddies(initialChatUsersRef.current);
         return;
       }
 
-      const response: any = await getChatUsersService({
-        excludeSelf: true,
-        search: query,
-        limit: 50,
-      });
-      const chatUsers: ChatRecord[] = getArrayPayload(
-        response?.data?.data ?? response?.data,
-      ) as ChatRecord[];
+      setUserSearchLoading(true);
+      try {
+        const response: any = await getChatUsersService({
+          excludeSelf: true,
+          search: query,
+          limit: 50,
+        });
+        const chatUsers: ChatRecord[] = getArrayPayload(response) as ChatRecord[];
 
-      // A slower response for an older term must never replace the current
-      // search results.
-      if (requestId !== userSearchRequestRef.current || latestUserSearchRef.current !== query) {
-        return;
+        // A slower response for an older term must never replace the current
+        // search results.
+        if (requestId !== userSearchRequestRef.current || latestUserSearchRef.current !== query) {
+          return;
+        }
+
+        setBuddies(chatUsers);
+      } finally {
+        if (requestId === userSearchRequestRef.current) setUserSearchLoading(false);
       }
-
-      setBuddies(chatUsers);
     },
     [setBuddies],
   );
@@ -783,5 +735,6 @@ export function useChatData({
     loadChannelHistory,
     desktopNotifications,
     setDesktopNotifications,
+    userSearchLoading,
   };
 }

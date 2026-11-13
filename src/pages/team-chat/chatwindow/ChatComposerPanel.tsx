@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Mic,
   Paperclip,
+  SendHorizontal,
   Smile,
   X,
   ClipboardCheck,
@@ -168,7 +169,7 @@ export default function ChatComposerPanel(props: Record<string, any>) {
     }
   };
 
-  const bannerBase = "flex items-center gap-2 border-t px-3 py-2 text-xs";
+  const bannerBase = "flex items-center gap-2 border-t border-border/70 px-3 py-2 text-xs";
 
   return (
     <>
@@ -205,8 +206,8 @@ export default function ChatComposerPanel(props: Record<string, any>) {
         </div>
       )}
 
-      <footer className="sticky bottom-0 z-10 shrink-0 border-t bg-card p-2">
-        <div className="relative rounded-xl border bg-background focus-within:ring-1 focus-within:ring-ring">
+      <footer className="sticky bottom-0 z-10 min-w-0 shrink-0 border-t border-border/70 bg-card/95 p-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.04)] backdrop-blur sm:p-2 sm:pb-2 dark:shadow-[0_-8px_24px_rgba(0,0,0,0.16)]">
+        <div className="relative rounded-2xl border border-border/80 bg-background shadow-sm transition-colors focus-within:border-primary/30 focus-within:ring-2 focus-within:ring-primary/10">
           <input ref={fileInputRef} type="file" multiple hidden onChange={props.handleFileUpload} />
 
           {pendingFiles.length > 0 && (
@@ -214,7 +215,7 @@ export default function ChatComposerPanel(props: Record<string, any>) {
               {pendingFiles.map((file: File, index: number) => (
                 <div
                   key={`${file.name}-${index}`}
-                  className="flex shrink-0 items-center gap-2 rounded-md border bg-muted/40 py-1 pl-2 pr-1 text-xs"
+                  className="flex shrink-0 items-center gap-2 rounded-lg border border-border/70 bg-muted/40 py-1 pl-2 pr-1 text-xs"
                 >
                   <AttachmentPreview file={file} />
                   <span className="max-w-[200px] truncate">{file.name}</span>
@@ -244,7 +245,7 @@ export default function ChatComposerPanel(props: Record<string, any>) {
                 <button
                   key={String(getBuddySendId(member) || email)}
                   type="button"
-                  className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
                   onMouseDown={(event) => {
                     event.preventDefault();
                     insertMention(member);
@@ -259,7 +260,7 @@ export default function ChatComposerPanel(props: Record<string, any>) {
             </div>
           )}
 
-          <div className="flex min-w-0 items-end gap-0.5 px-1 py-1 sm:gap-1 sm:px-1.5">
+          <div className="flex min-w-0 items-end gap-0.5 px-1 py-1 sm:gap-1 sm:px-1.5 [&>button]:h-9 [&>button]:w-9 [&>button]:shrink-0 sm:[&>button]:h-10 sm:[&>button]:w-10">
             <Button
               size="icon"
               variant="ghost"
@@ -335,6 +336,17 @@ export default function ChatComposerPanel(props: Record<string, any>) {
               aria-label={recording ? "Stop recording" : "Record voice message"}
             >
               <Mic className={`h-[18px] w-[18px] ${recording ? "text-destructive" : ""}`} />
+            </Button>
+            <Button
+              size="icon"
+              variant="default"
+              disabled={!canSend}
+              onClick={() => handleSend?.()}
+              title="Send message"
+              aria-label="Send message"
+              className="rounded-lg shadow-sm disabled:opacity-40"
+            >
+              <SendHorizontal className="h-[17px] w-[17px]" />
             </Button>
           </div>
         </div>

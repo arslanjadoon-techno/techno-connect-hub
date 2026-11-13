@@ -21,7 +21,11 @@ import { getActiveConversationCallsService } from "@/services/Team-chat/chat.ser
 import { getChatMessagesService } from "@/services/Team-chat/chat.service";
 import { getStoredUser } from "@/lib/api/client";
 import { normalizeCall, PENDING_CALL_STORAGE_KEY } from "./ChatSystemUtils";
-import { normalizeChatMessages } from "./chatMessageNormalization";
+import {
+  normalizeChatMessages,
+  unwrapChatMessagesResponse,
+} from "./chatMessageNormalization";
+import { mergeChatMessages } from "./chatMessageState";
 import { CHAT_APP_BASE_PATH } from "./chatRoutes";
 import { getConversationRecordId, upsertConversationRecord } from "./chatConversationKeys";
 
@@ -254,7 +258,7 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
 
     try {
       const response: any = await getChatMessagesService(chatId, { limit: 100 });
-      const latest = normalizeChatMessages(response?.data?.data || response?.data, {
+      const latest = normalizeChatMessages(unwrapChatMessagesResponse(response), {
         ...selectedChat,
         chatId,
         currentUserId,
@@ -267,10 +271,10 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
             (message) => message.sendState === "sending" || message.sendState === "failed",
           );
           const loadedIds = new Set(latest.map((message) => String(message.id)));
-          next[key] = [
-            ...latest,
-            ...pending.filter((message) => !loadedIds.has(String(message.id))),
-          ];
+          next[key] = mergeChatMessages(
+            latest,
+            pending.filter((message) => !loadedIds.has(String(message.id))),
+          );
         });
         return next;
       });

@@ -11,6 +11,7 @@ import { UserMenu } from "@/components/user-menu";
 import GlobalChatNotifications from "./GlobalChatNotifications";
 import { API_BASE_URL } from "@/lib/config";
 import { getToken } from "@/lib/api/client";
+import { getNotificationLink } from "./notificationUtils";
 
 export default function AppLayout() {
   const { user } = useAuth();
@@ -115,15 +116,34 @@ export default function AppLayout() {
 
   useEffect(() => {
     const handleRealtimeNotification = (event: Event) => {
-      const item = (event as CustomEvent).detail?.notification || (event as CustomEvent).detail;
+      const payload = (event as CustomEvent).detail || {};
+      const item =
+        payload?.notification ||
+        payload?.data?.notification ||
+        (payload?.data && typeof payload.data === "object" ? payload.data : payload);
       const id = item?.id == null ? "" : String(item.id);
       if (!id || notificationsRef.current.some((notification) => notification.id === id)) return;
-      setServerUnreadCount((count) => count + 1);
+      const notification = {
+        id,
+        userId: String(item.userId ?? user?.id ?? ""),
+        requestId: item.requestId,
+        type: item.type,
+        title: item.title ?? "Notification",
+        body: item.message ?? item.body ?? "",
+        link: getNotificationLink(item.type, item.requestId),
+        createdAt: item.createdAt ?? new Date().toISOString(),
+        read: Boolean(item.isRead ?? item.read),
+      };
+
+      const next = [notification, ...notificationsRef.current].slice(0, 100);
+      notificationsRef.current = next;
+      set("notifications", next);
+      if (!notification.read) setServerUnreadCount((count) => count + 1);
     };
 
     window.addEventListener("app:notification", handleRealtimeNotification);
     return () => window.removeEventListener("app:notification", handleRealtimeNotification);
-  }, []);
+  }, [set, user?.id]);
 
   const myNotifications = useMemo(
     () => data.notifications.filter((n) => !n.userId || String(n.userId) === String(user?.id)),
@@ -196,7 +216,10 @@ export default function AppLayout() {
                   )}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="end" className="w-80 p-0">
+              <PopoverContent
+                align="end"
+                className="w-[min(20rem,calc(100vw-1rem))] max-w-[calc(100vw-1rem)] p-0"
+              >
                 <div className="flex items-center justify-between border-b px-3 py-2">
                   <div className="font-display text-sm font-semibold">Notifications</div>
                   {unread > 0 && (
@@ -208,7 +231,7 @@ export default function AppLayout() {
                     </button>
                   )}
                 </div>
-                <div className="max-h-80 overflow-y-auto">
+                <div className="max-h-[min(20rem,60dvh)] overflow-y-auto">
                   {myNotifications.length === 0 ? (
                     <div className="px-3 py-8 text-center text-sm text-muted-foreground">
                       No notifications
@@ -251,7 +274,11 @@ export default function AppLayout() {
               content should scope its own overflow-x-auto locally (tables already
               do this) rather than relying on this element. Chat routes still need
               their own overflow-hidden for internal scroll containers. */}
-          <main className={`min-h-0 flex-1 p-3 sm:p-4 lg:p-6 ${isChatRoute ? "overflow-hidden" : ""}`}>
+          <main
+            className={`min-h-0 flex-1 ${
+              isChatRoute ? "overflow-hidden p-0 sm:p-4 lg:p-6" : "p-3 sm:p-4 lg:p-6"
+            }`}
+          >
             <Outlet />
           </main>
         </div>

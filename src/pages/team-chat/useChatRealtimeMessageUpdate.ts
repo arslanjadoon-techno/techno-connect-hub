@@ -1,6 +1,7 @@
 import { useCallback } from "react";
 import { normalizeRealtimeMessage, resolveLocalChatKey } from "./chatMessageNormalization";
 import { getCachedChatMessages, saveCachedChatMessages } from "./chatMessageIndexedDb";
+import { mergeChatMessages } from "./chatMessageState";
 
 export function useChatRealtimeMessageUpdate({
   channels,
@@ -37,19 +38,19 @@ export function useChatRealtimeMessageUpdate({
 
       const stateKeys = Array.from(
         new Set(
-          [localKey, chatId, selectedChat?.id, selectedChat?.chatId]
-            .filter(Boolean)
-            .map(String),
+          [localKey, chatId, selectedChat?.id, selectedChat?.chatId].filter(Boolean).map(String),
         ),
       );
 
       setMessagesByChat((previous: Record<string, any[]>) => {
         const next = { ...previous };
         stateKeys.forEach((key) => {
-          next[key] = (previous[key] || []).map((item) =>
-            String(item.id) === String(normalizedMessage.id)
-              ? { ...item, ...normalizedMessage }
-              : item,
+          next[key] = mergeChatMessages(
+            (previous[key] || []).map((item) =>
+              String(item.id) === String(normalizedMessage.id)
+                ? mergeChatMessages([item], [normalizedMessage])[0]
+                : item,
+            ),
           );
         });
         return next;
@@ -66,12 +67,13 @@ export function useChatRealtimeMessageUpdate({
           const updated = cached.map((item) => {
             const itemId = item.id ?? item.message_id ?? item.messageId;
             return String(itemId) === String(normalizedMessage.id)
-              ? { ...item, ...normalizedMessage }
+              ? mergeChatMessages([item], [normalizedMessage])[0]
               : item;
           });
 
-          if (updated.some((item, index) => item !== cached[index])) {
-            await saveCachedChatMessages(key, updated);
+          const ordered = mergeChatMessages(updated);
+          if (ordered.some((item, index) => item !== cached[index])) {
+            await saveCachedChatMessages(key, ordered);
           }
         }),
       ).catch((error) => {

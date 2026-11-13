@@ -259,7 +259,13 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     callsEnabled: CALLS_ENABLED,
   });
 
-  const { fetchChatData, searchChatUsers, loadDirectChatHistory, loadChannelHistory } = useChatData({
+  const {
+    fetchChatData,
+    searchChatUsers,
+    loadDirectChatHistory,
+    loadChannelHistory,
+    userSearchLoading,
+  } = useChatData({
     ...pageState,
     clearUnreadForChat,
     id,
@@ -269,12 +275,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     setSendError,
   });
 
-  const {
-    handleLeaveGroup,
-    handleDeleteGroup,
-    handleTransferOwnership,
-    handleRemoveGroupMember,
-  } =
+  const { handleLeaveGroup, handleDeleteGroup, handleTransferOwnership, handleRemoveGroupMember } =
     useChatGroupActions({
       setChannels,
       setMessagesByChat,
@@ -369,11 +370,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     uniqueUsersByIdentity,
   });
 
-  const handleOTPRequest = async (request: {
-    type: string;
-    amount: number;
-    notes: string;
-  }) => {
+  const handleOTPRequest = async (request: { type: string; amount: number; notes: string }) => {
     if (!canRequestOtp(permissions)) {
       setSendError("You do not have permission to request an OTP.");
       return;
@@ -509,6 +506,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         toggleAddMemberUser,
         toggleGroupUser,
         typingUsersByChat,
+        userSearchLoading,
         uploading,
       }}
     />

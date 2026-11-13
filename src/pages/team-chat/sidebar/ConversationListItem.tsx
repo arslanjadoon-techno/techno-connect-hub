@@ -9,6 +9,7 @@ import {
   getChannelName,
   getImageUrl,
   getUnreadCount,
+  parseChatDate,
 } from "../chatHealper";
 import {
   getDeliveryState,
@@ -39,7 +40,7 @@ function formatConversationTime(item: Conversation) {
     item?.lastMessageTime ||
     item?.last_message_time;
   if (!value) return "";
-  const date = new Date(value);
+  const date = parseChatDate(value);
   if (Number.isNaN(date.getTime())) return "";
   const now = new Date();
   if (date.toDateString() === now.toDateString()) return timeFormat.format(date);
@@ -73,8 +74,8 @@ function PresenceAvatar({
 
   if (!isDirect) {
     return (
-      <Avatar className="h-12 w-12 shrink-0 bg-primary/10 text-primary">
-        <AvatarImage src={imageUrl} />
+      <Avatar className="h-11 w-11 shrink-0 bg-primary/10 text-primary ring-1 ring-border/60 sm:h-12 sm:w-12">
+        <AvatarImage src={imageUrl} alt={`${title} profile`} />
         <AvatarFallback>
           <UsersRound className="h-5 w-5" />
         </AvatarFallback>
@@ -84,8 +85,8 @@ function PresenceAvatar({
 
   return (
     <span className="relative shrink-0" title={availability.label}>
-      <Avatar className="h-12 w-12 bg-primary/10 text-primary">
-        <AvatarImage src={imageUrl} />
+      <Avatar className="h-11 w-11 bg-primary/10 text-primary ring-1 ring-border/60 sm:h-12 sm:w-12">
+        <AvatarImage src={imageUrl} alt={`${title} profile`} />
         <AvatarFallback>{getInitial(title)}</AvatarFallback>
       </Avatar>
       <span
@@ -125,8 +126,10 @@ function ConversationListItem({
         if (isChannel) onSelectChannel(item);
         else onSelectBuddy(item);
       }}
-      className={`flex w-full min-w-0 items-center gap-3 rounded-lg px-3 py-2.5 text-left text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${
-        selected ? "bg-accent" : "hover:bg-accent/60"
+      className={`flex w-full min-w-0 items-center gap-2.5 rounded-lg px-2.5 py-2.5 text-left text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 sm:gap-3 sm:px-3 ${
+        selected
+          ? "bg-primary/10 text-foreground ring-1 ring-inset ring-primary/20"
+          : "hover:bg-accent/60"
       }`}
     >
       <PresenceAvatar item={item} title={title} isChannel={isChannel} />

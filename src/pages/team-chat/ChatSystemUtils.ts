@@ -1,15 +1,11 @@
+import { getMessageTime, parseChatDate } from "./chatHealper";
+
 export type ChatRecord = Record<string, any>;
 
 export const PENDING_CALL_STORAGE_KEY = "pingly_pending_call";
 
 export function getMessageTimestamp(message: ChatRecord | null | undefined): number {
-  const value =
-    message?.createdAt ||
-    message?.created_at ||
-    message?.sentAt ||
-    message?.sent_at ||
-    message?.timestamp ||
-    message?.time;
+  const value = getMessageTime(message) || message?.sentAt || message?.sent_at;
   const numericValue = Number(value);
   const timestamp =
     Number.isFinite(numericValue) && numericValue > 0
@@ -17,7 +13,7 @@ export function getMessageTimestamp(message: ChatRecord | null | undefined): num
         ? numericValue * 1000
         : numericValue
       : value
-        ? new Date(value).getTime()
+        ? parseChatDate(value).getTime()
         : NaN;
   return Number.isFinite(timestamp) ? timestamp : 0;
 }
@@ -44,7 +40,7 @@ export function getConversationActivityTime(conversation: ChatRecord | null | un
   const numericValue = Number(value);
   if (Number.isFinite(numericValue))
     return numericValue < 1e12 ? numericValue * 1000 : numericValue;
-  const parsedValue = new Date(value).getTime();
+  const parsedValue = parseChatDate(value).getTime();
   return Number.isFinite(parsedValue) ? parsedValue : 0;
 }
 

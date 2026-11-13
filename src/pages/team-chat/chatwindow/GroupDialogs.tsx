@@ -37,17 +37,26 @@ function SearchField({
   value,
   onChange,
   id,
+  loading = false,
 }: {
   value: string;
   onChange: (value: string) => void;
   id: string;
+  loading?: boolean;
 }) {
   return (
     <div className="relative">
-      <Search
-        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-        aria-hidden="true"
-      />
+      {loading ? (
+        <Loader2
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-primary"
+          aria-label="Searching people"
+        />
+      ) : (
+        <Search
+          className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+          aria-hidden="true"
+        />
+      )}
       <input
         id={id}
         type="search"
@@ -228,7 +237,12 @@ function GroupCreationForm({
           <span className="text-xs text-muted-foreground">{selectedMembers.length} selected</span>
         </div>
         <SelectedChips selectedMembers={selectedMembers} onRemove={onSelectMember} />
-        <SearchField id="new-group-search" value={search} onChange={onSearchChange} />
+        <SearchField
+          id="new-group-search"
+          loading={loading}
+          value={search}
+          onChange={onSearchChange}
+        />
         <ErrorMessage error={error} />
         <BuddyList
           members={members}
@@ -320,6 +334,7 @@ interface AddMembersDialogProps {
   open: boolean;
   selectedIds: string[];
   adding: boolean;
+  loading?: boolean;
   onSearchChange?: (value: string) => void;
 }
 
@@ -333,6 +348,7 @@ export function AddMembersDialog({
   selectedIds,
   adding,
   onSearchChange,
+  loading = false,
 }: AddMembersDialogProps) {
   const [search, setSearch] = useState("");
 
@@ -370,6 +386,7 @@ export function AddMembersDialog({
           <ErrorMessage error={error} />
           <SearchField
             id="add-members-search"
+            loading={loading}
             value={search}
             onChange={(value) => {
               setSearch(value);
@@ -378,6 +395,7 @@ export function AddMembersDialog({
           />
           <BuddyList
             members={filteredMembers}
+            loading={loading}
             emptyText={emptyText}
             isChecked={(userId) => selectedIds.includes(userId)}
             onToggle={onSelect}

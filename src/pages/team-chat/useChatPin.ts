@@ -1,5 +1,6 @@
 import { pinConversationMessageService } from "@/services/Team-chat/chat.service";
 import { normalizeRealtimeMessage } from "./chatMessageNormalization";
+import { mergeChatMessages } from "./chatMessageState";
 
 type ChatRecord = Record<string, any>;
 
@@ -39,8 +40,12 @@ export function useChatPin({ selectedChat, currentUserId, setMessagesByChat, set
         setMessagesByChat((previous: Record<string, ChatRecord[]>) => {
           const next = { ...previous };
           keys.forEach((key) => {
-            next[key] = (previous[key] || []).map((item) =>
-              String(item.id) === String(updated.id) ? { ...item, ...updated } : item,
+            next[key] = mergeChatMessages(
+              (previous[key] || []).map((item) =>
+                String(item.id) === String(updated.id)
+                  ? mergeChatMessages([item], [updated])[0]
+                  : item,
+              ),
             );
           });
           return next;

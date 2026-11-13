@@ -7,7 +7,13 @@ import {
   getMessageText,
 } from "./chatHealper";
 import { normalizeRealtimeMessage, resolveLocalChatKey } from "./chatMessageNormalization";
-import { getMessageTimestamp, isMessageReadByUser, messageMentionsUser } from "./ChatSystemUtils";
+import {
+  getMessageTimestamp,
+  isMessageReadByUser,
+  messageMentionsUser,
+} from "./ChatSystemUtils";
+import { areChatMessagesSame, mergeChatMessages } from "./chatMessageState";
+import { saveCachedChatMessages } from "./chatMessageIndexedDb";
 import { CHAT_APP_BASE_PATH } from "./chatRoutes";
 import { playMessageNotificationSound, showChatNotification } from "./chatNotifications";
 import { markConversationReadService } from "@/services/Team-chat/chat.service";
@@ -61,12 +67,18 @@ export function useChatRealtimeMessage({
     (payload: ChatRecord = {}) => {
       // Accept both the wrapped notification shape and a raw message DTO so
       // clients remain compatible with every chat notification producer.
-      const wrappedMessage = payload?.message;
+      const wrappedMessage = payload?.message || payload?.data?.message;
       const message =
-        wrappedMessage && typeof wrappedMessage === "object" ? wrappedMessage : payload;
+        wrappedMessage && typeof wrappedMessage === "object"
+          ? wrappedMessage
+          : payload?.data && typeof payload.data === "object"
+            ? payload.data
+            : payload;
       const chatId =
         payload?.chatId ??
         payload?.chat_id ??
+        payload?.data?.chatId ??
+        payload?.data?.chat_id ??
         message?.chatId ??
         message?.chat_id ??
         message?.conversationId ??
@@ -75,7 +87,7 @@ export function useChatRealtimeMessage({
       if (!chatId || !message) return;
 
       const senderId = getMessageSenderId(message);
-      const isOwnMessage = senderId && senderId === currentUserId;
+      const isOwnMessage = senderId && String(senderId) === String(currentUserId);
 
       if (!isOwnMessage && blockedUserIds.includes(String(senderId))) {
         return;
@@ -85,6 +97,8 @@ export function useChatRealtimeMessage({
         message?.message_id ||
         message?.messageId ||
         message?.id ||
+        message?.clientMessageId ||
+        message?.client_message_id ||
         message?.createdAt ||
         message?.timestamp ||
         "";
@@ -160,16 +174,7 @@ export function useChatRealtimeMessage({
 
       const isAlreadyLoaded =
         hasNormalizedMessageId &&
-        existingMessages.some((item) => {
-          const existingId = item.id ?? item.message_id ?? item.messageId;
-
-          return (
-            existingId !== undefined &&
-            existingId !== null &&
-            String(existingId).length > 0 &&
-            String(existingId) === String(normalizedMessageId)
-          );
-        });
+        existingMessages.some((item) => areChatMessagesSame(item, normalizedMessage));
 
       const messageTimestamp = getMessageTimestamp(message);
       const isNewSinceRealtimeStarted =
@@ -186,37 +191,28 @@ export function useChatRealtimeMessage({
 
           chatKeys.forEach((key) => {
             const existing = next[key] || [];
-            const clientMessageId = normalizedMessage.clientMessageId;
-
-            const optimisticIndex = clientMessageId
-              ? existing.findIndex(
-                  (item) => String(item.clientMessageId) === String(clientMessageId),
-                )
-              : -1;
-
-            if (optimisticIndex >= 0) {
-              const updated = [...existing];
-
-              updated[optimisticIndex] = {
-                ...updated[optimisticIndex],
-                ...normalizedMessage,
-                sendState: "sent",
-                deliveryStatus: normalizedMessage.deliveryStatus || "sent",
-              };
-
-              next[key] = updated;
-            } else {
-              const alreadyExists = existing.some(
-                (item: ChatRecord) => String(item.id) === String(normalizedMessage.id),
-              );
-
-              if (!alreadyExists) {
-                next[key] = [...existing, normalizedMessage];
-              }
-            }
+            const reconciled = mergeChatMessages(existing, [normalizedMessage]);
+            next[key] = reconciled.map((item) =>
+              areChatMessagesSame(item, normalizedMessage)
+                ? {
+                    ...item,
+                    sendState: "sent",
+                    deliveryStatus: item.deliveryStatus || "sent",
+                  }
+                : item,
+            );
           });
 
           return next;
+        });
+
+        // Cache realtime messages in the same canonical order as React state.
+        // The cache writer merges with the latest stored row, so concurrent
+        // history/realtime writes cannot drop messages from one another.
+        void Promise.all(
+          chatKeys.map((key) => saveCachedChatMessages(key, [normalizedMessage])),
+        ).catch((error) => {
+          console.warn("Could not cache realtime chat message", error);
         });
       }
 
@@ -248,9 +244,10 @@ export function useChatRealtimeMessage({
               ...sender,
               id: senderId,
               user_id: senderId,
-              name: [getBuddyName(sender), getBuddyName(matchingBuddy)].find(
-                (name) => name && !/^(chat\s*user|chatuser)$/i.test(name),
-              ) || "Chat user",
+              name:
+                [getBuddyName(sender), getBuddyName(matchingBuddy)].find(
+                  (name) => name && !/^(chat\s*user|chatuser)$/i.test(name),
+                ) || "Chat user",
               email: sender?.email || sender?.email_id || matchingBuddy?.email || "",
             };
 
@@ -319,9 +316,10 @@ export function useChatRealtimeMessage({
             (buddy) => String(getBuddySendId(buddy)) === String(senderId),
           );
 
-          const senderName = [getBuddyName(message?.sender), getBuddyName(matchingBuddy)].find(
-            (name) => name && !/^(chat\s*user|chatuser)$/i.test(name),
-          ) || "Someone";
+          const senderName =
+            [getBuddyName(message?.sender), getBuddyName(matchingBuddy)].find(
+              (name) => name && !/^(chat\s*user|chatuser)$/i.test(name),
+            ) || "Someone";
 
           const shown = showChatNotification({
             title: shouldNotifyMention ? `${senderName} mentioned you` : senderName,

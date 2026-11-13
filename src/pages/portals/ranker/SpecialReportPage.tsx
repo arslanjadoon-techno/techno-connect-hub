@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ConfettiBackground } from "@/components/confetti-background";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

@@ -3,6 +3,7 @@ import {
   getBuddyName,
   getBuddySendId,
   getUnreadCount,
+  parseChatDate,
 } from "./chatHealper";
 import {
   dedupeConversationRecords,
@@ -44,7 +45,7 @@ const messageTime = (message: ChatRecord | null | undefined) => {
   if (value == null || value === "") return 0;
   const numeric = Number(value);
   if (Number.isFinite(numeric)) return numeric < 1e12 ? numeric * 1000 : numeric;
-  const parsed = new Date(value).getTime();
+  const parsed = parseChatDate(value).getTime();
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
@@ -70,7 +71,7 @@ const activityTime = (conversation: ChatRecord | null | undefined) => {
   if (value == null || value === "") return 0;
   const numeric = Number(value);
   if (Number.isFinite(numeric)) return numeric < 1e12 ? numeric * 1000 : numeric;
-  const parsed = new Date(value).getTime();
+  const parsed = parseChatDate(value).getTime();
   return Number.isFinite(parsed) ? parsed : 0;
 };
 

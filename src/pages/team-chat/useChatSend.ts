@@ -16,8 +16,10 @@ import {
   createClientMessageId,
   createOptimisticMessage,
   getOptimisticMessageKeys,
+  mergeChatMessages,
   updateMessageByClientId,
 } from "./chatMessageState";
+import { saveCachedChatMessages } from "./chatMessageIndexedDb";
 import { logChatTiming } from "./chatTiming";
 import {
   editConversationMessageService,
@@ -208,7 +210,7 @@ export function useChatSend({
       setMessagesByChat((prev: Record<string, ChatRecord[]>) => {
         const next = { ...prev };
         optimisticKeys.forEach((key) => {
-          next[key] = [...(prev[key] || []), optimisticMessage];
+          next[key] = mergeChatMessages(prev[key] || [], [optimisticMessage]);
         });
         return next;
       });
@@ -329,11 +331,26 @@ export function useChatSend({
         updateMessageByClientId(prev, optimisticKeys, clientMessageId, (message: ChatRecord) => ({
           ...message,
           ...(confirmed || {}),
+          // The normalizer returns null when a response omits the client ID;
+          // retain the optimistic alias so a later SignalR server-ID event
+          // reconciles with this row instead of creating a duplicate.
+          clientMessageId:
+            confirmed?.clientMessageId || message.clientMessageId || clientMessageId,
           id: confirmed?.id || message.id,
           sendState: "sent",
           deliveryStatus: preserveDeliveryStatus(message.deliveryStatus, confirmed?.deliveryStatus),
         })),
       );
+      if (confirmed) {
+        const confirmedKeys = Array.from(
+          new Set([...optimisticKeys, chatId].filter(Boolean).map(String)),
+        );
+        void Promise.all(
+          confirmedKeys.map((key) => saveCachedChatMessages(key, [confirmed])),
+        ).catch((error) => {
+          console.warn("Could not cache sent chat message", error);
+        });
+      }
       logChatTiming("optimistic_reconciled", {
         clientMessageId,
         elapsedMs: Math.round(performance.now() - sendStartedAt),

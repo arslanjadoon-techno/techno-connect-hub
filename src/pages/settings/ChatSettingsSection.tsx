@@ -77,13 +77,19 @@ function getConversationId(conversation: ChatRecord): string {
 }
 
 function getDisplayName(record: ChatRecord): string {
-  return (
-    record?.title ||
-    record?.name ||
-    record?.displayName ||
-    record?.display_name ||
-    getBuddyName(record)
-  );
+  const label = [
+    record?.title,
+    record?.name,
+    record?.displayName,
+    record?.display_name,
+    getBuddyName(record),
+  ].find((value) => value && !/^(chat\s*user|chatuser)$/i.test(String(value).trim()));
+  const id = String(getBuddySendId(record) || record?.id || "").trim();
+
+  if (label && !/^(chat\s*user|chatuser)$/i.test(String(label).trim())) {
+    return String(label).trim();
+  }
+  return id ? `User ${id}` : "Unknown user";
 }
 
 function getStoredPresence(): string {
@@ -173,7 +179,9 @@ export default function ChatSettingsSection() {
         const [settingsResponse, usersResponse, conversationsResponse, statusResponse] =
           await Promise.all([
             getChatSettingsService(),
-            getChatUsersService({ excludeSelf: true }),
+            // Load the full chat directory so blocked users are not reduced to
+            // an ID when they fall outside the default first page.
+            getChatUsersService({ excludeSelf: true, limit: 1000 }),
             getChatConversationsService(),
             getChatStatusService().catch(() => null),
           ]);
@@ -181,13 +189,35 @@ export default function ChatSettingsSection() {
         if (!active) return;
 
         const settings = unwrapResponse(settingsResponse) as ChatRecord;
+        const nextBlockedUserIds = Array.isArray(settings?.blockedUserIds)
+          ? settings.blockedUserIds.map(String)
+          : [];
         setBlockedUserIds(
-          Array.isArray(settings?.blockedUserIds) ? settings.blockedUserIds.map(String) : [],
+          nextBlockedUserIds,
         );
         setMutedChatIds(
           Array.isArray(settings?.mutedChatIds) ? settings.mutedChatIds.map(String) : [],
         );
-        setChatUsers(getArrayPayload(usersResponse));
+        const directoryUsers = getArrayPayload(usersResponse);
+        const foundUserIds = new Set(
+          directoryUsers.map((user) => String(getBuddySendId(user) || "")).filter(Boolean),
+        );
+        const missingBlockedUserIds = nextBlockedUserIds.filter((id) => !foundUserIds.has(id));
+        const missingUserResponses = await Promise.all(
+          missingBlockedUserIds.map((id) =>
+            getChatUsersService({ excludeSelf: true, search: id, limit: 10 }).catch(() => null),
+          ),
+        );
+        if (!active) return;
+        const resolvedBlockedUsers = missingUserResponses.flatMap((response) =>
+          response ? getArrayPayload(response) : [],
+        );
+        const usersById = new Map<string, ChatRecord>();
+        [...directoryUsers, ...resolvedBlockedUsers].forEach((user) => {
+          const id = String(getBuddySendId(user) || "").trim();
+          if (id) usersById.set(id, { ...(usersById.get(id) || {}), ...user });
+        });
+        setChatUsers(Array.from(usersById.values()));
         setConversations(getArrayPayload(conversationsResponse));
 
         if (typeof settings?.desktopNotifications === "boolean") {

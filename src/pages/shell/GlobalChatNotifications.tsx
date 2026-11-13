@@ -12,6 +12,7 @@ import {
 } from "../team-chat/chatHealper";
 import { CHAT_APP_BASE_PATH } from "../team-chat/chatRoutes";
 import { playMessageNotificationSound, showChatNotification } from "../team-chat/chatNotifications";
+import { getNotificationLink } from "./notificationUtils";
 
 /** Keeps chat notifications alive while the user is working elsewhere in MIS. */
 export default function GlobalChatNotifications() {
@@ -22,29 +23,12 @@ export default function GlobalChatNotifications() {
   const notificationsRef = useRef(data.notifications);
   notificationsRef.current = data.notifications;
 
-  const linkForNotification = useCallback((type?: string, requestId?: string | number) => {
-    const normalizedType = String(type || "").toLowerCase();
-    if (normalizedType === "otp_manager") return "/otp/manager";
-    if (normalizedType === "otp_backoffice_pending") return "/otp/backoffice";
-    if (normalizedType === "otp") return "/chat";
-    if (normalizedType.startsWith("otp:")) {
-      return `${CHAT_APP_BASE_PATH}/${encodeURIComponent(String(type).slice("otp:".length))}`;
-    }
-
-    const chatPrefix = normalizedType.startsWith("chat_message:")
-      ? "chat_message:"
-      : normalizedType.startsWith("chat_reaction:")
-        ? "chat_reaction:"
-        : undefined;
-    if (chatPrefix) {
-      return `${CHAT_APP_BASE_PATH}/${encodeURIComponent(String(type).slice(chatPrefix.length))}`;
-    }
-    return requestId ? `/expenses/requests/${encodeURIComponent(String(requestId))}` : undefined;
-  }, []);
-
   const addPersistentNotification = useCallback(
     (payload: any = {}) => {
-      const item = payload?.notification || payload;
+      const item =
+        payload?.notification ||
+        payload?.data?.notification ||
+        (payload?.data && typeof payload.data === "object" ? payload.data : payload);
       if (!item || item.id === undefined || item.id === null) return;
 
       const id = String(item.id);
@@ -55,7 +39,7 @@ export default function GlobalChatNotifications() {
         type: item.type,
         title: item.title || "Notification",
         body: item.message ?? item.body ?? "",
-        link: item.link || linkForNotification(item.type, item.requestId),
+        link: item.link || getNotificationLink(item.type, item.requestId),
         createdAt: item.createdAt || new Date().toISOString(),
         read: Boolean(item.isRead ?? item.read),
       };
@@ -104,13 +88,24 @@ export default function GlobalChatNotifications() {
       });
       if (shown) playMessageNotificationSound();
     },
-    [linkForNotification, location.pathname, navigate, set, user?.id],
+    [location.pathname, navigate, set, user?.id],
   );
 
   const onMessage = useCallback(
     (payload: Record<string, any> = {}) => {
-      const message = payload?.message || payload;
-      const chatId = payload?.chatId || payload?.chat_id || message?.conversationId || message?.chatId;
+      const message =
+        payload?.message ||
+        payload?.data?.message ||
+        (payload?.data && typeof payload.data === "object" ? payload.data : payload);
+      const chatId =
+        payload?.chatId ||
+        payload?.chat_id ||
+        payload?.data?.chatId ||
+        payload?.data?.chat_id ||
+        message?.conversationId ||
+        message?.conversation_id ||
+        message?.chatId ||
+        message?.chat_id;
       const messageId = message?.id || message?.messageId || message?.message_id;
       const senderId = getMessageSenderId(message);
 

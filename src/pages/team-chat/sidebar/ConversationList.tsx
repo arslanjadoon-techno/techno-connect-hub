@@ -17,6 +17,7 @@ interface Props {
   onRefresh?: () => void;
   onSelectBuddy: (item: Conversation) => void;
   onSelectChannel: (item: Conversation) => void;
+  searchLoading?: boolean;
   selectedChat?: Conversation | null;
 }
 
@@ -33,6 +34,7 @@ export default function ConversationList({
   onRefresh,
   onSelectBuddy,
   onSelectChannel,
+  searchLoading = false,
   selectedChat,
 }: Props) {
   const [conversationFilter, setConversationFilter] = useState<Filter>("direct");
@@ -56,7 +58,7 @@ export default function ConversationList({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto bg-background">
-      <div className="sticky top-0 z-10 bg-background px-3 pb-2 pt-3">
+      <div className="sticky top-0 z-10 border-b border-border/50 bg-background/95 px-2.5 pb-2 pt-2 backdrop-blur sm:px-3">
         <div
           role="tablist"
           aria-label="Conversation type"
@@ -72,7 +74,7 @@ export default function ConversationList({
                 role="tab"
                 aria-selected={active}
                 onClick={() => setConversationFilter(tab.value)}
-                className={`flex items-center justify-center gap-1.5 rounded-md py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                className={`flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:text-sm ${
                   active
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -93,6 +95,17 @@ export default function ConversationList({
         </div>
       </div>
 
+      {searchLoading && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground"
+        >
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+          Searching chats…
+        </div>
+      )}
+
       {loadError && (
         <div
           role="alert"
@@ -107,7 +120,7 @@ export default function ConversationList({
         </div>
       )}
 
-      <div className="flex flex-col gap-0.5 px-2 pb-3">
+      <div className="flex flex-col gap-1 px-2 py-2 pb-4">
         {loading ? (
           <div role="status" className="flex items-center justify-center py-10 text-primary">
             <Loader2 className="h-6 w-6 animate-spin" aria-label="Loading conversations" />
@@ -130,7 +143,7 @@ export default function ConversationList({
         )}
       </div>
 
-      {!loading && visibleItems.length === 0 && (
+      {!loading && !searchLoading && visibleItems.length === 0 && (
         <div className="flex min-h-[220px] flex-col items-center justify-center px-6 text-center">
           <Avatar className="mb-3 h-12 w-12 bg-primary/10 text-primary">
             <AvatarFallback>

@@ -3,6 +3,7 @@ import {
   sendDirectMessageService,
 } from "@/services/Team-chat/chat.service";
 import { getBuddySendId, getChannelId, normalizeChatError } from "./chatHealper";
+import { mergeChatMessages } from "./chatMessageState";
 
 export function useChatMessageUtilities(
   setSendError: (message: string) => void,
@@ -53,7 +54,9 @@ export function useChatMessageUtilities(
           if (existing.some((item) => String(item.id) === String(forwardedMessage.id))) return previous;
           return {
             ...previous,
-            [conversationId]: [...existing, { ...forwardedMessage, sendState: "sent" }],
+            [conversationId]: mergeChatMessages(existing, [
+              { ...forwardedMessage, sendState: "sent" },
+            ]),
           };
         });
       }

@@ -304,7 +304,7 @@ export const transferGroupOwnershipService = (chatId: ChatId, userId: ChatId) =>
 export const getChatMessagesService = (chatId: ChatId, params: ChatParams = {}) =>
   api.get(
     `/api/v1/chat/${encodeURIComponent(chatId)}/messages`,
-    chatConfig({ limit: 50, ...params }),
+    chatConfig({ limit: 100, ...params }),
   );
 
 export const getChatMessageInfoService = (chatId: ChatId, messageId: ChatId) =>

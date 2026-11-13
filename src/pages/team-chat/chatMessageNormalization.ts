@@ -13,6 +13,7 @@ import {
   getBuddyName,
   getBuddyEmail,
 } from "./chatHealper";
+import { sortMessagesByTime } from "./chatMessageState";
 
 const normalizeMessageReactions = (reactions: ChatRecord[] = [], currentUserId = "") => {
   const reactionsByEmoji = new Map();
@@ -77,6 +78,22 @@ const normalizeMessageReactions = (reactions: ChatRecord[] = [], currentUserId =
   return Array.from(reactionsByEmoji.values());
 };
 
+/** Unwrap the response envelopes used by direct, group, and paginated history. */
+export const unwrapChatMessagesResponse = (response: any): any => {
+  if (!response) return {};
+
+  const candidates = [
+    response?.data?.data?.data?.messages && response.data.data.data,
+    response?.data?.data?.messages && response.data.data,
+    response?.data?.messages && response.data,
+    response?.data?.data,
+    response?.data,
+    response,
+  ];
+
+  return candidates.find((candidate) => candidate !== undefined && candidate !== null) ?? {};
+};
+
 export const normalizeChatMessages = (
   payload: unknown,
   selectedChat: ChatRecord | null | undefined,
@@ -94,15 +111,7 @@ export const normalizeChatMessages = (
   const currentUserId = String(selectedChat?.currentUserId || "");
   const currentUserEmail = String(selectedChat?.currentUserEmail || "").toLowerCase();
 
-  const comparableTime = (value: unknown): number | null => {
-    if (value == null || value === "") return null;
-    const numeric = Number(value);
-    if (Number.isFinite(numeric)) return numeric < 1e12 ? numeric * 1000 : numeric;
-    const parsed = new Date(String(value)).getTime();
-    return Number.isFinite(parsed) ? parsed : null;
-  };
-
-  return messages
+  const normalizedMessages = messages
     .map((message: ChatRecord, index: number) => {
       const senderId = getMessageSenderId(message);
       const text = getMessageText(message);
@@ -117,14 +126,21 @@ export const normalizeChatMessages = (
             (senderId && selectedId && senderId === selectedId ? "inbound" : "outbound");
 
       return {
-        id: message?.message_id || message?.id || `${getMessageTime(message)}-${index}`,
+        id:
+          message?.message_id ||
+          message?.messageId ||
+          message?.id ||
+          message?.publicId ||
+          `${getMessageTime(message)}-${index}`,
         clientMessageId:
           message?.clientMessageId ||
           message?.client_message_id ||
           message?.metadata?.clientMessageId ||
+          message?.metadata?.client_message_id ||
           null,
         chatId: message?.chatId || message?.chat_id || message?.conversationId || null,
         chat_id: message?.chat_id || message?.chatId || message?.conversationId || null,
+        createdAt: message?.createdAt || message?.created_at || null,
         authorEmail:
           getBuddyEmail(message?.sender) ||
           message?.authorEmail ||
@@ -183,15 +199,9 @@ export const normalizeChatMessages = (
         deletedAt,
         attachments,
       };
-    })
-    .sort((first, second) => {
-      // Keep the API/cache order when a legacy message has no timestamp. Never
-      // replace a missing timestamp with the current time just to force sorting.
-      const firstTime = comparableTime(first.sentAt);
-      const secondTime = comparableTime(second.sentAt);
-      if (firstTime == null || secondTime == null) return 0;
-      return firstTime - secondTime;
     });
+
+  return sortMessagesByTime(normalizedMessages);
 };
 
 export const normalizeRealtimeMessage = (message: ChatRecord, selectedChat: ChatRecord) => {

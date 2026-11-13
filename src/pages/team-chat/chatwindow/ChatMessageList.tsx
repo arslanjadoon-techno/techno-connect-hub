@@ -154,15 +154,9 @@ export default function ChatMessageList(props: Record<string, any>) {
     const initialMessagesLoaded =
       !chatChanged && previous.count === 0 && currentMessages.length > 0;
     const addedMessages = currentMessages.length > previous.count;
-    const prependedMessages =
-      !chatChanged &&
-      addedMessages &&
-      firstId !== previous.firstId;
+    const prependedMessages = !chatChanged && addedMessages && firstId !== previous.firstId;
     const appendedMessages =
-      !chatChanged &&
-      addedMessages &&
-      !prependedMessages &&
-      lastId !== previous.lastId;
+      !chatChanged && addedMessages && !prependedMessages && lastId !== previous.lastId;
 
     if (chatChanged || initialMessagesLoaded) {
       container.scrollTop = container.scrollHeight;
@@ -248,158 +242,157 @@ export default function ChatMessageList(props: Record<string, any>) {
   return (
     <div
       ref={chatBoxRef}
-      className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-transparent px-1 pb-0 pt-2 sm:px-2 sm:pt-3"
+      className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-gradient-to-b from-muted/10 via-background to-background px-0 pb-0 pt-1.5 sm:px-2 sm:pt-3"
     >
       <div ref={contentRef}>
         <div ref={olderMessagesSentinelRef} aria-hidden="true" className="h-px w-full" />
 
         {selectedMessageIds.length > 0 && (
-        <div className="sticky top-0 z-10 mb-2 flex items-center justify-between rounded-lg border bg-background px-3 py-2 text-xs shadow-sm">
-          <span>{selectedMessageIds.length} message(s) selected</span>
+          <div className="sticky top-0 z-10 mb-2 flex items-center justify-between rounded-lg border bg-background px-3 py-2 text-xs shadow-sm">
+            <span>{selectedMessageIds.length} message(s) selected</span>
 
-          <div className="flex gap-2">
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => {
-                const selectedMessages = (currentMessages as ChatMessage[]).filter((message) =>
-                  selectedMessageIds.includes(String(message.id)),
-                );
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => {
+                  const selectedMessages = (currentMessages as ChatMessage[]).filter((message) =>
+                    selectedMessageIds.includes(String(message.id)),
+                  );
 
-                handleDeleteMessages?.(selectedMessages);
-                setSelectedMessageIds([]);
-              }}
-            >
-              Delete
-            </Button>
+                  handleDeleteMessages?.(selectedMessages);
+                  setSelectedMessageIds([]);
+                }}
+              >
+                Delete
+              </Button>
 
-            <Button size="sm" variant="ghost" onClick={() => setSelectedMessageIds([])}>
-              Cancel
-            </Button>
+              <Button size="sm" variant="ghost" onClick={() => setSelectedMessageIds([])}>
+                Cancel
+              </Button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
         {currentMessages.length === 0 ? (
-        <ReadyToSendState selectedChat={selectedChat} />
-      ) : (
-        (currentMessages as ChatMessage[]).map((message, index) => {
-          const messageId = message.id != null ? String(message.id) : "";
+          <ReadyToSendState selectedChat={selectedChat} />
+        ) : (
+          (currentMessages as ChatMessage[]).map((message, index) => {
+            const messageId = message.id != null ? String(message.id) : "";
 
-          const replyId = message.replyToMessageId ?? message.replyTo ?? message.reply_to;
+            const replyId = message.replyToMessageId ?? message.replyTo ?? message.reply_to;
 
-          const repliedMessage =
-            message.repliedMessage || (replyId != null ? messageById.get(String(replyId)) : null);
+            const repliedMessage =
+              message.repliedMessage || (replyId != null ? messageById.get(String(replyId)) : null);
 
-          const messageDate = getMessageDate(message);
-          const dayKey = messageDate ? getMessageDayKey(messageDate) : "unknown-date";
+            const messageDate = getMessageDate(message);
+            const dayKey = messageDate ? getMessageDayKey(messageDate) : "unknown-date";
 
-          const previous = currentMessages[index - 1] as ChatMessage | undefined;
+            const previous = currentMessages[index - 1] as ChatMessage | undefined;
 
-          const previousDate = previous ? getMessageDate(previous) : null;
+            const previousDate = previous ? getMessageDate(previous) : null;
 
-          const previousDayKey = previousDate ? getMessageDayKey(previousDate) : "";
+            const previousDayKey = previousDate ? getMessageDayKey(previousDate) : "";
 
-          const previousAuthor = previous?.authorId ?? previous?.sender?.id ?? previous?.senderId;
+            const previousAuthor = previous?.authorId ?? previous?.sender?.id ?? previous?.senderId;
 
-          const currentAuthor = message.authorId ?? message.sender?.id ?? message.senderId;
+            const currentAuthor = message.authorId ?? message.sender?.id ?? message.senderId;
 
-          const previousDirection = String(previous?.direction || "inbound").toLowerCase();
-          const currentDirection = String(message.direction || "inbound").toLowerCase();
+            const previousDirection = String(previous?.direction || "inbound").toLowerCase();
+            const currentDirection = String(message.direction || "inbound").toLowerCase();
 
-          const isGroupChat = selectedChat?.type === "channel" || selectedChat?.type === "group";
-          const showGroupAvatar =
-            (!isGroupChat ||
+            const isGroupChat = selectedChat?.type === "channel" || selectedChat?.type === "group";
+            const showGroupAvatar =
+              !isGroupChat ||
               index === 0 ||
               previousDayKey !== dayKey ||
               String(previousAuthor ?? "") !== String(currentAuthor ?? "") ||
-              previousDirection !== currentDirection);
+              previousDirection !== currentDirection;
 
-          const senderProfile =
-            (selectedChat?.participants || selectedChat?.raw?.participants || []).find(
-              (participant: ChatMessage) => {
-                const participantId = String(getBuddySendId(participant) || "");
-                return participantId && participantId === String(currentAuthor ?? "");
-              },
-            ) ||
-            (selectedChat?.type === "person"
-              ? selectedChat?.raw || selectedChat
-              : undefined);
+            const senderProfile =
+              (selectedChat?.participants || selectedChat?.raw?.participants || []).find(
+                (participant: ChatMessage) => {
+                  const participantId = String(getBuddySendId(participant) || "");
+                  return participantId && participantId === String(currentAuthor ?? "");
+                },
+              ) ||
+              (selectedChat?.type === "person" ? selectedChat?.raw || selectedChat : undefined);
 
-          // Older/live message payloads can contain a generic authorName even
-          // though the selected conversation already has the real User
-          // Management profile. Prefer the profile before showing "Chat User".
-          const authorName =
-            [message.authorName, getBuddyName(message.sender), getBuddyName(senderProfile)]
-              .map(usableAuthorName)
-              .find(Boolean) || "Chat user";
+            // Older/live message payloads can contain a generic authorName even
+            // though the selected conversation already has the real User
+            // Management profile. Prefer the profile before showing "Chat User".
+            const authorName =
+              [message.authorName, getBuddyName(message.sender), getBuddyName(senderProfile)]
+                .map(usableAuthorName)
+                .find(Boolean) || "Chat user";
 
-          return (
-            <div
-              key={messageId || `${dayKey}-${index}`}
-              data-message-id={messageId || undefined}
-              data-unread-message={message.isUnread ? "true" : undefined}
-              className={
-                highlightedMessageId === messageId && messageId
-                  ? "rounded-lg bg-primary/10 ring-2 ring-primary/40 transition-colors"
-                  : "transition-colors"
-              }
-            >
-              {dayKey !== previousDayKey && messageDate && (
-                <div className="my-4 text-center text-[11px] font-medium text-muted-foreground">
-                  {formatMessageDateLabel(messageDate)}
-                </div>
-              )}
+            return (
+              <div
+                key={messageId || `${dayKey}-${index}`}
+                data-message-id={messageId || undefined}
+                data-unread-message={message.isUnread ? "true" : undefined}
+                className={
+                  highlightedMessageId === messageId && messageId
+                    ? "rounded-lg bg-primary/10 ring-2 ring-primary/40 transition-colors"
+                    : "transition-colors"
+                }
+              >
+                {dayKey !== previousDayKey && messageDate && (
+                  <div className="my-5 flex items-center gap-3 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground/80">
+                    <span className="h-px flex-1 bg-border/70" />
+                    <span className="shrink-0 rounded-full border border-border/70 bg-background/80 px-2.5 py-1 shadow-sm">
+                      {formatMessageDateLabel(messageDate)}
+                    </span>
+                    <span className="h-px flex-1 bg-border/70" />
+                  </div>
+                )}
 
-              <MessageRow
-                authorName={authorName}
-                chatId={chatId}
-                currentUser={currentUser}
-                message={{
-                  ...message,
-                  authorAvatarUrl:
-                    getImageUrl(senderProfile) ||
-                    getImageUrl(message.sender),
-                  repliedMessage: repliedMessage || message.repliedMessage,
-                }}
-                mentionableUsers={selectedChat?.type === "channel" ? mentionableUsers : []}
-                showAvatar={showGroupAvatar}
-                messageInfoVersion={messageInfoVersions[messageId] || 0}
-                onCopy={handleCopyMessage}
-                onDelete={handleDeleteMessages}
-                onEdit={handleEditMessage}
-                onForward={(item: ChatMessage) => setActionsMessage(item)}
-                onBlock={handleBlockUser}
-                onPin={handlePinMessage}
-                onReact={(item: ChatMessage, emoji: string) => handleReaction?.(item.id, emoji)}
-                onReply={handleReplyToMessage}
-                onViewUser={onViewUser}
-                selectionMode={selectedMessageIds.length > 0}
-                selected={selectedMessageIds.includes(messageId)}
-                onSelect={(selectedMessage: ChatMessage) => {
-                  const id = String(selectedMessage.id);
+                <MessageRow
+                  authorName={authorName}
+                  chatId={chatId}
+                  currentUser={currentUser}
+                  message={{
+                    ...message,
+                    authorAvatarUrl: getImageUrl(senderProfile) || getImageUrl(message.sender),
+                    repliedMessage: repliedMessage || message.repliedMessage,
+                  }}
+                  mentionableUsers={selectedChat?.type === "channel" ? mentionableUsers : []}
+                  showAvatar={showGroupAvatar}
+                  messageInfoVersion={messageInfoVersions[messageId] || 0}
+                  onCopy={handleCopyMessage}
+                  onDelete={handleDeleteMessages}
+                  onEdit={handleEditMessage}
+                  onForward={(item: ChatMessage) => setActionsMessage(item)}
+                  onBlock={handleBlockUser}
+                  onPin={handlePinMessage}
+                  onReact={(item: ChatMessage, emoji: string) => handleReaction?.(item.id, emoji)}
+                  onReply={handleReplyToMessage}
+                  onViewUser={onViewUser}
+                  selectionMode={selectedMessageIds.length > 0}
+                  selected={selectedMessageIds.includes(messageId)}
+                  onSelect={(selectedMessage: ChatMessage) => {
+                    const id = String(selectedMessage.id);
 
-                  setSelectedMessageIds((previousIds: string[]) =>
-                    previousIds.includes(id)
-                      ? previousIds.filter((item) => item !== id)
-                      : [...previousIds, id],
-                  );
-                }}
-                onJumpToMessage={(targetMessageId: string) => {
-                  scrollToMessage(String(targetMessageId));
-                }}
-                blocked={blockedUserIds.includes(String(message.authorId ?? ""))}
-                onOpenReactionPicker={(item: ChatMessage, element: HTMLElement) => {
-                  setEmojiTarget(item);
-                  setEmojiAnchor(element);
-                }}
-              />
-            </div>
-          );
-        })
+                    setSelectedMessageIds((previousIds: string[]) =>
+                      previousIds.includes(id)
+                        ? previousIds.filter((item) => item !== id)
+                        : [...previousIds, id],
+                    );
+                  }}
+                  onJumpToMessage={(targetMessageId: string) => {
+                    scrollToMessage(String(targetMessageId));
+                  }}
+                  blocked={blockedUserIds.includes(String(message.authorId ?? ""))}
+                  onOpenReactionPicker={(item: ChatMessage, element: HTMLElement) => {
+                    setEmojiTarget(item);
+                    setEmojiAnchor(element);
+                  }}
+                />
+              </div>
+            );
+          })
         )}
       </div>
-
     </div>
   );
 }

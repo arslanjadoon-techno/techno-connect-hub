@@ -8,6 +8,7 @@ import {
   getChatHost,
   getFileUrl,
   getMessageAttachments,
+  parseChatDate,
   toChatHref,
 } from "../chatHealper";
 
@@ -61,7 +62,7 @@ const formatSize = (bytes: unknown) => {
 };
 
 const formatMessageDate = (message: ChatMessage) => {
-  const date = new Date(String(message.sentAt || ""));
+  const date = parseChatDate(String(message.sentAt || ""));
   if (!Number.isNaN(date.getTime())) return dateFormat.format(date);
   return String(message.timestamp || "");
 };

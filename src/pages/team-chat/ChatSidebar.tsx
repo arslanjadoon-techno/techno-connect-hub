@@ -11,6 +11,7 @@ interface ChatSidebarProps {
   onSelectBuddy: (item: ChatRecord) => void;
   onSelectChannel: (item: ChatRecord) => void;
   searchTerm?: string;
+  searchLoading?: boolean;
   selectedChat?: ChatRecord | null;
   connectUrl?: string;
   setSearchTerm: (value: string) => void;
@@ -26,16 +27,21 @@ export default function ChatSidebar({
   onSelectBuddy,
   onSelectChannel,
   searchTerm = "",
+  searchLoading = false,
   selectedChat,
   connectUrl,
   setSearchTerm,
 }: ChatSidebarProps) {
   return (
     <aside
-      className={`grid h-full min-h-0 min-w-0 grid-cols-1 border-r border-border bg-background ${selectedChat ? "hidden md:grid" : "grid"}`}
+      className={`grid h-full min-h-0 min-w-0 grid-cols-1 bg-card/20 md:border-r md:border-border/70 ${selectedChat ? "hidden md:grid" : "grid"}`}
     >
-      <div className="flex min-h-0 min-w-0 flex-col bg-background">
-        <SearchBox searchTerm={searchTerm} setSearchTerm={setSearchTerm} />
+      <div className="flex min-h-0 min-w-0 flex-col bg-background/95">
+        <SearchBox
+          searchLoading={searchLoading}
+          searchTerm={searchTerm}
+          setSearchTerm={setSearchTerm}
+        />
         <ConversationList
           connectUrl={connectUrl}
           filteredItems={filteredItems}
@@ -44,6 +50,7 @@ export default function ChatSidebar({
           onRefresh={onRefresh}
           onSelectBuddy={onSelectBuddy}
           onSelectChannel={onSelectChannel}
+          searchLoading={searchLoading}
           selectedChat={selectedChat}
         />
       </div>

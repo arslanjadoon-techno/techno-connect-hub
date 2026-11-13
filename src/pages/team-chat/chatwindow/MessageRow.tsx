@@ -18,7 +18,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getChatMessageInfoService } from "@/services/Team-chat/chat.service";
-import { getBuddyName, getImageUrl } from "../chatHealper";
+import { getBuddyName, getImageUrl, parseChatDate } from "../chatHealper";
 import MessageAttachments from "./MessageAttachments";
 import MessageText from "./MessageText";
 import MessageActions from "./MessageActions";
@@ -58,16 +58,16 @@ const LONG_PRESS_MS = 450;
 const COLLAPSE_AT = 700; // characters before "Read more" appears
 const MEMBER_EVENTS = ["group_member_removed", "group_member_added", "group_member_joined"];
 
-// Colors come from the app theme tokens, so bubbles follow light/dark mode and your brand color.
-// Keep both directions on the same professional surface. Alignment and the
-// small tail still distinguish who sent the message without changing colors.
-const BUBBLE_SURFACE = "bg-card/95 ring-1 ring-inset ring-border/80";
+// Colors come from the app theme tokens, so bubbles follow light/dark mode and
+// still distinguish inbound and outbound messages without hardcoded colors.
+const BUBBLE_INBOUND = "bg-card/95 ring-1 ring-inset ring-border/80";
+const BUBBLE_OUTBOUND = "bg-primary/[0.12] ring-1 ring-inset ring-primary/25";
 const TEXT_MAIN = "text-foreground";
 const TEXT_META = "text-muted-foreground";
 const TICK_READ = "text-primary";
 const formatDate = (value?: string | number | Date) => {
   if (!value) return "";
-  const date = new Date(value);
+  const date = parseChatDate(value);
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleString();
 };
 
@@ -213,7 +213,7 @@ function MessageRow({
   const reactions: RecordValue[] = Array.isArray(message.reactions) ? message.reactions : [];
   const fullDate = formatDate(message.sentAt);
 
-  const messageAge = Date.now() - new Date(message.sentAt || message.timestamp).getTime();
+  const messageAge = Date.now() - parseChatDate(message.sentAt || message.timestamp).getTime();
   const canEdit =
     isMe && Number.isFinite(messageAge) && messageAge >= 0 && messageAge <= EDIT_WINDOW_MS;
 
@@ -386,9 +386,9 @@ function MessageRow({
                 onViewUser?.(messageUser);
               }}
             >
-              <Avatar className="h-8 w-8 bg-primary/10 text-xs text-primary">
-                <AvatarImage key={avatarUrl} src={avatarUrl} />
-                <AvatarFallback>{name.charAt(0)}</AvatarFallback>
+              <Avatar className="h-8 w-8 bg-primary/10 text-xs text-primary ring-1 ring-border/60">
+                <AvatarImage key={avatarUrl} src={avatarUrl} alt={`${name} profile`} />
+                <AvatarFallback>{name.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
             </button>
           ) : (
@@ -406,7 +406,7 @@ function MessageRow({
         >
           <div
             ref={bubbleRef}
-            className={`relative min-w-[84px] max-w-full rounded-[14px] px-3 py-1.5 text-[13.5px] leading-[1.35] font-normal shadow-[0_2px_8px_rgba(15,23,42,0.06)] [overflow-wrap:anywhere] dark:shadow-[0_2px_8px_rgba(0,0,0,0.16)] ${TEXT_MAIN} ${BUBBLE_SURFACE} ${showAvatar ? (isMe ? "rounded-tr-[4px]" : "rounded-tl-[4px]") : ""}`}
+            className={`relative min-w-[84px] max-w-full rounded-[14px] px-3 py-1.5 text-[13.5px] leading-[1.35] font-normal shadow-[0_2px_8px_rgba(15,23,42,0.06)] [overflow-wrap:anywhere] dark:shadow-[0_2px_8px_rgba(0,0,0,0.16)] ${TEXT_MAIN} ${isMe ? BUBBLE_OUTBOUND : BUBBLE_INBOUND} ${showAvatar ? (isMe ? "rounded-tr-[4px]" : "rounded-tl-[4px]") : ""}`}
           >
             {showAvatar && tail}
 
@@ -563,9 +563,9 @@ function MessageRow({
                 onViewUser?.(messageUser);
               }}
             >
-              <Avatar className="h-8 w-8 bg-primary/10 text-xs text-primary">
-                <AvatarImage key={avatarUrl} src={avatarUrl} />
-                <AvatarFallback>{name.charAt(0)}</AvatarFallback>
+              <Avatar className="h-8 w-8 bg-primary/10 text-xs text-primary ring-1 ring-border/60">
+                <AvatarImage key={avatarUrl} src={avatarUrl} alt={`${name} profile`} />
+                <AvatarFallback>{name.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
             </button>
           ) : (
@@ -636,7 +636,7 @@ function MessageRow({
             <div className="max-h-[60vh] space-y-4 overflow-y-auto text-sm">
               <div className="flex justify-end rounded-lg bg-muted/50 p-4">
                 <div
-                  className={`max-w-[85%] rounded-lg rounded-tr-none px-3 py-2 ${BUBBLE_SURFACE} ${TEXT_MAIN}`}
+                  className={`max-w-[85%] rounded-lg rounded-tr-none px-3 py-2 ${BUBBLE_OUTBOUND} ${TEXT_MAIN}`}
                 >
                   <p className="whitespace-pre-wrap break-words">
                     {infoData?.message?.text || message.text || "Attachment"}

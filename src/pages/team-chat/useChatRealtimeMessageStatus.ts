@@ -1,4 +1,5 @@
 import { useCallback } from "react";
+import { getMessageClientId } from "./chatMessageState";
 
 type ChatRecord = Record<string, any>;
 
@@ -13,10 +14,13 @@ export function useChatRealtimeMessageStatus({ setMessagesByChat, setSendError }
         const next = { ...previous };
         Object.keys(previous).forEach((key) => {
           next[key] = (previous[key] || []).map((message) =>
-            String(message.clientMessageId || message.id) === clientMessageId
+            getMessageClientId(message) === clientMessageId || String(message.id) === clientMessageId
               ? {
                   ...message,
-                  sendState: failed ? "failed" : "sending",
+                  // message:accepted means the server has accepted the
+                  // message. Do not leave the optimistic bubble spinning
+                  // while REST or message:new reconciliation catches up.
+                  sendState: failed ? "failed" : "sent",
                   deliveryStatus: failed ? "failed" : "sent",
                   sendError: failed ? payload.error || "Message could not be saved." : undefined,
                   acceptedAt: payload.acceptedAt || message.acceptedAt,

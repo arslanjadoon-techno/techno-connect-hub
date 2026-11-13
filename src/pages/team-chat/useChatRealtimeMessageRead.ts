@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { resolveLocalChatKey } from "./chatMessageNormalization";
+import { parseChatDate } from "./chatHealper";
 
 export function useChatRealtimeMessageRead({
   channels,
@@ -44,9 +45,12 @@ export function useChatRealtimeMessageRead({
               return { ...message, deliveryStatus: "seen" };
             }
             if (effectiveReaders.length === 0) return message;
-            const sentAt = new Date(message.sentAt).getTime();
+            const sentAt = parseChatDate(
+              message.sentAt || message.sent_at || message.createdAt || message.created_at,
+            ).getTime();
             const seenByAll = effectiveReaders.every(
-              (reader: any) => reader.readAt && new Date(reader.readAt).getTime() >= sentAt,
+              (reader: any) =>
+                reader.readAt && parseChatDate(reader.readAt).getTime() >= sentAt,
             );
             return seenByAll ? { ...message, deliveryStatus: "seen" } : message;
           });

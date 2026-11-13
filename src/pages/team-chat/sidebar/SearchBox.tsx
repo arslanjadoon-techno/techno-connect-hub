@@ -1,14 +1,19 @@
-import { Search, X } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 
 interface SearchBoxProps {
+  searchLoading?: boolean;
   searchTerm: string;
   setSearchTerm: (value: string) => void;
 }
 
-export default function SearchBox({ searchTerm, setSearchTerm }: SearchBoxProps) {
+export default function SearchBox({
+  searchLoading = false,
+  searchTerm,
+  setSearchTerm,
+}: SearchBoxProps) {
   return (
-    <div className="bg-background px-3 py-2.5">
+    <div className="border-b border-border/60 bg-card/30 px-2.5 py-2.5 sm:px-3 sm:py-3">
       <div className="relative">
         <Search
           className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
@@ -27,9 +32,14 @@ export default function SearchBox({ searchTerm, setSearchTerm }: SearchBoxProps)
               setSearchTerm("");
             }
           }}
-          className="h-10 rounded-lg border-transparent bg-muted/60 pl-9 pr-9 font-normal shadow-none focus-visible:bg-background"
+          className="h-10 rounded-xl border-transparent bg-muted/60 pl-9 pr-10 text-sm font-normal shadow-none transition-colors focus-visible:border-primary/30 focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-primary/15"
         />
-        {searchTerm && (
+        {searchLoading ? (
+          <Loader2
+            className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-primary"
+            aria-label="Searching chats"
+          />
+        ) : searchTerm ? (
           <button
             type="button"
             aria-label="Clear search"
@@ -38,7 +48,7 @@ export default function SearchBox({ searchTerm, setSearchTerm }: SearchBoxProps)
           >
             <X className="h-4 w-4" />
           </button>
-        )}
+        ) : null}
       </div>
     </div>
   );

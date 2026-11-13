@@ -175,7 +175,8 @@ export default function GroupActions({
     <>
       <div
         ref={menuRef}
-        className={`absolute right-2 top-12 z-40 w-60 overflow-hidden rounded-lg border bg-popover shadow-lg ${open ? "block" : "hidden"}`}
+        className={`absolute right-2 top-12 z-[100] isolate w-60 overflow-hidden rounded-lg border border-border bg-popover shadow-lg ring-1 ring-black/10 backdrop-blur-none dark:ring-white/10 ${open ? "block" : "hidden"}`}
+        style={{ backgroundColor: "var(--popover)" }}
       >
         <Action
           icon={Info}

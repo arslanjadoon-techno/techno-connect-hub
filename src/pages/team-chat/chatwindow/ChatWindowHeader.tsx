@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { getBuddyName, getImageUrl } from "../chatHealper";
+import { getBuddyName, getImageUrl, parseChatDate } from "../chatHealper";
 import GroupActions from "./GroupActions";
 
 function MenuItem({
@@ -129,11 +129,11 @@ export default function ChatWindowHeader(props: Record<string, any>) {
 
   return (
     <>
-      <header className="relative flex min-h-16 items-center gap-3 border-b bg-card px-3 py-2">
+      <header className="relative z-30 flex min-h-14 items-center gap-2 border-b border-border/70 bg-card/95 px-2.5 py-2 shadow-sm backdrop-blur sm:min-h-16 sm:gap-3 sm:px-3">
         <Button
           size="icon"
           variant="ghost"
-          className="md:hidden"
+          className="h-9 w-9 shrink-0 md:hidden"
           aria-label="Back to chats"
           title="Back to chats"
           onClick={() => setSelectedChat?.(null)}
@@ -150,16 +150,16 @@ export default function ChatWindowHeader(props: Record<string, any>) {
             title={`View ${profileName}`}
             onClick={() => onViewUser?.(profileUser)}
           >
-            <Avatar className="h-10 w-10 bg-primary/10 text-primary">
-              <AvatarImage src={profileImageUrl} />
+            <Avatar className="h-9 w-9 bg-primary/10 text-primary ring-1 ring-border/60 sm:h-10 sm:w-10">
+              <AvatarImage src={profileImageUrl} alt={`${profileName} profile`} />
               <AvatarFallback>{profileName.charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
           </button>
         ) : (
           <Avatar
-            className={`h-10 w-10 bg-primary/10 text-primary ${messageSearchOpen ? "hidden sm:flex" : ""}`}
+            className={`h-9 w-9 shrink-0 bg-primary/10 text-primary ring-1 ring-border/60 sm:h-10 sm:w-10 ${messageSearchOpen ? "hidden sm:flex" : ""}`}
           >
-            <AvatarImage src={profileImageUrl} />
+            <AvatarImage src={profileImageUrl} alt={`${displayTitle} profile`} />
             <AvatarFallback>
               <UsersRound className="h-5 w-5" />
             </AvatarFallback>
@@ -170,14 +170,14 @@ export default function ChatWindowHeader(props: Record<string, any>) {
           {canViewUser ? (
             <button
               type="button"
-              className="block max-w-full truncate text-left text-base font-normal hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="block max-w-full truncate text-left text-[15px] font-semibold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               title={`View ${profileName}`}
               onClick={() => onViewUser?.(profileUser)}
             >
               {displayTitle}
             </button>
           ) : (
-            <h2 className="truncate text-base font-normal" title={displayTitle}>
+            <h2 className="truncate text-[15px] font-semibold" title={displayTitle}>
               {displayTitle}
             </h2>
           )}
@@ -218,7 +218,7 @@ export default function ChatWindowHeader(props: Record<string, any>) {
             </div>
 
             {messageSearchTerm.trim() && (
-              <div className="absolute left-0 right-0 top-full mt-2 max-h-72 overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg">
+              <div className="absolute left-0 right-0 top-full mt-2 max-h-[min(18rem,50dvh)] overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg">
                 {searchLoading ? (
                   <p
                     role="status"
@@ -250,7 +250,7 @@ export default function ChatWindowHeader(props: Record<string, any>) {
 
                         <span className="shrink-0 text-[10px] text-muted-foreground">
                           {message.createdAt
-                            ? new Date(message.createdAt).toLocaleString([], {
+                            ? parseChatDate(message.createdAt).toLocaleString([], {
                                 day: "2-digit",
                                 month: "short",
                                 hour: "2-digit",
@@ -277,6 +277,7 @@ export default function ChatWindowHeader(props: Record<string, any>) {
           <Button
             size="icon"
             variant="ghost"
+            className="h-9 w-9 shrink-0"
             title="Search messages"
             aria-label="Search messages"
             onClick={() => {
@@ -291,6 +292,7 @@ export default function ChatWindowHeader(props: Record<string, any>) {
         <Button
           size="icon"
           variant="ghost"
+          className="h-9 w-9 shrink-0"
           title="More chat options"
           aria-label="More chat options"
           aria-haspopup="menu"
@@ -316,7 +318,8 @@ export default function ChatWindowHeader(props: Record<string, any>) {
             ref={chatMenuRef}
             role="menu"
             aria-label="Chat options"
-            className="absolute right-3 top-14 z-50 w-60 overflow-hidden rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-xl"
+            className="absolute right-2 top-12 z-[100] isolate w-[min(15rem,calc(100vw-1rem))] overflow-hidden rounded-xl border border-border bg-popover p-1.5 text-popover-foreground opacity-100 shadow-xl ring-1 ring-black/10 backdrop-blur-none sm:right-3 sm:top-14 dark:ring-white/10"
+            style={{ backgroundColor: "var(--popover)", opacity: 1 }}
           >
             <MenuItem
               icon={CalendarDays}

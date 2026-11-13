@@ -19,6 +19,7 @@ import {
   getChatHost,
   getFileUrl,
   getMessageAttachments,
+  parseChatDate,
   toChatHref,
   type ChatAttachment,
 } from "./chatHealper";
@@ -78,12 +79,12 @@ const dateTimeFormat = new Intl.DateTimeFormat(undefined, {
 // Shows nothing for a missing or invalid date, instead of falling back to "now".
 function formatWhen(value?: string | number | null) {
   if (!value) return "";
-  const date = new Date(value);
+  const date = parseChatDate(value);
   return Number.isNaN(date.getTime()) ? "" : dateTimeFormat.format(date);
 }
 
 const timeOf = (value?: string | number | null) => {
-  const time = new Date(value || 0).getTime();
+  const time = parseChatDate(value || 0).getTime();
   return Number.isNaN(time) ? 0 : time;
 };
 
@@ -120,7 +121,9 @@ function CallRow({
 
   return (
     <li className="flex items-center gap-3 rounded-lg border bg-card p-3">
-      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${iconClass}`}>
+      <span
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${iconClass}`}
+      >
         {isVideo ? <Video className="h-5 w-5" /> : <Phone className="h-5 w-5" />}
       </span>
 
@@ -240,7 +243,13 @@ export default function ChatBodyPanels({
   useEffect(() => {
     if (view !== "media" || libraryLoading) return;
     setMediaTab(
-      visualItems.length ? "visual" : documentItems.length ? "files" : linkItems.length ? "links" : "visual",
+      visualItems.length
+        ? "visual"
+        : documentItems.length
+          ? "files"
+          : linkItems.length
+            ? "links"
+            : "visual",
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, libraryLoading]);
@@ -361,7 +370,13 @@ export default function ChatBodyPanels({
                             <button
                               type="button"
                               aria-label={`Open ${name}`}
-                              onClick={() => setSelectedPreview({ url: file.url, name, kind: isVideo ? "video" : "image" })}
+                              onClick={() =>
+                                setSelectedPreview({
+                                  url: file.url,
+                                  name,
+                                  kind: isVideo ? "video" : "image",
+                                })
+                              }
                               className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                             >
                               {isVideo ? (
@@ -422,11 +437,14 @@ export default function ChatBodyPanels({
                             key={`${file.message?.id ?? "message"}-${file.id ?? index}`}
                             role={file.url ? "button" : undefined}
                             tabIndex={file.url ? 0 : undefined}
-                            onClick={() => file.url && setSelectedPreview({
-                              url: file.url,
-                              name: file.name || "Attachment",
-                              kind: "file",
-                            })}
+                            onClick={() =>
+                              file.url &&
+                              setSelectedPreview({
+                                url: file.url,
+                                name: file.name || "Attachment",
+                                kind: "file",
+                              })
+                            }
                             onKeyDown={(event) => {
                               if (file.url && (event.key === "Enter" || event.key === " ")) {
                                 event.preventDefault();
@@ -443,15 +461,26 @@ export default function ChatBodyPanels({
                               <FileText className="h-8 w-8" />
                             </span>
                             <div className="mt-2 min-w-0">
-                              <p className="truncate text-xs font-medium text-foreground" title={file.name}>
+                              <p
+                                className="truncate text-xs font-medium text-foreground"
+                                title={file.name}
+                              >
                                 {file.name || "Attachment"}
                               </p>
-                              <p className="mt-0.5 truncate text-[11px] text-muted-foreground" title={when}>
+                              <p
+                                className="mt-0.5 truncate text-[11px] text-muted-foreground"
+                                title={when}
+                              >
                                 {file.message?.authorName || "Chat"}
                               </p>
                             </div>
                             {file.url ? (
-                              <Button variant="outline" size="icon" className="absolute right-2 top-2 h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:none)]:opacity-100" asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="absolute right-2 top-2 h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 [@media(hover:none)]:opacity-100"
+                                asChild
+                              >
                                 <a
                                   href={file.url}
                                   download={file.name || undefined}
@@ -496,25 +525,25 @@ export default function ChatBodyPanels({
                               className="block w-full cursor-pointer overflow-hidden rounded-lg border bg-card text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             >
                               <span className="flex min-w-0 items-center gap-3 p-3">
-                              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                                <Link2 className="h-5 w-5" />
-                              </span>
-                              <span className="min-w-0 flex-1">
-                                <span className="block truncate text-sm text-foreground">
-                                  {item.host}
+                                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                  <Link2 className="h-5 w-5" />
                                 </span>
-                                <span
-                                  className="block truncate text-xs text-muted-foreground"
-                                  title={item.url}
-                                >
-                                  {item.url}
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate text-sm text-foreground">
+                                    {item.host}
+                                  </span>
+                                  <span
+                                    className="block truncate text-xs text-muted-foreground"
+                                    title={item.url}
+                                  >
+                                    {item.url}
+                                  </span>
+                                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                                    Shared by {item.message?.authorName || "Chat"}
+                                    {when ? `, ${when}` : ""}
+                                  </span>
                                 </span>
-                                <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                                  Shared by {item.message?.authorName || "Chat"}
-                                  {when ? `, ${when}` : ""}
-                                </span>
-                              </span>
-                              <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
                               </span>
                             </button>
                           </li>
@@ -538,9 +567,7 @@ export default function ChatBodyPanels({
       <Dialog open={Boolean(selectedLink)} onOpenChange={(open) => !open && setSelectedLink(null)}>
         <DialogContent className="flex h-[85vh] max-w-5xl flex-col p-0">
           <DialogHeader className="border-b px-4 py-3">
-            <DialogTitle className="truncate text-sm font-normal">
-              {selectedLink?.url}
-            </DialogTitle>
+            <DialogTitle className="truncate text-sm font-normal">{selectedLink?.url}</DialogTitle>
           </DialogHeader>
           {selectedLink && (
             <iframe
@@ -554,15 +581,29 @@ export default function ChatBodyPanels({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(selectedPreview)} onOpenChange={(open) => !open && setSelectedPreview(null)}>
+      <Dialog
+        open={Boolean(selectedPreview)}
+        onOpenChange={(open) => !open && setSelectedPreview(null)}
+      >
         <DialogContent className="flex h-[85vh] max-w-5xl flex-col p-2">
           <DialogHeader className="px-2 py-1">
-            <DialogTitle className="truncate text-sm font-normal">{selectedPreview?.name}</DialogTitle>
+            <DialogTitle className="truncate text-sm font-normal">
+              {selectedPreview?.name}
+            </DialogTitle>
           </DialogHeader>
           {selectedPreview?.kind === "video" ? (
-            <video src={selectedPreview.url} controls autoPlay className="min-h-0 flex-1 rounded-md object-contain" />
+            <video
+              src={selectedPreview.url}
+              controls
+              autoPlay
+              className="min-h-0 flex-1 rounded-md object-contain"
+            />
           ) : selectedPreview?.kind === "image" ? (
-            <img src={selectedPreview.url} alt={selectedPreview.name} className="min-h-0 flex-1 rounded-md object-contain" />
+            <img
+              src={selectedPreview.url}
+              alt={selectedPreview.name}
+              className="min-h-0 flex-1 rounded-md object-contain"
+            />
           ) : selectedPreview ? (
             <iframe
               src={selectedPreview.url}

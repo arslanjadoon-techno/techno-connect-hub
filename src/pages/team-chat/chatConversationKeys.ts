@@ -1,3 +1,5 @@
+import { parseChatDate } from "./chatHealper";
+
 export type ChatRecord = Record<string, any>;
 
 export const getConversationId = (chat: ChatRecord | null | undefined) =>
@@ -83,7 +85,7 @@ const toEpoch = (value: unknown): number => {
   if (value == null || value === "") return 0;
   const numeric = Number(value);
   if (Number.isFinite(numeric)) return numeric < 1e12 ? numeric * 1000 : numeric;
-  const parsed = new Date(String(value)).getTime();
+  const parsed = parseChatDate(String(value)).getTime();
   return Number.isFinite(parsed) ? parsed : 0;
 };
 

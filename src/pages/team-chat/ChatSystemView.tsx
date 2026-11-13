@@ -120,16 +120,17 @@ export default function ChatSystemView(props: Record<string, any>) {
     toggleAddMemberUser,
     toggleGroupUser,
     typingUsersByChat,
+    userSearchLoading,
     uploading,
   } = props;
 
   return (
     <>
       <div
-        className={`chat-shell grid h-full min-h-0 w-full min-w-0 grid-rows-1 overflow-hidden bg-background text-foreground ${
+        className={`chat-shell grid h-full min-h-0 w-full min-w-0 grid-rows-1 overflow-hidden bg-background text-foreground md:border md:border-border/70 md:rounded-2xl md:shadow-[0_16px_50px_rgba(15,23,42,0.08)] dark:md:shadow-[0_16px_50px_rgba(0,0,0,0.24)] ${
           standalone
             ? "h-[100dvh] min-h-[100dvh]"
-            : "w-full h-full min-h-0 sm:-mx-4 sm:-mt-4 sm:-mb-4 sm:w-[calc(100%+2rem)] sm:h-[calc(100%+2rem)] lg:-mx-6 lg:-mt-6 lg:-mb-6 lg:w-[calc(100%+3rem)] lg:h-[calc(100%+3rem)]"
+            : "h-full min-h-0 w-full sm:-mx-4 sm:-my-4 sm:h-[calc(100%+2rem)] sm:min-h-[calc(100%+2rem)] sm:w-[calc(100%+2rem)] lg:-mx-6 lg:-my-6 lg:h-[calc(100%+3rem)] lg:min-h-[calc(100%+3rem)] lg:w-[calc(100%+3rem)]"
         } ${
           showConversationSidebar ? "grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]" : "grid-cols-1"
         }`}
@@ -143,6 +144,7 @@ export default function ChatSystemView(props: Record<string, any>) {
             onSelectBuddy={selectBuddy}
             onSelectChannel={selectChannel}
             searchTerm={searchTerm}
+            searchLoading={userSearchLoading}
             selectedChat={selectedChat}
             setSearchTerm={setSearchTerm}
           />
@@ -221,63 +223,67 @@ export default function ChatSystemView(props: Record<string, any>) {
             }
           />
         ) : (
-          <ChatWindow
-            activeCall={activeCallIsAccepted ? null : activeCall}
-            callSocketRef={callSocketRef}
-            chatBoxRef={chatBoxRef}
-            callStarting={callStarting || Boolean(activeCall) || Boolean(incomingCall)}
-            availableChats={conversationItems}
-            currentUser={currentUser}
-            messageInfoVersions={messageInfoVersions}
-            editingMessage={editingMessage}
-            currentMessages={currentMessages}
-            typingUser={typingUsersByChat[String(selectedChat?.chatId || selectedChat?.id)]}
-            onTyping={(typing) =>
-              callSocketRef.current?.emit("typing:update", {
-                chatId: selectedChat?.chatId || selectedChat?.id,
-                typing,
-              })
-            }
-            hasOlderMessages={hasOlderMessages}
-            loadingOlderMessages={loadingOlderMessages}
-            onLoadOlderMessages={loadOlderMessages}
-            handleFileUpload={(event) => handleFileUpload(event, selectedChat)}
-            onVoiceMessage={(file) => handleVoiceMessage(file, selectedChat)}
-            handleCancelComposerMode={handleCancelComposerMode}
-            handleEditMessage={handleEditMessage}
-            handleForwardMessage={handleForwardMessage}
-            handlePinMessage={handlePinMessage}
-            handleDeleteMessages={handleDeleteMessages}
-            handleBlockUser={handleBlockUser}
-            blockedUserIds={blockedUserIds}
-            handleCopyMessage={handleCopyMessage}
-            handleReaction={handleReaction}
-            handleReplyToMessage={handleReplyToMessage}
-            handleSend={handleSend}
-            handleOTPRequest={handleOTPRequest}
-            onEndActiveCall={handleEndActiveCall}
-            onLeaveGroup={handleLeaveGroup}
-            onDeleteGroup={handleDeleteGroup}
-            onTransferOwnership={handleTransferOwnership}
-            onRemoveGroupMember={handleRemoveGroupMember}
-            inputValue={inputValue}
-            mutedGroupIds={mutedChatIds}
-            mentionableUsers={selectedMentionableUsers}
-            pendingFiles={pendingFiles}
-            removePendingFile={removePendingFile}
-            selectedChat={selectedChat}
-            sendError={sendError}
-            sending={sending}
-            replyToMessage={replyToMessage}
-            onStartConversationCall={callsEnabled ? handleStartConversationCall : undefined}
-            onOpenAddMembers={openAddMembersDialog}
-            onOpenMedia={() => navigate(`${CHAT_APP_BASE_PATH}/media`)}
-            onToggleGroupMute={handleToggleChatMute}
-            onClearChat={handleClearChat}
-            setInputValue={setInputValue}
-            setSelectedChat={setSelectedChat}
-            uploading={uploading}
-          />
+          <div
+            className={`min-h-0 min-w-0 ${selectedChat ? "block" : "hidden md:block"}`}
+          >
+            <ChatWindow
+              activeCall={activeCallIsAccepted ? null : activeCall}
+              callSocketRef={callSocketRef}
+              chatBoxRef={chatBoxRef}
+              callStarting={callStarting || Boolean(activeCall) || Boolean(incomingCall)}
+              availableChats={conversationItems}
+              currentUser={currentUser}
+              messageInfoVersions={messageInfoVersions}
+              editingMessage={editingMessage}
+              currentMessages={currentMessages}
+              typingUser={typingUsersByChat[String(selectedChat?.chatId || selectedChat?.id)]}
+              onTyping={(typing) =>
+                callSocketRef.current?.emit("typing:update", {
+                  chatId: selectedChat?.chatId || selectedChat?.id,
+                  typing,
+                })
+              }
+              hasOlderMessages={hasOlderMessages}
+              loadingOlderMessages={loadingOlderMessages}
+              onLoadOlderMessages={loadOlderMessages}
+              handleFileUpload={(event) => handleFileUpload(event, selectedChat)}
+              onVoiceMessage={(file) => handleVoiceMessage(file, selectedChat)}
+              handleCancelComposerMode={handleCancelComposerMode}
+              handleEditMessage={handleEditMessage}
+              handleForwardMessage={handleForwardMessage}
+              handlePinMessage={handlePinMessage}
+              handleDeleteMessages={handleDeleteMessages}
+              handleBlockUser={handleBlockUser}
+              blockedUserIds={blockedUserIds}
+              handleCopyMessage={handleCopyMessage}
+              handleReaction={handleReaction}
+              handleReplyToMessage={handleReplyToMessage}
+              handleSend={handleSend}
+              handleOTPRequest={handleOTPRequest}
+              onEndActiveCall={handleEndActiveCall}
+              onLeaveGroup={handleLeaveGroup}
+              onDeleteGroup={handleDeleteGroup}
+              onTransferOwnership={handleTransferOwnership}
+              onRemoveGroupMember={handleRemoveGroupMember}
+              inputValue={inputValue}
+              mutedGroupIds={mutedChatIds}
+              mentionableUsers={selectedMentionableUsers}
+              pendingFiles={pendingFiles}
+              removePendingFile={removePendingFile}
+              selectedChat={selectedChat}
+              sendError={sendError}
+              sending={sending}
+              replyToMessage={replyToMessage}
+              onStartConversationCall={callsEnabled ? handleStartConversationCall : undefined}
+              onOpenAddMembers={openAddMembersDialog}
+              onOpenMedia={() => navigate(`${CHAT_APP_BASE_PATH}/media`)}
+              onToggleGroupMute={handleToggleChatMute}
+              onClearChat={handleClearChat}
+              setInputValue={setInputValue}
+              setSelectedChat={setSelectedChat}
+              uploading={uploading}
+            />
+          </div>
         )}
       </div>
       {callsEnabled && (
@@ -333,6 +339,7 @@ export default function ChatSystemView(props: Record<string, any>) {
         selectedIds={addMemberUserIds}
         error={addMembersError}
         adding={addingMembers}
+        loading={managedUsersLoading}
         onSearchChange={setGroupSearch}
       />
     </>

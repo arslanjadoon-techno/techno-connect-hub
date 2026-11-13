@@ -1,4 +1,5 @@
 import { normalizeChatMessages } from "./chatMessageNormalization";
+import { mergeChatMessages } from "./chatMessageState";
 import { getChatStateKeys } from "./chatConversationKeys";
 
 export function useChatMessageList({ selectedChat, messagesByChat }: any) {
@@ -9,43 +10,9 @@ export function useChatMessageList({ selectedChat, messagesByChat }: any) {
     selectedChat?.raw?.last_message;
 
   const messageStateKeys = getChatStateKeys(selectedChat);
-  const mergedMessages = new Map<string, any>();
-  messageStateKeys.forEach((key) => {
-    const messages = messagesByChat[key];
-    if (!Array.isArray(messages)) return;
-
-    messages.forEach((message: any) => {
-      const messageKey = String(
-        message?.id ||
-          message?.messageId ||
-          message?.message_id ||
-          message?.clientMessageId ||
-          `${message?.authorId || message?.senderId || message?.sender?.id || ""}:` +
-            `${message?.sentAt || message?.createdAt || "missing-time"}:` +
-            `${message?.text || message?.content || ""}`,
-      );
-      mergedMessages.set(messageKey, {
-        ...mergedMessages.get(messageKey),
-        ...message,
-      });
-    });
-  });
-  const storedMessages = Array.from(mergedMessages.values()).sort((first, second) => {
-    const firstTime = new Date(
-      first.sentAt || first.createdAt || first.created_at || first.timestamp || 0,
-    ).getTime();
-    const secondTime = new Date(
-      second.sentAt || second.createdAt || second.created_at || second.timestamp || 0,
-    ).getTime();
-    const timeOrder =
-      (Number.isFinite(firstTime) ? firstTime : 0) -
-      (Number.isFinite(secondTime) ? secondTime : 0);
-    if (timeOrder !== 0) return timeOrder;
-
-    const firstId = String(first.id ?? first.messageId ?? first.message_id ?? "");
-    const secondId = String(second.id ?? second.messageId ?? second.message_id ?? "");
-    return firstId.localeCompare(secondId);
-  });
+  const storedMessages = mergeChatMessages(
+    ...messageStateKeys.map((key) => (Array.isArray(messagesByChat[key]) ? messagesByChat[key] : [])),
+  );
   const currentMessages = selectedChat
     ? (storedMessages.length ? storedMessages : undefined) ||
       (selectedLastMessage ? normalizeChatMessages([selectedLastMessage], selectedChat) : [])

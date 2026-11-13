@@ -750,7 +750,7 @@ export default function ChatWindow({
           </div>
         </DialogContent>
       </Dialog>
-      <div className="mt-3 shrink-0">
+      <div className="mt-1 shrink-0 sm:mt-3">
         <ChatComposerPanel
           {...{
             actionsMessage,

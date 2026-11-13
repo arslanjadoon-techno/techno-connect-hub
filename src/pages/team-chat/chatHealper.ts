@@ -29,56 +29,88 @@ export const normalizePresence = (value: unknown): string => {
       : "online";
 };
 export const getArrayPayload = (payload: unknown): ChatRecord[] => {
-  if (Array.isArray(payload)) return payload;
-  if (!payload || typeof payload !== "object") return [];
-  const record = payload as ChatRecord;
-  if (Array.isArray(record.data)) return record.data;
-  if (Array.isArray(record.buddies)) return record.buddies;
-  if (Array.isArray(record.users)) return record.users;
-  if (Array.isArray(record.contacts)) return record.contacts;
-  if (Array.isArray(record.channels)) return record.channels;
-  if (Array.isArray(record.groups)) return record.groups;
-  if (Array.isArray(record.conversations)) return record.conversations;
-  if (Array.isArray(record.chats)) return record.chats;
-  if (Array.isArray(record.list)) return record.list;
+  let current: unknown = payload;
+  const arrayKeys = [
+    "data",
+    "items",
+    "results",
+    "buddies",
+    "users",
+    "contacts",
+    "channels",
+    "groups",
+    "conversations",
+    "chats",
+    "list",
+  ];
+
+  for (let depth = 0; depth < 4; depth += 1) {
+    if (Array.isArray(current)) return current as ChatRecord[];
+    if (!current || typeof current !== "object") return [];
+
+    const record = current as ChatRecord;
+    const arrayValue = arrayKeys.find((key) => Array.isArray(record[key]));
+    if (arrayValue) return record[arrayValue] as ChatRecord[];
+
+    current = record.data ?? record.result ?? record.payload;
+  }
+
   return [];
 };
 // End of chat helper exports.
-export const getBuddyEmail = (buddy: ChatRecord | null | undefined): string =>
-  buddy?.email ||
-  buddy?.email_id ||
-  buddy?.provider_email ||
-  buddy?.providerEmail ||
-  buddy?.userName ||
-  buddy?.username ||
-  buddy?.login ||
-  buddy?.mailid ||
-  buddy?.primary_email ||
-  buddy?.emailid ||
-  "";
+const relatedUserRecords = (buddy: ChatRecord | null | undefined): ChatRecord[] =>
+  [buddy, buddy?.user, buddy?.profile, buddy?.sender, buddy?.participant].filter(
+    (record): record is ChatRecord => Boolean(record && typeof record === "object"),
+  );
 
-export const getBuddySendId = (buddy: ChatRecord | null | undefined): ChatId =>
-  buddy?.appUserId ||
-  buddy?.app_user_id ||
-  buddy?.userId ||
-  buddy?.user_id ||
-  buddy?.id ||
-  getBuddyEmail(buddy);
+export const getBuddyEmail = (buddy: ChatRecord | null | undefined): string => {
+  for (const record of relatedUserRecords(buddy)) {
+    const email =
+      record.email ||
+      record.email_id ||
+      record.provider_email ||
+      record.providerEmail ||
+      record.userName ||
+      record.username ||
+      record.login ||
+      record.mailid ||
+      record.primary_email ||
+      record.emailid;
+    if (email) return String(email).trim();
+  }
+  return "";
+};
+
+export const getBuddySendId = (buddy: ChatRecord | null | undefined): ChatId => {
+  for (const record of relatedUserRecords(buddy)) {
+    const id = record.appUserId || record.app_user_id || record.userId || record.user_id || record.id;
+    if (id != null && String(id).trim() !== "") return id;
+  }
+  return getBuddyEmail(buddy);
+};
 
 export const getBuddyName = (buddy: ChatRecord | null | undefined): string => {
-  const candidates = [
-    buddy?.display_name,
-    buddy?.displayName,
-    buddy?.provider_display_name,
-    buddy?.providerDisplayName,
-    buddy?.userName,
-    buddy?.username,
-    buddy?.user_name,
-    buddy?.full_name,
-    buddy?.fullName,
-    buddy?.first_name,
-    buddy?.name,
-  ];
+  const candidates: unknown[] = [];
+  relatedUserRecords(buddy).forEach((record) => {
+    candidates.push(
+      record.display_name,
+      record.displayName,
+      record.provider_display_name,
+      record.providerDisplayName,
+      record.userName,
+      record.username,
+      record.user_name,
+      record.full_name,
+      record.fullName,
+      record.name,
+    );
+
+    const firstName = record.first_name || record.firstName || record.givenName;
+    const lastName = record.last_name || record.lastName || record.surname;
+    const combinedName = [firstName, lastName].filter(Boolean).join(" ").trim();
+    if (combinedName) candidates.push(combinedName);
+  });
+
   const name = candidates.find((value) => {
     const text = String(value || "").trim();
     return (
@@ -109,31 +141,32 @@ const normalizeAssetUrl = (value: unknown): string => {
 export const getImageUrl = (item: ChatRecord | null | undefined): string => {
   if (!item) return "";
 
-  // The User Management Settings profile is the only chat avatar source.
-  // If that field exists, including when it is cleared, never fall back to a
-  // legacy chat/avatar value that may still be present in an older payload.
-  const hasManagementProfile =
-    Object.prototype.hasOwnProperty.call(item, "profileImage") ||
-    Object.prototype.hasOwnProperty.call(item, "profile_image");
-  if (hasManagementProfile) {
-    return normalizeAssetUrl(item.profileImage ?? item.profile_image ?? "");
+  // Prefer the User Management profile, then use compatible legacy fields when
+  // the profile is empty. This keeps avatars visible while the profile API and
+  // conversation payload are being refreshed at different times.
+  const imageCandidates = [
+    item.profileImage,
+    item.profile_image,
+    item.avatarUrl,
+    item.imageUrl,
+    item.profilePicture,
+    item.picture,
+    item.photo,
+    item.image_url,
+    item.photo_url,
+    item.profile_image_url,
+    item.avatar_url,
+    item.thumbnail_url,
+    item.icon_url,
+    item.image,
+  ];
+
+  for (const candidate of imageCandidates) {
+    const imageUrl = normalizeAssetUrl(candidate);
+    if (imageUrl) return imageUrl;
   }
 
-  return normalizeAssetUrl(
-    item.avatarUrl ||
-      item.imageUrl ||
-      item.profilePicture ||
-      item.picture ||
-      item.photo ||
-      item.image_url ||
-      item.photo_url ||
-      item.profile_image_url ||
-      item.avatar_url ||
-      item.thumbnail_url ||
-      item.icon_url ||
-      item.image ||
-      "",
-  );
+  return "";
 };
 
 const pickStatusValue = (value: unknown): unknown => {
@@ -413,21 +446,35 @@ export const getMessageSenderId = (message: ChatRecord | null | undefined): stri
 };
 
 export const getMessageTime = (message: ChatRecord | null | undefined): string =>
+  message?.createdAt ||
+  message?.created_at ||
+  message?.sentAt ||
+  message?.sent_at ||
   message?.time ||
   message?.created_time ||
   message?.sent_time ||
-  message?.createdAt ||
   message?.timestamp ||
   "";
 
-export const parseChatDate = (value: string | number | Date): Date => {
+export const parseChatDate = (value: string | number | Date | null | undefined): Date => {
   if (typeof value === "number" || value instanceof Date) {
     const numeric = typeof value === "number" && value < 1e12 ? value * 1000 : value;
     return new Date(numeric);
   }
   const raw = String(value || "").trim();
+  // .NET/MySQL DateTime values can contain more than JavaScript's portable
+  // three fractional-second digits (for example .877105). Trim the extra
+  // precision before parsing so browsers that reject that format do not leave
+  // messages with an unknown timestamp and preserve the API's DESC order.
+  const normalizedPrecision = raw.replace(
+    /(\.\d{3})\d+(?=(?:[zZ]|[+-]\d{2}:?\d{2})?$)/,
+    "$1",
+  );
   // API timestamps without an offset are UTC; make that explicit before parsing.
-  const normalized = raw && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(raw) ? `${raw}Z` : raw;
+  const normalized =
+    normalizedPrecision && !/[zZ]|[+-]\d{2}:?\d{2}$/.test(normalizedPrecision)
+      ? `${normalizedPrecision}Z`
+      : normalizedPrecision;
   return new Date(normalized);
 };
 

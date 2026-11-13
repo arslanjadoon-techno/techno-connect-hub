@@ -1,4 +1,5 @@
 import { useRef, useState, type ChangeEvent } from "react";
+import { parseChatDate } from "./chatHealper";
 
 export function useChatComposer() {
   const [inputValue, setInputValue] = useState("");
@@ -35,7 +36,7 @@ export function useChatComposer() {
 
   const handleEditMessage = (message: any) => {
     if (message?.direction !== "outbound") return;
-    const messageAge = Date.now() - new Date(message.sentAt).getTime();
+    const messageAge = Date.now() - parseChatDate(message.sentAt).getTime();
     if (!Number.isFinite(messageAge) || messageAge < 0 || messageAge > 10 * 60 * 1000) {
       setSendError("Messages can only be edited within 10 minutes.");
       return;
