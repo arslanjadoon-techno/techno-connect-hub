@@ -89,6 +89,9 @@ export class HttpClient {
   put<T>(path: string, body?: unknown, auth?: boolean) {
     return this.request<T>(path, { method: "PUT", body, auth });
   }
+  patch<T>(path: string, body?: unknown, auth?: boolean) {
+    return this.request<T>(path, { method: "PATCH", body, auth });
+  }
   delete<T>(path: string, body?: unknown, auth?: boolean) {
     return this.request<T>(path, { method: "DELETE", body, auth });
   }

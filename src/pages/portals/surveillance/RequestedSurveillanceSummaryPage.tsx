@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -22,8 +24,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import {
   ArrowLeft,
   Check,
@@ -55,35 +55,6 @@ import {
 } from "@/services/portals/surveillance";
 import { surveillanceService } from "@/services/portals/surveillance/surveillance.service";
 import { SurveillanceSummaryPageSkeleton } from "./SurveillanceSkeletons";
-
-function renderTextWithLinks(text: string) {
-  if (!text) return null;
-  const parts = text.split(/(https?:\/\/[^\s]+|www\.[^\s]+)/g);
-
-  return (
-    <>
-      {parts.map((part, i) => {
-        if (/^(https?:\/\/|www\.)/i.test(part)) {
-          const href = /^https?:\/\//i.test(part) ? part : `https://${part}`;
-          return (
-            <a
-              key={i}
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline font-medium break-all"
-            >
-              <span>{part}</span>
-              <ExternalLink className="h-3 w-3 inline shrink-0" />
-            </a>
-          );
-        }
-        return <span key={i}>{part}</span>;
-      })}
-    </>
-  );
-}
 
 function padTwo(num: number): string {
   if (num < 0) return String(num);
@@ -146,6 +117,24 @@ function formatSummaryDateSlash(raw?: string): string {
   return clean;
 }
 
+// Mirrors SurveillanceReportsPage's parseTimeToMinutes/calculateElapsedTime
+// (where the agent enters Leaving/Backroom times) so the Summary shows the
+// same computed duration rather than just the raw start/end pair.
+function parseTimeToMinutes(timeStr: string | undefined): number | null {
+  if (!timeStr || !timeStr.trim()) return null;
+  const s = timeStr.trim();
+  const match = s.match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
+  if (match) {
+    let hours = parseInt(match[1], 10);
+    const minutes = parseInt(match[2], 10);
+    const ampm = match[3]?.toUpperCase();
+    if (ampm === "PM" && hours < 12) hours += 12;
+    if (ampm === "AM" && hours === 12) hours = 0;
+    return hours * 60 + minutes;
+  }
+  return null;
+}
+
 function parseCurrencyDifference(raw?: string): number {
   if (!raw) return 0;
   const trimmed = raw.trim();
@@ -162,21 +151,6 @@ function formatCurrencySigned(amount: number): string {
   if (Math.abs(amount) < 0.005) return "$0.00";
   const absFormatted = Math.abs(amount).toFixed(2);
   return amount < 0 ? `-$${absFormatted}` : `$${absFormatted}`;
-}
-
-function parseTimeToMinutes(timeStr: string | undefined): number | null {
-  if (!timeStr || !timeStr.trim()) return null;
-  const s = timeStr.trim();
-  const match = s.match(/^(\d{1,2}):(\d{2})(?:\s*(AM|PM))?$/i);
-  if (match) {
-    let hours = parseInt(match[1], 10);
-    const minutes = parseInt(match[2], 10);
-    const ampm = match[3]?.toUpperCase();
-    if (ampm === "PM" && hours < 12) hours += 12;
-    if (ampm === "AM" && hours === 12) hours = 0;
-    return hours * 60 + minutes;
-  }
-  return null;
 }
 
 function calculateElapsedMinutes(start: string | undefined, end: string | undefined): number {
@@ -232,6 +206,22 @@ function isRowBuying(row: SurveillanceAuditRow): boolean {
   if ((row.b || "").trim().toUpperCase() === "B") return true;
   if ((row.nb || "").trim().toUpperCase() === "NB") return false;
   return false;
+}
+
+// "Closed" is defined purely by whether a device was sold on the row -
+// independent of the clientType Buyer/Non-Buyer flag. A Buyer who didn't
+// sell a device is NOT closed; a customer flagged Non-Buyer who did sell
+// one IS closed. Which Transaction Type values count as a device is
+// configurable (see SurveillanceLookupOption, "TransactionType" ->
+// isDeviceType) rather than hardcoded here - deviceTypes is fetched by the
+// component and falls back to Phone/Tablet/HINT until that resolves.
+const DEFAULT_DEVICE_TYPES = new Set(["Phone", "Tablet", "HINT"]);
+function rowHasDeviceSale(row: SurveillanceAuditRow, deviceTypes: Set<string>): boolean {
+  const parts = (row.transType || "")
+    .split("/")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  return parts.some((p) => deviceTypes.has(p));
 }
 
 function isStoreMarkerRow(row: SurveillanceAuditRow): boolean {
@@ -423,6 +413,7 @@ function buildFallbackRowFromReport(report: SurveillanceReport): SurveillanceAud
 function computeSummaryFromReport(
   report: SurveillanceReport,
   linkedRequest: SurveillanceRequest | null,
+  deviceTypes: Set<string> = DEFAULT_DEVICE_TYPES,
 ): ComputedSurveillanceSummary {
   const rawRows =
     report.rows && report.rows.length > 0 ? report.rows : [buildFallbackRowFromReport(report)];
@@ -436,7 +427,7 @@ function computeSummaryFromReport(
     repName: string;
     rows: SurveillanceAuditRow[];
     isBuying: boolean;
-    isClosedNonBuying: boolean;
+    isClosed: boolean;
     pitchedNb: boolean;
     showedPhone: boolean;
     qualityBucket: "Bad" | "Average" | "Good" | null;
@@ -470,9 +461,9 @@ function computeSummaryFromReport(
     registerRep(rawRep);
 
     const buying = groupRows.some((r) => isRowBuying(r));
-    const closedNb =
-      !buying &&
-      groupRows.some((r) => isMeaningfulText(r.bundleNb) || isAffirmative(r.bundleAccGiven));
+    // Closed is based solely on whether a Phone/Tablet/HINT device was sold
+    // - the Buyer/Non-Buyer flag plays no part (see rowHasDeviceSale).
+    const closed = groupRows.some((r) => rowHasDeviceSale(r, deviceTypes));
     const pitchedNb =
       !buying &&
       groupRows.some(
@@ -492,7 +483,7 @@ function computeSummaryFromReport(
       repName: rawRep,
       rows: groupRows,
       isBuying: buying,
-      isClosedNonBuying: closedNb,
+      isClosed: closed,
       pitchedNb,
       showedPhone,
       qualityBucket,
@@ -514,8 +505,11 @@ function computeSummaryFromReport(
     const custs = logicalCustomers.filter((c) => c.repName === repName);
     const buying = custs.filter((c) => c.isBuying).length;
     const nonBuying = custs.length - buying;
-    const closedBuying = buying;
-    const closedNonBuying = custs.filter((c) => c.isClosedNonBuying).length;
+    // Within the closed set, Buying/Non-Buying just reflects whether the
+    // clientType flag was also set - it no longer decides who counts as
+    // closed (that's rowHasDeviceSale alone, see `isClosed` above).
+    const closedBuying = custs.filter((c) => c.isClosed && c.isBuying).length;
+    const closedNonBuying = custs.filter((c) => c.isClosed && !c.isBuying).length;
     const pitched = custs.filter((c) => c.pitchedNb);
     const showed = pitched.filter((c) => c.showedPhone).length;
     const didntShow = pitched.length - showed;
@@ -548,8 +542,8 @@ function computeSummaryFromReport(
   const totalBuying = logicalCustomers.filter((c) => c.isBuying).length;
   const totalNonBuying = totalCustomers - totalBuying;
 
-  const totalClosedBuying = totalBuying;
-  const totalClosedNonBuying = logicalCustomers.filter((c) => c.isClosedNonBuying).length;
+  const totalClosedBuying = logicalCustomers.filter((c) => c.isClosed && c.isBuying).length;
+  const totalClosedNonBuying = logicalCustomers.filter((c) => c.isClosed && !c.isBuying).length;
   const totalClosed = totalClosedBuying + totalClosedNonBuying;
 
   const totalPitchNonBuying = logicalCustomers.filter((c) => c.pitchedNb).length;
@@ -656,16 +650,15 @@ function computeSummaryFromReport(
 
   // Transaction Notes - the audit row field is always editable now, but the
   // Summary only surfaces it for a buying customer whose transaction type
-  // wasn't a Phone/Tablet/HINT device sale, collected here under one heading
-  // the same way the compliance flags above are.
+  // wasn't a device sale (rowHasDeviceSale), collected here under one
+  // heading the same way the compliance flags above are.
   const transactionNotes: string[] = rawRows
     .filter((r) => {
       const transTypeParts = (r.transType || "")
         .split("/")
         .map((p) => p.trim())
         .filter(Boolean);
-      const hasDeviceType = transTypeParts.some((p) => ["Phone", "Tablet", "HINT"].includes(p));
-      return isRowBuying(r) && transTypeParts.length > 0 && !hasDeviceType;
+      return isRowBuying(r) && transTypeParts.length > 0 && !rowHasDeviceSale(r, deviceTypes);
     })
     .map((r) => (r.notes || "").trim())
     .filter((note) => note.length > 0);
@@ -887,14 +880,16 @@ function computeSummaryFromReport(
   const amountDifference = meta.amountDifferenceOverride || formatCurrencySigned(netDiffNumeric);
 
   const numericDifference = Math.abs(parseCurrencyDifference(amountDifference) || netDiffNumeric);
-  // Show Reason for Difference ONLY when the difference is strictly greater than $5
-  const showReasonForDifference = numericDifference > 5;
 
   const reasonForDifference =
     meta.reasonForDifference ||
     (Math.abs(netDiffNumeric) >= 0.005
       ? "Variance observed across audited register invoices."
       : "No");
+  // Matches SurveillanceReportsPage's isDifferenceNotesRequired (> $5) - a
+  // sub-$5 variance needs no written reason, so the box is dropped entirely
+  // rather than shown with a placeholder "No".
+  const showReasonForDifference = Math.abs(netDiffNumeric) > 5;
 
   return {
     dateDisplay: formatSummaryDateSlash(report.date || linkedRequest?.incidentDate),
@@ -944,6 +939,53 @@ function computeSummaryFromReport(
   };
 }
 
+// Auditors paste raw URLs (Google Drive links, etc.) straight into a free-
+// text note - this renders any http(s) URL found inside such a note as a
+// clickable link instead of plain text, leaving the rest of the sentence
+// untouched. Trailing punctuation right after a URL (a closing paren, a
+// period ending the sentence) is kept out of the href/link text.
+function linkifyText(text: string, keyPrefix: string): ReactNode {
+  if (!text) return text;
+  const regex = /(https?:\/\/[^\s]+)/g;
+  const segments: ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      segments.push(
+        <span key={`${keyPrefix}-t-${key++}`}>{text.slice(lastIndex, match.index)}</span>,
+      );
+    }
+    let url = match[0];
+    let trailing = "";
+    const trailingMatch = url.match(/[),.;:]+$/);
+    if (trailingMatch) {
+      trailing = trailingMatch[0];
+      url = url.slice(0, -trailing.length);
+    }
+    segments.push(
+      <a
+        key={`${keyPrefix}-a-${key++}`}
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        className="text-blue-600 hover:underline dark:text-blue-400 break-all"
+      >
+        {url}
+      </a>,
+    );
+    if (trailing) {
+      segments.push(<span key={`${keyPrefix}-tt-${key++}`}>{trailing}</span>);
+    }
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < text.length) {
+    segments.push(<span key={`${keyPrefix}-t-${key++}`}>{text.slice(lastIndex)}</span>);
+  }
+  return segments;
+}
+
 function FlagStatusPill({ value }: { value: "Yes" | "No" }) {
   const isYes = value === "Yes";
   return (
@@ -970,74 +1012,30 @@ export default function RequestedSurveillanceSummaryPage() {
   const [report, setReport] = useState<SurveillanceReport | null>(null);
   const [linkedRequest, setLinkedRequest] = useState<SurveillanceRequest | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deviceTypes, setDeviceTypes] = useState<Set<string>>(DEFAULT_DEVICE_TYPES);
 
-  const userRole = getSurveillanceRole(user);
-  const canReviewReport = canApproveSurveillance(userRole);
-  const isReportFinalized = report?.status === "Approved" || report?.status === "Rejected";
-  const canTakeReviewAction = Boolean(report) && canReviewReport && !isReportFinalized;
+  useEffect(() => {
+    surveillanceService
+      .getLookupOptions("TransactionType")
+      .then((options) => {
+        const values = options.filter((o) => o.isDeviceType).map((o) => o.value);
+        if (values.length > 0) setDeviceTypes(new Set(values));
+      })
+      .catch(() => {
+        /* keep the Phone/Tablet/HINT default */
+      });
+  }, []);
 
+  // Approve/reject a submitted report right from the Summary - same action
+  // SurveillanceReportReviewPage offers, so a Surveillance Manager doesn't
+  // have to leave the Summary to review and act on it. isReportFinalized /
+  // canTakeReviewAction and the action handlers are declared further down,
+  // once the early-return guards below guarantee `report` is non-null.
+  const canReviewReport = canApproveSurveillance(role);
   const [declineModalOpen, setDeclineModalOpen] = useState(false);
-  const [declineReason, setDeclineReason] = useState<string>("");
+  const [declineReason, setDeclineReason] = useState("");
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
   const [submittingReview, setSubmittingReview] = useState(false);
-
-  const handleConfirmMarkAsCompleted = async () => {
-    if (!report) return;
-
-    setSubmittingReview(true);
-    try {
-      const updated = await surveillanceService.reviewReport(report.id, {
-        action: "approve",
-      });
-      setReport(updated);
-      try {
-        setLinkedRequest(await surveillanceService.getRequest(updated.requestId));
-      } catch {
-        setLinkedRequest(null);
-      }
-      setCompleteModalOpen(false);
-      toast.success(
-        "Surveillance audit report marked as Completed and is now visible on the requester dashboard.",
-      );
-    } catch (error) {
-      toast.error(`Failed to mark report as completed: ${(error as Error).message}`);
-    } finally {
-      setSubmittingReview(false);
-    }
-  };
-
-  const handleOpenDeclineModal = () => {
-    setDeclineReason("");
-    setDeclineModalOpen(true);
-  };
-
-  const handleConfirmDeclineReport = async () => {
-    if (!report) return;
-    if (!declineReason.trim()) {
-      toast.error("Please provide a reason for declining this report.");
-      return;
-    }
-
-    setSubmittingReview(true);
-    try {
-      const updated = await surveillanceService.reviewReport(report.id, {
-        action: "reject",
-        comments: declineReason.trim(),
-      });
-      setReport(updated);
-      try {
-        setLinkedRequest(await surveillanceService.getRequest(updated.requestId));
-      } catch {
-        setLinkedRequest(null);
-      }
-      setDeclineModalOpen(false);
-      toast.success("Surveillance audit report has been rejected with reason.");
-    } catch (error) {
-      toast.error(`Failed to decline report: ${(error as Error).message}`);
-    } finally {
-      setSubmittingReview(false);
-    }
-  };
 
   useEffect(() => {
     if (!id) {
@@ -1066,8 +1064,8 @@ export default function RequestedSurveillanceSummaryPage() {
 
   const summary = useMemo(() => {
     if (!report) return null;
-    return computeSummaryFromReport(report, linkedRequest);
-  }, [report, linkedRequest]);
+    return computeSummaryFromReport(report, linkedRequest, deviceTypes);
+  }, [report, linkedRequest, deviceTypes]);
 
   if (loading) {
     return <SurveillanceSummaryPageSkeleton />;
@@ -1108,6 +1106,60 @@ export default function RequestedSurveillanceSummaryPage() {
 
   const handleExportPdf = () => {
     window.print();
+  };
+
+  const isReportFinalized = report.status === "Approved" || report.status === "Rejected";
+  const canTakeReviewAction = canReviewReport && report.status === "Report Received" && !isReportFinalized;
+
+  const refreshAfterReview = async (updated: SurveillanceReport) => {
+    setReport(updated);
+    try {
+      setLinkedRequest(await surveillanceService.getRequest(updated.requestId));
+    } catch {
+      setLinkedRequest(null);
+    }
+  };
+
+  const handleOpenDeclineModal = () => {
+    setDeclineReason("");
+    setDeclineModalOpen(true);
+  };
+
+  const handleConfirmDeclineReport = async () => {
+    if (!declineReason.trim()) {
+      toast.error("Please provide a reason for declining this report.");
+      return;
+    }
+    setSubmittingReview(true);
+    try {
+      const updated = await surveillanceService.reviewReport(report.id, {
+        action: "reject",
+        comments: declineReason.trim(),
+      });
+      await refreshAfterReview(updated);
+      setDeclineModalOpen(false);
+      toast.success("Surveillance audit report has been rejected with reason.");
+    } catch (error) {
+      toast.error(`Failed to decline report: ${(error as Error).message}`);
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const handleConfirmMarkAsCompleted = async () => {
+    setSubmittingReview(true);
+    try {
+      const updated = await surveillanceService.reviewReport(report.id, { action: "approve" });
+      await refreshAfterReview(updated);
+      setCompleteModalOpen(false);
+      toast.success(
+        "Surveillance audit report marked as Completed and is now visible on the requester dashboard.",
+      );
+    } catch (error) {
+      toast.error(`Failed to mark report as completed: ${(error as Error).message}`);
+    } finally {
+      setSubmittingReview(false);
+    }
   };
 
   return (
@@ -1173,31 +1225,6 @@ export default function RequestedSurveillanceSummaryPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {canTakeReviewAction && (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleOpenDeclineModal}
-                disabled={submittingReview}
-                className="h-9 gap-1.5 rounded-xl px-3.5 text-xs font-semibold border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-900/60 dark:text-rose-400"
-              >
-                <X className="h-3.5 w-3.5" />
-                Decline Report
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => setCompleteModalOpen(true)}
-                disabled={submittingReview}
-                className="h-9 gap-1.5 rounded-xl px-3.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-              >
-                <Check className="h-3.5 w-3.5" />
-                Mark as Completed
-              </Button>
-            </>
-          )}
           <Button
             variant="outline"
             size="sm"
@@ -1223,6 +1250,31 @@ export default function RequestedSurveillanceSummaryPage() {
               ? "Review Report"
               : "View Report"}
           </Button>
+          {canTakeReviewAction && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleOpenDeclineModal}
+                disabled={submittingReview}
+                className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-900/60 dark:text-rose-400"
+              >
+                <X className="h-3.5 w-3.5" />
+                Decline Report
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setCompleteModalOpen(true)}
+                disabled={submittingReview}
+                className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+              >
+                <Check className="h-3.5 w-3.5" />
+                Mark as Completed
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1449,7 +1501,7 @@ export default function RequestedSurveillanceSummaryPage() {
           <ul className="space-y-1 text-xs">
             {summary.transactionNotes.map((note, idx) => (
               <li key={idx} className="text-muted-foreground">
-                • {renderTextWithLinks(note)}
+                • {linkifyText(note, `reason-${idx}`)}
               </li>
             ))}
           </ul>
@@ -1619,7 +1671,7 @@ export default function RequestedSurveillanceSummaryPage() {
                   {rep.pitchNotes.map((note, idx) => (
                     <li key={idx} className="flex items-start gap-2">
                       <span className="text-blue-600 dark:text-blue-400 font-bold mt-0.5">•</span>
-                      <span>{note}</span>
+                      <span>{linkifyText(note, `pn-${rep.repName}-${idx}`)}</span>
                     </li>
                   ))}
                 </ul>
@@ -1641,7 +1693,7 @@ export default function RequestedSurveillanceSummaryPage() {
                 <div key={idx} className="space-y-1 text-xs">
                   <div className="flex items-start gap-2 text-foreground font-medium">
                     <span className="text-rose-600 dark:text-rose-400 font-bold">•</span>
-                    <span>{item.description}</span>
+                    <span>{linkifyText(item.description, `bp-${idx}`)}</span>
                   </div>
                   <div className="pl-3.5 text-muted-foreground flex items-center gap-1.5 flex-wrap">
                     <span className="font-semibold text-foreground">Link:</span>
@@ -1770,7 +1822,7 @@ export default function RequestedSurveillanceSummaryPage() {
                 <ul className="space-y-1">
                   {flag.notes.map((note, idx) => (
                     <li key={idx} className="text-muted-foreground">
-                      • {renderTextWithLinks(note)}
+                      • {linkifyText(note, `${flag.label}-${idx}`)}
                     </li>
                   ))}
                 </ul>
@@ -1806,7 +1858,7 @@ export default function RequestedSurveillanceSummaryPage() {
                   </div>
                   <div>
                     <span className="font-semibold text-muted-foreground">Description: </span>
-                    <span className="text-foreground">{renderTextWithLinks(mo.description)}</span>
+                    <span className="text-foreground">{linkifyText(mo.description, `mo-${idx}`)}</span>
                   </div>
                 </div>
               ))}
@@ -2112,8 +2164,12 @@ export default function RequestedSurveillanceSummaryPage() {
           } text-xs pt-1`}
         >
           <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-1">
-            <div className="text-[11px] font-medium text-muted-foreground">General Other Notes</div>
-            <div className="font-semibold text-foreground">{summary.generalOtherNotes}</div>
+            <div className="text-[11px] font-medium text-muted-foreground">
+              General Other Notes
+            </div>
+            <div className="font-semibold text-foreground">
+              {linkifyText(summary.generalOtherNotes, "general-notes")}
+            </div>
           </div>
 
           <div className="rounded-xl border border-border/60 bg-muted/20 p-4 space-y-1">
@@ -2147,31 +2203,6 @@ export default function RequestedSurveillanceSummaryPage() {
         </div>
       </Card>
 
-      {/* Bottom Action Bar for Decline / Complete */}
-      {canTakeReviewAction && (
-        <div className="flex flex-wrap items-center justify-end gap-2.5 border-t pt-4 print:hidden">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleOpenDeclineModal}
-            disabled={submittingReview}
-            className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold border-rose-200 text-rose-700 hover:bg-rose-50 hover:text-rose-800 dark:border-rose-900/60 dark:text-rose-400"
-          >
-            <X className="h-3.5 w-3.5" />
-            Decline Report
-          </Button>
-          <Button
-            type="button"
-            onClick={() => setCompleteModalOpen(true)}
-            disabled={submittingReview}
-            className="h-9 gap-1.5 rounded-xl px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
-          >
-            <Check className="h-3.5 w-3.5" />
-            Mark as Completed
-          </Button>
-        </div>
-      )}
-
       {/* Decline Report Reason Dialog */}
       <Dialog open={declineModalOpen} onOpenChange={setDeclineModalOpen}>
         <DialogContent className="sm:max-w-lg">
@@ -2184,11 +2215,11 @@ export default function RequestedSurveillanceSummaryPage() {
           </DialogHeader>
 
           <div className="space-y-2 py-1">
-            <Label htmlFor="decline-report-reason-summary" className="text-xs font-semibold">
+            <Label htmlFor="summary-decline-report-reason" className="text-xs font-semibold">
               Reason for Declining <span className="text-destructive">*</span>
             </Label>
             <Textarea
-              id="decline-report-reason-summary"
+              id="summary-decline-report-reason"
               required
               rows={4}
               value={declineReason}
@@ -2226,7 +2257,8 @@ export default function RequestedSurveillanceSummaryPage() {
             <AlertDialogTitle>Confirm Report Completion</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to mark this surveillance audit report as Completed? Once
-              completed, this report will be finalized and made visible on the requester dashboard.
+              completed, this report will be finalized and made visible on the requester
+              dashboard.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -2236,7 +2268,7 @@ export default function RequestedSurveillanceSummaryPage() {
               disabled={submittingReview}
               className="bg-emerald-600 hover:bg-emerald-700 text-white"
             >
-              {submittingReview ? "Completing..." : "Confirm & Complete"}
+              {submittingReview ? "Completing..." : "Mark as Completed"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

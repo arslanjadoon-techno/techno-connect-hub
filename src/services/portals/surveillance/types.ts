@@ -38,6 +38,7 @@ export interface SurveillanceRequest {
   requesterEmail?: string;
   requesterPhone?: string;
   requesterDepartment?: string;
+  visibleToDistrictManager: boolean;
   areasToReview: string[];
   notes?: string;
   status: SurveillanceRequestStatus;
@@ -169,6 +170,48 @@ export interface SurveillanceAuditRow {
   otherDetails?: Record<string, string>;
   attachments?: SurveillanceAttachment[];
   rowHighlight?: "opening" | "amber" | "green" | "violation";
+  // Fraud-check types a Surveillance Manager added beyond the original fixed
+  // 11 (fraudTransactions, aalSwap, ...) via the lookup list - see
+  // SurveillanceLookupOption (category "FraudCheckType").
+  dynamicFraudFlags?: DynamicFraudFlag[];
+}
+
+export interface DynamicFraudFlag {
+  type: string;
+  value: "YES" | "NO" | string;
+  notes?: string;
+}
+
+// Transaction Type / Client Type / Fraud Check Type value lists - a
+// Surveillance Manager/Admin manages these from the app (see
+// ValidateAndAssignPage's "Manage Value Lists") instead of a code change.
+export type SurveillanceLookupCategory = "TransactionType" | "ClientType" | "FraudCheckType";
+
+export interface SurveillanceLookupOption {
+  id: number;
+  category: SurveillanceLookupCategory | string;
+  value: string;
+  label?: string;
+  sortOrder: number;
+  isActive: boolean;
+  // TransactionType only - Phone/Tablet/HINT count as a device sale for the
+  // Summary's "closed customer" rule.
+  isDeviceType: boolean;
+}
+
+export interface CreateSurveillanceLookupOptionPayload {
+  category: SurveillanceLookupCategory | string;
+  value: string;
+  label?: string;
+  isDeviceType?: boolean;
+}
+
+export interface UpdateSurveillanceLookupOptionPayload {
+  value?: string;
+  label?: string;
+  sortOrder?: number;
+  isActive?: boolean;
+  isDeviceType?: boolean;
 }
 
 export interface SurveillanceRepTiming {
@@ -392,6 +435,10 @@ export interface CreateSurveillanceRequestPayload {
   title: string;
   areasToReview: string[];
   notes?: string;
+  // "Allow District Manager to view this request" checkbox - only shown/
+  // meaningful for a Market Manager requester; omitted (or any value) is
+  // ignored server-side for every other role, which is always DM-visible.
+  visibleToDistrictManager?: boolean;
 }
 
 export interface CreateSurveillanceReportPayload {

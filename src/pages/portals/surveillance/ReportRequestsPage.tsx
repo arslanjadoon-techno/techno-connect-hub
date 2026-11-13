@@ -65,6 +65,8 @@ import type {
   SurveillanceMarketOption,
   SurveillancePriority,
 } from "@/services/portals/surveillance/types";
+import { getSurveillanceRole } from "@/services/portals/surveillance/types";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   SurveillanceDetailPageSkeleton,
   SurveillanceListPageSkeleton,
@@ -197,6 +199,8 @@ export default function ReportRequestsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const role = getSurveillanceRole(user);
+  const isMarketManager = role === "market_manager";
 
   const [requests, setRequests] = useState<SurveillanceRequest[]>([]);
   const [reports, setReports] = useState<SurveillanceReport[]>([]);
@@ -308,6 +312,9 @@ export default function ReportRequestsPage() {
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [submittingRequest, setSubmittingRequest] = useState(false);
+  // Market Manager-only - unchecked by default, so a District Manager can't
+  // see this request until the Market Manager explicitly shares it.
+  const [visibleToDistrictManager, setVisibleToDistrictManager] = useState(false);
 
   const storesForMarket = useMemo(() => {
     return stores.filter((s) => s.market === selectedMarket);
@@ -334,6 +341,7 @@ export default function ReportRequestsPage() {
     setStartDate(getTodayLocalDateString());
     setDatePickerOpen(false);
     setPriority("low");
+    setVisibleToDistrictManager(false);
     setCreateModalOpen(true);
   };
 
@@ -377,6 +385,7 @@ export default function ReportRequestsPage() {
         title: title.trim(),
         areasToReview: ["POS Registers", "Sales Floor", "Backroom / Cash Safe"],
         notes: notes.trim() || undefined,
+        visibleToDistrictManager: isMarketManager ? visibleToDistrictManager : undefined,
       });
 
       if (result.isDuplicate) {
@@ -1395,6 +1404,23 @@ export default function ReportRequestsPage() {
                 rows={3}
               />
             </div>
+
+            {/* 7. Market Manager-only: share with District Manager */}
+            {isMarketManager && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-border/70 bg-muted/30 p-3.5">
+                <Checkbox
+                  id="visible-to-dm"
+                  checked={visibleToDistrictManager}
+                  onCheckedChange={(checked) => setVisibleToDistrictManager(checked === true)}
+                  className="mt-0.5"
+                />
+                <Label htmlFor="visible-to-dm" className="text-xs font-normal leading-snug cursor-pointer">
+                  <span className="font-semibold">Allow District Manager to view this request.</span>{" "}
+                  Left unchecked, this request and its report stay visible only to you until you
+                  share it.
+                </Label>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="mt-4">

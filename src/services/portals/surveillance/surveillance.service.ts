@@ -31,6 +31,9 @@ import type {
   ValidateAndAssignPayload,
   RejectValidationPayload,
   ReviewSubmittedReportPayload,
+  SurveillanceLookupOption,
+  CreateSurveillanceLookupOptionPayload,
+  UpdateSurveillanceLookupOptionPayload,
 } from "./types";
 
 const surveillanceDraftMMKV = new MMKV({
@@ -51,6 +54,10 @@ let reportsCache: SurveillanceReport[] | null = null;
 let marketsCache: SurveillanceMarketOption[] | null = null;
 let storesCache: Store[] | null = null;
 let validationQueueCache: SurveillanceValidationItem[] | null = null;
+// Keyed by category ("TransactionType" | "ClientType" | "FraudCheckType" |
+// "" for "every category") so the audit form and the admin screen don't
+// stomp on each other's cached results.
+const lookupOptionsCache = new Map<string, SurveillanceLookupOption[]>();
 
 export class SurveillanceService {
   private getRowKey(requestId: string, rowId: string): string {
@@ -384,6 +391,39 @@ export class SurveillanceService {
     const res = await http.post<SurveillanceValidationItem>("/api/surveillance/reject-validation", payload);
     requestsCache = null;
     validationQueueCache = null;
+    return res.data;
+  }
+
+  // ── Lookup options (Transaction Type / Client Type / Fraud Check Type) ──
+  // Omit `category` to fetch every category in one call (the admin screen);
+  // pass one to fetch just that list (the audit form's dropdowns).
+  async getLookupOptions(
+    category?: string,
+    forceRefresh = false,
+  ): Promise<SurveillanceLookupOption[]> {
+    const key = category || "";
+    if (!forceRefresh && lookupOptionsCache.has(key)) return lookupOptionsCache.get(key)!;
+    const query = category ? `?category=${encodeURIComponent(category)}` : "";
+    const res = await http.get<SurveillanceLookupOption[]>(`/api/surveillance/lookups${query}`);
+    const data = res.data || [];
+    lookupOptionsCache.set(key, data);
+    return data;
+  }
+
+  async createLookupOption(
+    payload: CreateSurveillanceLookupOptionPayload,
+  ): Promise<SurveillanceLookupOption> {
+    const res = await http.post<SurveillanceLookupOption>("/api/surveillance/lookups", payload);
+    lookupOptionsCache.clear();
+    return res.data;
+  }
+
+  async updateLookupOption(
+    id: number,
+    payload: UpdateSurveillanceLookupOptionPayload,
+  ): Promise<SurveillanceLookupOption> {
+    const res = await http.patch<SurveillanceLookupOption>(`/api/surveillance/lookups/${id}`, payload);
+    lookupOptionsCache.clear();
     return res.data;
   }
 }

@@ -50,6 +50,7 @@ import {
   Phone,
   RefreshCw,
   Search,
+  Settings,
   ShieldCheck,
   Star,
   Store as StoreIcon,
@@ -74,6 +75,7 @@ import {
   SurveillanceDetailPageSkeleton,
   SurveillanceListPageSkeleton,
 } from "./SurveillanceSkeletons";
+import SurveillanceLookupManagerDialog from "./SurveillanceLookupManagerDialog";
 
 const PRIORITY_TONES: Record<SurveillancePriority, string> = {
   low: "bg-muted text-muted-foreground border-border",
@@ -283,6 +285,7 @@ export default function ValidateAndAssignPage() {
   const [marketFilter, setMarketFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [agentFilter, setAgentFilter] = useState<string>("all");
+  const [lookupManagerOpen, setLookupManagerOpen] = useState(false);
 
   // Validate & Assign modal state
   const [assignModalOpen, setAssignModalOpen] = useState(false);
@@ -1303,7 +1306,15 @@ export default function ValidateAndAssignPage() {
               </p>
             </div>
 
-            <div className="flex items-center shrink-0">
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="outline"
+                onClick={() => setLookupManagerOpen(true)}
+                className="gap-2 shadow-xs"
+              >
+                <Settings className="h-4 w-4" />
+                Manage Value Lists
+              </Button>
               <Button
                 onClick={() => navigate("/surveillance/validate-and-assign/agents")}
                 className="gap-2 shadow-xs"
@@ -1838,6 +1849,11 @@ export default function ValidateAndAssignPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <SurveillanceLookupManagerDialog
+        open={lookupManagerOpen}
+        onOpenChange={setLookupManagerOpen}
+      />
     </div>
   );
 }
