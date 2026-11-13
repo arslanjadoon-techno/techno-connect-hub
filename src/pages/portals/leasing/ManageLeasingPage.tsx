@@ -121,6 +121,8 @@ const filterCache = {
   locationKey: null as string | null,
 };
 
+const normalizeMarket = (name?: string | null) => (name ?? "").trim().toLowerCase();
+
 export default function ManageLeasingPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -172,7 +174,7 @@ export default function ManageLeasingPage() {
   );
 
   const marketOptions = useMemo(
-    () => [...new Set(allLeases.map((l) => l.marketName).filter(Boolean) as string[])].sort(),
+    () => [...new Set(allLeases.map((l) => normalizeMarket(l.marketName)).filter(Boolean))].sort(),
     [allLeases],
   );
   const tierOptions = useMemo(
@@ -201,7 +203,7 @@ export default function ManageLeasingPage() {
         )
       )
         return false;
-      if (market !== "all" && item.marketName !== market) return false;
+      if (market !== "all" && normalizeMarket(item.marketName) !== normalizeMarket(market)) return false;
       if (tier !== "all" && item.tier !== tier) return false;
       if (status === "active" && item.effectiveStatus !== "Active") return false;
       if (status === "expired" && item.effectiveStatus !== "Expired") return false;
@@ -416,6 +418,7 @@ export default function ManageLeasingPage() {
             rows={filtered}
             columns={columns}
             hideSearch
+            stickyHeader
             rowKey={(r) => r.techId}
             onRowClick={(r) => {
               navigate(`/leasing/leasing-detail/${r.techId}`);
