@@ -81,7 +81,7 @@ interface StaticStoreOption {
   address: string;
 }
 
-type RequestReportPageStatus = "Pending" | "Completed" | "Rejected";
+type RequestReportPageStatus = "Pending" | "Assigned" | "Completed" | "Rejected";
 
 const PRIORITY_TONES: Record<SurveillancePriority, string> = {
   low: "bg-muted text-muted-foreground border-border",
@@ -98,6 +98,12 @@ const REQUEST_STATUS_CONFIG: Record<
     tone: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
     dotClass: "bg-amber-500",
     textClass: "text-amber-900 dark:text-amber-100",
+  },
+  Assigned: {
+    label: "Assigned",
+    tone: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400",
+    dotClass: "bg-sky-500",
+    textClass: "text-sky-800 dark:text-sky-300",
   },
   Completed: {
     label: "Completed",
@@ -122,6 +128,10 @@ function normalizeRequestStatus(req: SurveillanceRequest): RequestReportPageStat
   ) {
     return "Rejected";
   }
+  // Mirrors the Validate & Assign queue's "Assigned" bucket (see
+  // resolveValidationDisplayStatus) so a request assigned to an agent shows
+  // that here too instead of a generic "Pending" until the report comes in.
+  if (req.assignedAt) return "Assigned";
   return "Pending";
 }
 
@@ -604,7 +614,7 @@ export default function ReportRequestsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            {normalizedStatus === "Pending" && (
+            {(normalizedStatus === "Pending" || normalizedStatus === "Assigned") && (
               <Button
                 variant="outline"
                 onClick={() => {
