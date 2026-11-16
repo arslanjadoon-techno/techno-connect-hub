@@ -20,6 +20,7 @@ import {
   Repeat,
   ExternalLink,
   Loader2,
+  FileText,
 } from "lucide-react";
 import {
   leasingService,
@@ -27,6 +28,7 @@ import {
   type TotalRentPerTechId,
   type LeaseRentAgreement,
 } from "@/services/portals/leasing";
+import { downloadExecutiveSummaryPdf } from "@/lib/executive-summary-pdf";
 
 const fmtDate = (d?: string | null) =>
   d
@@ -246,16 +248,25 @@ export default function LeasingViewPage() {
                 <ExpiryBadge expiryDate={d.expiry_Due} />
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                navigate(`/leasing/leasing-detail/${d.techId}`);
-                window.scrollTo(0, 0);
-              }}
-              className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-            >
-              <ExternalLink className="h-3.5 w-3.5" /> View Full Details
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => downloadExecutiveSummaryPdf(d)}
+                className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+              >
+                <FileText className="h-3.5 w-3.5" /> Executive Summary
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  navigate(`/leasing/leasing-detail/${d.techId}`);
+                  window.scrollTo(0, 0);
+                }}
+                className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> View Full Details
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
