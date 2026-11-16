@@ -393,13 +393,26 @@ export default function LeasingDetailedPage() {
     return user?.email || "Unknown";
   };
 
-  const addRemarkLine = () => {
+  const addRemarkLine = (position?: number) => {
     const authorName = currentUserName();
     const stamp = new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" });
-    const rows = [...remarkRows, { label: `${stamp} : ${authorName}`, text: "" }];
+    const at = position === undefined ? remarkRows.length : position;
+    const rows = [...remarkRows];
+    rows.splice(at, 0, { label: `${stamp} : ${authorName}`, text: "" });
     setRemarks(rowsToString(rows));
-    setEditingRemarkIndex(rows.length - 1);
+    setEditingRemarkIndex(at);
     setRemarkDraft("");
+  };
+
+  const deleteRemark = async (index: number) => {
+    const rows = remarkRows.filter((_, i) => i !== index);
+    const value = rowsToString(rows);
+    setRemarks(value);
+    if (editingRemarkIndex === index) {
+      setEditingRemarkIndex(null);
+      setRemarkDraft("");
+    }
+    await persistRemarks(value);
   };
 
   const saveRemarks = async () => {
@@ -638,8 +651,14 @@ export default function LeasingDetailedPage() {
                       ) : (
                         <>
                           <span className="flex-1 text-sm">{row.text || <span className="text-muted-foreground">—</span>}</span>
-                          <Button size="sm" variant="ghost" className="h-7" onClick={() => startEditRemark(i)} disabled={editingRemarkIndex !== null}>
+                          <Button size="sm" variant="ghost" className="h-7" onClick={() => addRemarkLine(i + 1)} disabled={editingRemarkIndex !== null || savingRemarks} title="Add a remark below this one">
+                            <Plus className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7" onClick={() => startEditRemark(i)} disabled={editingRemarkIndex !== null || savingRemarks} title="Edit">
                             <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 text-destructive hover:text-destructive" onClick={() => deleteRemark(i)} disabled={editingRemarkIndex !== null || savingRemarks} title="Delete">
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </>
                       )}
@@ -647,7 +666,7 @@ export default function LeasingDetailedPage() {
                   ))}
                 </div>
                 <div className="mt-2 flex gap-2">
-                  <Button size="sm" variant="outline" onClick={addRemarkLine} disabled={savingRemarks || editingRemarkIndex !== null}>
+                  <Button size="sm" variant="outline" onClick={() => addRemarkLine()} disabled={savingRemarks || editingRemarkIndex !== null}>
                     <Plus className="mr-1 h-4 w-4" /> Add Remark
                   </Button>
                   <Button size="sm" onClick={saveRemarks} disabled={savingRemarks || editingRemarkIndex !== null}>
