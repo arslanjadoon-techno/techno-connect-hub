@@ -40,59 +40,42 @@ const STATUS_TONE: Record<string, string> = {
   Unknown: "border-border bg-muted text-muted-foreground",
 };
 
-const EXPORT_COLUMNS = [
-  "techId",
-  "storeName",
-  "marketName",
-  "storeEmail",
-  "storePhoneNumber",
-  "storeAddress",
-  "marketManagerPhoneNumber",
-  "rightToSublease",
-  "securityDeposit",
-  "bankInformation",
-  "entityName",
-  "guarantor",
-  "lease_Term",
-  "start_Date",
-  "expiry_Due",
-  "hvac",
-  "exclusivity",
-  "termination",
-  "relocation",
-  "isDeleted",
-  "optionPeriod",
-  "optionPeriodDuration",
-  "ownerAccountNumber",
-  "ownerRoutingNumber",
-  "ownerAccountTitle",
-  "ownerPaymentMode",
-  "ownerBankName",
-  "ownerCheckAddress",
-  "landLordName",
-  "landLordPointOfContact",
-  "landLordContactNumber",
-  "landLordEmail",
-  "landLordAddress",
-  "landLordIndividualOrCompany",
-  "tier",
-  "assignmentDate",
-  "marketManager",
-  "leaseSignedBy",
-  "noticePeriodBeforeTermination",
-  "optionNoticeDate",
-  "subLease",
-  "takeOverDate",
-  "commencementDateRent",
-  "guarantyType",
-  "rightToTermination",
-  "leaseStatus",
-  "propertyMgtName",
-  "propertyMgtPointOfContact",
-  "propertyMgtEmail",
-  "propertyMgtPhoneNumber",
-  "propertyMgtAddress",
+const EXPORT_GROUPS: { title: string; columns: string[] }[] = [
+  {
+    title: "Store Information",
+    columns: ["techId", "storeName", "marketName", "tier", "marketManager", "marketManagerPhoneNumber", "storeAddress", "storePhoneNumber", "storeEmail"],
+  },
+  {
+    title: "Tenant Details",
+    columns: ["entityName", "leaseSignedBy", "guarantor", "guarantyType"],
+  },
+  {
+    title: "Landlord",
+    columns: ["landLordName", "landLordPointOfContact", "landLordEmail", "landLordContactNumber", "landLordAddress", "landLordIndividualOrCompany"],
+  },
+  {
+    title: "Property Management",
+    columns: ["propertyMgtName", "propertyMgtPointOfContact", "propertyMgtEmail", "propertyMgtPhoneNumber", "propertyMgtAddress"],
+  },
+  {
+    title: "Lease Details",
+    columns: ["lease_Term", "start_Date", "takeOverDate", "assignmentDate", "expiry_Due", "commencementDateRent", "leaseStatus"],
+  },
+  {
+    title: "Termination Rights",
+    columns: ["rightToTermination", "termination", "noticePeriodBeforeTermination"],
+  },
+  {
+    title: "Additional Lease Provisions",
+    columns: ["hvac", "exclusivity", "relocation", "optionPeriod", "optionPeriodDuration", "optionNoticeDate", "securityDeposit", "rightToSublease", "subLease"],
+  },
+  {
+    title: "Banking & Owner Account",
+    columns: ["bankInformation", "ownerAccountNumber", "ownerRoutingNumber", "ownerAccountTitle", "ownerPaymentMode", "ownerBankName", "ownerCheckAddress"],
+  },
 ];
+
+const EXPORT_COLUMNS = EXPORT_GROUPS.flatMap((g) => g.columns);
 
 const EXPORT_HEADER_MAP: Record<string, string> = {
   techId: "TECH ID",
@@ -127,6 +110,7 @@ const EXPORT_HEADER_MAP: Record<string, string> = {
   tier: "Tier",
   leaseStatus: "Lease Status",
   rightToTermination: "Right to Termination",
+  termination: "Termination",
   noticePeriodBeforeTermination: "Termination Notice Period",
   hvac: "HVAC Responsibility",
   exclusivity: "Exclusivity",
@@ -399,6 +383,7 @@ export default function ManageLeasingPage() {
       {
         sheetName: "Leasing Information",
         fileName: "Leasing_Information_Sheet",
+        groups: EXPORT_GROUPS,
       },
     );
   };
