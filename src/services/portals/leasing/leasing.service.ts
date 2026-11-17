@@ -161,6 +161,26 @@ export class LeasingService {
     return result;
   }
 
+  // Seeds a lease_data row (TechId/StoreName/MarketName only) for a store that
+  // was just created elsewhere (e.g. the Leasing portal's Add Store page) -
+  // mirrors PostLeasingInfo's own one-call-per-concern pattern, just for the
+  // bare minimum needed so the store shows up in Manage Leasing right away.
+  async addStoreInLeasingDB(data: {
+    techId: string;
+    storeName: string;
+    marketName?: string;
+  }): Promise<{ message: string; techId: string }> {
+    const result = await this.request<{ message: string; techId: string }>(
+      LEASING_API_PATHS.addStoreInLeasingDB,
+      {
+        method: "POST",
+        body: { TechId: data.techId, StoreName: data.storeName, MarketName: data.marketName },
+      },
+    );
+    this.leasesCache = null; // force a fresh GetLeasingInfo next time, the new row isn't in the cache
+    return result;
+  }
+
   async postLeasingDocs(data: unknown): Promise<unknown> {
     return this.request(LEASING_API_PATHS.postLeasingDocs, { method: "POST", body: data });
   }

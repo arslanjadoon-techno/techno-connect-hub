@@ -230,6 +230,7 @@ export const LEASING_STORE_PATHS = {
 export const LEASING_API_PATHS = {
   getLeasingInfo: "/GetLeasingInfo",
   postLeasingInfo: "/PostLeasingInfo",
+  addStoreInLeasingDB: "/AddStoreInLeasingDB",
   postLeasingDocs: "/PostLeasingDocs",
   getLeasingDocs: "/GetLeasingDocs",
   uploadFile: "/UploadFile",
@@ -260,6 +261,63 @@ export const LEASING_API_PATHS = {
   bulkUploadRent: "/BulkUpload",
   bulkUploadAccounting: "/BulkUploadAccounting",
   bulkUploadLeaseDetails: "/BulkUploadLeaseDetails",
+} as const;
+
+/**
+ * Housing Leasing portal - full duplicate of the Leasing portal above, keyed
+ * on UnitId (int, FK -> the pre-existing House registry's Id, same table the
+ * Commission portal's Houses page manages via HOUSE_API_PATHS below) instead
+ * of Leasing's TechId. Only the base-URL variants actually referenced by
+ * housing-leasing.service.ts are mirrored here (LEASING_READ/AUTH/BULK/
+ * SHOPPER/STORE_API_BASE_URL have no Housing equivalent).
+ */
+export const HOUSING_LEASING_API_BASE_URL =
+  (import.meta.env.VITE_HOUSING_LEASING_URL as string) || API_BASE_URL;
+export const HOUSING_LEASING_UPLOAD_API_BASE_URL =
+  (import.meta.env.VITE_HOUSING_LEASING_UPLOAD_URL as string) || API_BASE_URL;
+
+/**
+ * Housing Leasing portal endpoints - flat, PascalCase routes with no `/api`
+ * prefix, matching HousingLeasingController's (and, for the doc-management
+ * trio + UploadFile, FileUploadController's) actual [Route(...)] attributes
+ * exactly. The report-template trio matches HousingReportTemplatesController's
+ * [Route("[controller]")] + per-action [Route(...)] attributes (controller
+ * name "HousingReportTemplates" + the action name), mirroring Leasing's
+ * nested "/ReportTemplates/*" shape one-for-one.
+ */
+export const HOUSING_LEASING_API_PATHS = {
+  getHousingLeasingInfo: "/GetHousingLeasingInfo",
+  postHousingLeasingInfo: "/PostHousingLeasingInfo",
+  postHousingLeasingDocs: "/PostHousingLeasingDocs",
+  getHousingLeasingDocs: "/GetHousingLeasingDocs",
+  uploadFile: "/UploadFile",
+  deleteHousingLeaseDocs: "/DeleteHousingLeaseDocs",
+  renameHousingLeaseDocs: "/RenameHousingLeaseDocs",
+  reorderHousingLeaseDocs: "/UpdateHousingDocSortOrder",
+  missingDocsList: "/MissingDocsList",
+  addMissingDocsList: "/AddMissingDocsList",
+  getMonthlyRentFigure: "/GetMonthlyRentFigure",
+  getMonthlyRentFigureByUnitId: "/GetMonthlyRentFigureByUnitId",
+  insertLeaseRentAgreement: "/InsertLeaseRentAgreement",
+  getLeaseRentAgreement: "/GetLeaseRentAgreement",
+  updateLeaseRentAgreement: "/UpdateLeaseRentAgreement",
+  deleteLeaseRentAgreement: "/DeleteLeaseRentAgreement",
+  getLeaseExpirationRemarks: "/GetLeaseExpirationRemarks",
+  getAllLeaseExpirationRemarks: "/GetAllLeaseExpirationRemarks",
+  saveLeaseExpirationRemarks: "/SaveLeaseExpirationRemarks",
+  populateRentInMonthlyTable: "/PopulateRentInMonthlyTable",
+  getRentalPaymentDetails: "/GetRentalPaymentDetails",
+  updateFinancialMonthlyFigures: "/UpdateFinancialMonthlyFigures",
+  updateFinancialMonthlyFiguresRowWise: "/UpdateFinancialMonthlyFiguresRowWise",
+  getUpcomingRentChanges: "/GetHousingUpcomingRentChanges",
+  getBankingInfo: "/GetBankingInfo",
+  postBankingInfo: "/PostBankingInfo",
+  bulkUploadRent: "/BulkUpload",
+  bulkUploadAccounting: "/BulkUploadAccounting",
+  bulkUploadLeaseDetails: "/BulkUploadLeaseDetails",
+  getHousingReportTemplates: "/HousingReportTemplates/GetHousingReportTemplates",
+  saveHousingReportTemplate: "/HousingReportTemplates/SaveHousingReportTemplate",
+  deleteHousingReportTemplate: "/HousingReportTemplates/DeleteHousingReportTemplate",
 } as const;
 
 export const RANKER_API_BASE_URL = (import.meta.env.VITE_RANKER_API_URL as string) || "";

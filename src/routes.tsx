@@ -65,7 +65,23 @@ import BulkUploadRentPage from "@/pages/portals/leasing/BulkUploadRentPage";
 import BulkUploadAccountingPage from "@/pages/portals/leasing/BulkUploadAccountingPage";
 import BulkUploadLeaseDetailsPage from "@/pages/portals/leasing/BulkUploadLeaseDetailsPage";
 import ManageLeasingPage from "@/pages/portals/leasing/ManageLeasingPage";
+import AddStorePage from "@/pages/portals/leasing/AddStorePage";
 import LeasingDetailedPage from "@/pages/portals/leasing/LeasingDetailedPage";
+
+// ---------- Housing Leasing Portal ---------- //
+import HousingLeasingDashboardPage from "@/pages/portals/housing-leasing/DashboardPage";
+import ManagePropertiesPage from "@/pages/portals/housing-leasing/ManagePropertiesPage";
+import ManageHousingLeasingPage from "@/pages/portals/housing-leasing/ManageHousingLeasingPage";
+import HousingLeasingDetailedPage from "@/pages/portals/housing-leasing/HousingLeasingDetailedPage";
+import HousingManageRentPaymentListPage from "@/pages/portals/housing-leasing/ManageRentPaymentListPage";
+import HousingManageRentPaymentAgreementPage from "@/pages/portals/housing-leasing/ManageRentPaymentAgreementPage";
+import HousingRentAgreement2MonthlyRentPage from "@/pages/portals/housing-leasing/RentAgreement2MonthlyRentPage";
+import HousingUpcomingRentChangesPage from "@/pages/portals/housing-leasing/UpcomingRentChangesPage";
+import HousingLeaseExpiryBreakdownPage from "@/pages/portals/housing-leasing/HousingLeaseExpiryBreakdownPage";
+import HousingLeasingReportsPage from "@/pages/portals/housing-leasing/ReportsPage";
+import HousingBulkUploadRentPage from "@/pages/portals/housing-leasing/BulkUploadRentPage";
+import HousingBulkUploadAccountingPage from "@/pages/portals/housing-leasing/BulkUploadAccountingPage";
+import HousingBulkUploadLeaseDetailsPage from "@/pages/portals/housing-leasing/BulkUploadLeaseDetailsPage";
 
 // ---------- Leave Portal ---------- //
 import RequestLeavePage from "@/pages/portals/leave-management/RequestLeave";
@@ -268,6 +284,7 @@ function PortalRouteGuard({ portalKey, children }: { portalKey: string; children
             (target === "surveillance" &&
               (pNorm.includes("surveil") || pNorm === "surveillance")) ||
             (target === "leasing" && pNorm.includes("leas")) ||
+            (target === "housingleasing" && pNorm.includes("housingleas")) ||
             (target === "commission" && pNorm.includes("commiss")) ||
             (target === "ranker" && pNorm.includes("rank")) ||
             (target === "reporting" && pNorm.includes("report"))
@@ -284,6 +301,7 @@ function PortalRouteGuard({ portalKey, children }: { portalKey: string; children
             (target === "surveillance" &&
               (pNorm.includes("surveil") || pNorm === "surveillance")) ||
             (target === "leasing" && pNorm.includes("leas")) ||
+            (target === "housingleasing" && pNorm.includes("housingleas")) ||
             (target === "commission" && pNorm.includes("commiss")) ||
             (target === "ranker" && pNorm.includes("rank")) ||
             (target === "reporting" && pNorm.includes("report"))
@@ -653,11 +671,153 @@ export function AppRoutes() {
           }
         />
         <Route
+          path="/leasing/add-store"
+          element={
+            <PortalRouteGuard portalKey="leasing">
+              <PermissionRouteGuard permKey="leasing.show_add_store">
+                <AddStorePage />
+              </PermissionRouteGuard>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
           path="/leasing/leasing-detail/:techId"
           element={
             <PortalRouteGuard portalKey="leasing">
               <PermissionRouteGuard permKey="leasing.show_leasing_detail">
                 <LeasingDetailedPage />
+              </PermissionRouteGuard>
+            </PortalRouteGuard>
+          }
+        />
+
+        {/* ---------- Housing Leasing Portal ---------- */}
+        <Route
+          path="/housing-leasing/dashboard"
+          element={
+            <PortalRouteGuard portalKey="housingLeasing">
+              <PermissionRouteGuard permKey="housingleasing.show_leasing_dashboard">
+                <HousingLeasingDashboardPage />
+              </PermissionRouteGuard>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/housing-leasing/manage-properties"
+          element={
+            <PortalRouteGuard portalKey="housingLeasing">
+              <PermissionRouteGuard permKey="housingleasing.show_manage_properties">
+                <ManagePropertiesPage />
+              </PermissionRouteGuard>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/housing-leasing/manage-housing-leasing"
+          element={
+            <PortalRouteGuard portalKey="housingLeasing">
+              <PermissionRouteGuard permKey="housingleasing.show_manage_leasing">
+                <ManageHousingLeasingPage />
+              </PermissionRouteGuard>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/housing-leasing/manage-rent-payment-list"
+          element={
+            <PortalRouteGuard portalKey="housingLeasing">
+              <PermissionRouteGuard permKey="housingleasing.show_rentpayment_list">
+                <HousingManageRentPaymentListPage />
+              </PermissionRouteGuard>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/housing-leasing/manage-rent-payment-agreement"
+          element={
+            <PortalRouteGuard portalKey="housingLeasing">
+              <PermissionRouteGuard permKey="housingleasing.show_rent_agreement">
+                <HousingManageRentPaymentAgreementPage />
+              </PermissionRouteGuard>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/housing-leasing/rent-agreement-to-monthly-rent"
+          element={
+            <PortalRouteGuard portalKey="housingLeasing">
+              <PermissionRouteGuard permKey="housingleasing.show_rent_agreement_table">
+                <HousingRentAgreement2MonthlyRentPage />
+              </PermissionRouteGuard>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/housing-leasing/lease-monitor/next-month-rent-change"
+          element={
+            <PortalRouteGuard portalKey="housingLeasing">
+              <PermissionRouteGuard permKey="housingleasing.show_lease_monitor">
+                <HousingUpcomingRentChangesPage />
+              </PermissionRouteGuard>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/housing-leasing/lease-monitor/lease-expiry-breakdown"
+          element={
+            <PortalRouteGuard portalKey="housingLeasing">
+              <PermissionRouteGuard permKey="housingleasing.show_lease_monitor">
+                <HousingLeaseExpiryBreakdownPage />
+              </PermissionRouteGuard>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/housing-leasing/reports"
+          element={
+            <PortalRouteGuard portalKey="housingLeasing">
+              <PermissionRouteGuard permKey="housingleasing.show_leasing_reports">
+                <HousingLeasingReportsPage />
+              </PermissionRouteGuard>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/housing-leasing/bulk-upload/rent"
+          element={
+            <PortalRouteGuard portalKey="housingLeasing">
+              <PermissionRouteGuard permKey="housingleasing.show_leasing_bulk_upload">
+                <HousingBulkUploadRentPage />
+              </PermissionRouteGuard>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/housing-leasing/bulk-upload/accounting"
+          element={
+            <PortalRouteGuard portalKey="housingLeasing">
+              <PermissionRouteGuard permKey="housingleasing.show_leasing_bulk_upload">
+                <HousingBulkUploadAccountingPage />
+              </PermissionRouteGuard>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/housing-leasing/bulk-upload/lease-details"
+          element={
+            <PortalRouteGuard portalKey="housingLeasing">
+              <PermissionRouteGuard permKey="housingleasing.show_leasing_bulk_upload">
+                <HousingBulkUploadLeaseDetailsPage />
+              </PermissionRouteGuard>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/housing-leasing/detail/:unitId"
+          element={
+            <PortalRouteGuard portalKey="housingLeasing">
+              <PermissionRouteGuard permKey="housingleasing.show_leasing_detail">
+                <HousingLeasingDetailedPage />
               </PermissionRouteGuard>
             </PortalRouteGuard>
           }
