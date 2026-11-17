@@ -37,6 +37,7 @@ import {
   X,
   Power,
   UserCheck,
+  UserCog,
 } from "lucide-react";
 import { getUserAvatarColor } from "./user-colors";
 import { UserForm } from "./UsersPage";
@@ -433,6 +434,21 @@ export default function UserDetailPage() {
                   ) : (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200/80 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800">
                       <Shield className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" /> 2FA on
+                    </span>
+                  )}
+                </div>
+
+                {/* User Management Access Tag */}
+                <div className="flex items-center justify-center mt-2">
+                  {user.allowedUserManagement ? (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200/80 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800">
+                      <UserCog className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> User
+                      Management: Enabled
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-600 border border-zinc-200/80 dark:bg-zinc-800/60 dark:text-zinc-400 dark:border-zinc-700">
+                      <UserCog className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" /> User
+                      Management: Disabled
                     </span>
                   )}
                 </div>
