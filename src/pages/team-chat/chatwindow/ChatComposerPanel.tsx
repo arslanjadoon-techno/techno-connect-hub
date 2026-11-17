@@ -61,13 +61,12 @@ export default function ChatComposerPanel(props: Record<string, any>) {
     selectedChat,
     sendError,
     sendMessageIsSuccess,
-    sending,
+    editingSaving,
     setActionsMessage,
     setEmojiAnchor,
     setEmojiTarget,
     setScheduleCallOpen,
     toggleRecording,
-    uploading,
     scheduleCallOpen,
     mediaDialogOpen,
     setMediaDialogOpen,
@@ -84,7 +83,9 @@ export default function ChatComposerPanel(props: Record<string, any>) {
     el.style.overflowY = el.scrollHeight > MAX_INPUT_HEIGHT ? "auto" : "hidden";
   }, [inputValue, composerInputRef]);
 
-  const busy = Boolean(uploading || (editingMessage && sending));
+  // Normal sends are optimistic and must never make the shared composer busy.
+  // Only an active edit is held until its PATCH request completes.
+  const busy = Boolean(editingMessage && editingSaving);
   const canSend = !busy && (inputValue.trim().length > 0 || pendingFiles.length > 0);
   const canRequestOtp = userCanRequestOtp(permissions);
 

@@ -29,6 +29,7 @@ import {
   sendDirectMessageService,
   shareConversationFileService,
 } from "@/services/Team-chat/chat.service";
+import { useRef } from "react";
 
 type ChatRecord = Record<string, any>;
 
@@ -108,14 +109,14 @@ type ChatSendOptions = {
   currentUserId: string;
   editingMessage: ChatRecord | null;
   getArrayPayload?: typeof getArrayPayload;
-  inputValue: string;
-  pendingFiles: File[];
+  inputValueRef: { current: string };
+  pendingFilesRef: { current: File[] };
   refreshSelectedChatMessages: (chatId: string | number) => Promise<unknown>;
   replyToMessage: ChatRecord | null;
   selectedChat: ChatRecord | null;
   selectedMentionableUsers: ChatRecord[];
-  sendClickLockRef: { current: boolean };
   setEditingMessage: (message: ChatRecord | null) => void;
+  setEditingSaving: (value: boolean) => void;
   setInputValue: (value: string) => void;
   setMessagesByChat: (updater: any) => void;
   setPendingFiles: (files: File[]) => void;
@@ -124,8 +125,6 @@ type ChatSendOptions = {
   setChannels: (updater: any) => void;
   setBuddies: (updater: any) => void;
   setSendError: (value: string) => void;
-  setSending: (value: boolean) => void;
-  setUploading: (value: boolean) => void;
   textContainsMention?: typeof textContainsMention;
   uniqueUsersByIdentity: (users: ChatRecord[]) => ChatRecord[];
 };
@@ -135,14 +134,14 @@ export function useChatSend({
   currentUser,
   currentUserId,
   editingMessage,
-  inputValue,
-  pendingFiles,
+  inputValueRef,
+  pendingFilesRef,
   refreshSelectedChatMessages,
   replyToMessage,
   selectedChat,
   selectedMentionableUsers,
-  sendClickLockRef,
   setEditingMessage,
+  setEditingSaving,
   setInputValue,
   setMessagesByChat,
   setPendingFiles,
@@ -151,24 +150,23 @@ export function useChatSend({
   setChannels,
   setBuddies,
   setSendError,
-  setSending,
-  setUploading,
   uniqueUsersByIdentity,
 }: ChatSendOptions) {
+  // Use a wall-clock component so persisted ordering metadata from a previous
+  // page session remains older than messages submitted in this session.
+  const clientSequenceRef = useRef(Date.now() * 1000);
+
   const handleSend = async (messageOverride?: string) => {
     const hasMessageOverride = typeof messageOverride === "string";
-    const text = (hasMessageOverride ? messageOverride : inputValue).trim();
-    const filesToSend = pendingFiles;
-    if ((!text && filesToSend.length === 0) || !selectedChat || sendClickLockRef.current) return;
-    // React state updates are asynchronous; use a short synchronous guard to
-    // prevent double-click/Enter races without locking the composer while the
-    // network request is being persisted.
+    const text = (hasMessageOverride ? messageOverride : inputValueRef.current).trim();
+    const filesToSend = pendingFilesRef.current;
+    if ((!text && filesToSend.length === 0) || !selectedChat) return;
 
     if (selectedChat.type === "person" && blockedUserIds.includes(String(selectedChat.id))) {
       setSendError("Unblock this user before sending messages.");
       return;
     }
-    sendClickLockRef.current = true;
+    const clientSequence = ++clientSequenceRef.current;
     const mentionedUsers = uniqueUsersByIdentity(selectedMentionableUsers)
       .filter((buddy) => {
         const name = getBuddyName(buddy);
@@ -181,7 +179,10 @@ export function useChatSend({
         email: getBuddyEmail(buddy),
       }));
     const messageOptions = {
-      ...(mentionedUsers.length ? { metadata: { mentions: mentionedUsers } } : {}),
+      metadata: {
+        ...(mentionedUsers.length ? { mentions: mentionedUsers } : {}),
+        clientSequence,
+      },
       ...(replyToMessage?.id ? { replyTo: replyToMessage.id } : {}),
     };
 
@@ -200,11 +201,11 @@ export function useChatSend({
       text,
       hasFiles: filesToSend.length > 0,
       clientMessageId,
-      metadata: messageOptions.metadata || {},
+      clientSequence,
+      metadata: messageOptions.metadata,
     });
 
-    setSending(true);
-    setUploading(filesToSend.length > 0);
+    setEditingSaving(Boolean(editingMessage));
     setSendError("");
     if (!editingMessage) {
       setMessagesByChat((prev: Record<string, ChatRecord[]>) => {
@@ -214,6 +215,13 @@ export function useChatSend({
         });
         return next;
       });
+
+      // Clear only the draft that was just queued. Do not clear the composer
+      // again when this request resolves; the user may already be typing the
+      // next message by then.
+      if (!hasMessageOverride) setInputValue("");
+      setPendingFiles([]);
+      setReplyToMessage(null);
 
       const optimisticChatId =
         selectedChat.type === "channel" ? selectedChat.id : selectedChat.chatId || selectedChat.id;
@@ -233,15 +241,6 @@ export function useChatSend({
       clientMessageId,
       elapsedMs: Math.round(performance.now() - sendStartedAt),
     });
-    if (!editingMessage) {
-      setInputValue("");
-      setPendingFiles([]);
-      setReplyToMessage(null);
-    }
-    // Text sends are now represented locally. Release the composer immediately;
-    // the request continues and reconciles this row when the server responds.
-    if (filesToSend.length === 0 && !editingMessage) setSending(false);
-
     try {
       let chatId = selectedChat.type === "channel" ? selectedChat.id : selectedChat.chatId;
       const hadConversationId = Boolean(chatId);
@@ -334,8 +333,7 @@ export function useChatSend({
           // The normalizer returns null when a response omits the client ID;
           // retain the optimistic alias so a later SignalR server-ID event
           // reconciles with this row instead of creating a duplicate.
-          clientMessageId:
-            confirmed?.clientMessageId || message.clientMessageId || clientMessageId,
+          clientMessageId: confirmed?.clientMessageId || message.clientMessageId || clientMessageId,
           id: confirmed?.id || message.id,
           sendState: "sent",
           deliveryStatus: preserveDeliveryStatus(message.deliveryStatus, confirmed?.deliveryStatus),
@@ -355,14 +353,6 @@ export function useChatSend({
         clientMessageId,
         elapsedMs: Math.round(performance.now() - sendStartedAt),
       });
-
-      // Clear the composer as soon as the upload/message request succeeds.
-      // Message and sidebar reconciliation can happen in the background and
-      // should not make the sender wait before seeing the updated composer.
-      if (!hasMessageOverride) setInputValue("");
-      setPendingFiles([]);
-      setReplyToMessage(null);
-      setEditingMessage(null);
 
       if (chatId) {
         const previewMessage = confirmed || { ...optimisticMessage, chatId, chat_id: chatId };
@@ -471,9 +461,7 @@ export function useChatSend({
         })),
       );
     } finally {
-      setSending(false);
-      setUploading(false);
-      sendClickLockRef.current = false;
+      setEditingSaving(false);
     }
   };
 

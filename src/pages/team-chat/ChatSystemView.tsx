@@ -103,7 +103,7 @@ export default function ChatSystemView(props: Record<string, any>) {
     selectedGroupMembers,
     selectedMentionableUsers,
     sendError,
-    sending,
+    editingSaving,
     setAddMembersDialogOpen,
     setGroupDialogOpen,
     setGroupSearch,
@@ -121,7 +121,6 @@ export default function ChatSystemView(props: Record<string, any>) {
     toggleGroupUser,
     typingUsersByChat,
     userSearchLoading,
-    uploading,
   } = props;
 
   return (
@@ -272,7 +271,7 @@ export default function ChatSystemView(props: Record<string, any>) {
               removePendingFile={removePendingFile}
               selectedChat={selectedChat}
               sendError={sendError}
-              sending={sending}
+              editingSaving={editingSaving}
               replyToMessage={replyToMessage}
               onStartConversationCall={callsEnabled ? handleStartConversationCall : undefined}
               onOpenAddMembers={openAddMembersDialog}
@@ -281,7 +280,6 @@ export default function ChatSystemView(props: Record<string, any>) {
               onClearChat={handleClearChat}
               setInputValue={setInputValue}
               setSelectedChat={setSelectedChat}
-              uploading={uploading}
             />
           </div>
         )}

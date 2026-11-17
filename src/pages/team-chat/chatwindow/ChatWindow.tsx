@@ -68,7 +68,7 @@ interface ChatWindowProps {
   removePendingFile?: (index: number) => void;
   selectedChat?: ChatRecord | null;
   sendError?: string;
-  sending?: boolean;
+  editingSaving?: boolean;
   replyToMessage?: MessageRecord | null;
   onStartConversationCall?: (type: "audio" | "video") => void;
   onSearchMessages?: () => void;
@@ -82,7 +82,6 @@ interface ChatWindowProps {
   typingUser?: boolean | string;
   setInputValue?: (value: string) => void;
   setSelectedChat?: (...args: any[]) => any;
-  uploading?: boolean;
 }
 
 // Stable defaults. A new `[]` or `{}` on every render would break memoization of the children.
@@ -181,7 +180,7 @@ export default function ChatWindow({
   removePendingFile,
   selectedChat,
   sendError,
-  sending = false,
+  editingSaving = false,
   replyToMessage,
   onSearchMessages,
   onScheduleCall,
@@ -193,7 +192,6 @@ export default function ChatWindow({
   typingUser,
   setInputValue,
   setSelectedChat,
-  uploading = false,
 }: ChatWindowProps) {
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const [actionsMessage, setActionsMessage] = useState<MessageRecord | null>(null);
@@ -782,7 +780,7 @@ export default function ChatWindow({
             selectedChat,
             sendError,
             sendMessageIsSuccess,
-            sending,
+            editingSaving,
             setActionsMessage,
             setEmojiAnchor,
             setEmojiTarget,
@@ -791,7 +789,6 @@ export default function ChatWindow({
             scheduleCallOpen,
             mediaDialogOpen,
             toggleRecording,
-            uploading,
             handleCancelComposerMode,
           }}
         />

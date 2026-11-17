@@ -25,7 +25,7 @@ import {
   normalizeChatMessages,
   unwrapChatMessagesResponse,
 } from "./chatMessageNormalization";
-import { mergeChatMessages } from "./chatMessageState";
+import { getMessageClientId, getMessageServerId, mergeChatMessages } from "./chatMessageState";
 import { CHAT_APP_BASE_PATH } from "./chatRoutes";
 import { getConversationRecordId, upsertConversationRecord } from "./chatConversationKeys";
 
@@ -268,12 +268,25 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
         const next = { ...previous };
         keys.forEach((key) => {
           const pending = (previous[key] || []).filter(
-            (message) => message.sendState === "sending" || message.sendState === "failed",
+            (message) =>
+              message.sendState === "pending" ||
+              message.sendState === "sending" ||
+              message.sendState === "failed",
           );
-          const loadedIds = new Set(latest.map((message) => String(message.id)));
+          const loadedIds = new Set(
+            latest.flatMap((message) =>
+              [getMessageServerId(message), getMessageClientId(message)]
+                .filter(Boolean)
+                .map(String),
+            ),
+          );
           next[key] = mergeChatMessages(
             latest,
-            pending.filter((message) => !loadedIds.has(String(message.id))),
+            pending.filter(
+              (message) =>
+                !loadedIds.has(getMessageServerId(message)) &&
+                !loadedIds.has(getMessageClientId(message)),
+            ),
           );
         });
         return next;

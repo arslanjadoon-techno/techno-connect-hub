@@ -197,7 +197,11 @@ export function useChatRealtimeMessage({
                 ? {
                     ...item,
                     sendState: "sent",
-                    deliveryStatus: item.deliveryStatus || "sent",
+                    deliveryStatus: ["pending", "sending"].includes(
+                      String(item.deliveryStatus || "").toLowerCase(),
+                    )
+                      ? "sent"
+                      : item.deliveryStatus || "sent",
                   }
                 : item,
             );

@@ -9,7 +9,7 @@ export function useChatRealtimeMessageDelivered({
 }: any) {
   return useCallback(
     ({ chatId, messageId, clientMessageId, status }: any) => {
-      if (!chatId || !messageId) return;
+      if (!chatId || (!messageId && !clientMessageId)) return;
       const localKey = resolveLocalChatKey({ chatId, channels, buddies, currentUserId });
       if (!localKey) return;
 

@@ -73,6 +73,28 @@ export function sortMessagesByTime<T extends ChatRecord>(messages: T[]): T[] {
   return messages
     .map((message, index) => ({ message, index, time: getMessageTimestamp(message) }))
     .sort((first, second) => {
+      const firstClientSequence = Number(
+        first.message.clientSequence ?? first.message.metadata?.clientSequence,
+      );
+      const secondClientSequence = Number(
+        second.message.clientSequence ?? second.message.metadata?.clientSequence,
+      );
+      const firstAuthorId = String(first.message.authorId ?? first.message.author_id ?? "");
+      const secondAuthorId = String(second.message.authorId ?? second.message.author_id ?? "");
+
+      // Concurrent sends can receive responses out of order. Keep messages
+      // submitted by the same client in submission order while still using
+      // server timestamps for all other messages.
+      if (
+        firstAuthorId &&
+        firstAuthorId === secondAuthorId &&
+        Number.isFinite(firstClientSequence) &&
+        Number.isFinite(secondClientSequence) &&
+        firstClientSequence !== secondClientSequence
+      ) {
+        return firstClientSequence - secondClientSequence;
+      }
+
       if (first.time !== second.time) {
         if (first.time === 0) return 1;
         if (second.time === 0) return -1;
@@ -141,6 +163,7 @@ export const createOptimisticMessage = ({
   text,
   hasFiles,
   clientMessageId,
+  clientSequence,
   metadata,
 }: {
   selectedChat: ChatRecord;
@@ -149,6 +172,7 @@ export const createOptimisticMessage = ({
   text: string;
   hasFiles: boolean;
   clientMessageId: string;
+  clientSequence: number;
   metadata: ChatRecord;
 }): ChatRecord => {
   const createdAt = new Date().toISOString();
@@ -165,8 +189,9 @@ export const createOptimisticMessage = ({
     authorId: currentUserId,
     authorName: currentUser?.name || currentUser?.displayName || "You",
     direction: "outbound",
-    deliveryStatus: "sending",
-    sendState: "sending",
+    deliveryStatus: "pending",
+    sendState: "pending",
+    clientSequence,
     reactions: [],
     metadata,
     attachments: [],

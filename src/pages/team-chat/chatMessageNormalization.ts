@@ -138,6 +138,11 @@ export const normalizeChatMessages = (
           message?.metadata?.clientMessageId ||
           message?.metadata?.client_message_id ||
           null,
+        clientSequence:
+          message?.clientSequence ??
+          message?.client_sequence ??
+          message?.metadata?.clientSequence ??
+          message?.metadata?.client_sequence,
         chatId: message?.chatId || message?.chat_id || message?.conversationId || null,
         chat_id: message?.chat_id || message?.chatId || message?.conversationId || null,
         createdAt: message?.createdAt || message?.created_at || null,
