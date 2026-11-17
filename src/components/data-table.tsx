@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { useStickyThead } from "@/hooks/use-sticky-thead";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -58,6 +59,8 @@ interface Props<T> {
   serverSearch?: boolean;
   isSearching?: boolean;
   hideSearch?: boolean;
+  /** Pin the header row below the app top bar while the page scrolls. */
+  stickyHeader?: boolean;
 }
 
 const PAGE_SIZE_OPTIONS = [15, 25, 50, 100];
@@ -182,7 +185,10 @@ export function DataTable<T>({
   serverSearch = false,
   isSearching: isSearchingProp = false,
   hideSearch = false,
+  stickyHeader = false,
 }: Props<T>) {
+  const tableRef = useRef<HTMLTableElement>(null);
+  useStickyThead(tableRef, stickyHeader);
   const [query, setQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const [localPage, setLocalPage] = useState(1);
@@ -341,7 +347,7 @@ export function DataTable<T>({
       )}
 
       <div className="overflow-hidden rounded-lg border bg-card">
-        <Table>
+        <Table ref={tableRef}>
           <TableHeader>
             <TableRow>
               {columns.map((c) => (

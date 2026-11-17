@@ -88,7 +88,18 @@ export interface LeaseRecord {
   // "InActive" - left untouched on every other save.
   leaseStatusDate?: string | null;
 
+  rentSchedule?: RentScheduleItem[] | null;
+
   [key: string]: unknown;
+}
+
+export interface RentScheduleItem {
+  startDate?: string | null;
+  endDate?: string | null;
+  rent?: number | null;
+  cam?: number | null;
+  otherCharges?: number | null;
+  total?: number | null;
 }
 
 export interface TotalRent {

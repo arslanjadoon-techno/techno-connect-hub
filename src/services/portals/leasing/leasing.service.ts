@@ -281,7 +281,7 @@ export class LeasingService {
   async populateRentInMonthlyTable(month: number, year: number): Promise<unknown> {
     return this.request(LEASING_API_PATHS.populateRentInMonthlyTable, {
       method: "POST",
-      body: { month, year },
+      body: { month, year: String(year) },
     });
   }
 

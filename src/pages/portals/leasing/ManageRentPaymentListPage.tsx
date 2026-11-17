@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,7 @@ import {
 } from "@/services/portals/leasing";
 import { useCanShow, LEASING_EXPORT_BUTTON_PERMISSION_KEY } from "@/lib/leasing-permissions";
 import { exportToExcel } from "@/lib/excel-export";
+import { useStickyThead } from "@/hooks/use-sticky-thead";
 
 const RENT_PAYMENT_COLUMNS = [
   "market",
@@ -134,6 +135,8 @@ function computeTotalDue(item: RentalPaymentDetail): number {
 
 export default function ManageRentPaymentListPage() {
   const canShowExport = useCanShow(LEASING_EXPORT_BUTTON_PERMISSION_KEY);
+  const tableRef = useRef<HTMLTableElement>(null);
+  useStickyThead(tableRef);
   const now = new Date();
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth() + 1);
@@ -411,7 +414,7 @@ export default function ManageRentPaymentListPage() {
 
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table ref={tableRef} className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
                 {[

@@ -65,6 +65,8 @@ import type {
   SurveillanceMarketOption,
   SurveillancePriority,
 } from "@/services/portals/surveillance/types";
+import { getSurveillanceRole } from "@/services/portals/surveillance/types";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   SurveillanceDetailPageSkeleton,
   SurveillanceListPageSkeleton,
@@ -79,7 +81,7 @@ interface StaticStoreOption {
   address: string;
 }
 
-type RequestReportPageStatus = "Pending" | "Completed" | "Rejected";
+type RequestReportPageStatus = "Pending" | "Assigned" | "Completed" | "Rejected";
 
 const PRIORITY_TONES: Record<SurveillancePriority, string> = {
   low: "bg-muted text-muted-foreground border-border",
@@ -96,6 +98,12 @@ const REQUEST_STATUS_CONFIG: Record<
     tone: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
     dotClass: "bg-amber-500",
     textClass: "text-amber-900 dark:text-amber-100",
+  },
+  Assigned: {
+    label: "Assigned",
+    tone: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-400",
+    dotClass: "bg-sky-500",
+    textClass: "text-sky-800 dark:text-sky-300",
   },
   Completed: {
     label: "Completed",
@@ -120,6 +128,10 @@ function normalizeRequestStatus(req: SurveillanceRequest): RequestReportPageStat
   ) {
     return "Rejected";
   }
+  // Mirrors the Validate & Assign queue's "Assigned" bucket (see
+  // resolveValidationDisplayStatus) so a request assigned to an agent shows
+  // that here too instead of a generic "Pending" until the report comes in.
+  if (req.assignedAt) return "Assigned";
   return "Pending";
 }
 
@@ -197,6 +209,8 @@ export default function ReportRequestsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const role = getSurveillanceRole(user);
+  const isMarketManager = role === "market_manager";
 
   const [requests, setRequests] = useState<SurveillanceRequest[]>([]);
   const [reports, setReports] = useState<SurveillanceReport[]>([]);
@@ -308,6 +322,9 @@ export default function ReportRequestsPage() {
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [submittingRequest, setSubmittingRequest] = useState(false);
+  // Market Manager-only - unchecked by default, so a District Manager can't
+  // see this request until the Market Manager explicitly shares it.
+  const [visibleToDistrictManager, setVisibleToDistrictManager] = useState(false);
 
   const storesForMarket = useMemo(() => {
     return stores.filter((s) => s.market === selectedMarket);
@@ -334,6 +351,7 @@ export default function ReportRequestsPage() {
     setStartDate(getTodayLocalDateString());
     setDatePickerOpen(false);
     setPriority("low");
+    setVisibleToDistrictManager(false);
     setCreateModalOpen(true);
   };
 
@@ -377,6 +395,7 @@ export default function ReportRequestsPage() {
         title: title.trim(),
         areasToReview: ["POS Registers", "Sales Floor", "Backroom / Cash Safe"],
         notes: notes.trim() || undefined,
+        visibleToDistrictManager: isMarketManager ? visibleToDistrictManager : undefined,
       });
 
       if (result.isDuplicate) {
@@ -595,7 +614,7 @@ export default function ReportRequestsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            {normalizedStatus === "Pending" && (
+            {(normalizedStatus === "Pending" || normalizedStatus === "Assigned") && (
               <Button
                 variant="outline"
                 onClick={() => {
@@ -1395,6 +1414,23 @@ export default function ReportRequestsPage() {
                 rows={3}
               />
             </div>
+
+            {/* 7. Market Manager-only: share with District Manager */}
+            {isMarketManager && (
+              <div className="flex items-start gap-2.5 rounded-xl border border-border/70 bg-muted/30 p-3.5">
+                <Checkbox
+                  id="visible-to-dm"
+                  checked={visibleToDistrictManager}
+                  onCheckedChange={(checked) => setVisibleToDistrictManager(checked === true)}
+                  className="mt-0.5"
+                />
+                <Label htmlFor="visible-to-dm" className="text-xs font-normal leading-snug cursor-pointer">
+                  <span className="font-semibold">Allow District Manager to view this request.</span>{" "}
+                  Left unchecked, this request and its report stay visible only to you until you
+                  share it.
+                </Label>
+              </div>
+            )}
           </div>
 
           <DialogFooter className="mt-4">

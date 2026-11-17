@@ -135,7 +135,9 @@ export default function LeasingDashboardPage() {
       return diffDays > 0 && diffDays <= 30;
     });
 
-    const totalMarkets = new Set(activeStoreLeases.map((l) => l.marketName).filter(Boolean)).size;
+    const totalMarkets = new Set(
+      activeStoreLeases.map((l) => l.marketName?.trim().toLowerCase()).filter(Boolean),
+    ).size;
 
     return [
       {

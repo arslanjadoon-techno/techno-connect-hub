@@ -3,7 +3,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Pencil, Check, Loader2, Trash2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -16,6 +15,8 @@ import MonthlyBillingActivitySection from "./components/MonthlyBillingActivitySe
 import AttachmentsSection from "./components/AttachmentsSection";
 import MissingDocumentsSection from "./components/MissingDocumentsSection";
 import { useCanShow, useCanWrite } from "@/lib/leasing-permissions";
+import { useAuth } from "@/lib/auth";
+import { getStoredUser } from "@/lib/api/client";
 
 const ENTITY_OPTIONS = [
   "Texas Mobile PCS LLC",
@@ -98,6 +99,7 @@ function subleaseRightTone(v?: string | null): string {
 export default function LeasingDetailedPage() {
   const { techId } = useParams<{ techId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [allLeases, setAllLeases] = useState<LeaseRecord[]>([]);
   const [agreements, setAgreements] = useState<LeaseRentAgreement[]>([]);
@@ -122,6 +124,8 @@ export default function LeasingDetailedPage() {
   });
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [savingRemarks, setSavingRemarks] = useState(false);
+  const [editingRemarkIndex, setEditingRemarkIndex] = useState<number | null>(null);
+  const [remarkDraft, setRemarkDraft] = useState("");
 
   // Section-level permissions. Each section's Card is omitted entirely when
   // "hide"; its fields stay read-only (even while the page is in Edit mode)
@@ -180,7 +184,7 @@ export default function LeasingDetailedPage() {
         setAllLeases(leases);
         // One remark row per techId - GetLeaseExpirationRemarks returns an array
         // for symmetry with the bulk variant, but there's ever only one entry.
-        setRemarks(remarkRows[0]?.remarks ?? "");
+        setRemarks(normalizeRemarks(remarkRows[0]?.remarks ?? ""));
         setRemarksBy(remarkRows[0]?.remarksBy ?? null);
         setRemarksEditDate(remarkRows[0]?.remarksEditDate ?? null);
       } catch (error) {
@@ -301,12 +305,63 @@ export default function LeasingDetailedPage() {
     }
   };
 
-  const saveRemarks = async () => {
+  const normalizeRemarks = (raw: string) => {
+    if (!raw) return "";
+    const lines = raw.replace(/\r\n/g, "\n").split("\n");
+    const out: string[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      const header = lines[i].match(/^-{2,}\s*(.+?)\s*-{2,}$/);
+      if (header) {
+        const body = (lines[i + 1] ?? "").trim();
+        out.push(`${header[1].trim()} : ${body}`);
+        i++;
+      } else if (lines[i].trim()) {
+        out.push(lines[i].trim());
+      }
+    }
+    return out.join("\n");
+  };
+
+  // Each remark line is "<date> : <name> : <text>". The label (date + name)
+  // is read-only; only the text after the last " : " can be edited.
+  const remarkRows = normalizeRemarks(remarks)
+    .split("\n")
+    .filter((l) => l.trim())
+    .map((line) => {
+      // Label is "date : name" (first two colon-separated parts); the rest is the text.
+      const parts = line.split(":");
+      if (parts.length >= 3) {
+        const label = `${parts[0].trim()} : ${parts[1].trim()}`;
+        const text = parts.slice(2).join(":").trim();
+        return { label, text };
+      }
+      return { label: "", text: line.trim() };
+    });
+
+  const rowsToString = (rows: { label: string; text: string }[]) =>
+    rows.map((r) => (r.label ? `${r.label} : ${r.text}` : r.text)).join("\n");
+
+  const startEditRemark = (index: number) => {
+    setEditingRemarkIndex(index);
+    setRemarkDraft(remarkRows[index]?.text ?? "");
+  };
+
+  const cancelEditRemark = () => {
+    const current = remarkRows[editingRemarkIndex ?? -1];
+    if (current && !current.text.trim()) {
+      setRemarks(rowsToString(remarkRows.filter((_, i) => i !== editingRemarkIndex)));
+    }
+    setEditingRemarkIndex(null);
+    setRemarkDraft("");
+  };
+
+  const persistRemarks = async (value: string) => {
     if (!techId) return;
     setSavingRemarks(true);
     try {
-      await leasingService.saveLeaseExpirationRemarks({ techId, remarks });
+      await leasingService.saveLeaseExpirationRemarks({ techId, remarks: value });
       const refreshed = await leasingService.getLeaseExpirationRemarks(techId);
+      setRemarks(normalizeRemarks(refreshed[0]?.remarks ?? value));
       setRemarksBy(refreshed[0]?.remarksBy ?? null);
       setRemarksEditDate(refreshed[0]?.remarksEditDate ?? null);
       toast.success("Remarks saved.");
@@ -315,6 +370,53 @@ export default function LeasingDetailedPage() {
     } finally {
       setSavingRemarks(false);
     }
+  };
+
+  const updateRemark = async () => {
+    if (editingRemarkIndex === null) return;
+    const rows = remarkRows.map((r, i) => (i === editingRemarkIndex ? { ...r, text: remarkDraft } : r));
+    const value = rowsToString(rows);
+    setRemarks(value);
+    setEditingRemarkIndex(null);
+    setRemarkDraft("");
+    await persistRemarks(value);
+  };
+
+  const currentUserName = () => {
+    const fromCtx = user?.fullName?.trim() || `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim();
+    if (fromCtx) return fromCtx;
+    const stored = getStoredUser<any>();
+    if (stored) {
+      const name = (stored.fullName || `${stored.firstName ?? ""} ${stored.lastName ?? ""}`.trim() || stored.userName || stored.name || stored.email || "").trim();
+      if (name) return name;
+    }
+    return user?.email || "Unknown";
+  };
+
+  const addRemarkLine = (position?: number) => {
+    const authorName = currentUserName();
+    const stamp = new Date().toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" });
+    const at = position === undefined ? remarkRows.length : position;
+    const rows = [...remarkRows];
+    rows.splice(at, 0, { label: `${stamp} : ${authorName}`, text: "" });
+    setRemarks(rowsToString(rows));
+    setEditingRemarkIndex(at);
+    setRemarkDraft("");
+  };
+
+  const deleteRemark = async (index: number) => {
+    const rows = remarkRows.filter((_, i) => i !== index);
+    const value = rowsToString(rows);
+    setRemarks(value);
+    if (editingRemarkIndex === index) {
+      setEditingRemarkIndex(null);
+      setRemarkDraft("");
+    }
+    await persistRemarks(value);
+  };
+
+  const saveRemarks = async () => {
+    await persistRemarks(remarks);
   };
 
   if (pageLoading || !formData) {
@@ -525,25 +627,55 @@ export default function LeasingDetailedPage() {
             <h2 className="mb-3 text-base font-bold">Lease Expiration Remarks</h2>
             {canWriteRemarks ? (
               <>
-                <Textarea
-                  value={remarks}
-                  onChange={(e) => setRemarks(e.target.value)}
-                  rows={6}
-                  placeholder="Add remarks about this lease's expiration..."
-                />
-                <Button size="sm" className="mt-2" onClick={saveRemarks} disabled={savingRemarks}>
-                  {savingRemarks ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Remarks"}
-                </Button>
+                <div className="space-y-2">
+                  {remarkRows.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No remarks added. Click "Add Remark" to start.</p>
+                  )}
+                  {remarkRows.map((row, i) => (
+                    <div key={i} className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5">
+                      {row.label && (
+                        <span className="shrink-0 select-none font-mono text-xs text-muted-foreground">{row.label} :</span>
+                      )}
+                      {editingRemarkIndex === i ? (
+                        <>
+                          <input
+                            value={remarkDraft}
+                            onChange={(e) => setRemarkDraft(e.target.value)}
+                            placeholder="Write remark..."
+                            autoFocus
+                            className="flex-1 rounded-sm bg-muted px-2 py-0.5 text-sm outline-none"
+                          />
+                          <Button size="sm" className="h-7" onClick={updateRemark}>Update</Button>
+                          <Button size="sm" variant="ghost" className="h-7" onClick={cancelEditRemark}>Cancel</Button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="flex-1 text-sm">{row.text || <span className="text-muted-foreground">—</span>}</span>
+                          <Button size="sm" variant="ghost" className="h-7" onClick={() => addRemarkLine(i + 1)} disabled={editingRemarkIndex !== null || savingRemarks} title="Add a remark below this one">
+                            <Plus className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7" onClick={() => startEditRemark(i)} disabled={editingRemarkIndex !== null || savingRemarks} title="Edit">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button size="sm" variant="ghost" className="h-7 text-destructive hover:text-destructive" onClick={() => deleteRemark(i)} disabled={editingRemarkIndex !== null || savingRemarks} title="Delete">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => addRemarkLine()} disabled={savingRemarks || editingRemarkIndex !== null}>
+                    <Plus className="mr-1 h-4 w-4" /> Add Remark
+                  </Button>
+                  <Button size="sm" onClick={saveRemarks} disabled={savingRemarks || editingRemarkIndex !== null}>
+                    {savingRemarks ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Remarks"}
+                  </Button>
+                </div>
               </>
             ) : (
-              <p className="text-sm text-muted-foreground">{remarks || "No remarks added."}</p>
-            )}
-            {(remarksBy || remarksEditDate) && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                {remarksBy && <>Added by: {remarksBy}</>}
-                {remarksBy && remarksEditDate && " · "}
-                {remarksEditDate && <>Last edited: {new Date(remarksEditDate).toLocaleString()}</>}
-              </p>
+              <p className="whitespace-pre-wrap text-sm text-muted-foreground">{remarks || "No remarks added."}</p>
             )}
           </Card>
         )}

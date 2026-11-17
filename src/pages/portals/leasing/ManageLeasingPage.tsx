@@ -16,6 +16,7 @@ import { Store, Download, RefreshCw, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { leasingService, type LeaseRecord } from "@/services/portals/leasing";
 import { exportToExcel } from "@/lib/excel-export";
+import { downloadExecutiveSummaryPdf } from "@/lib/executive-summary-pdf";
 import { useCanShow, LEASING_EXPORT_BUTTON_PERMISSION_KEY } from "@/lib/leasing-permissions";
 
 const LEASE_STATUS_OPTIONS = [
@@ -39,54 +40,96 @@ const STATUS_TONE: Record<string, string> = {
   Unknown: "border-border bg-muted text-muted-foreground",
 };
 
-const EXPORT_COLUMNS = [
-  "techId",
-  "storeName",
-  "marketName",
-  "securityDeposit",
-  "bankInformation",
-  "entityName",
-  "guarantor",
-  "lease_Term",
-  "start_Date",
-  "expiry_Due",
-  "hvac",
-  "exclusivity",
-  "termination",
-  "relocation",
-  "isDeleted",
-  "optionPeriod",
-  "optionPeriodDuration",
-  "ownerAccountNumber",
-  "ownerRoutingNumber",
-  "ownerAccountTitle",
-  "ownerPaymentMode",
-  "ownerBankName",
-  "ownerCheckAddress",
-  "landLordName",
-  "landLordPointOfContact",
-  "landLordContactNumber",
-  "landLordEmail",
-  "landLordAddress",
-  "landLordIndividualOrCompany",
-  "tier",
-  "assignmentDate",
-  "marketManager",
-  "leaseSignedBy",
-  "noticePeriodBeforeTermination",
-  "optionNoticeDate",
-  "subLease",
-  "takeOverDate",
-  "commencementDateRent",
-  "guarantyType",
-  "rightToTermination",
-  "leaseStatus",
-  "propertyMgtName",
-  "propertyMgtPointOfContact",
-  "propertyMgtEmail",
-  "propertyMgtPhoneNumber",
-  "propertyMgtAddress",
+const EXPORT_GROUPS: { title: string; columns: string[] }[] = [
+  {
+    title: "Store Information",
+    columns: ["techId", "storeName", "marketName", "tier", "marketManager", "marketManagerPhoneNumber", "storeAddress", "storePhoneNumber", "storeEmail"],
+  },
+  {
+    title: "Tenant Details",
+    columns: ["entityName", "leaseSignedBy", "guarantor", "guarantyType"],
+  },
+  {
+    title: "Landlord",
+    columns: ["landLordName", "landLordPointOfContact", "landLordEmail", "landLordContactNumber", "landLordAddress", "landLordIndividualOrCompany"],
+  },
+  {
+    title: "Property Management",
+    columns: ["propertyMgtName", "propertyMgtPointOfContact", "propertyMgtEmail", "propertyMgtPhoneNumber", "propertyMgtAddress"],
+  },
+  {
+    title: "Lease Details",
+    columns: ["lease_Term", "start_Date", "takeOverDate", "assignmentDate", "expiry_Due", "commencementDateRent", "leaseStatus"],
+  },
+  {
+    title: "Termination Rights",
+    columns: ["rightToTermination", "termination", "noticePeriodBeforeTermination"],
+  },
+  {
+    title: "Additional Lease Provisions",
+    columns: ["hvac", "exclusivity", "relocation", "optionPeriod", "optionPeriodDuration", "optionNoticeDate", "securityDeposit", "rightToSublease", "subLease"],
+  },
+  {
+    title: "Banking & Owner Account",
+    columns: ["bankInformation", "ownerAccountNumber", "ownerRoutingNumber", "ownerAccountTitle", "ownerPaymentMode", "ownerBankName", "ownerCheckAddress"],
+  },
 ];
+
+const EXPORT_COLUMNS = EXPORT_GROUPS.flatMap((g) => g.columns);
+
+const EXPORT_HEADER_MAP: Record<string, string> = {
+  techId: "TECH ID",
+  storeName: "Store Name",
+  marketName: "Market",
+  storeEmail: "Store Email",
+  storePhoneNumber: "Store Phone",
+  storeAddress: "Store Address",
+  marketManager: "Market Manager",
+  marketManagerPhoneNumber: "Market Manager Phone",
+  entityName: "Tenant / Entity Name",
+  leaseSignedBy: "Lease Signed By",
+  guarantor: "Guarantor",
+  guarantyType: "Guaranty Type",
+  landLordName: "Landlord Name",
+  landLordPointOfContact: "Landlord Point of Contact",
+  landLordEmail: "Landlord Email",
+  landLordContactNumber: "Landlord Phone",
+  landLordAddress: "Landlord Address",
+  landLordIndividualOrCompany: "Landlord Individual/Company",
+  propertyMgtName: "Property Mgt Name",
+  propertyMgtPointOfContact: "Property Mgt Point of Contact",
+  propertyMgtEmail: "Property Mgt Email",
+  propertyMgtPhoneNumber: "Property Mgt Phone",
+  propertyMgtAddress: "Property Mgt Address",
+  lease_Term: "Lease Type",
+  start_Date: "Lease Start Date",
+  takeOverDate: "Take Over Date",
+  assignmentDate: "Assignment Date",
+  expiry_Due: "Expiry Date",
+  commencementDateRent: "Commencement Date Rent",
+  tier: "Tier",
+  leaseStatus: "Lease Status",
+  rightToTermination: "Right to Termination",
+  termination: "Termination",
+  noticePeriodBeforeTermination: "Termination Notice Period",
+  hvac: "HVAC Responsibility",
+  exclusivity: "Exclusivity",
+  relocation: "Tenant Relocation",
+  optionPeriod: "Option Period",
+  optionPeriodDuration: "Option Period Duration",
+  optionNoticeDate: "Option Notice Date",
+  securityDeposit: "Security Deposit",
+  rightToSublease: "Right to Sublease",
+  subLease: "Subleased / Sublet",
+  bankInformation: "Bank Information",
+  ownerAccountNumber: "Owner Account Number",
+  ownerRoutingNumber: "Owner Routing Number",
+  ownerAccountTitle: "Owner Account Title",
+  ownerPaymentMode: "Owner Payment Mode",
+  ownerBankName: "Owner Bank Name",
+  ownerCheckAddress: "Owner Check Address",
+  isDeleted: "Is Deleted",
+};
 
 function getDaysLeft(d?: string | null): number | null {
   if (!d) return null;
@@ -120,6 +163,8 @@ const filterCache = {
   status: "all",
   locationKey: null as string | null,
 };
+
+const normalizeMarket = (name?: string | null) => (name ?? "").trim().toLowerCase();
 
 export default function ManageLeasingPage() {
   const navigate = useNavigate();
@@ -172,7 +217,7 @@ export default function ManageLeasingPage() {
   );
 
   const marketOptions = useMemo(
-    () => [...new Set(allLeases.map((l) => l.marketName).filter(Boolean) as string[])].sort(),
+    () => [...new Set(allLeases.map((l) => normalizeMarket(l.marketName)).filter(Boolean))].sort(),
     [allLeases],
   );
   const tierOptions = useMemo(
@@ -201,7 +246,7 @@ export default function ManageLeasingPage() {
         )
       )
         return false;
-      if (market !== "all" && item.marketName !== market) return false;
+      if (market !== "all" && normalizeMarket(item.marketName) !== normalizeMarket(market)) return false;
       if (tier !== "all" && item.tier !== tier) return false;
       if (status === "active" && item.effectiveStatus !== "Active") return false;
       if (status === "expired" && item.effectiveStatus !== "Expired") return false;
@@ -307,6 +352,22 @@ export default function ManageLeasingPage() {
         </Badge>
       ),
     },
+    {
+      key: "actions",
+      header: "Actions",
+      accessor: (r) => (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={(e) => {
+            e.stopPropagation();
+            downloadExecutiveSummaryPdf(r);
+          }}
+        >
+          <Download className="mr-1.5 h-4 w-4" /> Download
+        </Button>
+      ),
+    },
   ];
 
   const handleExport = () => {
@@ -318,10 +379,11 @@ export default function ManageLeasingPage() {
     exportToExcel(
       exportData as unknown as Record<string, unknown>[],
       EXPORT_COLUMNS,
-      {},
+      EXPORT_HEADER_MAP,
       {
         sheetName: "Leasing Information",
         fileName: "Leasing_Information_Sheet",
+        groups: EXPORT_GROUPS,
       },
     );
   };
@@ -416,6 +478,7 @@ export default function ManageLeasingPage() {
             rows={filtered}
             columns={columns}
             hideSearch
+            stickyHeader
             rowKey={(r) => r.techId}
             onRowClick={(r) => {
               navigate(`/leasing/leasing-detail/${r.techId}`);

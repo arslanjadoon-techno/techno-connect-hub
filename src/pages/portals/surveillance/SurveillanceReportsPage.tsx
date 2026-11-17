@@ -204,7 +204,12 @@ function formatDateTimeDisplay(raw?: string): string {
   return raw;
 }
 
-const TRANSACTION_TYPE_OPTIONS = [
+// Fallbacks only - the live lists come from the surveillance_lookup_options
+// table (see surveillanceService.getLookupOptions), managed by a
+// Surveillance Manager through "Manage Value Lists" so a new option doesn't
+// need a code change. These stay in code purely so the dropdown isn't empty
+// before that fetch resolves (or if it fails).
+const TRANSACTION_TYPE_OPTIONS_FALLBACK = [
   "Phone",
   "Tablet",
   "HINT",
@@ -221,13 +226,23 @@ const TRANSACTION_TYPE_OPTIONS = [
   "Accessories Refund",
 ];
 
+// Which Transaction Type values count as a device sale - mutable at runtime
+// (see setDeviceTypeValues) because the Surveillance Manager can rename/add
+// to the list; hasDeviceTypeSelected (used both inside and outside the
+// component) always reads the current set rather than this hardcoded
+// default.
+let deviceTypeValues = new Set(["Phone", "Tablet", "HINT"]);
+function setDeviceTypeValues(values: string[]) {
+  deviceTypeValues = new Set(values);
+}
+
 const YES_NO_OPTIONS = [
   { value: "__empty__", label: "-" },
   { value: "YES", label: "YES" },
   { value: "NO", label: "NO" },
 ];
 
-const CLIENT_TYPE_OPTIONS = [
+const CLIENT_TYPE_OPTIONS_FALLBACK = [
   { value: "__empty__", label: "-" },
   { value: "Buyer", label: "Buyer" },
   { value: "Non-Buyer", label: "Non-Buyer" },
@@ -438,7 +453,7 @@ function hydrateAuditRowDetails(
 function hasDeviceTypeSelected(raw: string | undefined): boolean {
   return (raw || "")
     .split(/\s*\/\s*/)
-    .some((s) => ["Phone", "Tablet", "HINT"].includes(s.trim()));
+    .some((s) => deviceTypeValues.has(s.trim()));
 }
 
 function hasCustomInTransType(raw: string | undefined): boolean {
@@ -1481,6 +1496,61 @@ export default function SurveillanceReportsPage() {
   const [marketOptions, setMarketOptions] = useState<SurveillanceMarketOption[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
 
+  // Transaction Type / Client Type / Fraud Check Type - managed by a
+  // Surveillance Manager via "Manage Value Lists" instead of hardcoded here.
+  // Each falls back to the original hardcoded list until the fetch resolves,
+  // so the form never shows an empty dropdown.
+  const [transactionTypeOptions, setTransactionTypeOptions] = useState<string[]>(
+    TRANSACTION_TYPE_OPTIONS_FALLBACK,
+  );
+  const [clientTypeOptions, setClientTypeOptions] =
+    useState<{ value: string; label: string }[]>(CLIENT_TYPE_OPTIONS_FALLBACK);
+  // Fraud Check Type entries beyond the original fixed 11 - rendered as
+  // extra checkboxes alongside FRAUD_VERIFICATION_ITEMS, saved into each
+  // row's dynamicFraudFlags instead of a dedicated column.
+  const [dynamicFraudCheckTypes, setDynamicFraudCheckTypes] = useState<
+    { value: string; label: string }[]
+  >([]);
+
+  useEffect(() => {
+    const fixedFraudKeys = new Set(FRAUD_VERIFICATION_ITEMS.map((item) => item.key as string));
+    surveillanceService
+      .getLookupOptions("TransactionType")
+      .then((options) => {
+        if (options.length === 0) return;
+        setTransactionTypeOptions(options.map((o) => o.value));
+        const deviceTypes = options.filter((o) => o.isDeviceType).map((o) => o.value);
+        if (deviceTypes.length > 0) setDeviceTypeValues(deviceTypes);
+      })
+      .catch(() => {
+        /* keep the hardcoded fallback */
+      });
+    surveillanceService
+      .getLookupOptions("ClientType")
+      .then((options) => {
+        if (options.length === 0) return;
+        setClientTypeOptions([
+          { value: "__empty__", label: "-" },
+          ...options.map((o) => ({ value: o.value, label: o.label || o.value })),
+        ]);
+      })
+      .catch(() => {
+        /* keep the hardcoded fallback */
+      });
+    surveillanceService
+      .getLookupOptions("FraudCheckType")
+      .then((options) => {
+        setDynamicFraudCheckTypes(
+          options
+            .filter((o) => !fixedFraudKeys.has(o.value))
+            .map((o) => ({ value: o.value, label: o.label || o.value })),
+        );
+      })
+      .catch(() => {
+        /* no extra fraud checks beyond the fixed 11 */
+      });
+  }, []);
+
   // Drill-down state: null = main table, non-null = Report Detail view
   const [selectedDetail, setSelectedDetail] = useState<SurveillanceRequest | null>(null);
 
@@ -2340,6 +2410,39 @@ export default function SurveillanceReportsPage() {
     );
   };
 
+  // Same idea as handleToggleFraudCheckbox, but for a fraud-check type a
+  // Surveillance Manager added through "Manage Value Lists" instead of one
+  // of the fixed 11 columns - stored in row.dynamicFraudFlags (an array)
+  // rather than a dedicated pair of fields.
+  const handleToggleDynamicFraudFlag = (rowId: string, type: string, checked: boolean) => {
+    setDirtyRowIds((prev) => ({ ...prev, [rowId]: true }));
+    setEditableRows((prev) =>
+      prev.map((row) => {
+        if (row.id !== rowId) return row;
+        const existing = row.dynamicFraudFlags || [];
+        const rest = existing.filter((f) => f.type !== type);
+        const next = checked
+          ? [...rest, { type, value: "YES", notes: existing.find((f) => f.type === type)?.notes || "" }]
+          : rest;
+        return { ...row, dynamicFraudFlags: next };
+      }),
+    );
+  };
+
+  const handleUpdateDynamicFraudFlagNotes = (rowId: string, type: string, notes: string) => {
+    setDirtyRowIds((prev) => ({ ...prev, [rowId]: true }));
+    setEditableRows((prev) =>
+      prev.map((row) => {
+        if (row.id !== rowId) return row;
+        const existing = row.dynamicFraudFlags || [];
+        return {
+          ...row,
+          dynamicFraudFlags: existing.map((f) => (f.type === type ? { ...f, notes } : f)),
+        };
+      }),
+    );
+  };
+
   // Adds a fresh audit row
   const handleAddAuditRow = (storeName: string, marketName: string, defaultDate?: string) => {
     const nextRow = createEmptyAuditRow(storeName, marketName, defaultDate);
@@ -2965,6 +3068,10 @@ export default function SurveillanceReportsPage() {
                 .join("; ")
             : resolveCustomDetailValue(r, "offline", r.offline),
         attachments: r.attachments && r.attachments.length > 0 ? r.attachments : undefined,
+        dynamicFraudFlags:
+          fraudEnabled && r.dynamicFraudFlags && r.dynamicFraudFlags.length > 0
+            ? r.dynamicFraudFlags
+            : undefined,
       };
     };
 
@@ -3607,7 +3714,7 @@ export default function SurveillanceReportsPage() {
                             </Label>
                             <TransactionTypeMultiSelect
                               value={row.transType}
-                              options={TRANSACTION_TYPE_OPTIONS}
+                              options={transactionTypeOptions}
                               onChange={(nextVal) =>
                                 handleUpdateRowField(row.id, "transType", nextVal)
                               }
@@ -3634,7 +3741,7 @@ export default function SurveillanceReportsPage() {
                           <StandardSelect
                             label="Client Type"
                             required
-                            options={CLIENT_TYPE_OPTIONS}
+                            options={clientTypeOptions}
                             value={normalizeClientType(row.clientType, row.b, row.nb)}
                             onValueChange={(val) => handleUpdateRowField(row.id, "clientType", val)}
                           />
@@ -3810,7 +3917,7 @@ export default function SurveillanceReportsPage() {
                                       </Label>
                                       <TransactionTypeMultiSelect
                                         value={addInv.transType}
-                                        options={TRANSACTION_TYPE_OPTIONS}
+                                        options={transactionTypeOptions}
                                         onChange={(nextVal) =>
                                           handleUpdateAdditionalInvoiceField(
                                             row.id,
@@ -4044,6 +4151,73 @@ export default function SurveillanceReportsPage() {
                                   </div>
                                 ))}
                               </div>
+                            )}
+
+                            {/* Fraud Check Types a Surveillance Manager added through
+                                "Manage Value Lists" beyond the fixed checks above -
+                                same checkbox + notes pattern, saved into
+                                row.dynamicFraudFlags instead of a dedicated column. */}
+                            {dynamicFraudCheckTypes.length > 0 && (
+                              <>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t border-border/60">
+                                  {dynamicFraudCheckTypes.map((item) => {
+                                    const isChecked =
+                                      row.dynamicFraudFlags?.some(
+                                        (f) => f.type === item.value && f.value === "YES",
+                                      ) || false;
+                                    const checkboxId = `${row.id}-dynfraud-${item.value}`;
+                                    return (
+                                      <div key={item.value} className="flex items-center gap-2">
+                                        <Checkbox
+                                          id={checkboxId}
+                                          checked={isChecked}
+                                          onCheckedChange={(checked) =>
+                                            handleToggleDynamicFraudFlag(
+                                              row.id,
+                                              item.value,
+                                              Boolean(checked),
+                                            )
+                                          }
+                                        />
+                                        <Label
+                                          htmlFor={checkboxId}
+                                          className="text-xs font-semibold text-foreground cursor-pointer select-none"
+                                        >
+                                          {item.label}
+                                        </Label>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+
+                                {(row.dynamicFraudFlags || []).filter((f) => f.value === "YES")
+                                  .length > 0 && (
+                                  <div className="space-y-2.5 pt-2 border-t border-border/60">
+                                    {(row.dynamicFraudFlags || [])
+                                      .filter((f) => f.value === "YES")
+                                      .map((f) => (
+                                        <div key={f.type} className="space-y-1">
+                                          <Label className="text-[11px] font-semibold">
+                                            {dynamicFraudCheckTypes.find((o) => o.value === f.type)
+                                              ?.label || f.type}{" "}
+                                            Notes
+                                          </Label>
+                                          <Textarea
+                                            value={f.notes || ""}
+                                            onChange={(e) =>
+                                              handleUpdateDynamicFraudFlagNotes(
+                                                row.id,
+                                                f.type,
+                                                e.target.value,
+                                              )
+                                            }
+                                            className="min-h-16"
+                                          />
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
+                              </>
                             )}
                           </div>
                         )}
