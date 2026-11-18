@@ -47,8 +47,8 @@ export function InactivityTimeoutModal() {
           <DialogTitle className="text-xl font-bold tracking-tight">Inactivity Warning</DialogTitle>
 
           <DialogDescription className="text-sm text-muted-foreground max-w-xs">
-            No activity has been detected for 30 minutes. To protect your account, you will be
-            logged out automatically.
+            No activity has been detected for 5 hours. To protect your account, you will be logged
+            out automatically.
           </DialogDescription>
         </DialogHeader>
 
