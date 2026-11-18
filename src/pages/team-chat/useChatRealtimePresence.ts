@@ -10,9 +10,25 @@ export function useChatRealtimePresence({
   setSelectedChat,
 }: any) {
   return useCallback(
-    ({ userId, presence, user }: any) => {
+    ({ userId, presence, preferredStatus, preferred_status, lastSeenAt, last_seen_at, user }: any) => {
       if (!userId) return;
       const nextPresence = normalizePresence(presence || user?.presence || user?.status);
+      let storedPreference = "";
+      if (String(userId) === String(currentUserId) && nextPresence === "offline") {
+        try {
+          storedPreference = localStorage.getItem("chat_presence") || "";
+        } catch {
+          storedPreference = "";
+        }
+      }
+      const nextPreferredStatus = normalizePresence(
+        preferredStatus ||
+          preferred_status ||
+          user?.preferredStatus ||
+          user?.preferred_status ||
+          (nextPresence === "offline" ? storedPreference : nextPresence),
+      );
+      const selectedStatus = nextPresence === "offline" ? nextPreferredStatus : nextPresence;
       const eventEmail = String(
         user?.email || user?.email_id || user?.mailid || user?.providerEmail || "",
       )
@@ -34,17 +50,30 @@ export function useChatRealtimePresence({
           .toLowerCase();
         return Boolean(recordEmail && recordEmail === eventEmail);
       };
-      const presencePatch = { ...(user || {}), presence: nextPresence, status: nextPresence };
+      const presencePatch = {
+        ...(user || {}),
+        presence: nextPresence,
+        preferredStatus: nextPreferredStatus,
+        preferred_status: nextPreferredStatus,
+        status: nextPresence,
+        ...(lastSeenAt || last_seen_at
+          ? { lastSeenAt: lastSeenAt || last_seen_at, last_seen_at: lastSeenAt || last_seen_at }
+          : {}),
+      };
 
       if (String(userId) === String(currentUserId)) {
-        setCurrentStatus(nextPresence);
+        setCurrentStatus(selectedStatus);
         setProfileUser((previous: any) => ({
           ...(previous || {}),
           ...(user || {}),
           presence: nextPresence,
-          status: nextPresence,
+          preferredStatus: nextPreferredStatus,
+          status: selectedStatus,
+          ...(lastSeenAt || last_seen_at
+            ? { lastSeenAt: lastSeenAt || last_seen_at, last_seen_at: lastSeenAt || last_seen_at }
+            : {}),
         }));
-        localStorage.setItem("chat_presence", nextPresence);
+        localStorage.setItem("chat_presence", selectedStatus);
       }
 
       setBuddies((previous: any[]) =>
@@ -102,7 +131,11 @@ export function useChatRealtimePresence({
             ...(previous.raw || {}),
             ...(user || {}),
             presence: nextPresence,
-            status: nextPresence,
+            preferredStatus: nextPreferredStatus,
+            status: selectedStatus,
+            ...(lastSeenAt || last_seen_at
+              ? { lastSeenAt: lastSeenAt || last_seen_at, last_seen_at: lastSeenAt || last_seen_at }
+              : {}),
           },
         };
       });

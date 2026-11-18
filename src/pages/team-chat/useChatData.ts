@@ -25,7 +25,6 @@ import {
   getChatSettingsService,
   getChatStatusService,
   getChatUsersService,
-  updateChatStatusService,
 } from "@/services/Team-chat/chat.service";
 import { getStoredUser } from "@/lib/api/client";
 
@@ -493,23 +492,19 @@ export function useChatData({
       const statusPayload = unwrapEnvelope<Record<string, any>>(statusResponse);
       const backendUser = statusPayload.user || statusPayload;
 
-      const savedPresence = normalizePresence(localStorage.getItem("chat_presence"));
       const serverPresence = normalizePresence(backendUser?.presence || backendUser?.status);
-      // The browser value represents the current authenticated session. The
-      // backend value can still be Offline briefly while the new SignalR
-      // connection is coming online, so do not restore the previous session's
-      // status over the fresh login default.
-      const restoredPresence = savedPresence || serverPresence || "online";
+      const serverPreference = normalizePresence(
+        backendUser?.preferredStatus || backendUser?.preferred_status || serverPresence,
+      );
+      // The server owns the persisted preference. While the socket is offline,
+      // show that preference; once connected, show the actual live presence.
+      const restoredPresence = serverPresence === "offline" ? serverPreference : serverPresence;
 
       setCurrentStatus(restoredPresence);
       // Keep the root MIS notification listener on the same presence policy
       // when the user leaves the Chat page. The chat page still owns the
       // authoritative API update; this value is only the local policy cache.
       localStorage.setItem("chat_presence", restoredPresence);
-
-      if (savedPresence && savedPresence !== "online" && serverPresence !== savedPresence) {
-        updateChatStatusService(savedPresence).catch(() => {});
-      }
 
       if (backendUser) {
         setProfileUser((prev: ChatRecord | null) => {

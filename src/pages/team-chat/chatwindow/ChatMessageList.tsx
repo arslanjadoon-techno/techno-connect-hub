@@ -123,9 +123,8 @@ export default function ChatMessageList(props: Record<string, any>) {
     };
   }, []);
 
-  // Remember whether the reader was at the latest message before React inserts
-  // the next message. This lets incoming messages append without moving a
-  // reader who is browsing older history.
+  // Track whether the reader is at the latest message so delayed layout
+  // changes, such as images loading, can keep the latest view anchored.
   useEffect(() => {
     const container = chatBoxRef?.current;
     if (!container) return;
@@ -139,9 +138,9 @@ export default function ChatMessageList(props: Record<string, any>) {
     return () => container.removeEventListener("scroll", handleScroll);
   }, [chatBoxRef]);
 
-  // Scroll only after the message DOM has been committed. Initial loads and
-  // chat switches go to the latest message; appends go there only when the
-  // reader was already at the bottom; prepends preserve the visible message.
+  // Scroll only after the message DOM has been committed. Initial loads,
+  // chat switches, and new-message appends go to the latest message;
+  // prepends preserve the visible message while older history loads.
   useLayoutEffect(() => {
     const container = chatBoxRef?.current;
     if (!container) return;
@@ -163,7 +162,7 @@ export default function ChatMessageList(props: Record<string, any>) {
       atBottomRef.current = true;
     } else if (prependedMessages) {
       container.scrollTop += container.scrollHeight - previous.scrollHeight;
-    } else if (appendedMessages && atBottomRef.current) {
+    } else if (appendedMessages) {
       container.scrollTop = container.scrollHeight;
       atBottomRef.current = true;
     }
@@ -356,7 +355,11 @@ export default function ChatMessageList(props: Record<string, any>) {
                     authorAvatarUrl: getImageUrl(senderProfile) || getImageUrl(message.sender),
                     repliedMessage: repliedMessage || message.repliedMessage,
                   }}
-                  mentionableUsers={selectedChat?.type === "channel" ? mentionableUsers : []}
+                  mentionableUsers={
+                    selectedChat?.type === "channel" || selectedChat?.type === "group"
+                      ? mentionableUsers
+                      : []
+                  }
                   showAvatar={showGroupAvatar}
                   messageInfoVersion={messageInfoVersions[messageId] || 0}
                   onCopy={handleCopyMessage}

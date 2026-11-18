@@ -220,8 +220,15 @@ export const getChatStatusService = () => api.get("/api/v1/chat/users/me", CHAT_
 export const getChatUsersService = (params: ChatParams = {}) =>
   api.get("/api/v1/chat/users", chatConfig({ limit: 50, ...params }));
 
-export const updateChatStatusService = (presence: string) =>
-  api.patch("/api/v1/chat/users/me/presence", { presence }, CHAT_HEADERS);
+export const updateChatStatusService = (presence: string) => {
+  const normalizedPresence = presence.trim().toLowerCase();
+  const canonicalPresence =
+    normalizedPresence === "dnd" || normalizedPresence === "do not disturb"
+      ? "do_not_disturb"
+      : normalizedPresence;
+
+  return api.patch("/api/v1/chat/users/me/presence", { presence: canonicalPresence }, CHAT_HEADERS);
+};
 
 // ==================================================================
 //  Settings
@@ -327,10 +334,15 @@ export const sendConversationMessageService = (
     CHAT_HEADERS,
   );
 
-export const editConversationMessageService = (chatId: ChatId, messageId: ChatId, text: string) =>
+export const editConversationMessageService = (
+  chatId: ChatId,
+  messageId: ChatId,
+  text: string,
+  options: ChatPayload = {},
+) =>
   api.patch(
     `/api/v1/chat/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(messageId)}`,
-    { text },
+    { text, ...options },
     CHAT_HEADERS,
   );
 

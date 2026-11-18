@@ -165,7 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Available, even if the previous session ended while Offline/DND.
       // Chat's existing status bootstrap will synchronize this with the API.
       try {
-        window.localStorage.setItem("chat_presence", "online");
+        window.localStorage.setItem("chat_presence", "available");
       } catch {
         // The authenticated session remains usable if storage is unavailable.
       }

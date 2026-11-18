@@ -21,6 +21,7 @@ import { AttachmentPreview } from "./AttachmentPreview";
 import OTPDialog from "./OTPDialog";
 import { canRequestOtp as userCanRequestOtp } from "@/lib/otp-access";
 import { useAuth } from "@/lib/auth";
+import { MENTION_ALL_LABEL } from "../ChatSystemUtils";
 
 const MAX_INPUT_HEIGHT = 224; // px, about 9 lines; scrolls after this
 // Planned chat controls; keep the implementation in place but do not expose them yet.
@@ -30,6 +31,7 @@ type MentionCandidate = {
   email: string;
   name: string;
   isSelf: boolean;
+  isAll?: boolean;
 };
 
 export default function ChatComposerPanel(props: Record<string, any>) {
@@ -110,7 +112,7 @@ export default function ChatComposerPanel(props: Record<string, any>) {
       .trim()
       .toLowerCase();
 
-    return groupMembers.map((member: any) => {
+    const members = groupMembers.map((member: any) => {
       const memberIds = [
         member.id,
         member.userId,
@@ -133,6 +135,22 @@ export default function ChatComposerPanel(props: Record<string, any>) {
 
       return { member, email, name, isSelf };
     });
+
+    return [
+      {
+        member: {
+          id: "*",
+          name: MENTION_ALL_LABEL,
+          displayName: MENTION_ALL_LABEL,
+          __mentionAll: true,
+        },
+        email: "",
+        name: MENTION_ALL_LABEL,
+        isSelf: false,
+        isAll: true,
+      },
+      ...members,
+    ];
   }, [groupMembers, currentUser, selectedChat?.type]);
 
   const filteredMentionMembers = useMemo<MentionCandidate[]>(() => {
@@ -242,9 +260,9 @@ export default function ChatComposerPanel(props: Record<string, any>) {
 
           {mentionQuery !== null && filteredMentionMembers.length > 0 && (
             <div className="max-h-48 overflow-y-auto border-b bg-popover p-1">
-              {filteredMentionMembers.map(({ member, email, name }) => (
+              {filteredMentionMembers.map(({ member, email, name, isAll }) => (
                 <button
-                  key={String(getBuddySendId(member) || email)}
+                  key={isAll ? "mention-all" : String(getBuddySendId(member) || email)}
                   type="button"
                   className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
                   onMouseDown={(event) => {
@@ -252,9 +270,9 @@ export default function ChatComposerPanel(props: Record<string, any>) {
                     insertMention(member);
                   }}
                 >
-                  <span>{name}</span>
+                  <span>{isAll ? "Everyone" : name}</span>
                   <span className="ml-2 truncate text-xs text-muted-foreground">
-                    {getBuddyEmail(member)}
+                    {isAll ? "@all" : getBuddyEmail(member)}
                   </span>
                 </button>
               ))}

@@ -23,10 +23,7 @@ export const isChatDoNotDisturb = (): boolean => {
     const presence = String(window.localStorage.getItem("chat_presence") || "")
       .trim()
       .toLowerCase();
-    // Offline is also a quiet state when selected manually. Realtime messages
-    // and in-app notification items are still processed; only browser alerts
-    // and notification sounds are suppressed until the user becomes available.
-    return presence === "dnd" || presence === "do not disturb" || presence === "offline";
+    return presence === "dnd" || presence === "do not disturb" || presence === "do_not_disturb";
   } catch {
     return false;
   }
@@ -164,7 +161,7 @@ export const showChatNotification = ({
     return null;
   }
   if (isChatDoNotDisturb()) {
-    console.debug("[Chat notifications] Skipped: user presence is quiet (DND/offline)");
+    console.debug("[Chat notifications] Skipped: user presence is Do Not Disturb");
     return null;
   }
   if (!claimDesktopNotification(dedupeKey)) return null;

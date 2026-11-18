@@ -31,11 +31,10 @@ import {
 type ChatRecord = Record<string, any>;
 
 const STATUS_OPTIONS = [
-  { value: "online", label: "Available", hint: "Teammates can reach you", color: "#22c55e" },
+  { value: "available", label: "Available", hint: "Teammates can reach you", color: "#22c55e" },
   { value: "busy", label: "Busy", hint: "Replying may take a while", color: "#ef4444" },
-  { value: "dnd", label: "Do not disturb", hint: "Notifications are paused", color: "#dc2626" },
+  { value: "do_not_disturb", label: "Do not disturb", hint: "Notifications are paused", color: "#dc2626" },
   { value: "away", label: "Away", hint: "You're stepped out", color: "#f59e0b" },
-  { value: "offline", label: "Offline", hint: "You appear offline", color: "#9aa3af" },
 ];
 
 function readPermission(): string {
@@ -92,11 +91,29 @@ function getDisplayName(record: ChatRecord): string {
   return id ? `User ${id}` : "Unknown user";
 }
 
+function getConversationImage(record: ChatRecord | null | undefined): string {
+  if (!record) return "";
+
+  const participants = Array.isArray(record.participants) ? record.participants : [];
+  const otherParticipant =
+    participants.find((participant: ChatRecord) => !participant?.isCurrentUser && !participant?.is_current_user) ||
+    participants[0];
+
+  return (
+    getImageUrl(record) ||
+    getImageUrl(record.user) ||
+    getImageUrl(record.profile) ||
+    getImageUrl(record.participant) ||
+    getImageUrl(otherParticipant) ||
+    getImageUrl(record.raw)
+  );
+}
+
 function getStoredPresence(): string {
   try {
     return normalizePresence(window.localStorage.getItem("chat_presence"));
   } catch {
-    return "online";
+    return "available";
   }
 }
 
@@ -199,6 +216,9 @@ export default function ChatSettingsSection() {
           Array.isArray(settings?.mutedChatIds) ? settings.mutedChatIds.map(String) : [],
         );
         const directoryUsers = getArrayPayload(usersResponse);
+        const settingsBlockedUsers = Array.isArray(settings?.blockedUsers)
+          ? settings.blockedUsers
+          : [];
         const foundUserIds = new Set(
           directoryUsers.map((user) => String(getBuddySendId(user) || "")).filter(Boolean),
         );
@@ -213,9 +233,19 @@ export default function ChatSettingsSection() {
           response ? getArrayPayload(response) : [],
         );
         const usersById = new Map<string, ChatRecord>();
-        [...directoryUsers, ...resolvedBlockedUsers].forEach((user) => {
+        [...settingsBlockedUsers, ...resolvedBlockedUsers, ...directoryUsers].forEach((user) => {
           const id = String(getBuddySendId(user) || "").trim();
-          if (id) usersById.set(id, { ...(usersById.get(id) || {}), ...user });
+          if (!id) return;
+
+          const previous = usersById.get(id) || {};
+          const merged = { ...previous, ...user };
+          const imageUrl = getImageUrl(user) || getImageUrl(previous);
+          if (imageUrl) {
+            merged.profileImage = imageUrl;
+            merged.avatarUrl = imageUrl;
+            merged.imageUrl = imageUrl;
+          }
+          usersById.set(id, merged);
         });
         setChatUsers(Array.from(usersById.values()));
         setConversations(getArrayPayload(conversationsResponse));
@@ -228,16 +258,12 @@ export default function ChatSettingsSection() {
         const status = unwrapResponse(statusResponse) as ChatRecord;
         const statusUser = status?.user || status;
         const serverPresence = normalizePresence(statusUser?.presence || statusUser?.status);
-        const savedPresence = getStoredPresence();
-        // Presence is reset to Available by the authenticated session. The
-        // local value is authoritative while that session is active; the API
-        // is updated below when the values differ.
-        const restoredPresence = savedPresence || serverPresence || "online";
+        const serverPreference = normalizePresence(
+          statusUser?.preferredStatus || statusUser?.preferred_status || serverPresence,
+        );
+        const restoredPresence = serverPresence === "offline" ? serverPreference : serverPresence;
         setPresence(restoredPresence);
-
-        if (savedPresence && savedPresence !== serverPresence) {
-          updateChatStatusService(savedPresence).catch(() => undefined);
-        }
+        window.localStorage.setItem("chat_presence", restoredPresence);
       } catch (error: any) {
         if (active) setLoadError(error?.message || "Chat settings could not be loaded.");
       } finally {
@@ -270,7 +296,11 @@ export default function ChatSettingsSection() {
     () =>
       mutedChatIds.map((id) => {
         const match = conversations.find((conversation) => getConversationId(conversation) === id);
-        return { id, label: match ? getDisplayName(match) : id };
+        return {
+          id,
+          label: match ? getDisplayName(match) : id,
+          imageUrl: getConversationImage(match),
+        };
       }),
     [conversations, mutedChatIds],
   );
@@ -325,12 +355,14 @@ export default function ChatSettingsSection() {
   };
 
   const handleStatusChange = async (nextPresence: string) => {
+    const normalizedPresence = normalizePresence(nextPresence);
+    if (normalizedPresence === "offline") return;
     const previous = presence;
     setSaving("presence");
-    setPresence(nextPresence);
+    setPresence(normalizedPresence);
     try {
-      await updateChatStatusService(nextPresence);
-      window.localStorage.setItem("chat_presence", nextPresence);
+      await updateChatStatusService(normalizedPresence);
+      window.localStorage.setItem("chat_presence", normalizedPresence);
       toast.success("Presence updated.");
     } catch (error: any) {
       setPresence(previous);
@@ -512,7 +544,7 @@ export default function ChatSettingsSection() {
                   return (
                     <li key={id} className="flex items-center gap-3 px-3 py-2">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={getImageUrl(user)} />
+                        <AvatarImage src={getImageUrl(user)} alt={`${label} profile`} />
                         <AvatarFallback className="text-xs">{label.slice(0, 2).toUpperCase()}</AvatarFallback>
                       </Avatar>
                       <span className="min-w-0 flex-1 truncate text-sm font-medium">{label}</span>
@@ -548,6 +580,15 @@ export default function ChatSettingsSection() {
                   <ul className="mt-3 divide-y rounded-lg border">
                     {mutedConversations.map((conversation) => (
                       <li key={conversation.id} className="flex items-center gap-3 px-3 py-2">
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage
+                            src={conversation.imageUrl}
+                            alt={`${conversation.label} profile`}
+                          />
+                          <AvatarFallback className="text-xs">
+                            {conversation.label.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
                         <span className="min-w-0 flex-1 truncate text-sm font-medium">{conversation.label}</span>
                         <Button
                           type="button"

@@ -11,7 +11,11 @@ import {
   getConversationPreviewTimestamp,
   updateConversationPreview,
 } from "./chatConversationKeys";
-import { getConversationIdFromResponse, textContainsMention } from "./ChatSystemUtils";
+import {
+  getConversationIdFromResponse,
+  MENTION_ALL_LABEL,
+  textContainsMention,
+} from "./ChatSystemUtils";
 import {
   createClientMessageId,
   createOptimisticMessage,
@@ -167,17 +171,19 @@ export function useChatSend({
       return;
     }
     const clientSequence = ++clientSequenceRef.current;
-    const mentionedUsers = uniqueUsersByIdentity(selectedMentionableUsers)
-      .filter((buddy) => {
-        const name = getBuddyName(buddy);
-        const email = getBuddyEmail(buddy);
-        return textContainsMention(text, name) || textContainsMention(text, email);
-      })
-      .map((buddy) => ({
-        userId: String(getBuddySendId(buddy)),
-        displayName: getBuddyName(buddy),
-        email: getBuddyEmail(buddy),
-      }));
+    const mentionedUsers = textContainsMention(text, MENTION_ALL_LABEL)
+      ? [{ userId: "*", displayName: MENTION_ALL_LABEL, email: "" }]
+      : uniqueUsersByIdentity(selectedMentionableUsers)
+          .filter((buddy) => {
+            const name = getBuddyName(buddy);
+            const email = getBuddyEmail(buddy);
+            return textContainsMention(text, name) || textContainsMention(text, email);
+          })
+          .map((buddy) => ({
+            userId: String(getBuddySendId(buddy)),
+            displayName: getBuddyName(buddy),
+            email: getBuddyEmail(buddy),
+          }));
     const messageOptions = {
       metadata: {
         ...(mentionedUsers.length ? { mentions: mentionedUsers } : {}),
@@ -247,9 +253,40 @@ export function useChatSend({
 
       if (editingMessage) {
         if (!chatId || !text || filesToSend.length > 0) return;
-        await editConversationMessageService(chatId, editingMessage.id, text);
+        const response: any = await editConversationMessageService(chatId, editingMessage.id, text, {
+          metadata: { mentions: mentionedUsers },
+        });
+        const responsePayload = response?.data?.data || response?.data;
+        const updatedMessage = responsePayload
+          ? normalizeRealtimeMessage(responsePayload, { ...selectedChat, currentUserId })
+          : null;
+        const editedAt = new Date().toISOString();
+
+        setMessagesByChat((previous: Record<string, ChatRecord[]>) => {
+          const next = { ...previous };
+          Object.keys(next).forEach((key) => {
+            next[key] = (next[key] || []).map((message) =>
+              String(message.id) === String(editingMessage.id)
+                ? {
+                    ...message,
+                    ...(updatedMessage || {}),
+                    text,
+                    edited: true,
+                    editedAt: updatedMessage?.editedAt || editedAt,
+                    metadata: {
+                      ...(message.metadata || {}),
+                      ...(updatedMessage?.metadata || {}),
+                      edited: true,
+                    },
+                  }
+                : message,
+            );
+          });
+          return next;
+        });
         await refreshSelectedChatMessages(chatId);
         setInputValue("");
+        setPendingFiles([]);
         setEditingMessage(null);
         setReplyToMessage(null);
         return;

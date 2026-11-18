@@ -199,8 +199,18 @@ export const normalizeChatMessages = (
                 : {}),
         mentions: message?.metadata?.mentions || message?.mentions || [],
         replyTo: message?.replyTo || message?.reply_to || message?.replyToMessageId || null,
-        edited: Boolean(message?.metadata?.edited || message?.edited),
-        editedAt: message?.metadata?.editedAt || message?.editedAt || null,
+        edited: Boolean(
+          message?.metadata?.edited ||
+            message?.edited ||
+            message?.isEdited ||
+            message?.is_edited,
+        ),
+        editedAt:
+          message?.metadata?.editedAt ||
+          message?.editedAt ||
+          message?.updatedAt ||
+          message?.updated_at ||
+          null,
         deletedAt,
         attachments,
       };

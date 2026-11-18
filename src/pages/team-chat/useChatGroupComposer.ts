@@ -240,17 +240,20 @@ export function useChatGroupComposer({
   const selectedMentionableUsers = useMemo(() => {
     if (!selectedChat) return [];
 
-    if (selectedChat.type !== "channel") {
-      return selectedChat.raw ? [selectedChat.raw] : [];
-    }
-
     const refreshedChannel = visibleChannels.find(
       (channel) => getChannelId(channel) === selectedChat.id,
     );
-    const participants = Array.isArray(refreshedChannel?.participants)
-      ? refreshedChannel.participants
-      : Array.isArray(selectedChat.raw?.participants)
-        ? selectedChat.raw.participants
+    const participants =
+      selectedChat.type === "channel" || selectedChat.type === "group"
+        ? Array.isArray(refreshedChannel?.participants)
+          ? refreshedChannel.participants
+          : Array.isArray(selectedChat.participants)
+            ? selectedChat.participants
+            : Array.isArray(selectedChat.raw?.participants)
+              ? selectedChat.raw.participants
+              : Array.isArray(selectedChat.raw?.members)
+                ? selectedChat.raw.members
+                : []
         : [];
     const participantIds = new Set(
       participants
@@ -259,7 +262,12 @@ export function useChatGroupComposer({
     );
 
     return uniqueUsersByIdentity(
-      allVisibleBuddies.filter((user) => participantIds.has(String(getBuddySendId(user)))),
+      [
+        ...participants,
+        ...allVisibleBuddies.filter((user) =>
+          participantIds.has(String(getBuddySendId(user))),
+        ),
+      ],
     );
   }, [allVisibleBuddies, selectedChat, uniqueUsersByIdentity, visibleChannels]);
 

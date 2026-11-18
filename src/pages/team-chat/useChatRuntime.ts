@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { getBuddyEmail, getBuddySendId, getChannelId, normalizePresence } from "./chatHealper";
+import { getBuddyEmail, getBuddySendId, getChannelId } from "./chatHealper";
 import { useChatConversationView } from "./useChatConversationView";
 import { useChatRealtime } from "./useChatRealtime";
 import { useChatRealtimeAvatar } from "./useChatRealtimeAvatar";
@@ -15,7 +15,6 @@ import { useChatRealtimeCalls } from "./useChatRealtimeCalls";
 import { useChatClear } from "./useChatClear";
 import { useChatMarkRead } from "./useChatMarkRead";
 import { useChatMute } from "./useChatMute";
-import { useChatPresence } from "./useChatPresence";
 import { useChatOlderMessages } from "./useChatOlderMessages";
 import { getActiveConversationCallsService } from "@/services/Team-chat/chat.service";
 import { getChatMessagesService } from "@/services/Team-chat/chat.service";
@@ -69,9 +68,7 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     setProfileUser,
     setSelectedChat,
     setSendError,
-    setStatusSaving,
     setTypingUsersByChat,
-    statusSaving,
     setMessagePaginationByChat,
     setLoadingOlderMessages,
     filterBlockedMessages,
@@ -449,16 +446,6 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     },
     [setBuddies, setChannels],
   );
-  const { handleStatusChange } = useChatPresence({
-    statusSaving,
-    setStatusSaving,
-    setCurrentStatus,
-    setProfileUser,
-    setLoadError,
-    selectedChat,
-    clearUnreadForChat,
-    normalizePresence,
-  });
   const { handleToggleChatMute } = useChatMute({
     mutedChatIds,
     setMutedChatIds,
@@ -512,7 +499,6 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     loadOlderMessages,
     callSocketRef,
     clearUnreadForChat,
-    handleStatusChange,
     handleToggleChatMute,
     handleClearChat,
     markChatAsRead,

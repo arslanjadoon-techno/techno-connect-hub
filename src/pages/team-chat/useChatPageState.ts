@@ -76,7 +76,6 @@ export function useChatPageState() {
   const [currentStatus, setCurrentStatus] = useState(() =>
     normalizePresence(localStorage.getItem("chat_presence")),
   );
-  const [statusSaving, setStatusSaving] = useState(false);
   const [activeCall, setActiveCall] = useState<ChatState>(null);
   const [callMinimized, setCallMinimized] = useState(false);
   const [incomingCall, setIncomingCall] = useState<ChatState>(null);
@@ -137,7 +136,6 @@ export function useChatPageState() {
     realtimeStartedAtRef,
     searchTerm,
     selectedChat,
-    statusSaving,
     typingUsersByChat,
     setActiveCall,
     setAddMemberUserIds,
@@ -178,7 +176,6 @@ export function useChatPageState() {
     setProfileUser,
     setSearchTerm,
     setSelectedChat,
-    setStatusSaving,
     setTab,
     setTypingUsersByChat,
   };

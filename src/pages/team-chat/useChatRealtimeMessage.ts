@@ -15,7 +15,11 @@ import {
 import { areChatMessagesSame, mergeChatMessages } from "./chatMessageState";
 import { saveCachedChatMessages } from "./chatMessageIndexedDb";
 import { CHAT_APP_BASE_PATH } from "./chatRoutes";
-import { playMessageNotificationSound, showChatNotification } from "./chatNotifications";
+import {
+  isChatDoNotDisturb,
+  playMessageNotificationSound,
+  showChatNotification,
+} from "./chatNotifications";
 import { markConversationReadService } from "@/services/Team-chat/chat.service";
 import { updateConversationPreview } from "./chatConversationKeys";
 
@@ -297,10 +301,7 @@ export function useChatRealtimeMessage({
         );
       }
 
-      const isDoNotDisturb =
-        String(currentStatus || "")
-          .trim()
-          .toLowerCase() === "dnd";
+      const isDoNotDisturb = isChatDoNotDisturb() || currentStatus === "do_not_disturb";
 
       const shouldNotify =
         !isOwnMessage &&

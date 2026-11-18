@@ -4,6 +4,12 @@ export interface ChatAvailability {
   label: string;
   color: string;
 }
+export type ChatPresenceStatus =
+  | "available"
+  | "busy"
+  | "do_not_disturb"
+  | "away"
+  | "offline";
 export interface ChatAttachment extends ChatRecord {
   id: ChatId;
   name: string;
@@ -18,15 +24,18 @@ export interface NormalizedMessage extends ChatRecord {
   authorId: string;
 }
 
-export const normalizePresence = (value: unknown): string => {
+export const normalizePresence = (value: unknown): ChatPresenceStatus => {
   const status = String(value || "")
     .trim()
     .toLowerCase();
-  return status === "available" || status === "active"
-    ? "online"
-    : ["online", "away", "busy", "dnd", "offline"].includes(status)
-      ? status
-      : "online";
+  if (status === "online" || status === "active" || status === "available") return "available";
+  if (status === "dnd" || status === "do not disturb" || status === "do_not_disturb") {
+    return "do_not_disturb";
+  }
+  if (status === "busy") return "busy";
+  if (status === "away") return "away";
+  if (status === "offline") return "offline";
+  return "available";
 };
 export const getArrayPayload = (payload: unknown): ChatRecord[] => {
   let current: unknown = payload;
@@ -121,7 +130,11 @@ export const getBuddyName = (buddy: ChatRecord | null | undefined): string => {
     );
   });
   const fallback = String(getBuddyEmail(buddy) || "").trim();
-  return name || (fallback && !/^\d+$/.test(fallback) ? fallback : "Chat User");
+  return name
+    ? String(name)
+    : fallback && !/^\d+$/.test(fallback)
+      ? fallback
+      : "Chat User";
 };
 
 const normalizeAssetUrl = (value: unknown): string => {
@@ -217,7 +230,7 @@ export const getAvailability = (item: ChatRecord | null | undefined): ChatAvaila
     ]
       .map(pickStatusValue)
       .find(Boolean) || "";
-  const status = String(rawStatus).toLowerCase();
+  const rawStatusText = String(rawStatus).toLowerCase();
 
   const booleanAvailability =
     item?.is_available ?? item?.isAvailable ?? item?.is_online ?? item?.isOnline ?? item?.online;
@@ -229,29 +242,36 @@ export const getAvailability = (item: ChatRecord | null | undefined): ChatAvaila
     return { label: "Unavailable", color: "#9aa3af" };
   }
 
+  const status = normalizePresence(rawStatus);
+  if (status === "do_not_disturb") {
+    return { label: "Do Not Disturb", color: "#dc2626" };
+  }
+  if (status === "busy") {
+    return { label: "Busy", color: "#ef4444" };
+  }
+  if (status === "offline") {
+    return { label: "Offline", color: "#9aa3af" };
+  }
+  if (status === "away") {
+    return { label: "Away", color: "#f59e0b" };
+  }
   if (
-    status.includes("online") ||
-    status.includes("available") ||
-    status.includes("free") ||
-    status === "active" ||
-    status === "1"
+    rawStatusText.includes("online") ||
+    rawStatusText.includes("available") ||
+    rawStatusText.includes("free") ||
+    rawStatusText === "active" ||
+    rawStatusText === "1"
   ) {
     return { label: "Available", color: "#22c55e" };
   }
-  if (status.includes("dnd") || status.includes("do not disturb")) {
-    return { label: "Do Not Disturb", color: "#dc2626" };
-  }
-  if (status.includes("busy")) {
-    return { label: "Busy", color: "#ef4444" };
-  }
-  if (status.includes("offline") || status.includes("unavailable")) {
+  if (rawStatusText.includes("unavailable")) {
     return { label: "Offline", color: "#9aa3af" };
   }
-  if (status.includes("away") || status.includes("idle") || status.includes("break")) {
+  if (rawStatusText.includes("idle") || rawStatusText.includes("break")) {
     return { label: "Away", color: "#f59e0b" };
   }
 
-  return { label: "Unknown", color: "#9aa3af" };
+  return { label: "Offline", color: "#9aa3af" };
 };
 
 export const getPhoneNumber = (item: ChatRecord | null | undefined): string | number =>

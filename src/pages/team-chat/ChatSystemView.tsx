@@ -125,15 +125,16 @@ export default function ChatSystemView(props: Record<string, any>) {
 
   return (
     <>
-      <div
-        className={`chat-shell grid h-full min-h-0 w-full min-w-0 grid-rows-1 overflow-hidden bg-background text-foreground md:border md:border-border/70 md:rounded-2xl md:shadow-[0_16px_50px_rgba(15,23,42,0.08)] dark:md:shadow-[0_16px_50px_rgba(0,0,0,0.24)] ${
-          standalone
-            ? "h-[100dvh] min-h-[100dvh]"
-            : "h-full min-h-0 w-full sm:-mx-4 sm:-my-4 sm:h-[calc(100%+2rem)] sm:min-h-[calc(100%+2rem)] sm:w-[calc(100%+2rem)] lg:-mx-6 lg:-my-6 lg:h-[calc(100%+3rem)] lg:min-h-[calc(100%+3rem)] lg:w-[calc(100%+3rem)]"
-        } ${
-          showConversationSidebar ? "grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]" : "grid-cols-1"
-        }`}
-      >
+      <div className={`flex min-h-0 flex-col ${standalone ? "h-[100dvh]" : "h-full"}`}>
+        <div
+          className={`chat-shell grid min-h-0 min-w-0 flex-1 grid-rows-1 overflow-hidden bg-background text-foreground md:border md:border-border/70 md:rounded-2xl md:shadow-[0_16px_50px_rgba(15,23,42,0.08)] dark:md:shadow-[0_16px_50px_rgba(0,0,0,0.24)] ${
+            standalone
+              ? "h-[100dvh]"
+              : "h-full w-full sm:-mx-4 sm:-my-4 sm:h-[calc(100%+2rem)] sm:min-h-[calc(100%+2rem)] sm:w-[calc(100%+2rem)] lg:-mx-6 lg:-my-6 lg:h-[calc(100%+3rem)] lg:min-h-[calc(100%+3rem)] lg:w-[calc(100%+3rem)]"
+          } ${
+            showConversationSidebar ? "grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]" : "grid-cols-1"
+          }`}
+        >
         {showConversationSidebar && (
           <ChatSidebar
             filteredItems={filteredItems}
@@ -283,6 +284,7 @@ export default function ChatSystemView(props: Record<string, any>) {
             />
           </div>
         )}
+        </div>
       </div>
       {callsEnabled && (
         <>

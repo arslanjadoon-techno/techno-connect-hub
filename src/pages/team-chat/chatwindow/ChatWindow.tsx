@@ -492,6 +492,23 @@ export default function ChatWindow({
 
   /* ----------------------------- composer ------------------------------- */
 
+  // Reply/edit actions can originate from a menu or a touch gesture. Focus the
+  // controlled textarea after the mode banner has rendered and place the caret
+  // at the end of the current draft.
+  useEffect(() => {
+    if (!replyToMessage && !editingMessage) return;
+
+    const frame = requestAnimationFrame(() => {
+      const input = composerInputRef.current;
+      if (!input || input.disabled) return;
+      input.focus();
+      const cursor = input.value.length;
+      input.setSelectionRange(cursor, cursor);
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [editingMessage, replyToMessage]);
+
   const setText = (value: string) => {
     setInputValue?.(value);
     signalTyping(value.length > 0);
@@ -590,7 +607,17 @@ export default function ChatWindow({
     ? viewedUser.authorEmail || viewedUser.author_email || getBuddyEmail(viewedUser)
     : "";
   const viewedUserImage = getImageUrl(viewedUser);
-  const viewedUserAvailability = getAvailability(viewedUser);
+  const selectedUserRecord = selectedChat?.raw || selectedChat;
+  const viewedUserPresenceSource =
+    viewedUser && selectedUserRecord && isSamePerson(viewedUser, selectedUserRecord)
+      ? {
+          ...selectedUserRecord,
+          ...viewedUser,
+          presence: viewedUser.presence ?? selectedUserRecord.presence,
+          preferredStatus: viewedUser.preferredStatus ?? selectedUserRecord.preferredStatus,
+        }
+      : viewedUser;
+  const viewedUserAvailability = getAvailability(viewedUserPresenceSource);
 
   return (
     <section className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-background text-foreground">

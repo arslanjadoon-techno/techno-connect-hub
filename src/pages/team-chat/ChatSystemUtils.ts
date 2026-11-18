@@ -61,11 +61,15 @@ export const hasConversationHistory = (conversation: ChatRecord | null | undefin
 const escapeMentionRegExp = (value: unknown): string =>
   String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+export const MENTION_ALL_LABEL = "all";
+
 export function messageMentionsUser(
   message: ChatRecord | null | undefined,
   userId: string,
   userEmail: string,
 ): boolean {
+  if (textContainsMention(message?.text, MENTION_ALL_LABEL)) return true;
+
   const mentions = message?.metadata?.mentions || message?.mentions || [];
   if (!Array.isArray(mentions)) return false;
   return mentions.some((mention) => {
@@ -73,7 +77,12 @@ export function messageMentionsUser(
     const mentionEmail = String(mention?.email || "")
       .trim()
       .toLowerCase();
-    return (userId && mentionId === userId) || (userEmail && mentionEmail === userEmail);
+    return (
+      mentionId === "*" ||
+      mentionId.toLowerCase() === MENTION_ALL_LABEL ||
+      (userId && mentionId === userId) ||
+      (userEmail && mentionEmail === userEmail)
+    );
   });
 }
 

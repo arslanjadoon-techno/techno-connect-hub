@@ -56,17 +56,22 @@ export function useChatComposer() {
   const handleReplyToMessage = (message: any) => {
     setEditingMessage(null);
     setReplyToMessage(message);
+    setSendError("");
   };
 
   const handleEditMessage = (message: any) => {
     if (message?.direction !== "outbound") return;
-    const messageAge = Date.now() - parseChatDate(message.sentAt).getTime();
+    const messageAge =
+      Date.now() -
+      parseChatDate(message.sentAt || message.createdAt || message.created_at).getTime();
     if (!Number.isFinite(messageAge) || messageAge < 0 || messageAge > 10 * 60 * 1000) {
       setSendError("Messages can only be edited within 10 minutes.");
       return;
     }
     setReplyToMessage(null);
     setEditingMessage(message);
+    setComposerPendingFiles([]);
+    setSendError("");
     setComposerInputValue(message.text || "");
   };
 

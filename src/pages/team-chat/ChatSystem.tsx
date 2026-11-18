@@ -143,7 +143,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     setProfileUser,
     setSearchTerm,
     setSelectedChat,
-    setStatusSaving,
     setTab,
     setTypingUsersByChat,
   } = pageState;
@@ -243,7 +242,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     clearUnreadForChat,
     isSelfConversation,
     loadOlderMessages,
-    handleStatusChange,
     handleToggleChatMute,
     handleClearChat,
     markChatAsRead,

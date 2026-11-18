@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { getBuddyName, getImageUrl, parseChatDate } from "../chatHealper";
+import { getAvailability, getBuddyName, getImageUrl, parseChatDate } from "../chatHealper";
 import GroupActions from "./GroupActions";
 
 function MenuItem({
@@ -98,6 +98,7 @@ export default function ChatWindowHeader(props: Record<string, any>) {
   const canViewUser = !isGroup && Boolean(selectedChat);
   const profileName = getBuddyName(profileUser) || displayTitle;
   const profileImageUrl = getImageUrl(selectedChat) || getImageUrl(profileUser);
+  const profileAvailability = getAvailability(profileUser);
   const memberCount = Array.isArray(groupMembers) ? groupMembers.length : 0;
   const subtitle = typingUser
     ? "typing…"
@@ -143,18 +144,26 @@ export default function ChatWindowHeader(props: Record<string, any>) {
 
         {/* On phones the title gives way to the search box while searching. */}
         {canViewUser ? (
-          <button
-            type="button"
-            className={`rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${messageSearchOpen ? "hidden sm:flex" : ""}`}
-            aria-label={`View ${profileName}`}
-            title={`View ${profileName}`}
-            onClick={() => onViewUser?.(profileUser)}
-          >
-            <Avatar className="h-9 w-9 bg-primary/10 text-primary ring-1 ring-border/60 sm:h-10 sm:w-10">
-              <AvatarImage src={profileImageUrl} alt={`${profileName} profile`} />
-              <AvatarFallback>{profileName.charAt(0).toUpperCase()}</AvatarFallback>
-            </Avatar>
-          </button>
+          <span className={`relative ${messageSearchOpen ? "hidden sm:inline-block" : "inline-block"}`}>
+            <button
+              type="button"
+              className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={`View ${profileName}`}
+              title={`View ${profileName}`}
+              onClick={() => onViewUser?.(profileUser)}
+            >
+              <Avatar className="h-9 w-9 bg-primary/10 text-primary ring-1 ring-border/60 sm:h-10 sm:w-10">
+                <AvatarImage src={profileImageUrl} alt={`${profileName} profile`} />
+                <AvatarFallback>{profileName.charAt(0).toUpperCase()}</AvatarFallback>
+              </Avatar>
+            </button>
+            <span
+              className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card"
+              style={{ backgroundColor: profileAvailability.color }}
+              title={profileAvailability.label}
+              aria-label={profileAvailability.label}
+            />
+          </span>
         ) : (
           <Avatar
             className={`h-9 w-9 shrink-0 bg-primary/10 text-primary ring-1 ring-border/60 sm:h-10 sm:w-10 ${messageSearchOpen ? "hidden sm:flex" : ""}`}
