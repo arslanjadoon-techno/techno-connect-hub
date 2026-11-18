@@ -78,6 +78,7 @@ import { LEASING_PAGE_PERMISSION_KEYS } from "@/lib/leasing-permissions";
 import SidebarRail from "@/pages/team-chat/sidebar/SidebarRail";
 import {
   getSurveillanceRole,
+  canAccessSurveillanceDashboard,
   canRequestSurveillance,
   canValidateSurveillance,
   canAccessSurveillanceReports,
@@ -205,6 +206,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     title: "Surveillance",
     icon: Video,
     items: [
+      { title: "Dashboard", url: "/surveillance/dashboard", icon: LayoutDashboard },
       { title: "Request Reports", url: "/surveillance/requests", icon: ClipboardCheck },
       { title: "Validate and Assign", url: "/surveillance/validate-and-assign", icon: UserCheck },
       { title: "Submit Report", url: "/surveillance/reports", icon: Video },
@@ -662,7 +664,7 @@ export function AppSidebar() {
     }
 
     // Surveillance Portal Role-Wise Categorization:
-    // - admin: Request Reports + Validate and Assign + Submit Report (all 3 pages)
+    // - admin: Dashboard + Request Reports + Validate and Assign + Submit Report (all 4 pages)
     // - surveillance_manager: Request Reports + Validate and Assign (2 pages)
     // - state_manager, market_manager, district_manager: Request Reports only (1 page)
     // - surveillance_agent: Submit Report only (1 page)
@@ -670,6 +672,9 @@ export function AppSidebar() {
     if (key === "surveillance") {
       const survRole = getSurveillanceRole(user);
       const filteredItems = master.items.filter((i) => {
+        if (i.url === "/surveillance/dashboard") {
+          return canAccessSurveillanceDashboard(survRole);
+        }
         if (i.url === "/surveillance/requests") {
           return canRequestSurveillance(survRole);
         }

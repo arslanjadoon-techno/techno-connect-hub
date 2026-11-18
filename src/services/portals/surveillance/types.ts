@@ -649,6 +649,14 @@ export function canApproveSurveillance(role: SurveillanceRole | "other"): boolea
   return role === "admin" || role === "surveillance_manager";
 }
 
+/**
+ * Dashboard (/surveillance/dashboard)
+ * Accessible strictly to: admin
+ */
+export function canAccessSurveillanceDashboard(role: SurveillanceRole | "other"): boolean {
+  return role === "admin";
+}
+
 /** Check whether user has the Admin role in the Surveillance portal */
 export function isSurveillanceAdmin(user: any): boolean {
   return getSurveillanceRole(user) === "admin";
@@ -657,6 +665,7 @@ export function isSurveillanceAdmin(user: any): boolean {
 /** Resolve default landing path inside the Surveillance portal for any role */
 export function getSurveillanceDefaultRoute(user: any): string {
   const role = getSurveillanceRole(user);
+  if (canAccessSurveillanceDashboard(role)) return "/surveillance/dashboard";
   if (canRequestSurveillance(role)) return "/surveillance/requests";
   if (canAccessSurveillanceReports(role)) return "/surveillance/reports";
   return "/surveillance/no-access";
@@ -772,4 +781,190 @@ export interface ReviewSubmittedReportPayload {
   action: "approve" | "reject";
   rating?: number;
   comments?: string;
+}
+
+export type SurveillanceDashboardDurationPreset =
+  | "month"
+  | "last_7_days"
+  | "last_14_days"
+  | "last_30_days"
+  | "quarter"
+  | "year_to_date"
+  | "all_time"
+  | "custom";
+
+export interface SurveillanceDashboardQuery {
+  month: number | "all";
+  year: number;
+  duration: SurveillanceDashboardDurationPreset;
+  fromDate?: string;
+  toDate?: string;
+  market?: string;
+  department?: string;
+  forceRefresh?: boolean;
+}
+
+export interface SurveillanceDashboardOverview {
+  totalRequests: number;
+  unassignedCount: number;
+  assignedCount: number;
+  pendingVerificationCount: number;
+  completedCount: number;
+  rejectedRequestsCount: number;
+  rejectedReportsCount: number;
+  draftReportsCount: number;
+  completionRate: number;
+  rejectionRate: number;
+  totalAuditRows: number;
+  totalBuyingCustomers: number;
+  totalNonBuyingCustomers: number;
+  totalMissedOpportunities: number;
+  flaggedComplianceIncidents: number;
+  netCashVariance: number;
+  activeAgentsCount: number;
+  auditedStoresCount: number;
+  totalStoresCount: number;
+  avgManagerRating: number | null;
+}
+
+export interface SurveillanceDashboardTatPoint {
+  isoDate: string;
+  dateLabel: string;
+  avgHours: number;
+  count: number;
+}
+
+export interface SurveillanceDashboardTatBucket {
+  bucket: string;
+  count: number;
+}
+
+export interface SurveillanceDashboardTatMetrics {
+  avgHours: number | null;
+  medianHours: number | null;
+  minHours: number | null;
+  maxHours: number | null;
+  slaComplianceRate: number;
+  slaMeasuredCount: number;
+  validationAssignAvgHours: number | null;
+  executionAvgHours: number | null;
+  reviewAvgHours: number | null;
+  trend: SurveillanceDashboardTatPoint[];
+  distribution: SurveillanceDashboardTatBucket[];
+}
+
+export interface SurveillanceDepartmentDailyRow {
+  id: string;
+  date: string;
+  dateLabel: string;
+  department: string;
+  requestsReceived: number;
+  assigned: number;
+  submitted: number;
+  completed: number;
+  rejected: number;
+  avgTatHours: number | null;
+  accuracyRate: number;
+}
+
+export interface SurveillanceDepartmentSummary {
+  department: string;
+  totalRequests: number;
+  completed: number;
+  pending: number;
+  rejected: number;
+  completionRate: number;
+  avgTatHours: number | null;
+  activeDays: number;
+}
+
+export interface SurveillanceMonthlyPerformancePoint {
+  monthIndex: number;
+  monthLabel: string;
+  shortLabel: string;
+  totalRequests: number;
+  completed: number;
+  inProgress: number;
+  rejected: number;
+  completionRate: number;
+  avgTatHours: number | null;
+  auditRows: number;
+}
+
+export interface SurveillanceAgentAuditIssue {
+  requestId: string;
+  storeName: string;
+  marketName: string;
+  date: string;
+  category: "Report Rejected" | "Audit Discrepancy" | "SLA Delay";
+  detail: string;
+}
+
+export interface SurveillanceAgentPerformanceItem {
+  agentId: string;
+  agentName: string;
+  agentEmail?: string;
+  department?: string;
+  totalAssigned: number;
+  completedCount: number;
+  pendingVerificationCount: number;
+  inProgressCount: number;
+  reportRejectedCount: number;
+  approvalRate: number;
+  avgTatHours: number | null;
+  avgManagerRating: number | null;
+  ratedCount: number;
+  totalMistakes: number;
+  mistakeRate: number;
+  performanceScore: number;
+  recentActivityDate?: string;
+  recentIssues: SurveillanceAgentAuditIssue[];
+}
+
+export interface SurveillanceAgentMistakeItem {
+  agentId: string;
+  agentName: string;
+  agentEmail?: string;
+  totalAudits: number;
+  totalMistakes: number;
+  mistakeRate: number;
+  reportRejections: number;
+  auditDiscrepancies: number;
+  slaDelays: number;
+  topMistakeCategory: string;
+  recentIssues: SurveillanceAgentAuditIssue[];
+}
+
+export interface SurveillanceTopMarketItem {
+  rank: number;
+  marketName: string;
+  totalRequests: number;
+  completed: number;
+  inProgress: number;
+  rejected: number;
+  completionRate: number;
+  sharePercentage: number;
+  avgTatHours: number | null;
+  flaggedIncidents: number;
+  storesAudited: number;
+}
+
+export interface SurveillanceDashboardData {
+  periodLabel: string;
+  rangeStart: string;
+  rangeEnd: string;
+  availableYears: number[];
+  availableMarkets: string[];
+  availableDepartments: string[];
+  overview: SurveillanceDashboardOverview;
+  tat: SurveillanceDashboardTatMetrics;
+  departmentalDaily: SurveillanceDepartmentDailyRow[];
+  departmentalSummary: SurveillanceDepartmentSummary[];
+  monthlyPerformance: SurveillanceMonthlyPerformancePoint[];
+  topHighPerformers: SurveillanceAgentPerformanceItem[];
+  topLowPerformers: SurveillanceAgentPerformanceItem[];
+  allAgentPerformance: SurveillanceAgentPerformanceItem[];
+  agentMistakes: SurveillanceAgentMistakeItem[];
+  topMarkets: SurveillanceTopMarketItem[];
+  lastUpdatedAt: string;
 }
