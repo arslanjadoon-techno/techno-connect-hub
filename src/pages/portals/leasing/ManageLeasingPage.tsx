@@ -43,7 +43,7 @@ const STATUS_TONE: Record<string, string> = {
 const EXPORT_GROUPS: { title: string; columns: string[] }[] = [
   {
     title: "Store Information",
-    columns: ["techId", "storeName", "marketName", "tier", "marketManager", "marketManagerPhoneNumber", "storeAddress", "storePhoneNumber", "storeEmail"],
+    columns: ["techId", "storeName", "marketName", "marketManager", "storeAddress", "storePhoneNumber", "storeEmail"],
   },
   {
     title: "Tenant Details",
@@ -51,7 +51,7 @@ const EXPORT_GROUPS: { title: string; columns: string[] }[] = [
   },
   {
     title: "Landlord",
-    columns: ["landLordName", "landLordPointOfContact", "landLordEmail", "landLordContactNumber", "landLordAddress", "landLordIndividualOrCompany"],
+    columns: ["landLordName", "landLordPointOfContact", "landLordEmail", "landLordContactNumber", "landLordAddress"],
   },
   {
     title: "Property Management",
@@ -59,19 +59,15 @@ const EXPORT_GROUPS: { title: string; columns: string[] }[] = [
   },
   {
     title: "Lease Details",
-    columns: ["lease_Term", "start_Date", "takeOverDate", "assignmentDate", "expiry_Due", "commencementDateRent", "leaseStatus"],
+    columns: ["lease_Term", "start_Date", "takeOverDate", "assignmentDate", "expiry_Due"],
   },
   {
     title: "Termination Rights",
-    columns: ["rightToTermination", "termination", "noticePeriodBeforeTermination"],
+    columns: ["rightToTermination", "noticePeriodBeforeTermination"],
   },
   {
     title: "Additional Lease Provisions",
-    columns: ["hvac", "exclusivity", "relocation", "optionPeriod", "optionPeriodDuration", "optionNoticeDate", "securityDeposit", "rightToSublease", "subLease"],
-  },
-  {
-    title: "Banking & Owner Account",
-    columns: ["bankInformation", "ownerAccountNumber", "ownerRoutingNumber", "ownerAccountTitle", "ownerPaymentMode", "ownerBankName", "ownerCheckAddress"],
+    columns: ["hvac", "exclusivity", "relocation", "optionPeriod", "optionNoticeDate", "securityDeposit", "rightToSublease", "subLease"],
   },
 ];
 
@@ -91,25 +87,25 @@ const EXPORT_HEADER_MAP: Record<string, string> = {
   guarantor: "Guarantor",
   guarantyType: "Guaranty Type",
   landLordName: "Landlord Name",
-  landLordPointOfContact: "Landlord Point of Contact",
-  landLordEmail: "Landlord Email",
-  landLordContactNumber: "Landlord Phone",
-  landLordAddress: "Landlord Address",
+  landLordPointOfContact: "Point of Contact",
+  landLordEmail: "Email",
+  landLordContactNumber: "Phone Number",
+  landLordAddress: "Address",
   landLordIndividualOrCompany: "Landlord Individual/Company",
   propertyMgtName: "Property Mgt Name",
-  propertyMgtPointOfContact: "Property Mgt Point of Contact",
-  propertyMgtEmail: "Property Mgt Email",
-  propertyMgtPhoneNumber: "Property Mgt Phone",
-  propertyMgtAddress: "Property Mgt Address",
+  propertyMgtPointOfContact: "Point of Contact",
+  propertyMgtEmail: "Email",
+  propertyMgtPhoneNumber: "Phone Number",
+  propertyMgtAddress: "Address",
   lease_Term: "Lease Type",
   start_Date: "Lease Start Date",
-  takeOverDate: "Take Over Date",
-  assignmentDate: "Assignment Date",
+  takeOverDate: "Lease Take Over Date",
+  assignmentDate: "Assignment Date (if applicable)",
   expiry_Due: "Expiry Date",
   commencementDateRent: "Commencement Date Rent",
   tier: "Tier",
   leaseStatus: "Lease Status",
-  rightToTermination: "Right to Termination",
+  rightToTermination: "Right to Termination (T-Mobile)",
   termination: "Termination",
   noticePeriodBeforeTermination: "Termination Notice Period",
   hvac: "HVAC Responsibility",
