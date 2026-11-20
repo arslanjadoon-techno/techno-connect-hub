@@ -51,6 +51,11 @@ export interface SurveillanceRequest {
   approvedAt?: string;
   rejectionReason?: string;
   linkedReportId?: string;
+  // Mirrors the Validate & Assign queue's ValidationStatus field (see
+  // SurveillanceValidationStatus) - the authoritative status source, since
+  // ValidateAndAssignAsync/RejectValidationAsync on the backend only ever
+  // update this field, never `status` above.
+  validationStatus?: SurveillanceValidationStatus;
 
   // Prepared By / Submitter Details
   preparedBy?: string;
@@ -619,6 +624,24 @@ export function canRequestSurveillance(role: SurveillanceRole | "other"): boolea
   return (
     role === "admin" ||
     role === "state_manager" ||
+    role === "market_manager" ||
+    role === "district_manager" ||
+    role === "surveillance_manager"
+  );
+}
+
+/**
+ * Whether this role may actually SUBMIT a new surveillance request (as
+ * opposed to merely viewing the Request Reports page, which
+ * canRequestSurveillance above also governs). Matches SurveillanceController's
+ * CanRequest exactly: Admin, Market Manager, District Manager, Surveillance
+ * Manager. State Manager is intentionally excluded here (it always was,
+ * pre-dating this function) - they can view the Request Reports page but not
+ * submit a request.
+ */
+export function canCreateSurveillanceRequest(role: SurveillanceRole | "other"): boolean {
+  return (
+    role === "admin" ||
     role === "market_manager" ||
     role === "district_manager" ||
     role === "surveillance_manager"

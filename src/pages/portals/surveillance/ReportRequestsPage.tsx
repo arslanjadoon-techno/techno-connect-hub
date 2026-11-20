@@ -65,7 +65,7 @@ import type {
   SurveillanceMarketOption,
   SurveillancePriority,
 } from "@/services/portals/surveillance/types";
-import { getSurveillanceRole } from "@/services/portals/surveillance/types";
+import { canCreateSurveillanceRequest, getSurveillanceRole } from "@/services/portals/surveillance/types";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   SurveillanceDetailPageSkeleton,
@@ -81,7 +81,16 @@ interface StaticStoreOption {
   address: string;
 }
 
-type RequestReportPageStatus = "Pending" | "Assigned" | "Completed" | "Rejected";
+// Mirrors ValidateAndAssignPage's ValidationDisplayStatus exactly, both the
+// values and their labels, keyed off the same `validationStatus` field, so
+// the two screens always show the identical status for the same request.
+type RequestReportPageStatus =
+  | "Unassigned"
+  | "Assigned"
+  | "Request Rejected"
+  | "Pending Verification"
+  | "Report Rejected"
+  | "Completed";
 
 const PRIORITY_TONES: Record<SurveillancePriority, string> = {
   low: "bg-muted text-muted-foreground border-border",
@@ -93,8 +102,8 @@ const REQUEST_STATUS_CONFIG: Record<
   RequestReportPageStatus,
   { label: string; tone: string; dotClass: string; textClass: string }
 > = {
-  Pending: {
-    label: "Pending",
+  Unassigned: {
+    label: "Unassigned",
     tone: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400",
     dotClass: "bg-amber-500",
     textClass: "text-amber-900 dark:text-amber-100",
@@ -105,34 +114,51 @@ const REQUEST_STATUS_CONFIG: Record<
     dotClass: "bg-sky-500",
     textClass: "text-sky-800 dark:text-sky-300",
   },
+  "Request Rejected": {
+    label: "Request Rejected",
+    tone: "bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-950/40 dark:text-orange-400",
+    dotClass: "bg-orange-500",
+    textClass: "text-orange-800 dark:text-orange-300",
+  },
+  "Pending Verification": {
+    label: "Pending Verification",
+    tone: "bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-400",
+    dotClass: "bg-violet-500",
+    textClass: "text-violet-800 dark:text-violet-300",
+  },
+  "Report Rejected": {
+    label: "Report Rejected",
+    tone: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400",
+    dotClass: "bg-rose-500",
+    textClass: "text-rose-700 dark:text-rose-300",
+  },
   Completed: {
     label: "Completed",
     tone: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400",
     dotClass: "bg-emerald-500",
     textClass: "text-emerald-800 dark:text-emerald-300",
   },
-  Rejected: {
-    label: "Rejected",
-    tone: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-400",
-    dotClass: "bg-rose-500",
-    textClass: "text-rose-700 dark:text-rose-300",
-  },
 };
 
+// Identical disambiguation to ValidateAndAssignPage's
+// resolveValidationDisplayStatus - kept in sync deliberately so a request
+// never shows one status on this screen and a different one there. Reads
+// `validationStatus` (the field the Validate & Assign actions actually
+// update), not the legacy `status` field which only ever reflects request
+// creation / report submission / the old direct-approve path.
 function normalizeRequestStatus(req: SurveillanceRequest): RequestReportPageStatus {
-  const raw = String(req.status || "");
-  if (raw === "Completed" || raw === "Approved") return "Completed";
-  if (
-    raw === "Request Rejected" ||
-    (raw === "Rejected" && !req.linkedReportId && req.reportStatus !== "Rejected")
-  ) {
-    return "Rejected";
+  const raw = String(req.validationStatus || "");
+  if (raw === "Request Rejected") return "Request Rejected";
+  if (raw === "Report Rejected") return "Report Rejected";
+  if (raw === "Rejected") {
+    return req.linkedReportId || req.reportStatus === "Rejected"
+      ? "Report Rejected"
+      : "Request Rejected";
   }
-  // Mirrors the Validate & Assign queue's "Assigned" bucket (see
-  // resolveValidationDisplayStatus) so a request assigned to an agent shows
-  // that here too instead of a generic "Pending" until the report comes in.
-  if (req.assignedAt) return "Assigned";
-  return "Pending";
+  if (raw === "Assigned" || raw === "Pending Verification" || raw === "Completed") {
+    return raw;
+  }
+  return "Unassigned";
 }
 
 function formatPriorityLabel(priority: SurveillancePriority): string {
@@ -211,6 +237,10 @@ export default function ReportRequestsPage() {
   const { user } = useAuth();
   const role = getSurveillanceRole(user);
   const isMarketManager = role === "market_manager";
+  // A Surveillance Manager (or State Manager) can view this page but is not
+  // allowed to submit a new request - the backend rejects it with 403, so
+  // the "Request Surveillance" button/modal is hidden for them instead.
+  const canCreate = canCreateSurveillanceRequest(role);
 
   const [requests, setRequests] = useState<SurveillanceRequest[]>([]);
   const [reports, setReports] = useState<SurveillanceReport[]>([]);
@@ -356,6 +386,10 @@ export default function ReportRequestsPage() {
   };
 
   const handleCreateRequest = async () => {
+    if (!canCreate) {
+      toast.error("You are not authorized to request surveillance.");
+      return;
+    }
     if (!selectedMarket) {
       toast.error("Please select a market.");
       return;
@@ -440,12 +474,27 @@ export default function ReportRequestsPage() {
     }
   };
 
+  // The 4 KPI cards/tiles below only bucket into "Pending" (= Unassigned),
+  // "Completed" and "Rejected" (= Request Rejected + Report Rejected combined)
+  // - Assigned/Pending Verification rows still count toward Total but have no
+  // dedicated tile. A request matches the "Pending"/"Rejected" KPI filter by
+  // bucket, not by an exact string match against its real status.
+  const matchesStatusFilterBucket = (
+    normalized: RequestReportPageStatus,
+    bucket: string,
+  ): boolean => {
+    if (bucket === "all") return true;
+    if (bucket === "Pending") return normalized === "Unassigned";
+    if (bucket === "Rejected") return normalized === "Request Rejected" || normalized === "Report Rejected";
+    return normalized === bucket;
+  };
+
   // Filtered requests
   const filteredRequests = useMemo(() => {
     return requests.filter((r) => {
       const normalizedStatus = normalizeRequestStatus(r);
       if (marketFilter !== "all" && r.marketName !== marketFilter) return false;
-      if (statusFilter !== "all" && normalizedStatus !== statusFilter) return false;
+      if (!matchesStatusFilterBucket(normalizedStatus, statusFilter)) return false;
       if (priorityFilter !== "all" && r.priority !== priorityFilter) return false;
       return true;
     });
@@ -459,8 +508,8 @@ export default function ReportRequestsPage() {
     for (const r of requests) {
       const normalized = normalizeRequestStatus(r);
       if (normalized === "Completed") completed += 1;
-      else if (normalized === "Rejected") rejected += 1;
-      else pending += 1;
+      else if (normalized === "Request Rejected" || normalized === "Report Rejected") rejected += 1;
+      else if (normalized === "Unassigned") pending += 1;
     }
     return {
       total: requests.length,
@@ -614,7 +663,7 @@ export default function ReportRequestsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            {(normalizedStatus === "Pending" || normalizedStatus === "Assigned") && (
+            {(normalizedStatus === "Unassigned" || normalizedStatus === "Assigned") && (
               <Button
                 variant="outline"
                 onClick={() => {
@@ -834,15 +883,22 @@ export default function ReportRequestsPage() {
           </Card>
         )}
 
-        {/* Request Rejection Reason Banner (Displayed when Request is Rejected) */}
-        {normalizedStatus === "Rejected" && (
+        {/* Rejection Reason Banner (Displayed when the request or its submitted report was rejected) */}
+        {(normalizedStatus === "Request Rejected" || normalizedStatus === "Report Rejected") && (
           <Card className="p-5 rounded-2xl border-rose-200/90 bg-rose-50/50 dark:bg-rose-950/20 dark:border-rose-900/60 space-y-2.5 shadow-xs">
             <div className="flex items-center gap-2 text-rose-900 dark:text-rose-200 font-semibold text-sm">
               <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
-              <span>Request Rejection Reason</span>
+              <span>
+                {normalizedStatus === "Report Rejected"
+                  ? "Report Rejection Reason"
+                  : "Request Rejection Reason"}
+              </span>
             </div>
             <div className="p-3.5 rounded-xl border border-rose-200/80 bg-background text-foreground text-xs leading-relaxed whitespace-pre-wrap">
-              {item.rejectionReason || "This surveillance request was rejected during validation."}
+              {item.rejectionReason ||
+                (normalizedStatus === "Report Rejected"
+                  ? "This surveillance report was rejected during review."
+                  : "This surveillance request was rejected during validation.")}
             </div>
           </Card>
         )}
@@ -1018,12 +1074,13 @@ export default function ReportRequestsPage() {
                   audit findings.
                 </span>
               </div>
-            ) : normalizedStatus === "Rejected" ? (
+            ) : normalizedStatus === "Request Rejected" || normalizedStatus === "Report Rejected" ? (
               <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-100/60 p-3.5 text-xs text-rose-900 dark:border-rose-800/60 dark:bg-rose-950/50 dark:text-rose-200">
                 <XCircle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
                 <span>
-                  This surveillance request was rejected during validation. Review the rejection
-                  reason above for details.
+                  {normalizedStatus === "Report Rejected"
+                    ? "This surveillance report was rejected during review. Review the rejection reason above for details."
+                    : "This surveillance request was rejected during validation. Review the rejection reason above for details."}
                 </span>
               </div>
             ) : (
@@ -1102,12 +1159,14 @@ export default function ReportRequestsPage() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Button onClick={handleOpenCreate} className="gap-2 shadow-xs">
-            <Plus className="h-4 w-4" />
-            Request Surveillance
-          </Button>
-        </div>
+        {canCreate && (
+          <div className="flex flex-wrap items-center gap-3">
+            <Button onClick={handleOpenCreate} className="gap-2 shadow-xs">
+              <Plus className="h-4 w-4" />
+              Request Surveillance
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* KPI Cards: 4 cards — Total Requests, Pending, Completed, and Rejected */}
@@ -1145,7 +1204,7 @@ export default function ReportRequestsPage() {
           }`}
         >
           <div className="text-xs text-amber-800 dark:text-amber-300 font-medium uppercase tracking-wider">
-            Pending
+            Unassigned
           </div>
           <div className="mt-1 text-2xl font-bold font-display text-amber-950 dark:text-amber-100 tabular-nums">
             {metrics.pending}
