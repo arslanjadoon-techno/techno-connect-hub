@@ -29,10 +29,12 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  Copy,
   Download,
   ExternalLink,
   Eye,
   FileText,
+  MessageCircle,
   ShieldCheck,
   ShoppingBag,
   Sparkles,
@@ -320,6 +322,20 @@ interface ComputedSurveillanceSummary {
   bundleNonBuying: BundleEntry[];
   totalAccessoriesOffered: number;
   maximizing: "Yes" | "No";
+  // Plain Yes/No read straight off the raw rows/meta (same approach as
+  // `maximizing` above) - needed by the WhatsApp-format export, which always
+  // states these outright instead of omitting them when there's no note
+  // (unlike `complianceFlags` below, which drops a flag entirely when it has
+  // no written note).
+  flipping: "Yes" | "No";
+  smartPay: "Yes" | "No";
+  splitPayments: "Yes" | "No";
+  aalSwap: "Yes" | "No";
+  aalBillSame: "Yes" | "No";
+  portIn: "Yes" | "No";
+  magentaInMetro: "Yes" | "No";
+  paymentsMadeOnline: "Yes" | "No";
+  paymentsRejected: "Yes" | "No";
   complianceFlags: Array<{ label: string; notes: string[] }>;
   transactionNotes: string[];
   missOpportunities: MissOpportunityItem[];
@@ -615,6 +631,21 @@ function computeSummaryFromReport(
 
   // Policy & Compliance flags
   const maximizing: "Yes" | "No" = rawRows.some((r) => isAffirmative(r.maximize)) ? "Yes" : "No";
+  const flipping: "Yes" | "No" = rawRows.some((r) => isAffirmative(r.flipping)) ? "Yes" : "No";
+  const smartPay: "Yes" | "No" = rawRows.some((r) => isAffirmative(r.smartPayMentioned))
+    ? "Yes"
+    : "No";
+  const splitPayments: "Yes" | "No" = rawRows.some((r) => isAffirmative(r.splitPayments))
+    ? "Yes"
+    : "No";
+  const aalSwap: "Yes" | "No" = rawRows.some((r) => isAffirmative(r.aalSwap)) ? "Yes" : "No";
+  const aalBillSame: "Yes" | "No" = rawRows.some((r) => isAffirmative(r.aalBillSame))
+    ? "Yes"
+    : "No";
+  const portIn: "Yes" | "No" = rawRows.some((r) => isAffirmative(r.portIn)) ? "Yes" : "No";
+  const magentaInMetro: "Yes" | "No" = rawRows.some((r) => isAffirmative(r.mim)) ? "Yes" : "No";
+  const paymentsMadeOnline: "Yes" | "No" = meta.paymentsMadeOnline === "Yes" ? "Yes" : "No";
+  const paymentsRejected: "Yes" | "No" = meta.paymentsRejected === "Yes" ? "Yes" : "No";
 
   // Each flag only appears in the grid if at least one row was flagged Yes
   // AND has a written note - no bare Yes/No pills, just the notes for
@@ -910,6 +941,15 @@ function computeSummaryFromReport(
     bundleNonBuying,
     totalAccessoriesOffered,
     maximizing,
+    flipping,
+    smartPay,
+    splitPayments,
+    aalSwap,
+    aalBillSame,
+    portIn,
+    magentaInMetro,
+    paymentsMadeOnline,
+    paymentsRejected,
     complianceFlags,
     transactionNotes,
     missOpportunities,
@@ -937,6 +977,223 @@ function computeSummaryFromReport(
     reasonForDifference,
     qaName: meta.qaName || report.investigatorName || linkedRequest?.preparedBy || "—",
   };
+}
+
+// Renders the computed summary into the plain-text format used to paste a
+// surveillance audit recap into WhatsApp - field order/labels match the
+// template the Surveillance team already uses by hand. Every section with no
+// data collapses to "No" (or is skipped for the per-rep repeats) rather than
+// printing an empty header, so a short audit doesn't produce a wall of blank
+// sections.
+function buildWhatsAppSummaryText(summary: ComputedSurveillanceSummary): string {
+  const lines: string[] = [];
+  const push = (line = "") => lines.push(line);
+
+  push(`Date:${summary.dateDisplay}`);
+  push(`Store name: ${summary.storeName}`);
+  push(`Rep name: ${summary.repNamesJoined}`);
+  push();
+
+  push(`Total Customers: ${padTwo(summary.totalCustomers)}`);
+  push(`Non-Buying: ${padTwo(summary.totalNonBuying)}`);
+  push(`Buying: ${padTwo(summary.totalBuying)}`);
+  push();
+
+  summary.repStats.forEach((rep) => {
+    push(`Rep Name: ${rep.repName}`);
+    push(`Total Customer:${padTwo(rep.totalCustomers)}`);
+    push(`Non-Buying:${padTwo(rep.nonBuying)}`);
+    push(`Buying:${padTwo(rep.buying)}`);
+    push();
+  });
+
+  push(`Total Customers closed:${padTwo(summary.totalClosed)}`);
+  push(`Non-Buying:${padTwo(summary.totalClosedNonBuying)}`);
+  push(`Buying:${padTwo(summary.totalClosedBuying)}`);
+  push();
+
+  summary.repStats.forEach((rep) => {
+    push(`Rep Name: ${rep.repName}`);
+    push(`Total Customers closed:${padTwo(rep.closedTotal)}`);
+    push(`Non-Buying:${padTwo(rep.closedNonBuying)}`);
+    push(`Buying:${padTwo(rep.closedBuying)}`);
+    push();
+  });
+
+  push(`Pitch amount non-buying:${padTwo(summary.totalPitchNonBuying)}`);
+  push(`Showed phone:${padTwo(summary.totalShowedPhone)}`);
+  push(`Didn’t show phone:${padTwo(summary.totalDidntShowPhone)}`);
+  push();
+
+  summary.repStats.forEach((rep) => {
+    push(`Rep Name: ${rep.repName}`);
+    push(`Pitch amount non-buying:${padTwo(rep.pitchNonBuying)}`);
+    push(`Showed phone:${padTwo(rep.showedPhone)}`);
+    push(`Didn’t show phone:${padTwo(rep.didntShowPhone)}`);
+    push();
+  });
+
+  push("Quality:");
+  summary.repStats.forEach((rep) => {
+    push(
+      `${padTwo(rep.qualityBad)} Bad, ${padTwo(rep.qualityAverage)} Average, ${padTwo(rep.qualityGood)} Good (${rep.repName})`,
+    );
+  });
+  push();
+
+  summary.repStats.forEach((rep) => {
+    push("Pitch notes:");
+    if (rep.pitchNotes.length === 0) {
+      push(`•No pitch notes recorded for ${rep.repName}.`);
+    } else {
+      rep.pitchNotes.forEach((note) => push(`•${rep.repName} - ${note}`));
+    }
+    push();
+  });
+
+  push("Bad Pitch Link");
+  if (summary.badPitchItems.length === 0) {
+    push("No bad pitch incidents recorded.");
+  } else {
+    summary.badPitchItems.forEach((item) => {
+      push(`•${item.description}`);
+      push(`Link: ${item.link || "—"}`);
+    });
+  }
+  push();
+
+  push("Bundle buying customer:");
+  if (summary.bundleBuying.length === 0) {
+    push("No");
+  } else {
+    summary.bundleBuying.forEach((b) => {
+      push(`Invoice#${b.invoice}`);
+      push(b.itemSummary);
+      push(`Starting amount: ${b.startingAmount}`);
+      push(`Ending amount: ${b.endingAmount}`);
+      push();
+    });
+  }
+  push();
+
+  push("Bundle Non-buying customer:");
+  if (summary.bundleNonBuying.length === 0) {
+    push("No");
+  } else {
+    summary.bundleNonBuying.forEach((b) => {
+      push(`Invoice#${b.invoice}`);
+      push(b.itemSummary);
+      push(`Starting amount: ${b.startingAmount}`);
+      push(`Ending amount: ${b.endingAmount}`);
+      push();
+    });
+  }
+  push();
+
+  push(`Accessories Offered: ${summary.totalAccessoriesOffered}/${summary.totalCustomers}`);
+  summary.repStats.forEach((rep) => {
+    push(`${rep.repName} : ${rep.accessoriesOffered}/${rep.totalCustomers}`);
+  });
+  push();
+
+  push(`Maximizing: ${summary.maximizing}`);
+  push(`Flipping: ${summary.flipping}`);
+  push(`SmartPay: ${summary.smartPay}`);
+  push();
+
+  push(`Payments made online: ${summary.paymentsMadeOnline}`);
+  push(`Payments rejected: ${summary.paymentsRejected}`);
+  push(`Split Payments: ${summary.splitPayments}`);
+  push();
+
+  push(`AAL Swap: ${summary.aalSwap}`);
+  push(`AAL Bill Same: ${summary.aalBillSame}`);
+  push();
+
+  push(`Miss Opportunity: ${padTwo(summary.missOpportunities.length)}`);
+  summary.missOpportunities.forEach((mo) => {
+    push(`Time: ${mo.time}`);
+    push(`Description: ${mo.description}`);
+  });
+  push();
+
+  push(`Port IN: ${summary.portIn}`);
+  push(`Magenta In Metro: ${summary.magentaInMetro}`);
+  push();
+
+  push("Reps leaving Store:");
+  push();
+  if (summary.repLeavingLogs.length === 0) {
+    push("No store departures recorded.");
+  } else {
+    summary.repLeavingLogs.forEach((log) => {
+      push(`Rep Name: ${log.repName}`);
+      log.intervals.forEach((iv) => push(`* ${iv.start}\t${iv.end}`));
+      push();
+    });
+  }
+
+  push("Backroom In & Out:");
+  push();
+  if (summary.backroomLogs.length === 0) {
+    push("No backroom entries recorded.");
+  } else {
+    summary.backroomLogs.forEach((log) => {
+      push(`Rep Name: ${log.repName}`);
+      log.intervals.forEach((iv) => push(`* ${iv.start}\t${iv.end}`));
+      push();
+    });
+  }
+
+  const fraudTransactionFlag = summary.complianceFlags.find((f) => f.label === "Fraud Transaction");
+  push(`Fraud Transaction: ${padTwo(fraudTransactionFlag?.notes.length ?? 0)}`);
+  (fraudTransactionFlag?.notes ?? []).forEach((note) => push(`•${note}`));
+  push();
+
+  const paymentFraudFlag = summary.complianceFlags.find((f) => f.label === "Payment Fraud");
+  push(`Payment Fraud: ${padTwo(paymentFraudFlag?.notes.length ?? 0)}`);
+  (paymentFraudFlag?.notes ?? []).forEach((note) => push(`•${note}`));
+  push();
+
+  push(`Refund Invoice: ${summary.refundInvoices.length > 0 ? summary.refundInvoices.join(", ") : "No"}`);
+  push();
+
+  push("Receipt Buying Customers:");
+  if (summary.receiptBuyingCustomers.length === 0) {
+    push("No");
+  } else {
+    summary.receiptBuyingCustomers.forEach((rc) => push(`Invoice#${rc.invoice}-${rc.status}`));
+  }
+  push();
+
+  push("Accessories given bundle customer:");
+  if (summary.accessoriesGivenBundles.length === 0) {
+    push("No");
+  } else {
+    summary.accessoriesGivenBundles.forEach((inv) => push(inv));
+  }
+  push();
+
+  push(`* Loomis Machine Visible: (${summary.loomisVisible})`);
+  push(`Link: ${summary.loomisLink || "—"}`);
+  push();
+
+  push(`* Safe Locker Visible: (${summary.safeLockerVisible})`);
+  push(`Link: ${summary.safeLockerLink || "—"}`);
+  push();
+
+  push(`General other notes: ${summary.generalOtherNotes}`);
+  push();
+
+  push(`Amount difference: ${summary.amountDifference}`);
+  push();
+
+  push(`Reason for difference: ${summary.showReasonForDifference ? summary.reasonForDifference : "No"}`);
+  push();
+
+  push(`QA: ${summary.qaName}`);
+
+  return lines.join("\n");
 }
 
 // Auditors paste raw URLs (Google Drive links, etc.) straight into a free-
@@ -1036,6 +1293,8 @@ export default function RequestedSurveillanceSummaryPage() {
   const [declineReason, setDeclineReason] = useState("");
   const [completeModalOpen, setCompleteModalOpen] = useState(false);
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [whatsAppModalOpen, setWhatsAppModalOpen] = useState(false);
+  const [whatsAppText, setWhatsAppText] = useState("");
 
   useEffect(() => {
     if (!id) {
@@ -1106,6 +1365,20 @@ export default function RequestedSurveillanceSummaryPage() {
 
   const handleExportPdf = () => {
     window.print();
+  };
+
+  const handleOpenWhatsAppFormat = () => {
+    setWhatsAppText(buildWhatsAppSummaryText(summary));
+    setWhatsAppModalOpen(true);
+  };
+
+  const handleCopyWhatsAppText = async () => {
+    try {
+      await navigator.clipboard.writeText(whatsAppText);
+      toast.success("Copied to clipboard.");
+    } catch {
+      toast.error("Could not copy automatically - please select and copy the text manually.");
+    }
   };
 
   const isReportFinalized = report.status === "Approved" || report.status === "Rejected";
@@ -1233,6 +1506,15 @@ export default function RequestedSurveillanceSummaryPage() {
           >
             <Download className="h-3.5 w-3.5" />
             Export PDF
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleOpenWhatsAppFormat}
+            className="h-9 gap-1.5 rounded-xl px-3.5 text-xs font-medium border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 dark:border-emerald-900/60 dark:text-emerald-400"
+          >
+            <MessageCircle className="h-3.5 w-3.5" />
+            WhatsApp Format
           </Button>
           <Button
             size="sm"
@@ -2273,6 +2555,33 @@ export default function RequestedSurveillanceSummaryPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* WhatsApp Format Dialog - plain-text recap for pasting into a chat */}
+      <Dialog open={whatsAppModalOpen} onOpenChange={setWhatsAppModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>WhatsApp Format</DialogTitle>
+            <DialogDescription>
+              Review the text below, then copy it to paste into WhatsApp.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            readOnly
+            value={whatsAppText}
+            rows={20}
+            className="flex-1 min-h-0 overflow-y-auto text-xs font-mono whitespace-pre-wrap resize-none"
+          />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setWhatsAppModalOpen(false)}>
+              Close
+            </Button>
+            <Button type="button" onClick={handleCopyWhatsAppText} className="gap-1.5">
+              <Copy className="h-3.5 w-3.5" />
+              Copy to Clipboard
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
