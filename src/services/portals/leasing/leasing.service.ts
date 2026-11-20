@@ -353,10 +353,12 @@ export class LeasingService {
   }
 
   async addStore(data: Partial<LeaseRecord>): Promise<unknown> {
-    return this.request(LEASING_API_PATHS.addLeasingStore, {
+    const result = await this.request(LEASING_API_PATHS.addLeasingStore, {
       method: "POST",
       body: data,
     });
+    this.leasesCache = null;
+    return result;
   }
 
   async saveLeaseExpirationRemarks(data: unknown): Promise<unknown> {
