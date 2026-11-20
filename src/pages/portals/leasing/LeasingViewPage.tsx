@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -28,6 +29,8 @@ import {
   ExternalLink,
   Loader2,
   FileText,
+  ChevronsUpDown,
+  Check,
 } from "lucide-react";
 import {
   leasingService,
@@ -120,6 +123,7 @@ export default function LeasingViewPage() {
   const [rentLoading, setRentLoading] = useState(false);
   const [marketFilter, setMarketFilter] = useState("all");
   const [storeFilter, setStoreFilter] = useState("all");
+  const [storePickerOpen, setStorePickerOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -333,19 +337,40 @@ export default function LeasingViewPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={storeFilter} onValueChange={setStoreFilter}>
-            <SelectTrigger className="h-9 w-[220px]">
-              <SelectValue placeholder="All stores" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All stores</SelectItem>
-              {storeOptions.map((s) => (
-                <SelectItem key={s.techId} value={s.techId}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Popover open={storePickerOpen} onOpenChange={setStorePickerOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                role="combobox"
+                className="flex h-9 w-[260px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <span className={cn("truncate", storeFilter === "all" && "text-muted-foreground")}>
+                  {storeFilter === "all" ? "All stores" : storeOptions.find((s) => s.techId === storeFilter)?.label ?? "All stores"}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+              <Command filter={(value, search) => (value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0)}>
+                <CommandInput placeholder="Search store..." />
+                <CommandList className="max-h-72">
+                  <CommandEmpty>No store found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem value="All stores" onSelect={() => { setStoreFilter("all"); setStorePickerOpen(false); }}>
+                      <Check className={cn("mr-2 h-4 w-4 shrink-0", storeFilter === "all" ? "opacity-100" : "opacity-0")} />
+                      All stores
+                    </CommandItem>
+                    {storeOptions.map((s) => (
+                      <CommandItem key={s.techId} value={s.label} onSelect={() => { setStoreFilter(s.techId); setStorePickerOpen(false); }}>
+                        <Check className={cn("mr-2 h-4 w-4 shrink-0", storeFilter === s.techId ? "opacity-100" : "opacity-0")} />
+                        <span className="truncate">{s.label}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <StatCard label="Number of Stores" value={summary.numberOfStores.toLocaleString("en-US")} />

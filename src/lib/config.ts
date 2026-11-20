@@ -220,7 +220,7 @@ export const LEASING_STORE_PATHS = {
   setMarketLocation: "/MarketDemographics",
   getStores: "/Store",
   getMarkets: "/Market",
-  addStore: "/AddStore",
+  addStore: "/AddStoreInLeasingDB",
 } as const;
 
 /**
@@ -244,6 +244,7 @@ export const LEASING_API_PATHS = {
   getLeaseRentAgreement: "/GetLeaseRentAgreement",
   updateLeaseRentAgreement: "/UpdateLeaseRentAgreement",
   deleteLeaseRentAgreement: "/DeleteLeaseRentAgreement",
+  addLeasingStore: "/AddLeasingStore",
   getLeaseExpirationRemarks: "/GetLeaseExpirationRemarks",
   getAllLeaseExpirationRemarks: "/GetAllLeaseExpirationRemarks",
   saveLeaseExpirationRemarks: "/SaveLeaseExpirationRemarks",

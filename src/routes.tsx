@@ -65,6 +65,7 @@ import BulkUploadRentPage from "@/pages/portals/leasing/BulkUploadRentPage";
 import BulkUploadAccountingPage from "@/pages/portals/leasing/BulkUploadAccountingPage";
 import BulkUploadLeaseDetailsPage from "@/pages/portals/leasing/BulkUploadLeaseDetailsPage";
 import ManageLeasingPage from "@/pages/portals/leasing/ManageLeasingPage";
+import AddStorePage from "@/pages/portals/leasing/AddStorePage";
 import LeasingDetailedPage from "@/pages/portals/leasing/LeasingDetailedPage";
 
 // ---------- Leave Portal ---------- //
@@ -663,6 +664,16 @@ export function AppRoutes() {
             <PortalRouteGuard portalKey="leasing">
               <PermissionRouteGuard permKey="leasing.show_manage_leasing">
                 <ManageLeasingPage />
+              </PermissionRouteGuard>
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/leasing/add-store"
+          element={
+            <PortalRouteGuard portalKey="leasing">
+              <PermissionRouteGuard permKey="leasing.show_manage_leasing">
+                <AddStorePage />
               </PermissionRouteGuard>
             </PortalRouteGuard>
           }
