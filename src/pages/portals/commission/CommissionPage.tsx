@@ -435,6 +435,25 @@ export default function CommissionPage({ source = "legacy" }: { source?: Commiss
     return `$${(val ?? 0).toFixed(2)}`;
   };
 
+  // null/undefined -> empty cell; real 0 stays "0"
+  const num = (r: Row, key: string): number | string => {
+    const v = (r as Record<string, unknown>)[key];
+    return v === null || v === undefined ? "" : (v as number);
+  };
+
+  // null/undefined -> empty cell; real 0 stays "$0.00"
+  const money = (r: Row, key: string): string => {
+    const v = (r as Record<string, unknown>)[key];
+    return v === null || v === undefined ? "" : `$${(v as number).toFixed(2)}`;
+  };
+
+  const text = (r: Row, key: string): string => {
+    const v = (r as Record<string, unknown>)[key];
+    if (v === null || v === undefined) return "";
+    const s = String(v).trim();
+    return s.toLowerCase() === "null" || s.toLowerCase() === "undefined" ? "" : s;
+  };
+
   // Find record for the selected date for single User Dashboard
   const currentSelectedUserRow = useMemo(() => {
     if (!userRows.length || !selectedDate) return null;
@@ -495,13 +514,7 @@ export default function CommissionPage({ source = "legacy" }: { source?: Commiss
     },
     { key: "box", header: "BOX COMM.", accessor: (r) => formatCurrency(r.box_Commission) },
     { key: "acc", header: "ACC COMM.", accessor: (r) => formatCurrency(r.acc_Sales) },
-    {
-      key: "act",
-      header: "ACT. RETENTION",
-      accessor: (r) => formatCurrency(r.activation_Retention_Commission),
-    },
     { key: "vas", header: "VAS COMM.", accessor: (r) => formatCurrency(r.vaS_Commission) },
-    { key: "hsi", header: "HSI COMM.", accessor: (r) => formatCurrency(r.hsI_Commission) },
     { key: "contest", header: "CONTEST", accessor: (r) => formatCurrency(r.contest) },
   ];
 
@@ -537,39 +550,52 @@ export default function CommissionPage({ source = "legacy" }: { source?: Commiss
       ),
       accessor: (r) => formatCurrency(r.commission),
     },
-    { key: "totBox", header: "TOTAL BOX", accessor: (r) => r.total_Box ?? 0 },
     { key: "boxC", header: "BOX COMM.", accessor: (r) => formatCurrency(r.box_Commission) },
-    { key: "accS", header: "ACC SALES", accessor: (r) => r.acc_Sales ?? 0 },
-    { key: "accC", header: "ACC COMM.", accessor: (r) => formatCurrency(r.acc_Sales) },
-    {
-      key: "act",
-      header: "ACT. RETENTION (BRIDGE)",
-      accessor: (r) => formatCurrency(r.activation_Retention_Commission),
-    },
-    { key: "vas", header: "VAS COMM.", accessor: (r) => formatCurrency(r.vaS_Commission) },
+    { key: "plan0", header: "0$ PLAN", accessor: (r) => num(r, "_0_Plan") },
     ...MRC_KEYS.map((k) => ({
       key: `mrc${k}`,
       header: `${k} MRC`,
       accessor: (r: Row) => ((r as Record<string, unknown>)[`_${k}_MRC`] as number) ?? 0,
     })),
-    ...WEB_KEYS.map((w) => ({
-      key: `web${w.k}`,
-      header: `${w.label}${w.k === "l40" ? " L1WEB Comm." : ""}`,
-      accessor: (r: Row) => ((r as Record<string, unknown>)[w.k] as number) ?? 0,
-    })),
-    { key: "hsi", header: "HSI", accessor: (r) => r.hsi ?? 0 },
-    { key: "hsiC", header: "HSI COMM.", accessor: (r) => formatCurrency(r.hsI_Commission) },
-    {
-      key: "wuc",
-      header: "WRITE-UPS CHARGEBACKS",
-      accessor: (r) => formatCurrency(r.write_Ups_Chargebacks),
-    },
-    { key: "contest", header: "CONTEST", accessor: (r) => formatCurrency(r.contest) },
-    {
-      key: "final",
-      header: "FINAL COMM. AFTER DEDUCTION",
-      accessor: (r) => formatCurrency(r.final_Commission_After_Deduction ?? r.commission),
-    },
+    { key: "flex50", header: "FLEX 50", accessor: (r) => num(r, "flex_50") },
+    { key: "flex60", header: "FLEX 60", accessor: (r) => num(r, "flex_60") },
+    { key: "flex70", header: "FLEX 70", accessor: (r) => num(r, "flex_70") },
+    { key: "migration", header: "MIGRATION", accessor: (r) => num(r, "migration") },
+    { key: "smartride", header: "SMARTRIDE & WATCH", accessor: (r) => num(r, "smartride_Watch") },
+    { key: "tab2", header: "TAB 2", accessor: (r) => num(r, "tab_2") },
+    { key: "tab10", header: "TAB 10", accessor: (r) => num(r, "tab_10") },
+    { key: "tab15", header: "TAB 15", accessor: (r) => num(r, "tab_15") },
+    { key: "tab20", header: "TAB 20", accessor: (r) => num(r, "tab_20") },
+    { key: "tab25", header: "TAB 25", accessor: (r) => num(r, "tab_25") },
+    { key: "tab30", header: "TAB 30", accessor: (r) => num(r, "tab_30") },
+    { key: "totAct", header: "TOTAL ACTIVATION", accessor: (r) => num(r, "total_Activation") },
+    { key: "actComm", header: "ACTIVATION COMMISSION", accessor: (r) => money(r, "activation_Commission") },
+    { key: "react", header: "REACTIVATION", accessor: (r) => num(r, "reactivation") },
+    { key: "reactComm", header: "REACTIVATION COMMISSION", accessor: (r) => money(r, "reactivation_Commission") },
+    { key: "actRetPct", header: "95 DAY'S ACTIVATION RETENTION %", accessor: (r) => num(r, "activation_Retention_Percentage") },
+    { key: "upgrade", header: "UPGRADE", accessor: (r) => num(r, "upgrade") },
+    { key: "upgradeComm", header: "UPGRADE COMMISSION", accessor: (r) => money(r, "upgrade_Commission") },
+    { key: "byod", header: "BYOD UPGRADE", accessor: (r) => num(r, "byoD_Upgrade") },
+    { key: "byodComm", header: "BYOD UPGRADE COMMISSION", accessor: (r) => money(r, "byoD_Upgrade_Commission") },
+    { key: "hint", header: "HINT", accessor: (r) => num(r, "hint") },
+    { key: "hintComm", header: "HINT EXPECTED COMMISSION", accessor: (r) => money(r, "hint_Expected_Commission") },
+    { key: "web40", header: "40L1WEB", accessor: (r) => num(r, "_40L1WEB") },
+    { key: "web40spiff", header: "40L1WEB SPIFF", accessor: (r) => money(r, "_40L1WEB_Spiff") },
+    { key: "vasMrc", header: "VAS MRC", accessor: (r) => num(r, "vaS_MRC") },
+    { key: "vas", header: "VAS COMMISSION", accessor: (r) => formatCurrency(r.vaS_Commission) },
+    { key: "featRetPct", header: "95 DAY'S FEATURE RETENTION %", accessor: (r) => num(r, "feature_Retention_Percentage") },
+    { key: "accS", header: "ACC SALES", accessor: (r) => num(r, "acc_Sales") },
+    { key: "csat", header: "CSAT", accessor: (r) => num(r, "csat") },
+    { key: "accComm", header: "ACC COMMISSION", accessor: (r) => money(r, "acc_Commission") },
+    { key: "wuc", header: "WRITE-UPS CHARGEBACKS", accessor: (r) => formatCurrency(r.write_Ups_Chargebacks) },
+    { key: "contest", header: "CONTEST PAYOUT", accessor: (r) => formatCurrency(r.contest) },
+    { key: "affirm", header: "AFFIRM PAYOUT", accessor: (r) => money(r, "affirm_Payout") },
+    { key: "promo10", header: "PROMO10", accessor: (r) => num(r, "promo10") },
+    { key: "promo10Comm", header: "PROMO 10 EXPECTED COMMISSION", accessor: (r) => money(r, "promo10_Expected_Commission") },
+    { key: "finalBefore", header: "FINAL COMMISSION BEFORE CHARGEBACKS", accessor: (r) => money(r, "final_Commission_Before_Chargebacks") },
+    { key: "eligible", header: "ELIGIBILITY", accessor: (r) => num(r, "eligible") },
+    { key: "comments", header: "COMMENTS", accessor: (r) => text(r, "comments") },
+    { key: "referral", header: "REFERRAL BONUS (NON-COMMISSIONABLE)", accessor: (r) => money(r, "referral_Bonus_NonCommissionable") },
   ];
 
   const filtersActive =
