@@ -38,6 +38,7 @@ export const LEASING_PAGE_PERMISSION_KEYS: Record<string, string> = {
   "/leasing/dashboard": "leasing.show_leasing_dashboard",
   "/leasing/leasing-view": "leasing.show_leasing_view",
   "/leasing/manage-leasing": "leasing.show_manage_leasing",
+  "/leasing/add-store": "leasing.show_manage_leasing",
   "/leasing/manage-rent-payment-list": "leasing.show_rentpayment_list",
   "/leasing/manage-rent-payment-agreement": "leasing.show_rent_agreement",
   "/leasing/rent-agreement-to-monthly-rent": "leasing.show_rent_agreement_table",

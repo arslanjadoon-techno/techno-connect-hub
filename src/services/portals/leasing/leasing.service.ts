@@ -352,6 +352,13 @@ export class LeasingService {
     return Array.isArray(data) ? data : [];
   }
 
+  async addStore(data: Partial<LeaseRecord>): Promise<unknown> {
+    return this.request(LEASING_API_PATHS.addLeasingStore, {
+      method: "POST",
+      body: data,
+    });
+  }
+
   async saveLeaseExpirationRemarks(data: unknown): Promise<unknown> {
     return this.request(LEASING_API_PATHS.saveLeaseExpirationRemarks, {
       method: "POST",

@@ -136,6 +136,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
       { title: "Dashboard", url: "/leasing/dashboard", icon: Milestone },
       { title: "Leasing View", url: "/leasing/leasing-view", icon: Eye },
       { title: "Manage Leasing", url: "/leasing/manage-leasing", icon: ClipboardList },
+      { title: "Add Store", url: "/leasing/add-store", icon: StoreIcon },
       { title: "Rent Payment List", url: "/leasing/manage-rent-payment-list", icon: Receipt },
       {
         title: "Rent Payment Agreement",
