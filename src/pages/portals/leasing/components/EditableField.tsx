@@ -39,7 +39,7 @@ export default function EditableField({
   maxLength,
 }: EditableFieldProps) {
   return (
-    <div className={colSpan}>
+    <div className={`min-w-0 ${colSpan ?? ""}`}>
       <div className="mb-1 text-xs font-semibold text-muted-foreground">{label}</div>
       {editing && onChange ? (
         type === "select" ? (
@@ -84,7 +84,7 @@ export default function EditableField({
           {displayValue ?? show(value)}
         </Badge>
       ) : (
-        <p className="text-sm">{displayValue ?? show(value)}</p>
+        <p className="whitespace-pre-wrap break-words text-sm">{displayValue ?? show(value)}</p>
       )}
     </div>
   );
