@@ -12,14 +12,10 @@ import {
 } from "./chatHealper";
 import { getCachedChatMessages, saveCachedChatMessages } from "./chatMessageIndexedDb";
 import { setChatNotificationsEnabled } from "./chatNotifications";
-import {
-  normalizeChatMessages,
-  unwrapChatMessagesResponse,
-} from "./chatMessageNormalization";
+import { normalizeChatMessages, unwrapChatMessagesResponse } from "./chatMessageNormalization";
 import { mergeChatMessages } from "./chatMessageState";
 import { dedupeConversationRecords } from "./chatConversationKeys";
 import {
-  markConversationReadService,
   getChatConversationsService,
   getChatMessagesService,
   getChatSettingsService,
@@ -33,6 +29,7 @@ type ChatRecord = Record<string, any>;
 type ChatDataOptions = {
   chatClearVersionsRef: { current: Map<string, number> };
   clearUnreadForChat: (chat: ChatRecord) => void;
+  currentUserEmail?: string;
   currentUserId: string;
   id?: string;
   isCurrentUserRecord: (user: ChatRecord) => boolean;
@@ -69,6 +66,7 @@ function unwrapEnvelope<T = any>(response: any): T {
 export function useChatData({
   chatClearVersionsRef,
   clearUnreadForChat,
+  currentUserEmail = "",
   currentUserId,
   id,
   isCurrentUserRecord,
@@ -246,9 +244,11 @@ export function useChatData({
 
         loadedChatHistoryRef.current.add(chatKey);
 
-        setSelectedChat((prev: ChatRecord | null) =>
-          prev?.id === chat.id ? { ...prev, chatId } : prev,
-        );
+        setSelectedChat((prev: ChatRecord | null) => {
+          if (prev?.id !== chat.id) return prev;
+          if (String(prev.chatId ?? "") === String(chatId)) return prev;
+          return { ...prev, chatId };
+        });
 
         // 1. Read cache using the same key used by the chat UI.
         const cachedMessages = await getCachedChatMessages(chat.id);
@@ -317,22 +317,20 @@ export function useChatData({
         );
 
         setMessagesByChat((prev: Record<string, ChatRecord[]>) => {
-          const latest = mergeChatMessages(
-            mergedMessages,
-            prev[chat.id] || [],
-            prev[chatId] || [],
-          );
+          const latest = mergeChatMessages(mergedMessages, prev[chat.id] || [], prev[chatId] || []);
           return { ...prev, [chat.id]: latest, [chatId]: latest };
         });
 
-        setSelectedChat((prev: ChatRecord | null) =>
-          prev?.id === chat.id
-            ? { ...prev, firstUnreadMessageId: firstUnreadMessageId || null }
-            : prev,
-        );
+        const nextFirstUnreadMessageId = firstUnreadMessageId || null;
+        setSelectedChat((prev: ChatRecord | null) => {
+          if (prev?.id !== chat.id) return prev;
+          if (prev.firstUnreadMessageId === nextFirstUnreadMessageId) return prev;
+          return { ...prev, firstUnreadMessageId: nextFirstUnreadMessageId };
+        });
 
         // 4. Persist merged messages for the next visit.
-        await saveCachedChatMessages(chat.id, mergedMessages);
+        const syncCursor = historyPayload?.pagination?.syncCursor;
+        await saveCachedChatMessages(chat.id, mergedMessages, syncCursor);
 
         setMessagePaginationByChat((prev: Record<string, ChatRecord>) => ({
           ...prev,
@@ -403,15 +401,15 @@ export function useChatData({
           const latest = mergeChatMessages(mergedMessages, prev[chat.id] || []);
           return { ...prev, [chat.id]: latest };
         });
-        setSelectedChat((prev: ChatRecord | null) =>
-          prev?.id === chat.id
-            ? {
-                ...prev,
-                firstUnreadMessageId:
-                  mergedMessages.find((message) => message.isUnread)?.id || null,
-              }
-            : prev,
-        );
+        const nextFirstUnreadMessageId =
+          mergedMessages.find((message) => message.isUnread)?.id || null;
+        setSelectedChat((prev: ChatRecord | null) => {
+          if (prev?.id !== chat.id) return prev;
+          if (prev.firstUnreadMessageId === nextFirstUnreadMessageId) return prev;
+          return { ...prev, firstUnreadMessageId: nextFirstUnreadMessageId };
+        });
+        const syncCursor = historyPayload?.pagination?.syncCursor;
+        await saveCachedChatMessages(chat.id, mergedMessages, syncCursor);
         setMessagePaginationByChat((prev: Record<string, ChatRecord>) => ({
           ...prev,
           [chat.id]: historyPayload?.pagination || { hasMore: false },
@@ -426,6 +424,7 @@ export function useChatData({
       loadedChatHistoryRef,
       setMessagePaginationByChat,
       setMessagesByChat,
+      setSelectedChat,
       setSendError,
     ],
   );
@@ -533,7 +532,7 @@ export function useChatData({
         }
       }
 
-      if (id && !selectedChat) {
+      if (id) {
         const decodedId = decodeURIComponent(id);
         const directConversation = otherConversations.find(
           (conversation) =>
@@ -636,6 +635,7 @@ export function useChatData({
             subtitle: getBuddyEmail(resolvedBuddy),
             imageUrl: getImageUrl(resolvedBuddy),
             currentUserId,
+            currentUserEmail,
             raw: resolvedBuddy,
           });
           setTab("conversations");
@@ -650,6 +650,7 @@ export function useChatData({
             subtitle: restoredChannelId,
             imageUrl: getImageUrl(channel),
             currentUserId,
+            currentUserEmail,
             raw: channel,
           });
 
@@ -660,7 +661,6 @@ export function useChatData({
                 : conversation,
             ),
           );
-          markConversationReadService(restoredChannelId).catch(() => {});
           setTab("conversations");
         }
       }
@@ -670,11 +670,11 @@ export function useChatData({
       setLoading(false);
     }
   }, [
+    currentUserEmail,
     currentUserId,
     id,
     isCurrentUserRecord,
     isSelfConversation,
-    selectedChat,
     setBlockedUserIds,
     setBuddies,
     setChannels,

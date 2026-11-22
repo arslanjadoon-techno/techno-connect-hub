@@ -31,16 +31,17 @@ export function useChatBlockUser({
     });
     if (!confirmed) return;
 
+    const nextBlockedUserIds = isBlocked
+      ? blockedUserIds.filter((id) => id !== normalizedUserId)
+      : [...blockedUserIds, normalizedUserId];
+
+    // Keep side effects out of the state updater. React may invoke an updater
+    // more than once in development, which would otherwise send duplicate
+    // settings requests and report success before the API has completed.
+    setBlockedUserIds(nextBlockedUserIds);
+
     try {
-      setBlockedUserIds((previous: string[]) => {
-        const next = isBlocked
-          ? previous.filter((id) => id !== normalizedUserId)
-          : [...previous, normalizedUserId];
-        updateChatSettingsService({ blockedUserIds: next }).catch(() => {
-          setSendError("Blocked-user setting could not be saved.");
-        });
-        return next;
-      });
+      await updateChatSettingsService({ blockedUserIds: nextBlockedUserIds });
 
       if (!isBlocked) {
         setMessagesByChat((previous: Record<string, any[]>) =>
@@ -54,6 +55,7 @@ export function useChatBlockUser({
       }
       setSendError(isBlocked ? "User unblocked." : "User blocked.");
     } catch (error) {
+      setBlockedUserIds(blockedUserIds);
       setSendError(normalizeChatError(error));
     }
   };

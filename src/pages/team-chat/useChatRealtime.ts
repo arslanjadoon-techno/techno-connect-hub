@@ -2,6 +2,11 @@ import { useEffect, useRef } from "react";
 import { HubConnectionBuilder, HubConnectionState, LogLevel } from "@microsoft/signalr";
 import { getToken } from "@/lib/api/client";
 import { CHAT_API_BASE_URL } from "@/lib/config";
+import {
+  getRealtimeConversationId,
+  getRealtimeMessage,
+  getRealtimeMessageId,
+} from "./chatRealtimePayload";
 
 // The token and app name travel in the query string because browsers cannot send
 // custom headers on a WebSocket handshake. The server reads both from the query.
@@ -149,6 +154,7 @@ export function useChatRealtime({
     }
 
     let disposed = false;
+    const joinedCallsForConnection = joinedCalls.current;
 
     const connection = new HubConnectionBuilder()
       .withUrl(getHubUrl(), {
@@ -206,19 +212,9 @@ export function useChatRealtime({
           // it. Acknowledge before running UI code so an exception or an early
           // return in a notification/message handler cannot lose the receipt.
           if (event === "message:new") {
-            const message =
-              payload?.message || payload?.data?.message || payload?.data || payload;
-            const chatId =
-              payload?.chatId ||
-              payload?.chat_id ||
-              payload?.conversationId ||
-              payload?.conversation_id ||
-              message?.conversationId ||
-              message?.conversation_id ||
-              message?.chatId ||
-              message?.chat_id;
-            const messageId =
-              message?.id || message?.messageId || message?.message_id || payload?.messageId;
+            const message = getRealtimeMessage(payload);
+            const chatId = getRealtimeConversationId(payload, message);
+            const messageId = getRealtimeMessageId(payload, message);
             if (chatId && messageId) {
               void connection
                 .invoke("AcknowledgeMessageDelivered", String(chatId), String(messageId))
@@ -448,7 +444,7 @@ export function useChatRealtime({
     return () => {
       disposed = true;
       if (ref.current === compat) ref.current = null;
-      joinedCalls.current.clear();
+      joinedCallsForConnection.clear();
 
       // Wait for start/negotiation to settle before stopping the connection.
       void startPromise.then(() => connection.stop()).catch(() => undefined);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getArrayPayload,
   getBuddyEmail,
@@ -15,6 +15,10 @@ import { addGroupMembersService, createGroupChatService } from "@/services/Team-
 import { getChatUsersService } from "@/services/Team-chat/chat.service";
 
 type ChatRecord = Record<string, any>;
+const DIRECTORY_PAGE_SIZE = 50;
+
+const getDirectoryPagination = (response: ChatRecord) =>
+  response?.data?.pagination || response?.pagination || response?.data?.data?.pagination || {};
 
 type ChatGroupComposerOptions = {
   addMembersDialogOpen: boolean;
@@ -30,6 +34,7 @@ type ChatGroupComposerOptions = {
   groupUserIds: string[];
   isCurrentUserRecord: (user: ChatRecord) => boolean;
   managedUsers: ChatRecord[];
+  managedUsersLoading: boolean;
   selectedChat: ChatRecord | null;
   selectedGroupParticipantIds?: Set<string>;
   uniqueUsersByIdentity: (users: ChatRecord[]) => ChatRecord[];
@@ -68,6 +73,7 @@ export function useChatGroupComposer({
   groupUserIds,
   isCurrentUserRecord,
   managedUsers,
+  managedUsersLoading,
   selectedChat,
   uniqueUsersByIdentity,
   visibleChannels,
@@ -90,17 +96,31 @@ export function useChatGroupComposer({
   setSelectedChat,
   setTab,
 }: ChatGroupComposerOptions) {
-  const toggleGroupUser = (userId: string) => {
-    const selectedUser = managedUsers.find(
-      (user) => String(getBuddySendId(user)) === String(userId),
-    );
-    if (selectedUser) groupUserCacheRef.current.set(String(userId), selectedUser);
-    setGroupUserIds((prev: string[]) =>
-      prev.some((selectedId: string) => String(selectedId) === String(userId))
-        ? prev.filter((selectedId: string) => String(selectedId) !== String(userId))
-        : [...prev, String(userId)],
-    );
-  };
+  const [managedUsersPage, setManagedUsersPage] = useState(0);
+  const [managedUsersHasMore, setManagedUsersHasMore] = useState(false);
+  const directoryRequestRef = useRef(0);
+  const directoryLoadingRef = useRef(false);
+
+  const managedUsersById = useMemo(
+    () =>
+      new Map(
+        managedUsers.map((user) => [String(getBuddySendId(user)), user] as [string, ChatRecord]),
+      ),
+    [managedUsers],
+  );
+
+  const toggleGroupUser = useCallback(
+    (userId: string) => {
+      const selectedUser = managedUsersById.get(String(userId));
+      if (selectedUser) groupUserCacheRef.current.set(String(userId), selectedUser);
+      setGroupUserIds((prev: string[]) =>
+        prev.some((selectedId: string) => String(selectedId) === String(userId))
+          ? prev.filter((selectedId: string) => String(selectedId) !== String(userId))
+          : [...prev, String(userId)],
+      );
+    },
+    [groupUserCacheRef, managedUsersById, setGroupUserIds],
+  );
 
   const handleCreateGroup = async () => {
     if (creatingGroup) return;
@@ -150,67 +170,86 @@ export function useChatGroupComposer({
       managedUsers.filter((buddy) => {
         const search = groupSearch.trim().toLowerCase();
         if (!search) return true;
-        return `${getBuddyName(buddy)} ${getBuddyEmail(buddy)}`.toLowerCase().includes(search);
+        return `${getBuddyName(buddy)} ${getBuddyEmail(buddy)} ${getBuddySendId(buddy)}`
+          .toLowerCase()
+          .includes(search);
       }),
     [managedUsers, groupSearch],
+  );
+
+  const fetchManagedUsersPage = useCallback(
+    async (query: string, page: number, append: boolean) => {
+      directoryLoadingRef.current = true;
+      const requestId = directoryRequestRef.current + 1;
+      directoryRequestRef.current = requestId;
+      setManagedUsersLoading(true);
+
+      try {
+        // The directory remains authoritative for IDs, names, presence, and
+        // profile images. Only one bounded page is requested at a time.
+        const response: any = await getChatUsersService({
+          excludeSelf: true,
+          search: query || undefined,
+          page,
+          pageSize: DIRECTORY_PAGE_SIZE,
+          limit: DIRECTORY_PAGE_SIZE,
+        });
+        if (requestId !== directoryRequestRef.current) return;
+
+        const users = uniqueUsersByIdentity(
+          (getArrayPayload(response) as ChatRecord[]).filter(
+            (user: ChatRecord) => !isCurrentUserRecord(user),
+          ),
+        );
+        setManagedUsers((previous: ChatRecord[]) =>
+          append ? uniqueUsersByIdentity([...previous, ...users]) : users,
+        );
+        const pagination = getDirectoryPagination(response);
+        setManagedUsersPage(page);
+        setManagedUsersHasMore(
+          typeof pagination.hasMore === "boolean"
+            ? pagination.hasMore
+            : users.length >= DIRECTORY_PAGE_SIZE,
+        );
+      } catch {
+        // Keep the last successful user page visible if loading fails.
+      } finally {
+        if (requestId === directoryRequestRef.current) {
+          directoryLoadingRef.current = false;
+          setManagedUsersLoading(false);
+        }
+      }
+    },
+    [isCurrentUserRecord, setManagedUsers, setManagedUsersLoading, uniqueUsersByIdentity],
   );
 
   useEffect(() => {
     if (!groupPage && !groupDialogOpen && !addMembersDialogOpen) return;
 
-    const query = groupSearch.trim();
-    let cancelled = false;
     const timer = window.setTimeout(() => {
-      setManagedUsersLoading(true);
-      // Use the chat directory for every chat user picker so search results,
-      // IDs, names, presence, and profile images have one response shape.
-      const request: Promise<any> = query
-        ? getChatUsersService({ excludeSelf: true, search: query, limit: 1000 })
-        : getChatUsersService({ excludeSelf: true, limit: 1000 });
-
-      request
-        .then((response: any) => {
-          if (cancelled) return;
-          const users = getArrayPayload(response) as ChatRecord[];
-          setManagedUsers(
-            uniqueUsersByIdentity(
-              users.filter((user: ChatRecord) => !isCurrentUserRecord(user)),
-            ),
-          );
-        })
-        .catch(() => {
-          // Keep the last successful user list visible if loading fails.
-        })
-        .finally(() => {
-          if (!cancelled) setManagedUsersLoading(false);
-        });
+      void fetchManagedUsersPage(groupSearch.trim(), 1, false);
     }, 250);
 
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
+    return () => window.clearTimeout(timer);
+  }, [addMembersDialogOpen, fetchManagedUsersPage, groupDialogOpen, groupPage, groupSearch]);
+
+  const loadMoreManagedUsers = useCallback(() => {
+    if (managedUsersLoading || !managedUsersHasMore || directoryLoadingRef.current) return;
+    void fetchManagedUsersPage(groupSearch.trim(), managedUsersPage + 1, true);
   }, [
-    addMembersDialogOpen,
-    groupDialogOpen,
-    groupPage,
+    fetchManagedUsersPage,
     groupSearch,
-    isCurrentUserRecord,
-    setManagedUsers,
-    setManagedUsersLoading,
-    uniqueUsersByIdentity,
+    managedUsersHasMore,
+    managedUsersLoading,
+    managedUsersPage,
   ]);
 
   const selectedGroupMembers = useMemo(
     () =>
       groupUserIds
-        .map(
-          (id) =>
-            managedUsers.find((buddy) => String(getBuddySendId(buddy)) === String(id)) ||
-            groupUserCacheRef.current.get(String(id)),
-        )
+        .map((id) => managedUsersById.get(String(id)) || groupUserCacheRef.current.get(String(id)))
         .filter((value): value is ChatRecord => Boolean(value)),
-    [groupUserCacheRef, managedUsers, groupUserIds],
+    [groupUserCacheRef, groupUserIds, managedUsersById],
   );
 
   const selectedGroupParticipantIds = useMemo(() => {
@@ -261,30 +300,29 @@ export function useChatGroupComposer({
         .filter(Boolean),
     );
 
-    return uniqueUsersByIdentity(
-      [
-        ...participants,
-        ...allVisibleBuddies.filter((user) =>
-          participantIds.has(String(getBuddySendId(user))),
-        ),
-      ],
-    );
+    return uniqueUsersByIdentity([
+      ...participants,
+      ...allVisibleBuddies.filter((user) => participantIds.has(String(getBuddySendId(user)))),
+    ]);
   }, [allVisibleBuddies, selectedChat, uniqueUsersByIdentity, visibleChannels]);
 
-  const openAddMembersDialog = async () => {
+  const openAddMembersDialog = useCallback(async () => {
     setAddMemberUserIds([]);
     setAddMembersError("");
     setGroupSearch("");
     setAddMembersDialogOpen(true);
-  };
+  }, [setAddMemberUserIds, setAddMembersError, setAddMembersDialogOpen, setGroupSearch]);
 
-  const toggleAddMemberUser = (userId: string) => {
-    setAddMemberUserIds((prev: string[]) =>
-      prev.includes(userId)
-        ? prev.filter((selectedId) => selectedId !== userId)
-        : [...prev, userId],
-    );
-  };
+  const toggleAddMemberUser = useCallback(
+    (userId: string) => {
+      setAddMemberUserIds((prev: string[]) =>
+        prev.includes(userId)
+          ? prev.filter((selectedId) => selectedId !== userId)
+          : [...prev, userId],
+      );
+    },
+    [setAddMemberUserIds],
+  );
 
   const handleAddGroupMembers = async () => {
     if (!selectedChat || selectedChat.type !== "channel" || addingMembers) return;
@@ -343,6 +381,8 @@ export function useChatGroupComposer({
     groupMembers,
     handleAddGroupMembers,
     handleCreateGroup,
+    loadMoreManagedUsers,
+    managedUsersHasMore,
     openAddMembersDialog,
     selectedGroupMembers,
     selectedGroupParticipantIds,

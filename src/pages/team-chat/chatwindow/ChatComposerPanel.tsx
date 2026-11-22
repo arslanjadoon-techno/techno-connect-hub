@@ -50,6 +50,8 @@ export default function ChatComposerPanel(props: Record<string, any>) {
     handleComposerChange,
     handleForwardMessage,
     handleSend,
+    uploadProgress = [],
+    cancelUpload,
     inputValue = "",
     insertEmoji,
     insertMention,
@@ -75,6 +77,22 @@ export default function ChatComposerPanel(props: Record<string, any>) {
     handleCancelComposerMode,
   } = props;
 
+  const userStores = Array.isArray(currentUser?.stores)
+    ? currentUser.stores
+        .map((store: Record<string, unknown>) => ({
+          id: String(store?.id ?? "").trim(),
+          name: String(store?.name ?? "").trim(),
+        }))
+        .filter((store: { id: string; name: string }) => store.id && store.name)
+    : [];
+  const currentStore =
+    userStores[0] ?? {
+      id: String(currentUser?.store?.id ?? currentUser?.storeId ?? "").trim(),
+      name: String(
+        currentUser?.store?.name || currentUser?.storeName || currentUser?.store_name || "",
+      ).trim(),
+    };
+
   // Grow the text box with its content so longer messages stay visible.
   useLayoutEffect(() => {
     const el = composerInputRef?.current as HTMLTextAreaElement | null;
@@ -90,6 +108,14 @@ export default function ChatComposerPanel(props: Record<string, any>) {
   const busy = Boolean(editingMessage && editingSaving);
   const canSend = !busy && (inputValue.trim().length > 0 || pendingFiles.length > 0);
   const canRequestOtp = userCanRequestOtp(permissions);
+  const replyPreview = String(
+    replyToMessage?.text ||
+      replyToMessage?.body ||
+      replyToMessage?.content ||
+      (Array.isArray(replyToMessage?.attachments) && replyToMessage.attachments.length
+        ? "Attachment"
+        : "Message"),
+  );
 
   const mentionCandidates = useMemo<MentionCandidate[]>(() => {
     if (selectedChat?.type !== "channel" && selectedChat?.type !== "group") {
@@ -193,11 +219,15 @@ export default function ChatComposerPanel(props: Record<string, any>) {
   return (
     <>
       {replyToMessage && (
-        <div className={`${bannerBase} bg-muted/40`}>
-          <span className="min-w-0 flex-1 truncate text-muted-foreground">
-            Replying to{" "}
-            <span className="text-foreground">{replyToMessage.authorName || "message"}</span>
-          </span>
+        <div className={`${bannerBase} items-start bg-muted/40`}>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-muted-foreground">
+              Replying to {replyToMessage.authorName || "message"}
+            </div>
+            <div className="truncate text-foreground" title={replyPreview}>
+              {replyPreview}
+            </div>
+          </div>
           <Button size="sm" variant="ghost" onClick={handleCancelComposerMode}>
             Cancel
           </Button>
@@ -222,6 +252,52 @@ export default function ChatComposerPanel(props: Record<string, any>) {
             <AlertCircle className="h-3.5 w-3.5 shrink-0" />
           )}
           <span className="min-w-0 break-words">{sendError}</span>
+        </div>
+      )}
+
+      {uploadProgress.length > 0 && (
+        <div className="border-t border-border/70 px-3 py-2" aria-live="polite">
+          <div className="mb-1 flex items-center justify-between text-xs font-medium">
+            <span>Attachments</span>
+            {uploadProgress.some(
+              (file: any) => file.status === "uploading" || file.status === "queued",
+            ) && (
+              <Button type="button" size="sm" variant="ghost" onClick={cancelUpload}>
+                Cancel upload
+              </Button>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            {uploadProgress.map((file: any) => (
+              <div key={file.key} className="text-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="min-w-0 truncate">{file.name}</span>
+                  <span className="shrink-0 text-muted-foreground">
+                    {file.status === "completed"
+                      ? "Uploaded"
+                      : file.status === "uploading"
+                        ? `${file.percent}%`
+                        : file.status === "queued"
+                          ? "Waiting"
+                          : file.status === "cancelled"
+                            ? "Cancelled"
+                            : "Failed"}
+                  </span>
+                </div>
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={`h-full transition-[width] ${
+                      file.status === "failed" || file.status === "cancelled"
+                        ? "bg-destructive"
+                        : "bg-primary"
+                    }`}
+                    style={{ width: `${Math.max(0, Math.min(100, file.percent || 0))}%` }}
+                  />
+                </div>
+                {file.error && <div className="mt-0.5 text-destructive">{file.error}</div>}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
@@ -308,7 +384,13 @@ export default function ChatComposerPanel(props: Record<string, any>) {
 
             {(selectedChat?.type === "channel" || selectedChat?.type === "group") && (
               <>
-                {canRequestOtp && <OTPDialog onSubmit={props.handleOTPRequest} />}
+                {canRequestOtp && (
+                  <OTPDialog
+                    onSubmit={props.handleOTPRequest}
+                    currentStore={currentStore}
+                    stores={userStores}
+                  />
+                )}
 
                 {SHOW_CHAT_AUDIT_ANNOUNCEMENTS && (
                   <>

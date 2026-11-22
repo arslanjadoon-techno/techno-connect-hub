@@ -1,4 +1,12 @@
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+} from "react";
 import { Button } from "@/components/ui/button";
 import {
   formatMessageDateLabel,
@@ -11,6 +19,10 @@ import { ReadyToSendState } from "./ChatWindowStates";
 import MessageRow from "./MessageRow";
 
 type ChatMessage = Record<string, any>;
+
+export type ChatMessageListHandle = {
+  scrollToMessage: (messageId: string) => boolean;
+};
 
 function messageIdOf(message: ChatMessage | undefined): string {
   return String(
@@ -27,13 +39,20 @@ function distanceFromBottom(container: HTMLElement): number {
   return container.scrollHeight - container.scrollTop - container.clientHeight;
 }
 
+function maxScrollTop(container: HTMLElement): number {
+  return Math.max(0, container.scrollHeight - container.clientHeight);
+}
+
 function usableAuthorName(value: unknown): string {
   const name = String(value || "").trim();
   if (!name || /^(chat\s*user|chatuser)$/i.test(name) || /^\d+$/.test(name)) return "";
   return name;
 }
 
-export default function ChatMessageList(props: Record<string, any>) {
+const ChatMessageList = forwardRef<ChatMessageListHandle, Record<string, any>>(function ChatMessageList(
+  props,
+  ref,
+) {
   const {
     blockedUserIds = [],
     chatBoxRef,
@@ -66,6 +85,7 @@ export default function ChatMessageList(props: Record<string, any>) {
 
   const olderMessagesSentinelRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
+  const bottomAnchorFrameRef = useRef<number | null>(null);
   const loadingOlderRef = useRef(false);
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const atBottomRef = useRef(true);
@@ -76,10 +96,19 @@ export default function ChatMessageList(props: Record<string, any>) {
     lastId: "",
     scrollHeight: 0,
   });
+
   // Keep the loading guard synchronized with the parent loading state.
   useEffect(() => {
     loadingOlderRef.current = loadingOlderMessages;
   }, [loadingOlderMessages]);
+
+  const messageKeys = useMemo(
+    () =>
+      (currentMessages as ChatMessage[]).map(
+        (message, index) => messageIdOf(message) || `virtual-message-${index}`,
+      ),
+    [currentMessages],
+  );
 
   // Load older messages when the top sentinel becomes visible.
   useEffect(() => {
@@ -158,12 +187,14 @@ export default function ChatMessageList(props: Record<string, any>) {
       !chatChanged && addedMessages && !prependedMessages && lastId !== previous.lastId;
 
     if (chatChanged || initialMessagesLoaded) {
-      container.scrollTop = container.scrollHeight;
+      const nextScrollTop = maxScrollTop(container);
+      if (container.scrollTop !== nextScrollTop) container.scrollTop = nextScrollTop;
       atBottomRef.current = true;
     } else if (prependedMessages) {
       container.scrollTop += container.scrollHeight - previous.scrollHeight;
     } else if (appendedMessages) {
-      container.scrollTop = container.scrollHeight;
+      const nextScrollTop = maxScrollTop(container);
+      if (container.scrollTop !== nextScrollTop) container.scrollTop = nextScrollTop;
       atBottomRef.current = true;
     }
 
@@ -185,11 +216,26 @@ export default function ChatMessageList(props: Record<string, any>) {
     if (!container || !content || typeof ResizeObserver === "undefined") return;
 
     const observer = new ResizeObserver(() => {
-      if (atBottomRef.current) container.scrollTop = container.scrollHeight;
       scrollSnapshotRef.current.scrollHeight = container.scrollHeight;
+
+      if (!atBottomRef.current || bottomAnchorFrameRef.current !== null) return;
+      bottomAnchorFrameRef.current = requestAnimationFrame(() => {
+        bottomAnchorFrameRef.current = null;
+        if (!atBottomRef.current) return;
+        const nextScrollTop = maxScrollTop(container);
+        if (Math.abs(container.scrollTop - nextScrollTop) > 1) {
+          container.scrollTop = nextScrollTop;
+        }
+      });
     });
     observer.observe(content);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (bottomAnchorFrameRef.current !== null) {
+        cancelAnimationFrame(bottomAnchorFrameRef.current);
+        bottomAnchorFrameRef.current = null;
+      }
+    };
   }, [chatBoxRef]);
 
   // Build a lookup map for replies instead of repeatedly scanning all messages.
@@ -197,9 +243,8 @@ export default function ChatMessageList(props: Record<string, any>) {
     const map = new Map<string, ChatMessage>();
 
     for (const message of currentMessages as ChatMessage[]) {
-      if (message.id != null) {
-        map.set(String(message.id), message);
-      }
+      const id = messageIdOf(message);
+      if (id) map.set(id, message);
     }
 
     return map;
@@ -208,25 +253,25 @@ export default function ChatMessageList(props: Record<string, any>) {
   const getMessageDate = (message: ChatMessage) =>
     message.sentAt ?? message.timestamp ?? message.createdAt ?? message.created_at ?? null;
 
-  const scrollToMessage = (messageId: string) => {
+  const scrollToMessage = useCallback((messageId: string): boolean => {
     const container = chatBoxRef?.current;
 
-    if (!container) return;
+    if (!container) return false;
 
+    const normalizedMessageId = String(messageId);
     const elements = container.querySelectorAll("[data-message-id]") as NodeListOf<HTMLElement>;
-    const target = Array.from(elements).find((element) => element.dataset.messageId === messageId);
+    const target = Array.from(elements).find(
+      (element) => element.dataset.messageId === normalizedMessageId,
+    );
 
     if (!target) {
-      console.warn("Message is not currently rendered:", messageId);
-      return;
+      console.warn("Message is not loaded in this conversation:", normalizedMessageId);
+      return false;
     }
 
-    target.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-    });
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
 
-    setHighlightedMessageId?.(messageId);
+    setHighlightedMessageId?.(normalizedMessageId);
 
     if (highlightTimeoutRef.current !== null) {
       clearTimeout(highlightTimeoutRef.current);
@@ -236,7 +281,11 @@ export default function ChatMessageList(props: Record<string, any>) {
       setHighlightedMessageId?.(null);
       highlightTimeoutRef.current = null;
     }, 1400);
-  };
+
+    return true;
+  }, [chatBoxRef, setHighlightedMessageId]);
+
+  useImperativeHandle(ref, () => ({ scrollToMessage }), [scrollToMessage]);
 
   return (
     <div
@@ -277,7 +326,7 @@ export default function ChatMessageList(props: Record<string, any>) {
           <ReadyToSendState selectedChat={selectedChat} />
         ) : (
           (currentMessages as ChatMessage[]).map((message, index) => {
-            const messageId = message.id != null ? String(message.id) : "";
+            const messageId = messageIdOf(message);
 
             const replyId = message.replyToMessageId ?? message.replyTo ?? message.reply_to;
 
@@ -327,7 +376,7 @@ export default function ChatMessageList(props: Record<string, any>) {
 
             return (
               <div
-                key={messageId || `${dayKey}-${index}`}
+                key={messageKeys[index]}
                 data-message-id={messageId || undefined}
                 data-unread-message={message.isUnread ? "true" : undefined}
                 className={
@@ -398,4 +447,8 @@ export default function ChatMessageList(props: Record<string, any>) {
       </div>
     </div>
   );
-}
+});
+
+ChatMessageList.displayName = "ChatMessageList";
+
+export default ChatMessageList;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   Check,
@@ -6,7 +6,6 @@ import {
   Clock3,
   Loader2,
   RefreshCw,
-  Send,
   ShieldCheck,
   UserRound,
   X,
@@ -16,7 +15,6 @@ import { API_BASE_URL } from "@/lib/config";
 
 type OtpRequest = {
   id: string;
-  backofficeStatus: string;
   managerStatus: string;
   requestStatus: string;
   message: string;
@@ -63,7 +61,7 @@ function StatusPill({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function OtpApprovalPage({ kind = "manager" }: { kind?: "manager" | "backoffice" }) {
+export default function OtpApprovalPage() {
   const [pending, setPending] = useState<OtpRequest[]>([]);
   const [resolved, setResolved] = useState<OtpRequest[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
@@ -71,9 +69,6 @@ export default function OtpApprovalPage({ kind = "manager" }: { kind?: "manager"
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
-  const [otpDialogId, setOtpDialogId] = useState<string | null>(null);
-  const [otpValue, setOtpValue] = useState("");
-  const [otpDialogError, setOtpDialogError] = useState("");
   const loadingRef = useRef(false);
 
   const load = useCallback(async (showSpinner = false) => {
@@ -83,7 +78,7 @@ export default function OtpApprovalPage({ kind = "manager" }: { kind?: "manager"
 
     try {
       // A single snapshot request replaces the old pending + resolved requests.
-      const response = await fetch(`${API_BASE_URL}/api/v1/chat/otp-requests/${kind}`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/chat/otp-requests/manager`, {
         headers: headers(),
         cache: "no-store",
       });
@@ -98,7 +93,7 @@ export default function OtpApprovalPage({ kind = "manager" }: { kind?: "manager"
       setLoading(false);
       setRefreshing(false);
     }
-  }, [kind]);
+  }, []);
 
   useEffect(() => {
     setError("");
@@ -111,36 +106,18 @@ export default function OtpApprovalPage({ kind = "manager" }: { kind?: "manager"
     return () => window.clearInterval(interval);
   }, [load]);
 
-  const readyCount = useMemo(
-    () =>
-      kind === "backoffice"
-        ? pending.filter((item) => normalized(item.managerStatus) === "approved").length
-        : pending.length,
-    [kind, pending],
-  );
+  const readyCount = pending.length;
 
-  const closeOtpDialog = (force = false) => {
-    if (busy && !force) return;
-    setOtpDialogId(null);
-    setOtpValue("");
-    setOtpDialogError("");
-  };
-
-  const decide = async (id: string, decision: "approve" | "reject", otp?: string) => {
+  const decide = async (id: string, decision: "approve" | "reject") => {
     if (decision === "reject" && !window.confirm("Reject this OTP request? This cannot be undone.")) return;
-    if (decision === "approve" && kind === "backoffice" && !/^\d{4}$/.test(otp?.trim() ?? "")) {
-      setOtpDialogError("OTP must be exactly 4 digits.");
-      return;
-    }
 
     setBusy(id);
     setError("");
     setNotice("");
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/chat/otp-requests/${id}/${kind}/${decision}`, {
+      const response = await fetch(`${API_BASE_URL}/api/v1/chat/otp-requests/${id}/manager/${decision}`, {
         method: "POST",
-        headers: { ...headers(), "Content-Type": "application/json" },
-        body: JSON.stringify(decision === "approve" && kind === "backoffice" ? { otp: otp?.trim() } : {}),
+          headers: headers(),
       });
       const body = await response.json().catch(() => null);
       if (!response.ok) {
@@ -148,12 +125,9 @@ export default function OtpApprovalPage({ kind = "manager" }: { kind?: "manager"
         throw new Error(body?.error || `${decision === "approve" ? "Approval" : "Rejection"} failed`);
       }
 
-      if (decision === "approve" && kind === "backoffice") closeOtpDialog(true);
       setNotice(
         decision === "approve"
-          ? kind === "backoffice"
-            ? "Approved. The OTP notification is queued for the requester's direct chat, and the group was notified without the OTP."
-            : "Approved. Notifications are queued for the requester and group; Backoffice can now issue the OTP."
+          ? "Approved. Notifications are queued for the requester and group."
           : "Rejected. Notifications are queued for the requester and group.",
       );
       try {
@@ -163,28 +137,14 @@ export default function OtpApprovalPage({ kind = "manager" }: { kind?: "manager"
       }
     } catch (e) {
       const message = e instanceof Error ? e.message : "Request failed";
-      if (decision === "approve" && kind === "backoffice") setOtpDialogError(message);
-      else setError(message);
+      setError(message);
     } finally {
       setBusy(null);
     }
   };
 
-  const approve = (id: string) => {
-    if (kind === "backoffice") {
-      setOtpDialogId(id);
-      setOtpValue("");
-      setOtpDialogError("");
-      return;
-    }
-    void decide(id, "approve");
-  };
-
-  const portalTitle = kind === "manager" ? "Managers Portal" : "Back Office Portal";
-  const portalDescription =
-    kind === "manager"
-      ? "Review OTP requests assigned to you."
-      : "Approve manager-approved requests and send the OTP privately.";
+  const portalTitle = "Managers Portal";
+  const portalDescription = "Review OTP requests assigned to you.";
 
   return (
     <main className="min-h-full bg-[#f7f8fc] p-4 sm:p-6 lg:p-8">
@@ -222,7 +182,7 @@ export default function OtpApprovalPage({ kind = "manager" }: { kind?: "manager"
             <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">Ready for action</p>
             <p className="mt-2 text-3xl font-bold text-violet-950">{readyCount}</p>
             <p className="mt-1 text-xs text-violet-700">
-              {kind === "backoffice" ? "Manager-approved requests" : "Assigned to you"}
+              Assigned to you
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -267,7 +227,6 @@ export default function OtpApprovalPage({ kind = "manager" }: { kind?: "manager"
           ) : (
             <div className="space-y-3">
               {pending.map((item) => {
-                const waitingForManager = kind === "backoffice" && normalized(item.managerStatus) !== "approved";
                 return (
                   <article key={item.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-violet-200 hover:shadow-md">
                     <div className="border-l-4 border-violet-500 p-4 sm:p-5">
@@ -283,23 +242,21 @@ export default function OtpApprovalPage({ kind = "manager" }: { kind?: "manager"
                           <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-slate-700">{item.message}</p>
                           <div className="mt-3 flex flex-wrap gap-2">
                             <StatusPill label="Manager" value={item.managerStatus} />
-                            <StatusPill label="Backoffice" value={item.backofficeStatus} />
                           </div>
                         </div>
                         <div className="flex shrink-0 flex-col gap-2 sm:flex-row lg:flex-col">
                           <button
                             type="button"
-                            disabled={busy === item.id || waitingForManager}
-                            onClick={() => approve(item.id)}
-                            title={waitingForManager ? "Waiting for manager approval" : undefined}
+                            disabled={busy === item.id}
+                            onClick={() => void decide(item.id, "approve")}
                             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-slate-300"
                           >
                             {busy === item.id ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
-                            {busy === item.id ? "Saving..." : waitingForManager ? "Waiting for manager" : kind === "backoffice" ? "Enter OTP & approve" : "Approve"}
+                            {busy === item.id ? "Saving..." : "Approve"}
                           </button>
                           <button
                             type="button"
-                            disabled={busy === item.id || waitingForManager}
+                            disabled={busy === item.id}
                             onClick={() => void decide(item.id, "reject")}
                             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                           >
@@ -345,7 +302,6 @@ export default function OtpApprovalPage({ kind = "manager" }: { kind?: "manager"
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <StatusPill label="Manager" value={item.managerStatus} />
-                    <StatusPill label="Backoffice" value={item.backofficeStatus} />
                   </div>
                 </article>
               ))}
@@ -354,55 +310,6 @@ export default function OtpApprovalPage({ kind = "manager" }: { kind?: "manager"
         </section>
       </div>
 
-      {otpDialogId && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-[2px]"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeOtpDialog();
-          }}
-        >
-          <form
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="otp-dialog-title"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void decide(otpDialogId, "approve", otpValue);
-            }}
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"
-          >
-            <div className="flex items-start gap-3">
-              <div className="rounded-xl bg-violet-100 p-2.5 text-violet-700"><Send size={19} /></div>
-              <div>
-                <h2 id="otp-dialog-title" className="text-lg font-bold text-slate-950">Send OTP privately</h2>
-                <p className="mt-1 text-sm leading-5 text-slate-500">The code goes to the requester&apos;s direct chat and never appears in the group.</p>
-              </div>
-            </div>
-            <label className="mt-6 block text-sm font-semibold text-slate-700" htmlFor="otp-value">OTP code</label>
-            <input
-              id="otp-value"
-              autoFocus
-              value={otpValue}
-              onChange={(event) => { setOtpValue(event.target.value); setOtpDialogError(""); }}
-              placeholder="Enter OTP"
-              maxLength={4}
-              pattern="[0-9]{4}"
-              autoComplete="one-time-code"
-              inputMode="numeric"
-              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-lg tracking-[0.2em] outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-100"
-            />
-            {otpDialogError && <p className="mt-2 text-sm text-red-600">{otpDialogError}</p>}
-            <div className="mt-6 flex justify-end gap-2">
-              <button type="button" disabled={Boolean(busy)} onClick={() => closeOtpDialog()} className="rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50">Cancel</button>
-              <button type="submit" disabled={Boolean(busy)} className="inline-flex items-center gap-2 rounded-lg bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-violet-800 disabled:opacity-50">
-                {busy ? <Loader2 className="animate-spin" size={16} /> : <Send size={16} />}
-                {busy ? "Sending..." : "Send OTP & approve"}
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
     </main>
   );
 }

@@ -92,11 +92,6 @@ const topItems: Item[] = [
   { title: "Team Chat", url: "/chat", icon: MessagesSquare },
 ];
 
-const otpBackofficeGroup: Group = {
-  title: "Backoffice",
-  icon: ShieldCheck,
-  items: [{ title: "OTP Approvals", url: "/otp/backoffice", icon: CheckSquare }],
-};
 const otpManagerGroup: Group = {
   title: "Manager",
   icon: UserCheck,
@@ -712,10 +707,7 @@ export function AppSidebar() {
     })
     .filter((g: Group | undefined): g is Group => Boolean(g && g.items.length > 0));
 
-  const otpGroups = [
-    hasOtpAccess(permissions, "backoffice", user) ? otpBackofficeGroup : null,
-    hasOtpAccess(permissions, "manager", user) ? otpManagerGroup : null,
-  ].filter((g): g is Group => Boolean(g));
+  const otpGroups = hasOtpAccess(permissions, "manager", user) ? [otpManagerGroup] : [];
 
   return (
     <Sidebar collapsible="icon">

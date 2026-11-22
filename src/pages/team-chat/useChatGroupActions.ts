@@ -101,6 +101,21 @@ export function useChatGroupActions({
     if (!chatId || !userId) return;
     try {
       await removeGroupMemberService(chatId, userId);
+      setChannels((previous: any[]) =>
+        previous.map((channel) => {
+          if (String(getChannelId(channel)) !== String(chatId)) return channel;
+          const filterMember = (member: any) => String(getBuddySendId(member)) !== String(userId);
+          return {
+            ...channel,
+            ...(Array.isArray(channel.participants)
+              ? { participants: channel.participants.filter(filterMember) }
+              : {}),
+            ...(Array.isArray(channel.members)
+              ? { members: channel.members.filter(filterMember) }
+              : {}),
+          };
+        }),
+      );
       setSelectedChat((previous: any) => {
         if (!previous || String(previous.id) !== String(chatId)) return previous;
         const participants = Array.isArray(previous.raw?.participants)

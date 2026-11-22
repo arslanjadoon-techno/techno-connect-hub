@@ -87,7 +87,7 @@ function findPortalAccessEntry(portalKey: string, portalAccess: any[]): any {
     if (target === "reporting") return pn.includes("report");
     if (target === "chat") return pn.includes("chat") || pn.includes("team");
     if (target === "admin") return pn.includes("admin") || pn.includes("user") || pn.includes("management");
-    if (target === "otp") return pn.includes("otp") || pn.includes("manager") || pn.includes("backoffice");
+    if (target === "otp") return pn.includes("otp") || pn.includes("manager");
 
     return pn.includes(target) || target.includes(pn);
   });

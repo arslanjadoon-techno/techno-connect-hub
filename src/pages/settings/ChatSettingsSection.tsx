@@ -419,7 +419,6 @@ export default function ChatSettingsSection() {
       body: "Desktop notifications are ready.",
       tag: `chat-settings-test-${Date.now()}`,
       url: "/chat",
-      onClick: () => undefined,
     });
     toast.success("Test notification sent.");
   };

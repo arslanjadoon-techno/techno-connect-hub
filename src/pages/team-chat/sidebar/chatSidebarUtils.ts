@@ -69,6 +69,18 @@ export const getDeliveryState = (item: ChatItem): string =>
       item?.delivery_state ||
       item?.messageStatus ||
       item?.message_status ||
+      item?.deliveryStatus ||
+      item?.delivery_status ||
+      item?.sendState ||
+      item?.send_state ||
+      item?.lastMessage?.deliveryStatus ||
+      item?.lastMessage?.delivery_status ||
+      item?.lastMessage?.sendState ||
+      item?.lastMessage?.send_state ||
+      item?.last_message?.deliveryStatus ||
+      item?.last_message?.delivery_status ||
+      item?.last_message?.sendState ||
+      item?.last_message?.send_state ||
       item?.lastMessage?.status ||
       item?.last_message?.status ||
       "",

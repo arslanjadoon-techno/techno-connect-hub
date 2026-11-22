@@ -173,13 +173,39 @@ function ConversationListItem({
   );
 }
 
+const conversationRowSignature = (item: Conversation, isChannel: boolean) => {
+  const availability = getAvailability(item);
+  const imageUrl =
+    getImageUrl(item) ||
+    getImageUrl(item?.user) ||
+    getImageUrl(item?.profile) ||
+    getImageUrl(item?.participant) ||
+    getImageUrl(item?.raw);
+
+  return [
+    isChannel ? getChannelId(item) : getBuddySendId(item),
+    isChannel ? getChannelName(item) : getBuddyName(item),
+    getUnreadCount(item),
+    getLastMessagePreview(item, isChannel),
+    getDeliveryState(item),
+    availability.label,
+    availability.color,
+    imageUrl,
+    item?.lastMessageAt ||
+      item?.last_message_at ||
+      item?.lastMessageTime ||
+      item?.last_message_time,
+  ].join("\u0001");
+};
+
 // Only re-render a row when its own data or its selected state changes.
 export default memo(
   ConversationListItem,
   (prev, next) =>
-    prev.item === next.item &&
     prev.isChannel === next.isChannel &&
     prev.onSelectBuddy === next.onSelectBuddy &&
     prev.onSelectChannel === next.onSelectChannel &&
-    String(prev.selectedChat?.id ?? "") === String(next.selectedChat?.id ?? ""),
+    String(prev.selectedChat?.id ?? "") === String(next.selectedChat?.id ?? "") &&
+    conversationRowSignature(prev.item, prev.isChannel) ===
+      conversationRowSignature(next.item, next.isChannel),
 );

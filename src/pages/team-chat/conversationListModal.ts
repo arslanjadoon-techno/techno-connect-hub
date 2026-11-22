@@ -5,17 +5,22 @@ import {
   getUnreadCount,
   parseChatDate,
 } from "./chatHealper";
-import {
-  dedupeConversationRecords,
-  getConversationRecordId,
-} from "./chatConversationKeys";
+import { dedupeConversationRecords, getConversationRecordId } from "./chatConversationKeys";
 
 type ChatRecord = Record<string, any>;
 type MessageMap = Record<string, ChatRecord[]>;
 
+export type ConversationIndexes = {
+  buddyByIdentity: ReadonlyMap<string, ChatRecord>;
+  buddyOrderByIdentity: ReadonlyMap<string, number>;
+  directConversationByIdentity: ReadonlyMap<string, ChatRecord>;
+  latestMessageByChatKey: ReadonlyMap<string, ChatRecord>;
+  peerByConversation: ReadonlyMap<ChatRecord, ChatRecord>;
+};
+
 const GENERIC_NAME = /^(chat\s*user|chatuser)$/i;
 
-const valuesFor = (item: ChatRecord) =>
+export const getConversationIdentityValues = (item: ChatRecord) =>
   [
     getBuddySendId(item),
     getBuddyEmail(item),
@@ -30,6 +35,68 @@ const valuesFor = (item: ChatRecord) =>
   ]
     .filter(Boolean)
     .map((value) => String(value).toLowerCase());
+
+export function buildConversationIndexes({
+  allVisibleBuddies,
+  messagesByChat,
+  isCurrentUserRecord,
+  visibleDirectChannels,
+}: {
+  allVisibleBuddies: ChatRecord[];
+  messagesByChat: MessageMap;
+  isCurrentUserRecord: (item: ChatRecord) => boolean;
+  visibleDirectChannels: ChatRecord[];
+}): ConversationIndexes {
+  const buddyByIdentity = new Map<string, ChatRecord>();
+  const buddyOrderByIdentity = new Map<string, number>();
+  allVisibleBuddies.forEach((buddy, index) => {
+    getConversationIdentityValues(buddy).forEach((value) => {
+      if (!buddyByIdentity.has(value)) {
+        buddyByIdentity.set(value, buddy);
+        buddyOrderByIdentity.set(value, index);
+      }
+    });
+  });
+
+  const directConversationByIdentity = new Map<string, ChatRecord>();
+  const peerByConversation = new Map<ChatRecord, ChatRecord>();
+  visibleDirectChannels.forEach((channel) => {
+    const participants = Array.isArray(channel?.participants) ? channel.participants : [];
+    const peer = participants.find((participant: ChatRecord) => !isCurrentUserRecord(participant));
+    if (peer) peerByConversation.set(channel, peer);
+    participants.forEach((participant: ChatRecord) => {
+      if (isCurrentUserRecord(participant)) return;
+      getConversationIdentityValues(participant).forEach((value) => {
+        if (!directConversationByIdentity.has(value)) {
+          directConversationByIdentity.set(value, channel);
+        }
+      });
+    });
+  });
+
+  const latestMessageByChatKey = new Map<string, ChatRecord>();
+  const setLatestMessage = (key: string, message: ChatRecord) => {
+    const current = latestMessageByChatKey.get(key);
+    if (!current || messageTime(message) > messageTime(current)) {
+      latestMessageByChatKey.set(key, message);
+    }
+  };
+  Object.entries(messagesByChat).forEach(([key, messages]) => {
+    const normalizedKey = key.toLowerCase();
+    (Array.isArray(messages) ? messages : []).forEach((message) => {
+      setLatestMessage(key, message);
+      if (normalizedKey !== key) setLatestMessage(normalizedKey, message);
+    });
+  });
+
+  return {
+    buddyByIdentity,
+    buddyOrderByIdentity,
+    directConversationByIdentity,
+    latestMessageByChatKey,
+    peerByConversation,
+  };
+}
 
 const conversationId = (conversation: ChatRecord | null | undefined) =>
   getConversationRecordId(conversation);
@@ -80,13 +147,13 @@ const toDirectRow = ({
   conversation,
   isCurrentUserRecord,
   getUnreadCount: unread,
-  messagesByChat = {},
+  conversationIndexes,
 }: {
   buddy: ChatRecord;
   conversation?: ChatRecord;
   isCurrentUserRecord: (item: ChatRecord) => boolean;
   getUnreadCount: (item: ChatRecord) => number;
-  messagesByChat?: MessageMap;
+  conversationIndexes: ConversationIndexes;
 }): ChatRecord => {
   const directId = conversationId(conversation) || buddy?.directConversationId || buddy?.chatId;
   const cacheKeys = Array.from(
@@ -103,22 +170,27 @@ const toDirectRow = ({
         .map(String),
     ),
   );
-  const cachedMessages = cacheKeys.flatMap((key) => messagesByChat[key] || []);
   const storedLastMessages = [
     conversation?.lastMessage,
     conversation?.last_message,
     buddy?.lastMessage,
     buddy?.last_message,
   ].filter(Boolean);
-  const cachedLastMessage = [...cachedMessages].sort(
-    (first, second) => messageTime(second) - messageTime(first),
-  )[0];
+  const cachedLastMessage = cacheKeys.reduce<ChatRecord | undefined>((latest, key) => {
+    const candidate =
+      conversationIndexes.latestMessageByChatKey.get(key) ||
+      conversationIndexes.latestMessageByChatKey.get(key.toLowerCase());
+    if (!candidate || (latest && messageTime(latest) >= messageTime(candidate))) return latest;
+    return candidate;
+  }, undefined);
   const latestMessage = [...storedLastMessages, cachedLastMessage]
     .filter(Boolean)
     .sort((first, second) => messageTime(second) - messageTime(first))[0];
-  const peer = (conversation?.participants as ChatRecord[] | undefined)?.find(
-    (participant: ChatRecord) => !isCurrentUserRecord(participant),
-  );
+  const peer =
+    (conversation ? conversationIndexes.peerByConversation.get(conversation) : undefined) ||
+    (conversation?.participants as ChatRecord[] | undefined)?.find(
+      (participant: ChatRecord) => !isCurrentUserRecord(participant),
+    );
   const sender = conversation?.lastMessage?.sender || conversation?.last_message?.sender;
   const displayName =
     [peer, sender, buddy]
@@ -135,7 +207,11 @@ const toDirectRow = ({
     user_id: buddy?.user_id || getBuddySendId(buddy) || getBuddySendId(peer),
     // A buddy id is a participant id, not a persisted conversation id. Keep
     // it as the placeholder identity only until the API returns a conversation.
-    directConversationId: conversationId(conversation) || "",
+    // Keep a conversation ID already present on the buddy row when the
+    // paginated directory result is not joined to the conversation list yet.
+    // Falling back to an empty value makes read ACKs use the peer user ID,
+    // which the backend correctly rejects as a conversation ID.
+    directConversationId: directId || "",
     unreadCount: conversation ? unread(conversation) : unread(buddy),
     lastMessage: latestMessage,
     last_message: latestMessage,
@@ -167,6 +243,7 @@ export function buildConversationItems({
   searchTerm,
   selectedChat,
   messagesByChat,
+  conversationIndexes,
   currentUser,
   currentUserEmail,
   isCurrentUserRecord,
@@ -179,51 +256,66 @@ export function buildConversationItems({
   searchTerm: string;
   selectedChat: ChatRecord | null;
   messagesByChat: MessageMap;
+  conversationIndexes?: ConversationIndexes;
   currentUser: ChatRecord | null;
   currentUserEmail: string;
   isCurrentUserRecord: (item: ChatRecord) => boolean;
   getUnreadCount?: (item: ChatRecord) => number;
 }): ChatRecord[] {
+  const indexes =
+    conversationIndexes ||
+    buildConversationIndexes({
+      allVisibleBuddies,
+      isCurrentUserRecord,
+      messagesByChat,
+      visibleDirectChannels,
+    });
   const buddiesForList = searchTerm.trim() ? allVisibleBuddies : visibleBuddies;
   const directRows = buddiesForList.map((buddy) => {
-    const buddyValues = valuesFor(buddy);
-    const conversation = visibleDirectChannels.find((candidate) =>
-      (candidate?.participants || []).some((participant: ChatRecord) =>
-        valuesFor(participant).some((value) => buddyValues.includes(value)),
-      ),
-    );
+    const conversation = getConversationIdentityValues(buddy)
+      .map((value) => indexes.directConversationByIdentity.get(value))
+      .find(Boolean);
     return toDirectRow({
       buddy,
       conversation,
       isCurrentUserRecord,
       getUnreadCount: unread,
-      messagesByChat,
+      conversationIndexes: indexes,
     });
   });
 
   if (!searchTerm.trim()) {
     visibleDirectChannels.forEach((channel) => {
-      const peer = (channel.participants || []).find(
-        (participant: ChatRecord) => !isCurrentUserRecord(participant),
-      );
+      const peer =
+        indexes.peerByConversation.get(channel) ||
+        (channel.participants || []).find(
+          (participant: ChatRecord) => !isCurrentUserRecord(participant),
+        );
       if (!peer) return;
       const channelConversationId = conversationId(channel);
       const exists = directRows.some(
         (row) => conversationId(row) === channelConversationId && Boolean(channelConversationId),
       );
       if (exists) return;
-      const peerValues = valuesFor(peer);
+      const peerValues = getConversationIdentityValues(peer);
       const buddy =
-        allVisibleBuddies.find((candidate) =>
-          valuesFor(candidate).some((value) => peerValues.includes(value)),
-        ) || peer;
+        peerValues
+          .map((value) => indexes.buddyByIdentity.get(value))
+          .filter((candidate): candidate is ChatRecord => Boolean(candidate))
+          .sort(
+            (first, second) =>
+              (indexes.buddyOrderByIdentity.get(getConversationIdentityValues(first)[0] || "") ??
+                Number.MAX_SAFE_INTEGER) -
+              (indexes.buddyOrderByIdentity.get(getConversationIdentityValues(second)[0] || "") ??
+                Number.MAX_SAFE_INTEGER),
+          )[0] || peer;
       directRows.push(
         toDirectRow({
           buddy,
           conversation: channel,
           isCurrentUserRecord,
           getUnreadCount: unread,
-          messagesByChat,
+          conversationIndexes: indexes,
         }),
       );
     });
@@ -247,9 +339,9 @@ export function buildConversationItems({
     // its first message. Add it only in that case; never invent a current-time
     // activity timestamp, because that changes sidebar order merely by opening it.
     if (!alreadyListed) {
-      const selectedMessages = messagesByChat[selectedChat.id] || [];
       const selectedLastMessage =
-        selectedMessages[selectedMessages.length - 1] ||
+        indexes.latestMessageByChatKey.get(String(selectedChat.id)) ||
+        indexes.latestMessageByChatKey.get(String(selectedChat.id).toLowerCase()) ||
         selectedChat.lastMessage ||
         selectedChat.last_message;
       const selectedLastMessageAt =

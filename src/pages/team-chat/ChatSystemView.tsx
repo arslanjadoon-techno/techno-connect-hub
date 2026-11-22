@@ -70,6 +70,9 @@ export default function ChatSystemView(props: Record<string, any>) {
     handleReplyToMessage,
     handleRespondToCall,
     handleSend,
+    onVoiceError,
+    uploadProgress,
+    cancelUpload,
     handleStartConversationCall,
     openAddMembersDialog,
     handleToggleChatMute,
@@ -82,10 +85,12 @@ export default function ChatSystemView(props: Record<string, any>) {
     libraryLoading,
     libraryMessages,
     loadError,
+    loadMoreManagedUsers,
     loadOlderMessages,
     loading,
     loadingOlderMessages,
     managedUsersLoading,
+    managedUsersHasMore,
     messageInfoVersions,
     mutedChatIds,
     navigate,
@@ -157,6 +162,8 @@ export default function ChatSystemView(props: Record<string, any>) {
             onSelectMember={toggleGroupUser}
             members={groupMembers}
             loading={managedUsersLoading}
+            hasMoreMembers={managedUsersHasMore}
+            onLoadMoreMembers={loadMoreManagedUsers}
             selectedMembers={selectedGroupMembers}
             search={groupSearch}
             title={groupTitle}
@@ -254,11 +261,15 @@ export default function ChatSystemView(props: Record<string, any>) {
               handlePinMessage={handlePinMessage}
               handleDeleteMessages={handleDeleteMessages}
               handleBlockUser={handleBlockUser}
+              onMessageUser={selectBuddy}
               blockedUserIds={blockedUserIds}
               handleCopyMessage={handleCopyMessage}
               handleReaction={handleReaction}
               handleReplyToMessage={handleReplyToMessage}
               handleSend={handleSend}
+              onVoiceError={onVoiceError}
+              uploadProgress={uploadProgress}
+              cancelUpload={cancelUpload}
               handleOTPRequest={handleOTPRequest}
               onEndActiveCall={handleEndActiveCall}
               onLeaveGroup={handleLeaveGroup}
@@ -324,6 +335,8 @@ export default function ChatSystemView(props: Record<string, any>) {
         onTitleChange={setGroupTitle}
         members={groupMembers}
         loading={managedUsersLoading}
+        hasMoreMembers={managedUsersHasMore}
+        onLoadMoreMembers={loadMoreManagedUsers}
         selectedMembers={selectedGroupMembers}
         search={groupSearch}
         title={groupTitle}
@@ -340,6 +353,8 @@ export default function ChatSystemView(props: Record<string, any>) {
         error={addMembersError}
         adding={addingMembers}
         loading={managedUsersLoading}
+        hasMoreMembers={managedUsersHasMore}
+        onLoadMoreMembers={loadMoreManagedUsers}
         onSearchChange={setGroupSearch}
       />
     </>

@@ -593,7 +593,7 @@ export function getSurveillanceRole(user: any): SurveillanceRole | "other" {
   if (rawRole === "surveillanceagent" || rawRole === "surveillance_agent")
     return "surveillance_agent";
 
-  // All remaining roles (manager, storemanager, user, backoffice, rep, trainer, etc.) have no access
+  // All remaining roles have no access.
   return "other";
 }
 

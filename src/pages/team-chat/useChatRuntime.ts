@@ -20,16 +20,31 @@ import { getActiveConversationCallsService } from "@/services/Team-chat/chat.ser
 import { getChatMessagesService } from "@/services/Team-chat/chat.service";
 import { getStoredUser } from "@/lib/api/client";
 import { normalizeCall, PENDING_CALL_STORAGE_KEY } from "./ChatSystemUtils";
-import {
-  normalizeChatMessages,
-  unwrapChatMessagesResponse,
-} from "./chatMessageNormalization";
+import { normalizeChatMessages, unwrapChatMessagesResponse } from "./chatMessageNormalization";
 import { getMessageClientId, getMessageServerId, mergeChatMessages } from "./chatMessageState";
 import { CHAT_APP_BASE_PATH } from "./chatRoutes";
-import { getConversationRecordId, upsertConversationRecord } from "./chatConversationKeys";
+import {
+  getChatStateKeys,
+  getConversationRecordId,
+  upsertConversationRecord,
+} from "./chatConversationKeys";
+import {
+  getPendingChatSends,
+  getCachedChatState,
+  saveCachedChatMessages,
+  saveCachedChatMessagesAndCursor,
+  updatePendingChatSend,
+} from "./chatMessageIndexedDb";
+import {
+  isPendingChatSendActive,
+  pendingChatSendMessageKeys,
+  pendingChatSendToChat,
+  pendingChatSendToOptimisticMessage,
+} from "./pendingChatSendUtils";
 
 type ChatRecord = Record<string, any>;
 type ChatRuntimeOptions = Record<string, any>;
+const CHAT_RECONNECT_PAGE_SIZE = 100;
 
 export function useChatRuntime(options: ChatRuntimeOptions) {
   const {
@@ -76,7 +91,9 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     messagePaginationByChat,
     searchTerm,
     onNotification,
+    pendingSendRetryRef,
   } = options;
+  const reconnectSyncInFlightRef = useRef<Promise<void> | null>(null);
   const handleRealtimeMessageUpdated = useChatRealtimeMessageUpdate({
     channels,
     buddies,
@@ -97,9 +114,13 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
   const handleRealtimeMessageRead = useChatRealtimeMessageRead({
     channels,
     buddies,
+    currentUser,
+    currentUserEmail,
     currentUserId,
     setMessageInfoVersions,
     setMessagesByChat,
+    setChannels,
+    setBuddies,
   });
   const handleRealtimeReactionAdded = useChatRealtimeReaction({
     channels,
@@ -107,7 +128,6 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     currentUserEmail,
     currentUserId,
     mutedChatIds,
-    navigate,
   });
   const handleRealtimePresence = useChatRealtimePresence({
     currentUserId,
@@ -238,7 +258,6 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     messagesByChat,
     mutedChatIds,
     mentionNotifications,
-    navigate,
     handledRealtimeMessageKeysRef,
     realtimeStartedAtRef,
     selectedChat,
@@ -247,51 +266,245 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     setMessagesByChat,
   });
 
-  const handleRealtimeReconnected = useCallback(async () => {
-    handledRealtimeMessageKeysRef?.current?.clear();
-    if (!selectedChat) return;
-    const chatId = selectedChat.chatId || selectedChat.id;
-    if (!chatId) return;
+  const resumePendingSends = useCallback(async () => {
+    if (!currentUserId) return;
 
     try {
-      const response: any = await getChatMessagesService(chatId, { limit: 100 });
-      const latest = normalizeChatMessages(unwrapChatMessagesResponse(response), {
-        ...selectedChat,
-        chatId,
-        currentUserId,
-      });
-      const keys = Array.from(new Set([selectedChat.id, chatId].filter(Boolean).map(String)));
-      setMessagesByChat((previous: Record<string, ChatRecord[]>) => {
-        const next = { ...previous };
-        keys.forEach((key) => {
-          const pending = (previous[key] || []).filter(
-            (message) =>
-              message.sendState === "pending" ||
-              message.sendState === "sending" ||
-              message.sendState === "failed",
-          );
-          const loadedIds = new Set(
-            latest.flatMap((message) =>
-              [getMessageServerId(message), getMessageClientId(message)]
-                .filter(Boolean)
-                .map(String),
-            ),
-          );
-          next[key] = mergeChatMessages(
-            latest,
-            pending.filter(
-              (message) =>
-                !loadedIds.has(getMessageServerId(message)) &&
-                !loadedIds.has(getMessageClientId(message)),
-            ),
-          );
+      const pendingSends = await getPendingChatSends(currentUserId);
+      for (const pending of pendingSends) {
+        if (pending.status === "cancelled") continue;
+
+        const optimisticMessage = pendingChatSendToOptimisticMessage(pending, currentUser);
+        const keys = pendingChatSendMessageKeys(pending, selectedChat);
+        setMessagesByChat((previous: Record<string, ChatRecord[]>) => {
+          const next = { ...previous };
+          keys.forEach((key) => {
+            next[key] = mergeChatMessages(previous[key] || [], [optimisticMessage]);
+          });
+          return next;
         });
-        return next;
-      });
-    } catch {
-      // The next reconnect or normal conversation refresh remains the recovery path.
+
+        if (isPendingChatSendActive(pending.status)) {
+          if (pending.nextRetryAt && pending.nextRetryAt > Date.now()) continue;
+          let foundInHistory = false;
+          if (pending.chatId) {
+            try {
+              const response: any = await getChatMessagesService(pending.chatId, { limit: 100 });
+              const history = normalizeChatMessages(unwrapChatMessagesResponse(response), {
+                ...(selectedChat || pendingChatSendToChat(pending)),
+                chatId: pending.chatId,
+                currentUserId,
+              });
+              const confirmed = history.find(
+                (message) => getMessageClientId(message) === pending.clientMessageId,
+              );
+              if (confirmed) {
+                foundInHistory = true;
+                const keys = pendingChatSendMessageKeys(pending, selectedChat);
+                setMessagesByChat((previous: Record<string, ChatRecord[]>) => {
+                  const next = { ...previous };
+                  keys.forEach((key) => {
+                    next[key] = mergeChatMessages(previous[key] || [], [
+                      { ...confirmed, sendState: "accepted", deliveryStatus: "sent" },
+                    ]);
+                  });
+                  return next;
+                });
+                await Promise.all(keys.map((key) => saveCachedChatMessages(key, [confirmed])));
+                await updatePendingChatSend(pending.clientMessageId, {
+                  status: "accepted",
+                  ...(confirmed.id ? { serverMessageId: String(confirmed.id) } : {}),
+                  error: undefined,
+                  unknownOutcome: false,
+                  nextRetryAt: undefined,
+                });
+              }
+            } catch {
+              // A history read failure is not evidence that the message failed.
+              // The idempotent retry below remains the recovery path.
+            }
+          }
+
+          if (!foundInHistory) {
+            // Retry with the exact persisted clientMessageId. The backend's
+            // idempotency check returns the original message if it committed.
+            void pendingSendRetryRef?.current?.(pending.clientMessageId);
+          }
+        }
+      }
+    } catch (error) {
+      // Chat remains usable when IndexedDB is unavailable or blocked. The
+      // current session's send path still works without durable recovery.
+      console.warn("Could not resume pending chat sends", error);
     }
-  }, [currentUserId, handledRealtimeMessageKeysRef, selectedChat, setMessagesByChat]);
+  }, [currentUser, currentUserId, pendingSendRetryRef, selectedChat, setMessagesByChat]);
+
+  useEffect(() => {
+    void resumePendingSends();
+  }, [resumePendingSends]);
+
+  const handleRealtimeReconnected = useCallback(async () => {
+    const existingSync = reconnectSyncInFlightRef.current;
+    if (existingSync) return existingSync;
+
+    const sync = (async () => {
+      handledRealtimeMessageKeysRef?.current?.clear();
+      void resumePendingSends();
+
+      const getPersistedConversationId = (chat: ChatRecord | null | undefined) => {
+        if (!chat) return "";
+
+        const explicitId = [
+          chat.chatId,
+          chat.chat_id,
+          chat.conversationId,
+          chat.conversation_id,
+          chat.directConversationId,
+        ]
+          .filter(Boolean)
+          .map(String)[0];
+        if (explicitId) return explicitId;
+
+        const type = String(chat.type || chat.conversationType || "").toLowerCase();
+        const isPersistedConversation =
+          chat.isDirect === true || type === "direct" || type === "group" || type === "channel";
+
+        // A local person row uses id for the peer/user id until its first
+        // message creates a server conversation. Never send that user id to
+        // the history endpoint as if it were a conversation id.
+        return isPersistedConversation ? String(getConversationRecordId(chat) || "") : "";
+      };
+
+      const candidates = [selectedChat, ...(Array.isArray(channels) ? channels : [])].filter(
+        Boolean,
+      ) as ChatRecord[];
+      const conversationsById = new Map<string, ChatRecord>();
+      candidates.forEach((chat) => {
+        const chatId = getPersistedConversationId(chat);
+        if (chatId && !conversationsById.has(chatId)) conversationsById.set(chatId, chat);
+      });
+
+      const syncConversation = async (conversation: ChatRecord) => {
+        const chatId = getPersistedConversationId(conversation);
+        if (!chatId) return;
+
+        const primaryChatKey = String(conversation.id || chatId);
+        const keys = Array.from(new Set([...getChatStateKeys(conversation), chatId]));
+        const cachedState = await getCachedChatState(primaryChatKey);
+        let cursor = cachedState.syncCursor;
+        let isInitialRecoveryRequest = !cursor;
+        let hasMore = false;
+
+        do {
+          const response: any = await getChatMessagesService(chatId, {
+            limit: CHAT_RECONNECT_PAGE_SIZE,
+            ...(cursor ? { after: cursor } : {}),
+          });
+          const payload = unwrapChatMessagesResponse(response);
+          const recoveredPage = normalizeChatMessages(payload, {
+            ...conversation,
+            chatId,
+            currentUserId,
+          });
+          const pagination = payload?.pagination || {};
+          const nextCursor = String(pagination.nextCursor || pagination.syncCursor || "").trim();
+          const pageCursor = isInitialRecoveryRequest
+            ? String(pagination.syncCursor || "").trim()
+            : nextCursor;
+
+          // Advance the cursor only after the page and watermark are persisted
+          // together. A failed page is retried from the last durable cursor.
+          if (pageCursor) {
+            await saveCachedChatMessagesAndCursor(primaryChatKey, recoveredPage, pageCursor);
+          } else {
+            await saveCachedChatMessages(primaryChatKey, recoveredPage);
+          }
+
+          setMessagesByChat((previous: Record<string, ChatRecord[]>) => {
+            const next = { ...previous };
+            keys.forEach((key) => {
+              const current = mergeChatMessages(previous[key] || [], recoveredPage);
+              const pending = (previous[key] || []).filter(
+                (message) =>
+                  message.sendState === "pending" ||
+                  message.sendState === "sending" ||
+                  message.sendState === "retrying" ||
+                  message.sendState === "failed",
+              );
+              const loadedIds = new Set(
+                current.flatMap((message) =>
+                  [getMessageServerId(message), getMessageClientId(message)]
+                    .filter(Boolean)
+                    .map(String),
+                ),
+              );
+              next[key] = mergeChatMessages(
+                current,
+                pending.filter(
+                  (message) =>
+                    !loadedIds.has(getMessageServerId(message)) &&
+                    !loadedIds.has(getMessageClientId(message)),
+                ),
+              );
+            });
+            return next;
+          });
+
+          if (isInitialRecoveryRequest) {
+            cursor = pageCursor || cursor;
+            // Without a cursor, hasMore describes older history, not missed
+            // newer messages. Do not walk the entire history on reconnect.
+            hasMore = false;
+            isInitialRecoveryRequest = false;
+          } else if (!recoveredPage.length || !nextCursor || nextCursor === cursor) {
+            hasMore = false;
+          } else {
+            cursor = nextCursor;
+            hasMore = Boolean(pagination.hasMore);
+          }
+        } while (hasMore);
+      };
+
+      const pendingConversations = [...conversationsById.values()];
+      let nextConversationIndex = 0;
+      const syncWorker = async () => {
+        while (nextConversationIndex < pendingConversations.length) {
+          const conversation = pendingConversations[nextConversationIndex++];
+          try {
+            await syncConversation(conversation);
+          } catch (error) {
+            // One inaccessible/deleted conversation must not prevent the rest
+            // of the sidebar from recovering after a reconnect.
+            console.warn("[ChatSync] Conversation recovery failed", error);
+          }
+        }
+      };
+
+      await Promise.all(
+        Array.from({ length: Math.min(4, pendingConversations.length) }, () => syncWorker()),
+      );
+    })();
+
+    reconnectSyncInFlightRef.current = sync;
+    try {
+      await sync;
+    } catch (error) {
+      // The durable cursor was not advanced when a page failed. The next
+      // reconnect retries from the last successfully persisted page.
+      console.warn("[ChatSync] Reconnect history synchronization failed", error);
+    } finally {
+      if (reconnectSyncInFlightRef.current === sync) {
+        reconnectSyncInFlightRef.current = null;
+      }
+    }
+  }, [
+    currentUserId,
+    channels,
+    handledRealtimeMessageKeysRef,
+    resumePendingSends,
+    selectedChat,
+    setMessagesByChat,
+  ]);
 
   const {
     handleRealtimeCallRinging,
@@ -360,9 +573,7 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
       const chatId = String(payload?.chatId || payload?.conversationId || "");
       if (!chatId) return;
       setChannels((previous: ChatRecord[]) =>
-        previous.filter(
-          (item) => getConversationRecordId(item) !== chatId,
-        ),
+        previous.filter((item) => getConversationRecordId(item) !== chatId),
       );
       setMessagesByChat((previous: Record<string, ChatRecord[]>) => {
         const next = { ...previous };
@@ -463,9 +674,12 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     setSendError,
   });
 
-  const { markChatAsRead } = useChatMarkRead({
+  useChatMarkRead({
     activeConversationId,
     callSocketRef,
+    currentUser,
+    currentUserEmail,
+    currentUserId,
     messagesByChat,
     selectedChat,
     setChannels,
@@ -501,6 +715,5 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     clearUnreadForChat,
     handleToggleChatMute,
     handleClearChat,
-    markChatAsRead,
   };
 }

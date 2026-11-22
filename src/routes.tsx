@@ -307,14 +307,12 @@ function PermissionRouteGuard({ permKey, children }: { permKey: string; children
 }
 
 function OtpRouteGuard({
-  kind,
   children,
 }: {
-  kind: "manager" | "backoffice";
   children: ReactNode;
 }) {
   const { user, permissions } = useAuth();
-  return hasOtpAccess(permissions, kind, user) ? <>{children}</> : <Navigate to="/ai-chat" replace />;
+  return hasOtpAccess(permissions, "manager", user) ? <>{children}</> : <Navigate to="/ai-chat" replace />;
 }
 
 function RankerPortalGuard() {
@@ -387,18 +385,10 @@ export function AppRoutes() {
         />
         <Route path="/settings" element={<SettingsPage />} />
         <Route
-          path="/otp/backoffice"
-          element={
-            <OtpRouteGuard kind="backoffice">
-              <OtpApprovalPage kind="backoffice" />
-            </OtpRouteGuard>
-          }
-        />
-        <Route
           path="/otp/manager"
           element={
-            <OtpRouteGuard kind="manager">
-              <OtpApprovalPage kind="manager" />
+            <OtpRouteGuard>
+              <OtpApprovalPage />
             </OtpRouteGuard>
           }
         />

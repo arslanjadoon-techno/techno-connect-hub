@@ -11,6 +11,7 @@ import {
 } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import {
   getAvailability,
   getBuddyEmail,
@@ -22,7 +23,7 @@ import { EmptyChatState } from "./ChatWindowStates";
 import { PinnedMessageBanner } from "./ChatWindowPanels";
 import InternalCallPanel from "../calls/InternalCallPanel";
 import ChatWindowHeader from "./ChatWindowHeader";
-import ChatMessageList from "./ChatMessageList";
+import ChatMessageList, { type ChatMessageListHandle } from "./ChatMessageList";
 import ChatComposerPanel from "./ChatComposerPanel";
 import { searchChatMessagesService } from "@/services/Team-chat/chat.service";
 
@@ -47,12 +48,29 @@ interface ChatWindowProps {
   handlePinMessage?: (message: MessageRecord) => void;
   handleDeleteMessages?: (...args: any[]) => any;
   handleBlockUser?: (...args: any[]) => any;
+  onMessageUser?: (user: ChatRecord) => void | Promise<void>;
   blockedUserIds?: string[];
   handleCopyMessage?: (message: MessageRecord) => void;
   handleReaction?: (messageId: string | number, emoji: string) => void;
   handleReplyToMessage?: (message: MessageRecord) => void;
   handleSend?: () => void;
-  handleOTPRequest?: (request: { type: string; amount: number; notes: string }) => void | Promise<void>;
+  onVoiceError?: (message: string) => void;
+  uploadProgress?: Array<{
+    key: string;
+    name: string;
+    status: "queued" | "uploading" | "completed" | "failed" | "cancelled";
+    percent: number;
+    error?: string;
+  }>;
+  cancelUpload?: () => void;
+  handleOTPRequest?: (request: {
+    type: string;
+    amount: number;
+    otpCount: number;
+    storeId: string;
+    storeName: string;
+    notes: string;
+  }) => void | Promise<void>;
   onEndActiveCall?: () => void;
   onLeaveGroup?: (chatId: string | number) => void;
   onDeleteGroup?: (chatId: string | number) => Promise<void>;
@@ -95,12 +113,7 @@ const ADMIN_ROLES = ["owner", "admin", "administrator"];
 
 function getSearchableMessageText(message: MessageRecord) {
   return String(
-    message.text ??
-      message.content ??
-      message.message ??
-      message.body ??
-      message.messageText ??
-      "",
+    message.text ?? message.content ?? message.message ?? message.body ?? message.messageText ?? "",
   );
 }
 
@@ -159,11 +172,15 @@ export default function ChatWindow({
   handlePinMessage,
   handleDeleteMessages,
   handleBlockUser,
+  onMessageUser,
   blockedUserIds = EMPTY_LIST,
   handleCopyMessage,
   handleReaction,
   handleReplyToMessage,
   handleSend,
+  onVoiceError,
+  uploadProgress = EMPTY_LIST,
+  cancelUpload,
   handleOTPRequest,
   onEndActiveCall,
   onLeaveGroup,
@@ -212,11 +229,13 @@ export default function ChatWindow({
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
   const [viewedUser, setViewedUser] = useState<ChatRecord | null>(null);
+  const [userActionTarget, setUserActionTarget] = useState<ChatRecord | null>(null);
   const [profileImageOpen, setProfileImageOpen] = useState(false);
 
   const chatMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const composerInputRef = useRef<HTMLTextAreaElement>(null);
+  const messageListRef = useRef<ChatMessageListHandle>(null);
   const searchRequestId = useRef(0);
   const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const typingActive = useRef(false);
@@ -254,6 +273,18 @@ export default function ChatWindow({
       ).values(),
     );
   }, [rawParticipants, rawMembers, rawRawParticipants]);
+
+  const handleUserInteraction = useCallback(
+    (user: ChatRecord) => {
+      if (!user) return;
+      if (!isGroup || isSamePerson(user, currentUser)) {
+        setViewedUser(user);
+        return;
+      }
+      setUserActionTarget(user);
+    },
+    [currentUser, isGroup],
+  );
 
   const chatRole = selectedChat?.role ?? selectedChat?.raw?.role;
   const isGroupAdmin = useMemo(() => {
@@ -326,6 +357,10 @@ export default function ChatWindow({
 
   const scrollToMessage = useCallback(
     (messageId: string) => {
+      if (messageListRef.current?.scrollToMessage(messageId)) {
+        return true;
+      }
+
       const target = chatBoxRef?.current?.querySelector<HTMLElement>(
         `[data-message-id="${CSS.escape(messageId)}"]`,
       );
@@ -569,18 +604,34 @@ export default function ChatWindow({
       stopRecording(false);
       return;
     }
-    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) return;
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      onVoiceError?.("Voice messages are not supported by this browser.");
+      return;
+    }
 
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      // Permission denied or no microphone: stay in the normal state.
+    } catch (error) {
+      const errorName = error instanceof DOMException ? error.name : "";
+      onVoiceError?.(
+        errorName === "NotAllowedError" || errorName === "SecurityError"
+          ? "Microphone permission is required for voice messages."
+          : "The microphone could not be started.",
+      );
       setRecording(false);
       return;
     }
 
-    const recorder = new MediaRecorder(stream);
+    const supportedMimeType = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/mp4",
+      "audio/ogg;codecs=opus",
+    ].find((mimeType) => MediaRecorder.isTypeSupported(mimeType));
+    const recorder = supportedMimeType
+      ? new MediaRecorder(stream, { mimeType: supportedMimeType })
+      : new MediaRecorder(stream);
     const chunks: Blob[] = [];
     discardRecording.current = false;
     recorder.ondataavailable = (event) => event.data.size && chunks.push(event.data);
@@ -590,6 +641,8 @@ export default function ChatWindow({
         const type = recorder.mimeType || "audio/webm";
         const blob = new Blob(chunks, { type });
         onVoiceMessage?.(new File([blob], voiceFileName(type), { type }));
+      } else if (!discardRecording.current) {
+        onVoiceError?.("No voice audio was recorded.");
       }
       recorderRef.current = null;
       setRecording(false);
@@ -653,7 +706,8 @@ export default function ChatWindow({
           onToggleGroupMute,
           muteConversationId,
           onTransferOwnership,
-          onViewUser: (user: ChatRecord) => setViewedUser(user),
+          onMessageUser,
+          onViewUser: handleUserInteraction,
           selectedChat,
           selectedUserBlocked,
           setChatMenuOpen,
@@ -683,6 +737,7 @@ export default function ChatWindow({
         }}
       />
       <MemoMessageList
+        ref={messageListRef}
         {...{
           blockedUserIds,
           chatBoxRef,
@@ -697,7 +752,7 @@ export default function ChatWindow({
           handlePinMessage,
           handleReaction,
           handleReplyToMessage,
-          onViewUser: (user: ChatRecord) => setViewedUser(user),
+          onViewUser: handleUserInteraction,
           hasOlderMessages,
           highlightedMessageId,
           loadingOlderMessages,
@@ -716,6 +771,38 @@ export default function ChatWindow({
           setSelectedMessageIds,
         }}
       />
+      <Dialog
+        open={Boolean(userActionTarget)}
+        onOpenChange={(open) => !open && setUserActionTarget(null)}
+      >
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{getBuddyName(userActionTarget) || "Chat user"}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">What would you like to do?</p>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const user = userActionTarget;
+                setUserActionTarget(null);
+                if (user) setViewedUser(user);
+              }}
+            >
+              View profile
+            </Button>
+            <Button
+              onClick={() => {
+                const user = userActionTarget;
+                setUserActionTarget(null);
+                if (user) void onMessageUser?.(user);
+              }}
+            >
+              Message
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={Boolean(viewedUser)}
         onOpenChange={(open) => {
@@ -793,6 +880,8 @@ export default function ChatWindow({
             handleForwardMessage,
             handleReaction,
             handleSend,
+            uploadProgress,
+            cancelUpload,
             handleOTPRequest,
             inputValue,
             insertEmoji,

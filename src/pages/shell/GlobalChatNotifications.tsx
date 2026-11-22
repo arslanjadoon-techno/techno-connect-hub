@@ -10,9 +10,18 @@ import {
   getMessageSenderId,
   getMessageText,
 } from "../team-chat/chatHealper";
-import { CHAT_APP_BASE_PATH } from "../team-chat/chatRoutes";
+import { CHAT_APP_BASE_PATH, getChatRoute } from "../team-chat/chatRoutes";
 import { playMessageNotificationSound, showChatNotification } from "../team-chat/chatNotifications";
 import { getNotificationLink } from "./notificationUtils";
+import { useChatRealtimeReaction } from "../team-chat/useChatRealtimeReaction";
+import {
+  getRealtimeConversationId,
+  getRealtimeMessage,
+  getRealtimeMessageId,
+} from "../team-chat/chatRealtimePayload";
+
+const EMPTY_CHAT_RECORDS: Record<string, any>[] = [];
+const EMPTY_MUTED_CHAT_IDS: string[] = [];
 
 /** Keeps chat notifications alive while the user is working elsewhere in MIS. */
 export default function GlobalChatNotifications() {
@@ -22,6 +31,13 @@ export default function GlobalChatNotifications() {
   const navigate = useNavigate();
   const notificationsRef = useRef(data.notifications);
   notificationsRef.current = data.notifications;
+  const onReaction = useChatRealtimeReaction({
+    channels: EMPTY_CHAT_RECORDS,
+    buddies: EMPTY_CHAT_RECORDS,
+    currentUserEmail: user?.email || "",
+    currentUserId: user?.id || "",
+    mutedChatIds: EMPTY_MUTED_CHAT_IDS,
+  });
 
   const addPersistentNotification = useCallback(
     (payload: any = {}) => {
@@ -53,6 +69,7 @@ export default function GlobalChatNotifications() {
           existing.type === notification.type &&
           existing.body === notification.body,
       );
+      const replacedSyntheticMessage = syntheticIndex >= 0;
       if (syntheticIndex >= 0) {
         const next = [...notificationsRef.current];
         next[syntheticIndex] = notification;
@@ -62,21 +79,33 @@ export default function GlobalChatNotifications() {
       }
       set("notifications", notificationsRef.current);
 
-      // message:new already owns browser alerts for chat messages and system
-      // messages. The persistent event only replaces the temporary bell item.
+      // Chat messages normally arrive through message:new. The shared
+      // notification:new event below is also allowed to alert, so a missed or
+      // delayed message:new does not leave users in another MIS module silent.
       const notificationType = String(notification.type || "").toLowerCase();
-      const isChatNotification =
-        notificationType === "chat_message" ||
-        notificationType === "chat_reaction" ||
-        notificationType.startsWith("chat_message:") ||
-        notificationType.startsWith("chat_reaction:");
+      const isChatMessageNotification =
+        notificationType === "chat_message" || notificationType.startsWith("chat_message:");
+      const isChatReactionNotification =
+        notificationType === "chat_reaction" || notificationType.startsWith("chat_reaction:");
       const linkedChatId = notificationType.startsWith("otp:")
         ? notificationType.slice("otp:".length)
         : "";
+      const isInsideChatModule =
+        location.pathname === CHAT_APP_BASE_PATH ||
+        location.pathname.startsWith(`${CHAT_APP_BASE_PATH}/`);
       const activeChatId = location.pathname.startsWith(`${CHAT_APP_BASE_PATH}/`)
         ? decodeURIComponent(location.pathname.slice(`${CHAT_APP_BASE_PATH}/`.length).split("/")[0])
         : "";
-      if (isChatNotification || (linkedChatId && activeChatId === linkedChatId)) return;
+      if (isInsideChatModule || (linkedChatId && activeChatId === linkedChatId)) return;
+
+      // A chat message can arrive through both notification:new and message:new.
+      // If message:new already created the temporary item and desktop alert,
+      // notification:new only replaces that item with the server notification.
+      if (isChatMessageNotification && replacedSyntheticMessage) return;
+
+      // The reaction event owns reaction alerts because it contains the message
+      // id used for reliable cross-tab deduplication.
+      if (isChatReactionNotification) return;
 
       const shown = showChatNotification({
         title: notification.title,
@@ -84,29 +113,17 @@ export default function GlobalChatNotifications() {
         tag: `app-notification-${id}`,
         dedupeKey: `notification:${id}`,
         url: notification.link,
-        onClick: () => notification.link && navigate(notification.link),
       });
       if (shown) playMessageNotificationSound();
     },
-    [location.pathname, navigate, set, user?.id],
+    [location.pathname, set, user?.id],
   );
 
   const onMessage = useCallback(
     (payload: Record<string, any> = {}) => {
-      const message =
-        payload?.message ||
-        payload?.data?.message ||
-        (payload?.data && typeof payload.data === "object" ? payload.data : payload);
-      const chatId =
-        payload?.chatId ||
-        payload?.chat_id ||
-        payload?.data?.chatId ||
-        payload?.data?.chat_id ||
-        message?.conversationId ||
-        message?.conversation_id ||
-        message?.chatId ||
-        message?.chat_id;
-      const messageId = message?.id || message?.messageId || message?.message_id;
+      const message = getRealtimeMessage(payload);
+      const chatId = getRealtimeConversationId(payload, message);
+      const messageId = getRealtimeMessageId(payload, message);
       const senderId = getMessageSenderId(message);
 
       if (!chatId || !messageId || !senderId || String(senderId) === String(user?.id)) return;
@@ -124,7 +141,7 @@ export default function GlobalChatNotifications() {
         (name) => name && !/^(chat\s*user|chatuser)$/i.test(String(name).trim()),
       ) || "New message";
       const body = getMessageText(message) || "You received a new chat message.";
-      const link = `${CHAT_APP_BASE_PATH}/${encodeURIComponent(String(chatId))}`;
+      const link = getChatRoute(chatId);
       const persistentType = `chat_message:${String(chatId)}`;
       if (
         notificationsRef.current.some(
@@ -155,14 +172,15 @@ export default function GlobalChatNotifications() {
         title: senderName,
         body,
         icon: getImageUrl(sender),
-        tag: `chat-${String(chatId)}`,
+        // Keep each message visible in browsers that replace notifications
+        // with the same tag, including Edge.
+        tag: `chat-${String(chatId)}-${String(messageId)}`,
         dedupeKey: `chat-message:${String(messageId)}`,
         url: link,
-        onClick: () => navigate(link),
       });
       if (shown) playMessageNotificationSound();
     },
-    [location.pathname, navigate, set, user?.id],
+    [location.pathname, set, user?.id],
   );
 
   useEffect(() => {
@@ -170,9 +188,38 @@ export default function GlobalChatNotifications() {
       addPersistentNotification((event as CustomEvent).detail);
     };
 
+    const navigateToNotification = (value: unknown) => {
+      if (typeof value !== "string" || !value.trim()) return;
+
+      try {
+        const target = new URL(value, window.location.origin);
+        if (target.origin !== window.location.origin) return;
+
+        navigate(`${target.pathname}${target.search}${target.hash}`);
+      } catch {
+        // Ignore malformed notification URLs instead of leaving the app shell.
+      }
+    };
+
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type !== "chat-notification-click") return;
+      navigateToNotification(event.data.url);
+    };
+
+    const handlePageNotificationClick = (event: Event) => {
+      navigateToNotification((event as CustomEvent<{ url?: unknown }>).detail?.url);
+    };
+
     window.addEventListener("app:notification", handleWindowNotification);
-    return () => window.removeEventListener("app:notification", handleWindowNotification);
-  }, [addPersistentNotification]);
+    window.addEventListener("chat-notification-click", handlePageNotificationClick);
+    navigator.serviceWorker?.addEventListener("message", handleServiceWorkerMessage);
+
+    return () => {
+      window.removeEventListener("app:notification", handleWindowNotification);
+      window.removeEventListener("chat-notification-click", handlePageNotificationClick);
+      navigator.serviceWorker?.removeEventListener("message", handleServiceWorkerMessage);
+    };
+  }, [addPersistentNotification, navigate]);
 
   useChatRealtime({
     // The Chat page has its own stateful realtime connection. Keep this shell
@@ -180,6 +227,7 @@ export default function GlobalChatNotifications() {
     // connections or process the same event twice while Chat is open.
     enabled: Boolean(user) && !location.pathname.startsWith(CHAT_APP_BASE_PATH),
     onMessage,
+    onReactionAdded: onReaction,
     onNotification: addPersistentNotification,
   });
 

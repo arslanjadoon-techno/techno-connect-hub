@@ -33,22 +33,39 @@ const requestTypes = [
 ];
 
 const MAX_NOTES = 500;
+const MAX_OTPS = 3;
 
 type OTPRequest = {
   type: string;
   amount: number;
+  otpCount: number;
+  storeId: string;
+  storeName: string;
   notes: string;
+};
+
+type OTPStore = {
+  id: string;
+  name: string;
 };
 
 type OTPflowProps = {
   onSubmit?: (request: OTPRequest) => void | Promise<void>;
+  currentStore?: OTPStore;
+  stores?: OTPStore[];
 };
 
-export default function OTPflow({ onSubmit }: OTPflowProps) {
+export default function OTPflow({
+  onSubmit,
+  currentStore = { id: "", name: "" },
+  stores = [],
+}: OTPflowProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [selectedType, setSelectedType] = useState("");
   const [amount, setAmount] = useState("");
+  const [otpCount, setOtpCount] = useState("1");
+  const [selectedStoreId, setSelectedStoreId] = useState(currentStore.id);
   const [notes, setNotes] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -74,10 +91,16 @@ export default function OTPflow({ onSubmit }: OTPflowProps) {
     };
   }, []);
 
+  useEffect(() => {
+    setSelectedStoreId(currentStore.id);
+  }, [currentStore.id]);
+
   const reset = () => {
     setStep(1);
     setSelectedType("");
     setAmount("");
+    setOtpCount("1");
+    setSelectedStoreId(currentStore.id);
     setNotes("");
     setError("");
   };
@@ -88,12 +111,29 @@ export default function OTPflow({ onSubmit }: OTPflowProps) {
   };
 
   const selected = requestTypes.find((item) => item.id === selectedType);
-  const canSubmit = !!amount && Number(amount) > 0 && !!notes.trim();
+  const parsedOtpCount = Number(otpCount);
+  const hasValidOtpCount =
+    Number.isInteger(parsedOtpCount) && parsedOtpCount >= 1 && parsedOtpCount <= MAX_OTPS;
+  const storeOptions = stores.filter((store) => store.id && store.name.trim());
+  const selectedStore =
+    storeOptions.find((store) => store.id === selectedStoreId) ?? currentStore;
+  const normalizedCurrentStore = selectedStore.name.trim();
+  const canSubmit =
+    !!amount &&
+    Number(amount) > 0 &&
+    hasValidOtpCount &&
+    !!selectedStore.id &&
+    !!normalizedCurrentStore &&
+    !!notes.trim();
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!selectedType || !canSubmit) {
-      setError("Enter an amount above 0 and a reason.");
+      setError(
+        normalizedCurrentStore
+          ? `Enter an amount above 0, choose 1-${MAX_OTPS} OTPs, and add a reason.`
+          : "Your user account does not have a current store assigned.",
+      );
       return;
     }
 
@@ -103,6 +143,9 @@ export default function OTPflow({ onSubmit }: OTPflowProps) {
       await onSubmit?.({
         type: selectedType,
         amount: Number(amount),
+        otpCount: parsedOtpCount,
+        storeId: selectedStore.id,
+        storeName: normalizedCurrentStore,
         notes: notes.trim(),
       });
       close();
@@ -204,13 +247,13 @@ export default function OTPflow({ onSubmit }: OTPflowProps) {
               ))}
             </ul>
           ) : (
-            <form onSubmit={submit} className="space-y-3.5 p-3.5">
+            <form onSubmit={submit} className="space-y-2.5 p-3">
               <div className="space-y-1.5">
                 <label htmlFor="otp-amount" className="text-xs font-medium">
                   Amount
                 </label>
-                <div className="flex h-10 items-center overflow-hidden rounded-lg border bg-background transition-shadow focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
-                  <span className="flex h-full w-9 items-center justify-center border-r bg-muted/50 text-muted-foreground">
+                <div className="flex h-9 items-center overflow-hidden rounded-lg border bg-background transition-shadow focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30">
+                  <span className="flex h-full w-8 items-center justify-center border-r bg-muted/50 text-muted-foreground">
                     $
                   </span>
                   <input
@@ -230,6 +273,56 @@ export default function OTPflow({ onSubmit }: OTPflowProps) {
               </div>
 
               <div className="space-y-1.5">
+                <label htmlFor="otp-count" className="text-xs font-medium">
+                  How many OTPs are needed?
+                </label>
+                <select
+                  id="otp-count"
+                  required
+                  value={otpCount}
+                  onChange={(e) => setOtpCount(e.target.value)}
+                  className="h-9 w-full rounded-lg border bg-background px-3 text-sm font-medium tabular-nums outline-none transition-shadow focus:border-ring focus:ring-2 focus:ring-ring/30"
+                >
+                  {Array.from({ length: MAX_OTPS }, (_, index) => {
+                    const count = String(index + 1);
+                    return (
+                      <option key={count} value={count}>
+                        {count}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="otp-current-store" className="text-xs font-medium">
+                  Current store
+                </label>
+                {storeOptions.length > 1 ? (
+                  <select
+                    id="otp-current-store"
+                    value={selectedStoreId}
+                    onChange={(e) => setSelectedStoreId(e.target.value)}
+                    className="h-9 w-full rounded-lg border bg-background px-3 text-sm font-medium outline-none transition-shadow focus:border-ring focus:ring-2 focus:ring-ring/30"
+                  >
+                    {storeOptions.map((store) => (
+                      <option key={store.id} value={store.id}>
+                        {store.name}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    id="otp-current-store"
+                    type="text"
+                    readOnly
+                    value={normalizedCurrentStore || "No store assigned"}
+                    className="h-9 w-full rounded-lg border bg-muted/40 px-3 text-sm font-medium text-muted-foreground outline-none"
+                  />
+                )}
+              </div>
+
+              <div className="space-y-1.5">
                 <div className="flex items-baseline justify-between">
                   <label htmlFor="otp-notes" className="text-xs font-medium">
                     Reason
@@ -241,7 +334,7 @@ export default function OTPflow({ onSubmit }: OTPflowProps) {
                 <textarea
                   id="otp-notes"
                   required
-                  rows={3}
+                  rows={2}
                   maxLength={MAX_NOTES}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -262,7 +355,7 @@ export default function OTPflow({ onSubmit }: OTPflowProps) {
               <button
                 type="submit"
                 disabled={sending || !canSubmit}
-                className="flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm outline-none transition hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+                className="flex h-9 w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground shadow-sm outline-none transition hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-popover active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
               >
                 {sending ? <Loader2 size={15} className="animate-spin" /> : <Send size={14} />}
                 {sending ? "Sending request" : "Send request"}

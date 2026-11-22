@@ -395,6 +395,7 @@ export default function ChatWindowHeader(props: Record<string, any>) {
             setGroupInfoOpen(false);
             onOpenAddMembers?.();
           }}
+          onViewUser={onViewUser}
           onOpenMedia={() => setMediaDialogOpen(true)}
           onClearChat={onClearChat}
           onOpenLeaveConfirm={() => setLeaveConfirmOpen(true)}

@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { normalizeRealtimeMessage, resolveLocalChatKey } from "./chatMessageNormalization";
 import { getCachedChatMessages, saveCachedChatMessages } from "./chatMessageIndexedDb";
 import { mergeChatMessages } from "./chatMessageState";
+import { getRealtimeConversationId, getRealtimeMessage } from "./chatRealtimePayload";
 
 export function useChatRealtimeMessageUpdate({
   channels,
@@ -14,27 +15,19 @@ export function useChatRealtimeMessageUpdate({
     (payload: any = {}) => {
       // Accept both wrapped notifications and raw message DTOs from realtime
       // producers during deployments and system-message fanout.
-      const wrappedMessage = payload?.message;
-      const message =
-        wrappedMessage && typeof wrappedMessage === "object" ? wrappedMessage : payload;
-      const chatId =
-        payload?.chatId ??
-        payload?.chat_id ??
-        message?.chatId ??
-        message?.chat_id ??
-        message?.conversationId ??
-        message?.conversation_id;
+      const message = getRealtimeMessage(payload);
+      const chatId = getRealtimeConversationId(payload, message);
 
       if (!chatId || !message) return;
 
       const localKey = resolveLocalChatKey({ chatId, channels, buddies, currentUserId });
       const normalizedMessage = normalizeRealtimeMessage(message, {
         ...(selectedChat || {}),
-        id: localKey || selectedChat?.id,
+        id: localKey || selectedChat?.id || chatId,
         currentUserId,
       });
 
-      if (!localKey || !normalizedMessage) return;
+      if (!normalizedMessage) return;
 
       const stateKeys = Array.from(
         new Set(
@@ -45,13 +38,11 @@ export function useChatRealtimeMessageUpdate({
       setMessagesByChat((previous: Record<string, any[]>) => {
         const next = { ...previous };
         stateKeys.forEach((key) => {
-          next[key] = mergeChatMessages(
-            (previous[key] || []).map((item) =>
-              String(item.id) === String(normalizedMessage.id)
-                ? mergeChatMessages([item], [normalizedMessage])[0]
-                : item,
-            ),
-          );
+          const current = previous[key] || [];
+          // message:updated contains the authoritative message, including its
+          // complete reaction list. Merge it even when one local alias bucket
+          // has not been populated yet; this is common for direct chats.
+          next[key] = mergeChatMessages(current, [normalizedMessage]);
         });
         return next;
       });
@@ -64,12 +55,7 @@ export function useChatRealtimeMessageUpdate({
           const cached = await getCachedChatMessages(key);
           if (cached.length === 0) return;
 
-          const updated = cached.map((item) => {
-            const itemId = item.id ?? item.message_id ?? item.messageId;
-            return String(itemId) === String(normalizedMessage.id)
-              ? mergeChatMessages([item], [normalizedMessage])[0]
-              : item;
-          });
+          const updated = mergeChatMessages(cached, [normalizedMessage]);
 
           const ordered = mergeChatMessages(updated);
           if (ordered.some((item, index) => item !== cached[index])) {

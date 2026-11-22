@@ -1,4 +1,10 @@
-import { useRef, useState, type ChangeEvent, type SetStateAction } from "react";
+import {
+  useCallback,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type SetStateAction,
+} from "react";
 import { parseChatDate } from "./chatHealper";
 
 export function useChatComposer() {
@@ -13,7 +19,7 @@ export function useChatComposer() {
 
   // Keep the refs in sync synchronously. A second click can otherwise run
   // against the previous render before React commits the cleared composer.
-  const setComposerInputValue = (value: SetStateAction<string>) => {
+  const setComposerInputValue = useCallback((value: SetStateAction<string>) => {
     if (typeof value === "function") {
       inputValueRef.current = value(inputValueRef.current);
       setInputValue(value);
@@ -22,9 +28,9 @@ export function useChatComposer() {
 
     inputValueRef.current = value;
     setInputValue(value);
-  };
+  }, []);
 
-  const setComposerPendingFiles = (value: SetStateAction<File[]>) => {
+  const setComposerPendingFiles = useCallback((value: SetStateAction<File[]>) => {
     if (typeof value === "function") {
       pendingFilesRef.current = value(pendingFilesRef.current);
       setPendingFiles(value);
@@ -33,7 +39,7 @@ export function useChatComposer() {
 
     pendingFilesRef.current = value;
     setPendingFiles(value);
-  };
+  }, []);
 
   const handleFileUpload = (event: ChangeEvent<HTMLInputElement>, selectedChat: any) => {
     const files = Array.from(event.target.files || []);

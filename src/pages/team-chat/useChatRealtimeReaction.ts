@@ -1,26 +1,25 @@
 import { useCallback } from "react";
 import { getImageUrl, getMessageText } from "./chatHealper";
-import { resolveLocalChatKey } from "./chatMessageNormalization";
 import { showChatNotification } from "./chatNotifications";
-import { CHAT_APP_BASE_PATH } from "./chatRoutes";
+import { getChatRoute } from "./chatRoutes";
+import {
+  getRealtimeConversationId,
+  getRealtimeMessage,
+  getRealtimeReaction,
+  getRealtimeReactionEmoji,
+} from "./chatRealtimePayload";
 
 export function useChatRealtimeReaction({
-  channels,
-  buddies,
   currentUserEmail,
   currentUserId,
   mutedChatIds,
-  navigate,
 }: any) {
   return useCallback(
-    ({ chatId, reaction, message: rawMessage }: any) => {
-      // Older backend builds wrapped the message one extra time inside the
-      // reaction payload. Accept both shapes so the notification never renders
-      // an object as "[object Object]" during a rolling deployment.
-      const message =
-        rawMessage?.message && typeof rawMessage.message === "object"
-          ? rawMessage.message
-          : rawMessage;
+    (payload: any = {}) => {
+      const reaction = getRealtimeReaction(payload);
+      const reactionEmoji = getRealtimeReactionEmoji(reaction);
+      const message = getRealtimeMessage(payload);
+      const chatId = getRealtimeConversationId(payload, message);
       const actor =
         reaction?.actor ||
         reaction?.user ||
@@ -33,6 +32,9 @@ export function useChatRealtimeReaction({
           actor?.userId ||
           actor?.user_id ||
           actor?.appUserId ||
+          actor?.app_user_id ||
+          actor?.identityId ||
+          actor?.identity_id ||
           "",
       );
       const actorEmail = String(
@@ -40,33 +42,28 @@ export function useChatRealtimeReaction({
       ).toLowerCase();
       if (
         !chatId ||
-        !reaction?.emoji ||
+        !reactionEmoji ||
         mutedChatIds.includes(String(chatId)) ||
         (actorId && actorId === String(currentUserId)) ||
         (actorEmail && actorEmail === String(currentUserEmail).toLowerCase())
       )
         return;
 
-      const localKey = resolveLocalChatKey({ chatId, channels, buddies, currentUserId });
       const actorName =
-        actor?.name ||
-        actor?.display_name ||
-        actor?.displayName ||
-        actor?.email ||
-        "Someone";
+        actor?.name || actor?.display_name || actor?.displayName || actor?.email || "Someone";
       const messagePreview = getMessageText(message);
       showChatNotification({
-        title: `${actorName} reacted ${reaction.emoji}`,
+        title: `${actorName} reacted ${reactionEmoji}`,
         body: messagePreview ? `To your message: ${messagePreview}` : "To your message",
         icon: getImageUrl(actor),
-        tag: `reaction-${chatId}-${message?.id || message?.message_id || ""}`,
-        dedupeKey: `chat-reaction:${String(chatId)}:${String(message?.id || message?.message_id || "")}:${String(reaction?.emoji)}`,
-        url: `${CHAT_APP_BASE_PATH}/${encodeURIComponent(localKey || chatId)}`,
-        onClick: () => {
-          if (localKey) navigate(`${CHAT_APP_BASE_PATH}/${encodeURIComponent(localKey)}`);
-        },
+        tag: `reaction-${chatId}-${message?.id || message?.message_id || ""}-${String(reactionEmoji)}`,
+        dedupeKey: `chat-reaction:${String(chatId)}:${String(message?.id || message?.message_id || "")}:${String(reactionEmoji)}`,
+        // chatId is the persisted conversation ID. The local message store
+        // may use a participant/user ID for direct chats, but that ID must
+        // never be used as the notification route.
+        url: getChatRoute(chatId),
       });
     },
-    [buddies, channels, currentUserEmail, currentUserId, mutedChatIds, navigate],
+    [currentUserEmail, currentUserId, mutedChatIds],
   );
 }
