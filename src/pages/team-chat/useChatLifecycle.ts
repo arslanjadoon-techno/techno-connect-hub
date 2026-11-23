@@ -1,11 +1,5 @@
-import { useEffect, useMemo } from "react";
-import {
-  getBuddyEmail,
-  getBuddyName,
-  getBuddySendId,
-  getChannelId,
-  getChannelName,
-} from "./chatHealper";
+import { useEffect, useMemo, useRef } from "react";
+import { getBuddyEmail, getBuddyName, getChannelId, getChannelName } from "./chatHealper";
 
 type ChatRecord = Record<string, any>;
 
@@ -18,6 +12,7 @@ type ChatLifecycleOptions = {
   loadChannelHistory: (chat: ChatRecord) => Promise<unknown>;
   loadDirectChatHistory: (chat: ChatRecord) => Promise<unknown>;
   loadedChatHistoryRef: { current: Set<string> };
+  routeChatId?: string;
   searchTerm: string;
   selectedChat: ChatRecord | null;
   setCallMinimized: (value: boolean) => void;
@@ -35,6 +30,7 @@ export function useChatLifecycle({
   loadChannelHistory,
   loadDirectChatHistory,
   loadedChatHistoryRef,
+  routeChatId,
   searchTerm,
   selectedChat,
   setCallMinimized,
@@ -42,12 +38,43 @@ export function useChatLifecycle({
   setPendingFiles,
   setReplyToMessage,
 }: ChatLifecycleOptions) {
+  const previousRouteChatIdRef = useRef<string | undefined>(undefined);
+  const historySelectedChatRef = useRef(selectedChat);
+  historySelectedChatRef.current = selectedChat;
+  const historyChatId = String(selectedChat?.id ?? "");
+  const historyConversationId = String(selectedChat?.chatId ?? "");
+  const historyChatType = String(selectedChat?.type ?? "");
+
   useEffect(() => {
-    if (initialFetchStartedRef.current) return;
+    const normalizedRouteChatId = routeChatId ? String(routeChatId) : "";
+    const previousRouteChatId = previousRouteChatIdRef.current;
+    previousRouteChatIdRef.current = normalizedRouteChatId;
+
+    if (initialFetchStartedRef.current) {
+      if (previousRouteChatId === normalizedRouteChatId || !normalizedRouteChatId) return;
+
+      // Selecting a row already updates selectedChat before navigation. In
+      // that case the route is only reflecting the current in-memory chat;
+      // refetching every sidebar, status, and settings endpoint makes the
+      // conversation appear to refresh on each click.
+      const selectedRouteChatId =
+        selectedChat?.type === "person"
+          ? selectedChat.chatId || selectedChat.raw?.chatId || selectedChat.raw?.chat_id
+          : selectedChat?.id || selectedChat?.chatId;
+      if (
+        selectedRouteChatId &&
+        String(selectedRouteChatId) === normalizedRouteChatId
+      ) {
+        return;
+      }
+
+      void fetchChatData();
+      return;
+    }
 
     initialFetchStartedRef.current = true;
-    fetchChatData();
-  }, [fetchChatData]);
+    void fetchChatData();
+  }, [fetchChatData, initialFetchStartedRef, routeChatId, selectedChat]);
 
   useEffect(() => {
     const query = searchTerm.trim();
@@ -64,30 +91,40 @@ export function useChatLifecycle({
   }, [searchChatUsers, searchTerm]);
 
   useEffect(() => {
+    const chat = historySelectedChatRef.current;
+    if (!chat) return;
     if (
-      selectedChat?.type === "person" &&
-      selectedChat.id &&
-      !loadedChatHistoryRef.current.has(selectedChat.id)
+      historyChatType === "person" &&
+      historyChatId &&
+      !loadedChatHistoryRef.current.has(historyChatId)
     ) {
-      loadDirectChatHistory(selectedChat);
+      loadDirectChatHistory(chat);
     }
-  }, [loadDirectChatHistory, selectedChat]);
+  }, [
+    historyChatId,
+    historyChatType,
+    historyConversationId,
+    loadDirectChatHistory,
+    loadedChatHistoryRef,
+  ]);
 
   useEffect(() => {
+    const chat = historySelectedChatRef.current;
+    if (!chat) return;
     if (
-      selectedChat?.type === "channel" &&
-      selectedChat.id &&
-      !loadedChatHistoryRef.current.has(selectedChat.id)
+      historyChatType === "channel" &&
+      historyChatId &&
+      !loadedChatHistoryRef.current.has(historyChatId)
     ) {
-      loadChannelHistory(selectedChat);
+      loadChannelHistory(chat);
     }
-  }, [loadChannelHistory, selectedChat]);
+  }, [historyChatId, historyChatType, loadChannelHistory, loadedChatHistoryRef]);
 
   useEffect(() => {
     setPendingFiles([]);
     setReplyToMessage(null);
     setEditingMessage(null);
-  }, [selectedChat?.id]);
+  }, [selectedChat?.id, setEditingMessage, setPendingFiles, setReplyToMessage]);
 
   const filteredItems = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -100,27 +137,11 @@ export function useChatLifecycle({
     });
   }, [conversationItems, searchTerm]);
 
-  useEffect(() => {
-    if (!import.meta.env.DEV) return;
-    console.groupCollapsed("[Pingly chat] rendered conversation list");
-    console.table(
-      filteredItems.map((item) => ({
-        tab: item.__conversationType === "channel" ? "Groups" : "Chats",
-        name: item.__conversationType === "channel" ? getChannelName(item) : getBuddyName(item),
-        id: item.__conversationType === "channel" ? getChannelId(item) : getBuddySendId(item),
-        conversationId: item.directConversationId || item.chatId || item.chat_id || item.id,
-        lastActivity:
-          item.lastMessageAt || item.lastMessage?.createdAt || item.lastMessageTime || "",
-      })),
-    );
-    console.groupEnd();
-  }, [filteredItems]);
-
   const activeCallIsAccepted = activeCall?.status === "accepted";
 
   useEffect(() => {
     if (activeCall?.id) setCallMinimized(false);
-  }, [activeCall?.id]);
+  }, [activeCall?.id, setCallMinimized]);
 
   return { activeCallIsAccepted, filteredItems };
 }

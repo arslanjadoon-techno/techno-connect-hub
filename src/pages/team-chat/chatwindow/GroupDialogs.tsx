@@ -175,6 +175,8 @@ interface GroupCreationDialogProps {
   onTitleChange: (value: string) => void;
   creating: boolean;
   loading?: boolean;
+  hasMoreMembers?: boolean;
+  onLoadMoreMembers?: () => void;
   page?: boolean;
 }
 
@@ -195,6 +197,8 @@ function GroupCreationForm({
   onTitleChange,
   creating,
   loading = false,
+  hasMoreMembers = false,
+  onLoadMoreMembers,
   listClassName,
   header,
   footerClassName = "",
@@ -251,6 +255,17 @@ function GroupCreationForm({
           isChecked={(userId) => selectedMembers.some((member) => idOf(member) === userId)}
           onToggle={onSelectMember}
         />
+        {hasMoreMembers && onLoadMoreMembers && (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={onLoadMoreMembers}
+            disabled={loading}
+          >
+            Load more people
+          </Button>
+        )}
       </div>
 
       <div className={`flex items-center justify-end gap-2 ${footerClassName}`}>
@@ -335,6 +350,8 @@ interface AddMembersDialogProps {
   selectedIds: string[];
   adding: boolean;
   loading?: boolean;
+  hasMoreMembers?: boolean;
+  onLoadMoreMembers?: () => void;
   onSearchChange?: (value: string) => void;
 }
 
@@ -349,6 +366,8 @@ export function AddMembersDialog({
   adding,
   onSearchChange,
   loading = false,
+  hasMoreMembers = false,
+  onLoadMoreMembers,
 }: AddMembersDialogProps) {
   const [search, setSearch] = useState("");
 
@@ -400,6 +419,17 @@ export function AddMembersDialog({
             isChecked={(userId) => selectedIds.includes(userId)}
             onToggle={onSelect}
           />
+          {hasMoreMembers && onLoadMoreMembers && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              onClick={onLoadMoreMembers}
+              disabled={loading}
+            >
+              Load more people
+            </Button>
+          )}
         </div>
 
         <DialogFooter>

@@ -45,8 +45,17 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         ? "notes"
         : "conversations";
   const showConversationSidebar = bodyView === "conversations" && !groupPage;
-  const { id } = useParams();
+  const routeParams = useParams();
+  const wildcardSegments = String(routeParams["*"] || "")
+    .split("/")
+    .filter(Boolean);
+  const wildcardId = wildcardSegments[0];
+  const nonConversationSegments = new Set(["calls", "media", "notes", "groups"]);
+  const id =
+    routeParams.id ||
+    (wildcardId && !nonConversationSegments.has(wildcardId.toLowerCase()) ? wildcardId : undefined);
   const pageState = useChatPageState();
+  const pendingSendRetryRef = useRef<((clientMessageId: string) => Promise<void>) | null>(null);
   const {
     activeCall,
     addMemberUserIds,
@@ -143,7 +152,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     setProfileUser,
     setSearchTerm,
     setSelectedChat,
-    setStatusSaving,
     setTab,
     setTypingUsersByChat,
   } = pageState;
@@ -162,13 +170,12 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     setEditingMessage,
     pendingFiles,
     setPendingFiles,
-    sending,
-    setSending,
-    uploading,
-    setUploading,
+    editingSaving,
+    setEditingSaving,
     sendError,
     setSendError,
-    sendClickLockRef,
+    inputValueRef,
+    pendingFilesRef,
     handleFileUpload,
     removePendingFile,
     handleVoiceMessage,
@@ -244,10 +251,8 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     clearUnreadForChat,
     isSelfConversation,
     loadOlderMessages,
-    handleStatusChange,
     handleToggleChatMute,
     handleClearChat,
-    markChatAsRead,
   } = useChatRuntime({
     ...pageState,
     blockedUserIds,
@@ -255,6 +260,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     navigate,
     onNotification: handleRealtimeNotification,
     requestConfirmation,
+    pendingSendRetryRef,
     setSendError,
     callsEnabled: CALLS_ENABLED,
   });
@@ -297,6 +303,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     loadedChatHistoryRef,
     searchTerm,
     selectedChat,
+    routeChatId: id,
     setCallMinimized,
     setEditingMessage,
     setPendingFiles,
@@ -308,7 +315,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     currentUserEmail,
     currentUserId,
     loadedChatHistoryRef,
-    markChatAsRead,
     navigate,
     setSelectedChat,
     setSendError,
@@ -319,6 +325,8 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     groupMembers,
     handleAddGroupMembers,
     handleCreateGroup,
+    loadMoreManagedUsers,
+    managedUsersHasMore,
     openAddMembersDialog,
     selectedGroupMembers,
     selectedGroupParticipantIds,
@@ -344,19 +352,20 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
       setSendError,
     });
 
-  const handleSend = useChatSend({
+  const { handleSend, uploadProgress, cancelUpload } = useChatSend({
     blockedUserIds,
     currentUser,
     currentUserId,
     editingMessage,
-    inputValue,
-    pendingFiles,
+    inputValueRef,
+    pendingFilesRef,
+    pendingSendRetryRef,
     refreshSelectedChatMessages,
     replyToMessage,
     selectedChat,
     selectedMentionableUsers,
-    sendClickLockRef,
     setEditingMessage,
+    setEditingSaving,
     setInputValue,
     setMessagesByChat,
     setPendingFiles,
@@ -365,14 +374,50 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     setBuddies,
     setChannels,
     setSendError,
-    setSending,
-    setUploading,
     uniqueUsersByIdentity,
   });
 
-  const handleOTPRequest = async (request: { type: string; amount: number; notes: string }) => {
+  const handleOTPRequest = async (request: {
+    type: string;
+    amount: number;
+    otpCount: number;
+    storeId: string;
+    storeName: string;
+    notes: string;
+  }) => {
     if (!canRequestOtp(permissions)) {
       setSendError("You do not have permission to request an OTP.");
+      return;
+    }
+
+    if (!Number.isInteger(request.otpCount) || request.otpCount < 1 || request.otpCount > 3) {
+      setSendError("You can request between 1 and 3 OTPs.");
+      return;
+    }
+
+    const assignedStores = Array.isArray(currentUser?.stores)
+      ? currentUser.stores
+          .map((store: Record<string, unknown>) => ({
+            id: String(store?.id ?? "").trim(),
+            name: String(store?.name ?? "").trim(),
+          }))
+          .filter((store: { id: string; name: string }) => store.id && store.name)
+      : [];
+    const fallbackStore = {
+      id: String(currentUser?.store?.id ?? currentUser?.storeId ?? "").trim(),
+      name: String(
+        currentUser?.store?.name || currentUser?.storeName || currentUser?.store_name || "",
+      ).trim(),
+    };
+    const requestedStore =
+      assignedStores.find(
+        (store) => store.id === request.storeId && store.name === request.storeName.trim(),
+      ) ??
+      (!assignedStores.length && fallbackStore.id && fallbackStore.name === request.storeName.trim()
+        ? fallbackStore
+        : null);
+    if (!requestedStore) {
+      setSendError("Your user account does not have a current store assigned.");
       return;
     }
 
@@ -385,7 +430,12 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
     const requesterName =
       currentUser?.name || currentUser?.displayName || currentUser?.fullName || "A team member";
     await handleSend(
-      `🔐 OTP Request\n👤 Requested by: ${requesterName}\n📋 Type: ${requestType}\n💰 Amount: $${request.amount.toFixed(2)}\n📝 Reason: ${request.notes}`,
+      [
+        `🔐 OTP Request\n👤 Requested by: ${requesterName}\n📋 Type: ${requestType}\n💰 Amount: $${request.amount.toFixed(2)}\n📝 Reason: ${request.notes}`,
+        `OTPs needed: ${request.otpCount}`,
+        `🏪 Current store ID: ${requestedStore.id}`,
+        `🏪 Current store: ${requestedStore.name}`,
+      ].join("\n"),
     );
   };
 
@@ -456,6 +506,9 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         handleReplyToMessage,
         handleRespondToCall,
         handleSend,
+        onVoiceError: setSendError,
+        uploadProgress,
+        cancelUpload,
         handleStartConversationCall,
         openAddMembersDialog,
         handleToggleChatMute,
@@ -471,7 +524,9 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         loadOlderMessages,
         loading,
         loadingOlderMessages,
+        loadMoreManagedUsers,
         managedUsersLoading,
+        managedUsersHasMore,
         messageInfoVersions,
         mutedChatIds,
         navigate,
@@ -489,7 +544,7 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         selectedGroupMembers,
         selectedMentionableUsers,
         sendError,
-        sending,
+        editingSaving,
         setAddMembersDialogOpen,
         setGroupDialogOpen,
         setGroupSearch,
@@ -507,7 +562,6 @@ export default function ChatSystem({ standalone = false, adminPage = false }) {
         toggleGroupUser,
         typingUsersByChat,
         userSearchLoading,
-        uploading,
       }}
     />
   );

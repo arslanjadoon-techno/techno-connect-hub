@@ -9,21 +9,7 @@ export interface AppRailItem {
   label: string;
 }
 
-export interface StatusOption {
-  value: string;
-  label: string;
-  color: string;
-}
-
 export const appRailItems: AppRailItem[] = [{ key: "conversations", label: "All conversations" }];
-
-export const statusOptions: StatusOption[] = [
-  { value: "online", label: "Online", color: "#22c55e" },
-  { value: "away", label: "Away", color: "#f59e0b" },
-  { value: "busy", label: "Busy", color: "#ef4444" },
-  { value: "dnd", label: "Do not disturb", color: "#dc2626" },
-  { value: "offline", label: "Offline", color: "#9aa3af" },
-];
 
 /** First letter of a name for avatar fallbacks. Safe for emoji and other multi-unit characters. */
 export const getInitial = (value: unknown): string => {
@@ -83,6 +69,18 @@ export const getDeliveryState = (item: ChatItem): string =>
       item?.delivery_state ||
       item?.messageStatus ||
       item?.message_status ||
+      item?.deliveryStatus ||
+      item?.delivery_status ||
+      item?.sendState ||
+      item?.send_state ||
+      item?.lastMessage?.deliveryStatus ||
+      item?.lastMessage?.delivery_status ||
+      item?.lastMessage?.sendState ||
+      item?.lastMessage?.send_state ||
+      item?.last_message?.deliveryStatus ||
+      item?.last_message?.delivery_status ||
+      item?.last_message?.sendState ||
+      item?.last_message?.send_state ||
       item?.lastMessage?.status ||
       item?.last_message?.status ||
       "",

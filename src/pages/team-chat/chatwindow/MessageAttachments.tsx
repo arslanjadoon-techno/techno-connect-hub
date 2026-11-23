@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Download, FileText, Music2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { downloadAttachment, getFileUrl } from "../chatHealper";
+import { getChatFileUrlService } from "@/services/Team-chat/chat.service";
 
 type RecordValue = Record<string, any>;
 
@@ -44,7 +45,7 @@ function DownloadLink({
       title="Download"
       onClick={(event) => {
         event.stopPropagation();
-        downloadAttachment(event.nativeEvent, file);
+        downloadAttachment(event.nativeEvent, { ...file, url });
       }}
       className={`flex shrink-0 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${className || "h-8 w-8"}`}
     >
@@ -242,70 +243,98 @@ export default function MessageAttachments({
   return (
     <>
       {attachments.map((file, index) => {
-        const contentType = String(file.contentType || "").toLowerCase();
-        const fileName = String(file.name || "Attachment");
-        const fileKind = getFileKind(fileName, contentType);
-        const fileSize = formatFileSize(file.size);
-        const url = getFileUrl(file);
-        const key = file.id || index;
-        const isImage = contentType.startsWith("image/") || IMAGE_EXT.test(fileName);
-        const isAudio = contentType.startsWith("audio/") || AUDIO_EXT.test(fileName);
-        const isPdf = contentType === "application/pdf" || /\.pdf$/i.test(fileName);
-
-        if (isImage && url) {
-          return (
-            <ImageAttachment
-              key={key}
-              file={file}
-              fileName={fileName}
-              fileKind={fileKind}
-              fileSize={fileSize}
-              url={url}
-            />
-          );
-        }
-
-        if (isAudio && url) {
-          return (
-            <div key={key} className="mt-1 w-full min-w-[240px] max-w-[320px]">
-              <div className="flex items-center gap-2">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <Music2 className="h-4 w-4" />
-                </span>
-                <audio controls preload="metadata" src={url} className="h-9 min-w-0 flex-1" />
-              </div>
-              <p className="mt-0.5 truncate pl-11 text-xs text-muted-foreground" title={fileName}>
-                {fileName}
-                {fileSize ? `, ${fileSize}` : ""}
-              </p>
-            </div>
-          );
-        }
-
-        if (isPdf && url) {
-          return (
-            <DocumentAttachment
-              key={key}
-              file={file}
-              fileName={fileName}
-              fileKind={fileKind}
-              fileSize={fileSize}
-              url={url}
-            />
-          );
-        }
-
-        return (
-          <FileCard
-            key={key}
-            file={file}
-            fileName={fileName}
-            fileKind={fileKind}
-            fileSize={fileSize}
-            url={url}
-          />
-        );
+        return <AttachmentItem key={file.id || index} file={file} />;
       })}
     </>
+  );
+}
+
+function AttachmentItem({ file }: { file: RecordValue }) {
+  const sourceUrl = getFileUrl(file);
+  const [url, setUrl] = useState(sourceUrl);
+  const attachmentId = String(file.id || "").trim();
+
+  useEffect(() => {
+    if (sourceUrl) {
+      setUrl(sourceUrl);
+      return;
+    }
+    if (!attachmentId) return;
+
+    let active = true;
+    getChatFileUrlService(attachmentId)
+      .then((response: any) => {
+        const resolvedUrl = String(
+          response?.data?.data?.url || response?.data?.url || response?.url || "",
+        ).trim();
+        if (active && resolvedUrl) setUrl(resolvedUrl);
+      })
+      .catch(() => {
+        // The file card remains visible even when a signed URL cannot be refreshed.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [attachmentId, sourceUrl]);
+
+  const contentType = String(file.contentType || "").toLowerCase();
+  const fileName = String(file.name || "Attachment");
+  const fileKind = getFileKind(fileName, contentType);
+  const fileSize = formatFileSize(file.size);
+  const isImage = contentType.startsWith("image/") || IMAGE_EXT.test(fileName);
+  const isAudio = contentType.startsWith("audio/") || AUDIO_EXT.test(fileName);
+  const isPdf = contentType === "application/pdf" || /\.pdf$/i.test(fileName);
+  const resolvedFile = url ? { ...file, url } : file;
+
+  if (isImage && url) {
+    return (
+      <ImageAttachment
+        file={resolvedFile}
+        fileName={fileName}
+        fileKind={fileKind}
+        fileSize={fileSize}
+        url={url}
+      />
+    );
+  }
+
+  if (isAudio && url) {
+    return (
+      <div className="mt-1 w-full min-w-[240px] max-w-[320px]">
+        <div className="flex items-center gap-2">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Music2 className="h-4 w-4" />
+          </span>
+          <audio controls preload="metadata" src={url} className="h-9 min-w-0 flex-1" />
+        </div>
+        <p className="mt-0.5 truncate pl-11 text-xs text-muted-foreground" title={fileName}>
+          {fileName}
+          {fileSize ? `, ${fileSize}` : ""}
+        </p>
+      </div>
+    );
+  }
+
+  if (isPdf && url) {
+    return (
+      <DocumentAttachment
+        file={resolvedFile}
+        fileName={fileName}
+        fileKind={fileKind}
+        fileSize={fileSize}
+        url={url}
+      />
+    );
+  }
+
+  return (
+    <FileCard
+      file={resolvedFile}
+      fileName={fileName}
+      fileKind={fileKind}
+      fileSize={fileSize}
+      url={url}
+    />
   );
 }

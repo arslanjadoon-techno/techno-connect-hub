@@ -1,17 +1,19 @@
 import { useCallback } from "react";
-import { resolveLocalChatKey } from "./chatMessageNormalization";
+import { rememberReceiptStatus } from "./chatReceiptStatus";
 
-export function useChatRealtimeMessageDelivered({
-  channels,
-  buddies,
-  currentUserId,
-  setMessagesByChat,
-}: any) {
+export function useChatRealtimeMessageDelivered({ setMessagesByChat }: any) {
   return useCallback(
-    ({ chatId, messageId, clientMessageId, status }: any) => {
-      if (!chatId || !messageId) return;
-      const localKey = resolveLocalChatKey({ chatId, channels, buddies, currentUserId });
-      if (!localKey) return;
+    (payload: any = {}) => {
+      const event =
+        payload?.data && typeof payload.data === "object" && !Array.isArray(payload.data)
+          ? payload.data
+          : payload;
+      const chatId = event.chatId ?? event.chat_id ?? event.conversationId ?? event.conversation_id;
+      const messageId = event.messageId ?? event.message_id ?? event.id;
+      const clientMessageId = event.clientMessageId ?? event.client_message_id;
+      const status = String(event.status || "delivered").toLowerCase();
+      if (!chatId || (!messageId && !clientMessageId)) return;
+      rememberReceiptStatus([messageId, clientMessageId], status);
 
       setMessagesByChat((previous: Record<string, any[]>) => {
         const next = { ...previous };
@@ -38,13 +40,14 @@ export function useChatRealtimeMessageDelivered({
             if (
               (!matchesCanonicalId && !matchesClientId) ||
               ["seen", "read"].includes(String(message.deliveryStatus).toLowerCase()) ||
-              status === "read"
+              status === "read" ||
+              status === "seen"
             ) {
               return message;
             }
 
             updated = true;
-            return { ...message, deliveryStatus: status || "delivered" };
+            return { ...message, deliveryStatus: status };
           });
 
           next[key] = mapped;
@@ -53,6 +56,6 @@ export function useChatRealtimeMessageDelivered({
         return updated ? next : previous;
       });
     },
-    [buddies, channels, currentUserId, setMessagesByChat],
+    [setMessagesByChat],
   );
 }

@@ -79,6 +79,7 @@ import { HOUSING_LEASING_PAGE_PERMISSION_KEYS } from "@/lib/housing-leasing-perm
 import SidebarRail from "@/pages/team-chat/sidebar/SidebarRail";
 import {
   getSurveillanceRole,
+  canAccessSurveillanceDashboard,
   canRequestSurveillance,
   canValidateSurveillance,
   canAccessSurveillanceReports,
@@ -93,11 +94,6 @@ const topItems: Item[] = [
   { title: "Team Chat", url: "/chat", icon: MessagesSquare },
 ];
 
-const otpBackofficeGroup: Group = {
-  title: "Backoffice",
-  icon: ShieldCheck,
-  items: [{ title: "OTP Approvals", url: "/otp/backoffice", icon: CheckSquare }],
-};
 const otpManagerGroup: Group = {
   title: "Manager",
   icon: UserCheck,
@@ -272,6 +268,7 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
     title: "Surveillance",
     icon: Video,
     items: [
+      { title: "Dashboard", url: "/surveillance/dashboard", icon: LayoutDashboard },
       { title: "Request Reports", url: "/surveillance/requests", icon: ClipboardCheck },
       { title: "Validate and Assign", url: "/surveillance/validate-and-assign", icon: UserCheck },
       { title: "Submit Report", url: "/surveillance/reports", icon: Video },
@@ -754,7 +751,7 @@ export function AppSidebar() {
     }
 
     // Surveillance Portal Role-Wise Categorization:
-    // - admin: Request Reports + Validate and Assign + Submit Report (all 3 pages)
+    // - admin: Dashboard + Request Reports + Validate and Assign + Submit Report (all 4 pages)
     // - surveillance_manager: Request Reports + Validate and Assign (2 pages)
     // - state_manager, market_manager, district_manager: Request Reports only (1 page)
     // - surveillance_agent: Submit Report only (1 page)
@@ -762,6 +759,9 @@ export function AppSidebar() {
     if (key === "surveillance") {
       const survRole = getSurveillanceRole(user);
       const filteredItems = master.items.filter((i) => {
+        if (i.url === "/surveillance/dashboard") {
+          return canAccessSurveillanceDashboard(survRole);
+        }
         if (i.url === "/surveillance/requests") {
           return canRequestSurveillance(survRole);
         }
@@ -804,10 +804,7 @@ export function AppSidebar() {
     })
     .filter((g: Group | undefined): g is Group => Boolean(g && g.items.length > 0));
 
-  const otpGroups = [
-    hasOtpAccess(permissions, "backoffice", user) ? otpBackofficeGroup : null,
-    hasOtpAccess(permissions, "manager", user) ? otpManagerGroup : null,
-  ].filter((g): g is Group => Boolean(g));
+  const otpGroups = hasOtpAccess(permissions, "manager", user) ? [otpManagerGroup] : [];
 
   return (
     <Sidebar collapsible="icon">
@@ -1006,11 +1003,11 @@ export function AppSidebar() {
       <SidebarFooter className="border-t border-sidebar-border/60 py-2.5 px-3">
         <div className="flex items-center justify-center select-none tracking-tight">
           {collapsed ? (
-            <span title="Version 3.2.1" className="text-[10px]">
-              v3.2.1
+            <span title="Version 3.2.3" className="text-[10px]">
+              v3.2.3
             </span>
           ) : (
-            <span className="text-[14px] text-white font-medium">Version - 3.2.1</span>
+            <span className="text-[14px] text-white font-medium">Version - 3.2.3</span>
           )}
         </div>
       </SidebarFooter>

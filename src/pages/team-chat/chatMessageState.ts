@@ -7,6 +7,42 @@ const nonEmptyString = (value: unknown): string => {
   return normalized ? normalized : "";
 };
 
+const receiptStatusRank = (status: unknown): number => {
+  switch (
+    String(status ?? "")
+      .trim()
+      .toLowerCase()
+  ) {
+    case "read":
+    case "seen":
+      return 3;
+    case "delivered":
+      return 2;
+    case "sent":
+      return 1;
+    default:
+      return 0;
+  }
+};
+
+const getReceiptStatus = (message: ChatRecord): string =>
+  String(
+    message.deliveryStatus ??
+      message.delivery_status ??
+      message.status ??
+      message.sendState ??
+      message.send_state ??
+      "",
+  );
+
+const getMessageUpdatedAt = (message: ChatRecord): number => {
+  const value = message?.updatedAt ?? message?.updated_at;
+  if (!value) return 0;
+
+  const timestamp = Date.parse(String(value));
+  return Number.isFinite(timestamp) ? timestamp : 0;
+};
+
 export const getMessageClientId = (message: ChatRecord | null | undefined): string =>
   nonEmptyString(
     message?.clientMessageId ??
@@ -49,6 +85,46 @@ const getMessageIdentityKeys = (message: ChatRecord): string[] => {
   return Array.from(keys);
 };
 
+const mergeMessageAttachments = (current: unknown, incoming: unknown): ChatRecord[] => {
+  const currentAttachments = Array.isArray(current) ? current : [];
+  const incomingAttachments = Array.isArray(incoming) ? incoming : [];
+
+  if (currentAttachments.length === 0) return incomingAttachments;
+  if (incomingAttachments.length === 0) return currentAttachments;
+
+  const merged = [...currentAttachments] as ChatRecord[];
+  incomingAttachments.forEach((attachment) => {
+    if (!attachment || typeof attachment !== "object") return;
+
+    const attachmentId = String(
+      attachment.id ?? attachment.Id ?? attachment.key ?? attachment.Key ?? "",
+    ).trim();
+    const attachmentUrl = String(
+      attachment.url ?? attachment.Url ?? attachment.fileUrl ?? attachment.FileUrl ?? "",
+    ).trim();
+    const index = merged.findIndex((existing) => {
+      const existingId = String(
+        existing?.id ?? existing?.Id ?? existing?.key ?? existing?.Key ?? "",
+      ).trim();
+      const existingUrl = String(
+        existing?.url ?? existing?.Url ?? existing?.fileUrl ?? existing?.FileUrl ?? "",
+      ).trim();
+      return (
+        (attachmentId && existingId === attachmentId) ||
+        (attachmentUrl && existingUrl === attachmentUrl)
+      );
+    });
+
+    if (index >= 0) {
+      merged[index] = { ...merged[index], ...attachment };
+    } else {
+      merged.push(attachment);
+    }
+  });
+
+  return merged;
+};
+
 export const areChatMessagesSame = (
   first: ChatRecord | null | undefined,
   second: ChatRecord | null | undefined,
@@ -60,11 +136,32 @@ export const areChatMessagesSame = (
 
 const mergeMessageRecords = (current: ChatRecord, incoming: ChatRecord): ChatRecord => {
   const merged = { ...current, ...incoming };
+  const attachments = mergeMessageAttachments(current.attachments, incoming.attachments);
+  if (attachments.length > 0) merged.attachments = attachments;
   const clientMessageId = getMessageClientId(incoming) || getMessageClientId(current);
 
   // Normalization intentionally emits null when the server does not return a
   // client ID. Never let that erase the optimistic ID that links both copies.
   if (clientMessageId) merged.clientMessageId = clientMessageId;
+
+  // Receipt state is monotonic for a message. A late cache/history response must
+  // never regress a blue tick to sent/delivered after a realtime read event.
+  const currentStatus = getReceiptStatus(current);
+  const incomingStatus = getReceiptStatus(incoming);
+  if (receiptStatusRank(currentStatus) > receiptStatusRank(incomingStatus)) {
+    merged.deliveryStatus = currentStatus;
+  }
+
+  // Reaction updates are broadcast as complete message snapshots. When several
+  // users react at nearly the same time, SignalR can deliver those snapshots out
+  // of order. Keep the newer reaction snapshot instead of letting an older one
+  // erase reactions that were already received.
+  const currentUpdatedAt = getMessageUpdatedAt(current);
+  const incomingUpdatedAt = getMessageUpdatedAt(incoming);
+  if (currentUpdatedAt > incomingUpdatedAt) {
+    merged.updatedAt = current.updatedAt ?? current.updated_at;
+    if (Array.isArray(current.reactions)) merged.reactions = current.reactions;
+  }
 
   return merged;
 };
@@ -73,6 +170,28 @@ export function sortMessagesByTime<T extends ChatRecord>(messages: T[]): T[] {
   return messages
     .map((message, index) => ({ message, index, time: getMessageTimestamp(message) }))
     .sort((first, second) => {
+      const firstClientSequence = Number(
+        first.message.clientSequence ?? first.message.metadata?.clientSequence,
+      );
+      const secondClientSequence = Number(
+        second.message.clientSequence ?? second.message.metadata?.clientSequence,
+      );
+      const firstAuthorId = String(first.message.authorId ?? first.message.author_id ?? "");
+      const secondAuthorId = String(second.message.authorId ?? second.message.author_id ?? "");
+
+      // Concurrent sends can receive responses out of order. Keep messages
+      // submitted by the same client in submission order while still using
+      // server timestamps for all other messages.
+      if (
+        firstAuthorId &&
+        firstAuthorId === secondAuthorId &&
+        Number.isFinite(firstClientSequence) &&
+        Number.isFinite(secondClientSequence) &&
+        firstClientSequence !== secondClientSequence
+      ) {
+        return firstClientSequence - secondClientSequence;
+      }
+
       if (first.time !== second.time) {
         if (first.time === 0) return 1;
         if (second.time === 0) return -1;
@@ -141,6 +260,7 @@ export const createOptimisticMessage = ({
   text,
   hasFiles,
   clientMessageId,
+  clientSequence,
   metadata,
 }: {
   selectedChat: ChatRecord;
@@ -149,6 +269,7 @@ export const createOptimisticMessage = ({
   text: string;
   hasFiles: boolean;
   clientMessageId: string;
+  clientSequence: number;
   metadata: ChatRecord;
 }): ChatRecord => {
   const createdAt = new Date().toISOString();
@@ -156,8 +277,10 @@ export const createOptimisticMessage = ({
   return {
     id: clientMessageId,
     clientMessageId,
-    chatId: selectedChat.type === "channel" ? selectedChat.id : selectedChat.chatId || selectedChat.id,
-    chat_id: selectedChat.type === "channel" ? selectedChat.id : selectedChat.chatId || selectedChat.id,
+    chatId:
+      selectedChat.type === "channel" ? selectedChat.id : selectedChat.chatId || selectedChat.id,
+    chat_id:
+      selectedChat.type === "channel" ? selectedChat.id : selectedChat.chatId || selectedChat.id,
     text: text || (hasFiles ? "[Attachment]" : ""),
     createdAt,
     sentAt: createdAt,
@@ -165,8 +288,9 @@ export const createOptimisticMessage = ({
     authorId: currentUserId,
     authorName: currentUser?.name || currentUser?.displayName || "You",
     direction: "outbound",
-    deliveryStatus: "sending",
-    sendState: "sending",
+    deliveryStatus: "pending",
+    sendState: "pending",
+    clientSequence,
     reactions: [],
     metadata,
     attachments: [],

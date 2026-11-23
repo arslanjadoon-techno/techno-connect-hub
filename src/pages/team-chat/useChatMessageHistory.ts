@@ -1,9 +1,6 @@
 import { useCallback } from "react";
 import { getChatMessagesService } from "@/services/Team-chat/chat.service";
-import {
-  normalizeChatMessages,
-  unwrapChatMessagesResponse,
-} from "./chatMessageNormalization";
+import { normalizeChatMessages, unwrapChatMessagesResponse } from "./chatMessageNormalization";
 import { mergeChatMessages } from "./chatMessageState";
 import { getCachedChatMessages, saveCachedChatMessages } from "./chatMessageIndexedDb";
 
@@ -94,7 +91,8 @@ export function useChatMessageHistory({
         if (!isGroupConversation) {
           const latestCachedMessages = await getCachedChatMessages(primaryChatId);
           const messagesToSave = mergeChatMessages(latestCachedMessages, normalizedMessages);
-          await saveCachedChatMessages(primaryChatId, messagesToSave);
+          const syncCursor = responseData?.pagination?.syncCursor;
+          await saveCachedChatMessages(primaryChatId, messagesToSave, syncCursor);
         }
       } catch (error) {
         console.error("[ChatCache] Server history refresh failed:", error);

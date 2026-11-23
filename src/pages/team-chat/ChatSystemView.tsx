@@ -70,6 +70,9 @@ export default function ChatSystemView(props: Record<string, any>) {
     handleReplyToMessage,
     handleRespondToCall,
     handleSend,
+    onVoiceError,
+    uploadProgress,
+    cancelUpload,
     handleStartConversationCall,
     openAddMembersDialog,
     handleToggleChatMute,
@@ -82,10 +85,12 @@ export default function ChatSystemView(props: Record<string, any>) {
     libraryLoading,
     libraryMessages,
     loadError,
+    loadMoreManagedUsers,
     loadOlderMessages,
     loading,
     loadingOlderMessages,
     managedUsersLoading,
+    managedUsersHasMore,
     messageInfoVersions,
     mutedChatIds,
     navigate,
@@ -103,7 +108,7 @@ export default function ChatSystemView(props: Record<string, any>) {
     selectedGroupMembers,
     selectedMentionableUsers,
     sendError,
-    sending,
+    editingSaving,
     setAddMembersDialogOpen,
     setGroupDialogOpen,
     setGroupSearch,
@@ -121,20 +126,20 @@ export default function ChatSystemView(props: Record<string, any>) {
     toggleGroupUser,
     typingUsersByChat,
     userSearchLoading,
-    uploading,
   } = props;
 
   return (
     <>
-      <div
-        className={`chat-shell grid h-full min-h-0 w-full min-w-0 grid-rows-1 overflow-hidden bg-background text-foreground md:border md:border-border/70 md:rounded-2xl md:shadow-[0_16px_50px_rgba(15,23,42,0.08)] dark:md:shadow-[0_16px_50px_rgba(0,0,0,0.24)] ${
-          standalone
-            ? "h-[100dvh] min-h-[100dvh]"
-            : "h-full min-h-0 w-full sm:-mx-4 sm:-my-4 sm:h-[calc(100%+2rem)] sm:min-h-[calc(100%+2rem)] sm:w-[calc(100%+2rem)] lg:-mx-6 lg:-my-6 lg:h-[calc(100%+3rem)] lg:min-h-[calc(100%+3rem)] lg:w-[calc(100%+3rem)]"
-        } ${
-          showConversationSidebar ? "grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]" : "grid-cols-1"
-        }`}
-      >
+      <div className={`flex min-h-0 flex-col ${standalone ? "h-[100dvh]" : "h-full"}`}>
+        <div
+          className={`chat-shell grid min-h-0 min-w-0 flex-1 grid-rows-1 overflow-hidden bg-background text-foreground md:border md:border-border/70 md:rounded-2xl md:shadow-[0_16px_50px_rgba(15,23,42,0.08)] dark:md:shadow-[0_16px_50px_rgba(0,0,0,0.24)] ${
+            standalone
+              ? "h-[100dvh]"
+              : "h-full w-full sm:-mx-4 sm:-my-4 sm:h-[calc(100%+2rem)] sm:min-h-[calc(100%+2rem)] sm:w-[calc(100%+2rem)] lg:-mx-6 lg:-my-6 lg:h-[calc(100%+3rem)] lg:min-h-[calc(100%+3rem)] lg:w-[calc(100%+3rem)]"
+          } ${
+            showConversationSidebar ? "grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]" : "grid-cols-1"
+          }`}
+        >
         {showConversationSidebar && (
           <ChatSidebar
             filteredItems={filteredItems}
@@ -157,6 +162,8 @@ export default function ChatSystemView(props: Record<string, any>) {
             onSelectMember={toggleGroupUser}
             members={groupMembers}
             loading={managedUsersLoading}
+            hasMoreMembers={managedUsersHasMore}
+            onLoadMoreMembers={loadMoreManagedUsers}
             selectedMembers={selectedGroupMembers}
             search={groupSearch}
             title={groupTitle}
@@ -227,7 +234,7 @@ export default function ChatSystemView(props: Record<string, any>) {
             className={`min-h-0 min-w-0 ${selectedChat ? "block" : "hidden md:block"}`}
           >
             <ChatWindow
-              activeCall={activeCallIsAccepted ? null : activeCall}
+              activeCall={callsEnabled ? (activeCallIsAccepted ? null : activeCall) : null}
               callSocketRef={callSocketRef}
               chatBoxRef={chatBoxRef}
               callStarting={callStarting || Boolean(activeCall) || Boolean(incomingCall)}
@@ -254,11 +261,15 @@ export default function ChatSystemView(props: Record<string, any>) {
               handlePinMessage={handlePinMessage}
               handleDeleteMessages={handleDeleteMessages}
               handleBlockUser={handleBlockUser}
+              onMessageUser={selectBuddy}
               blockedUserIds={blockedUserIds}
               handleCopyMessage={handleCopyMessage}
               handleReaction={handleReaction}
               handleReplyToMessage={handleReplyToMessage}
               handleSend={handleSend}
+              onVoiceError={onVoiceError}
+              uploadProgress={uploadProgress}
+              cancelUpload={cancelUpload}
               handleOTPRequest={handleOTPRequest}
               onEndActiveCall={handleEndActiveCall}
               onLeaveGroup={handleLeaveGroup}
@@ -272,7 +283,7 @@ export default function ChatSystemView(props: Record<string, any>) {
               removePendingFile={removePendingFile}
               selectedChat={selectedChat}
               sendError={sendError}
-              sending={sending}
+              editingSaving={editingSaving}
               replyToMessage={replyToMessage}
               onStartConversationCall={callsEnabled ? handleStartConversationCall : undefined}
               onOpenAddMembers={openAddMembersDialog}
@@ -281,10 +292,10 @@ export default function ChatSystemView(props: Record<string, any>) {
               onClearChat={handleClearChat}
               setInputValue={setInputValue}
               setSelectedChat={setSelectedChat}
-              uploading={uploading}
             />
           </div>
         )}
+        </div>
       </div>
       {callsEnabled && (
         <>
@@ -324,6 +335,8 @@ export default function ChatSystemView(props: Record<string, any>) {
         onTitleChange={setGroupTitle}
         members={groupMembers}
         loading={managedUsersLoading}
+        hasMoreMembers={managedUsersHasMore}
+        onLoadMoreMembers={loadMoreManagedUsers}
         selectedMembers={selectedGroupMembers}
         search={groupSearch}
         title={groupTitle}
@@ -340,6 +353,8 @@ export default function ChatSystemView(props: Record<string, any>) {
         error={addMembersError}
         adding={addingMembers}
         loading={managedUsersLoading}
+        hasMoreMembers={managedUsersHasMore}
+        onLoadMoreMembers={loadMoreManagedUsers}
         onSearchChange={setGroupSearch}
       />
     </>

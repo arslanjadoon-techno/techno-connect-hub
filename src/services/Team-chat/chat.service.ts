@@ -17,6 +17,11 @@ type RequestConfig = {
   dedupe?: boolean;
 };
 
+export type ChatFileUploadOptions = {
+  signal?: AbortSignal;
+  onProgress?: (loaded: number, total: number) => void;
+};
+
 export type ChatNotePayload = {
   title: string;
   content: string;
@@ -220,8 +225,15 @@ export const getChatStatusService = () => api.get("/api/v1/chat/users/me", CHAT_
 export const getChatUsersService = (params: ChatParams = {}) =>
   api.get("/api/v1/chat/users", chatConfig({ limit: 50, ...params }));
 
-export const updateChatStatusService = (presence: string) =>
-  api.patch("/api/v1/chat/users/me/presence", { presence }, CHAT_HEADERS);
+export const updateChatStatusService = (presence: string) => {
+  const normalizedPresence = presence.trim().toLowerCase();
+  const canonicalPresence =
+    normalizedPresence === "dnd" || normalizedPresence === "do not disturb"
+      ? "do_not_disturb"
+      : normalizedPresence;
+
+  return api.patch("/api/v1/chat/users/me/presence", { presence: canonicalPresence }, CHAT_HEADERS);
+};
 
 // ==================================================================
 //  Settings
@@ -327,10 +339,15 @@ export const sendConversationMessageService = (
     CHAT_HEADERS,
   );
 
-export const editConversationMessageService = (chatId: ChatId, messageId: ChatId, text: string) =>
+export const editConversationMessageService = (
+  chatId: ChatId,
+  messageId: ChatId,
+  text: string,
+  options: ChatPayload = {},
+) =>
   api.patch(
     `/api/v1/chat/${encodeURIComponent(chatId)}/messages/${encodeURIComponent(messageId)}`,
-    { text },
+    { text, ...options },
     CHAT_HEADERS,
   );
 
@@ -390,11 +407,105 @@ export const sendDirectMessageService = async (
 //  Files
 // ==================================================================
 
-export const shareConversationFileService = (chatId: ChatId, file: File) => {
+const createAbortError = () => {
+  const error = new Error("Upload cancelled.");
+  error.name = "AbortError";
+  return error;
+};
+
+/**
+ * Uploads one chat file while preserving the existing multipart endpoint.
+ * fetch() cannot report upload progress in browsers, so this chat-specific
+ * helper uses XHR and keeps the same auth and response contract.
+ */
+export const shareConversationFileService = (
+  chatId: ChatId,
+  file: File,
+  options: ChatFileUploadOptions = {},
+) => {
   const formData = new FormData();
   formData.append("file", file, file.name || "document");
-  return api.post(`/api/v1/chat/${encodeURIComponent(chatId)}/files`, formData, CHAT_HEADERS);
+
+  return new Promise<any>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const url = `${CHAT_API_BASE_URL}/api/v1/chat/${encodeURIComponent(chatId)}/files`;
+    let settled = false;
+
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      options.signal?.removeEventListener("abort", abort);
+      callback();
+    };
+
+    const abort = () => {
+      if (!settled) xhr.abort();
+    };
+
+    xhr.open("POST", url, true);
+    xhr.setRequestHeader("x-app-name", "chat");
+    const token = readToken();
+    if (token) xhr.setRequestHeader("token", token);
+
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) options.onProgress?.(event.loaded, event.total);
+    };
+
+    xhr.onload = () => {
+      const text = xhr.responseText || "";
+      let payload: any = null;
+      if (text) {
+        try {
+          payload = JSON.parse(text);
+        } catch {
+          payload = null;
+        }
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        finish(() => resolve(payload));
+        return;
+      }
+
+      if (xhr.status === 401) invalidateChatTokenCache();
+      const error = new Error(
+        payload?.error ??
+          payload?.message ??
+          (xhr.status === 429
+            ? "Too many chat requests. Please wait a moment and try again."
+            : `Chat request failed (${xhr.status})`),
+      ) as Error & { status?: number; code?: string; details?: unknown };
+      error.status = xhr.status;
+      error.code = payload?.code;
+      error.details = payload?.details;
+      finish(() => reject(error));
+    };
+
+    xhr.onerror = () => finish(() => reject(new Error("Network error while uploading the file.")));
+    xhr.ontimeout = () => finish(() => reject(new Error("File upload timed out.")));
+    xhr.onabort = () => finish(() => reject(createAbortError()));
+
+    if (options.signal?.aborted) {
+      xhr.abort();
+      return;
+    }
+
+    options.signal?.addEventListener("abort", abort, { once: true });
+    xhr.send(formData);
+  });
 };
+
+export const deleteConversationFileService = (chatId: ChatId, attachmentId: string) =>
+  api.delete(
+    `/api/v1/chat/${encodeURIComponent(chatId)}/files/${encodeURIComponent(attachmentId)}`,
+    CHAT_HEADERS,
+  );
+
+export const getChatFileUrlService = (attachmentId: ChatId) =>
+  api.get(
+    `/api/v1/chat/files/${encodeURIComponent(attachmentId)}/url`,
+    CHAT_HEADERS,
+  );
 
 // ==================================================================
 //  Read receipts
@@ -440,16 +551,16 @@ export const startCallService = (payload: {
 export const getActiveConversationCallsService = () =>
   api.get("/api/v1/chat/calls/active", CHAT_HEADERS);
 
-export const endConversationCallService = (chatId: ChatId, callId: ChatId) =>
+export const endConversationCallService = (callId: ChatId) =>
   api.post(
-    `/api/v1/chat/${encodeURIComponent(chatId)}/calls/${encodeURIComponent(callId)}/end`,
+    `/api/v1/chat/calls/${encodeURIComponent(callId)}/end`,
     {},
     CHAT_HEADERS,
   );
 
-export const respondConversationCallService = (chatId: ChatId, callId: ChatId, action: string) =>
+export const respondConversationCallService = (callId: ChatId, action: string) =>
   api.post(
-    `/api/v1/chat/${encodeURIComponent(chatId)}/calls/${encodeURIComponent(callId)}/respond`,
+    `/api/v1/chat/calls/${encodeURIComponent(callId)}/respond`,
     { action },
     CHAT_HEADERS,
   );

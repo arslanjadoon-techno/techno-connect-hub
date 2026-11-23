@@ -3,6 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Command,
   CommandEmpty,
@@ -20,6 +28,9 @@ import {
   Repeat,
   ExternalLink,
   Loader2,
+  FileText,
+  ChevronsUpDown,
+  Check,
 } from "lucide-react";
 import {
   leasingService,
@@ -27,6 +38,7 @@ import {
   type TotalRentPerTechId,
   type LeaseRentAgreement,
 } from "@/services/portals/leasing";
+import { downloadExecutiveSummaryPdf } from "@/lib/executive-summary-pdf";
 
 const fmtDate = (d?: string | null) =>
   d
@@ -40,6 +52,17 @@ const fmtCurrency = (v?: string | number | null) =>
 
 const getDaysLeft = (d?: string | null) =>
   d ? Math.ceil((new Date(d).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border border-border bg-card p-3">
+      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      <span className="font-display text-lg font-bold tracking-tight text-foreground">{value}</span>
+    </div>
+  );
+}
 
 function QACard({
   icon: Icon,
@@ -98,6 +121,9 @@ export default function LeasingViewPage() {
   const [currentAgreement, setCurrentAgreement] = useState<LeaseRentAgreement | null>(null);
   const [nextAgreement, setNextAgreement] = useState<LeaseRentAgreement | null>(null);
   const [rentLoading, setRentLoading] = useState(false);
+  const [marketFilter, setMarketFilter] = useState("all");
+  const [storeFilter, setStoreFilter] = useState("all");
+  const [storePickerOpen, setStorePickerOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -166,6 +192,71 @@ export default function LeasingViewPage() {
     [allData],
   );
 
+  const activeStores = useMemo(
+    () => allData.filter((l) => l.leaseStatus !== "InActive" && !l.isDeleted),
+    [allData],
+  );
+
+  const marketOptions = useMemo(() => {
+    const set = new Set<string>();
+    activeStores.forEach((l) => {
+      const m = (l.marketName ?? "").trim();
+      if (m) set.add(m);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [activeStores]);
+
+  const storeOptions = useMemo(() => {
+    const inMarket =
+      marketFilter === "all"
+        ? activeStores
+        : activeStores.filter((l) => (l.marketName ?? "").trim().toLowerCase() === marketFilter.toLowerCase());
+    return inMarket
+      .map((l) => ({ techId: l.techId, label: `${l.techId} — ${l.storeName || ""}` }))
+      .sort((a, b) => a.techId.localeCompare(b.techId));
+  }, [activeStores, marketFilter]);
+
+  const summary = useMemo(() => {
+    let rows = activeStores;
+    if (marketFilter !== "all")
+      rows = rows.filter((l) => (l.marketName ?? "").trim().toLowerCase() === marketFilter.toLowerCase());
+    if (storeFilter !== "all") rows = rows.filter((l) => l.techId === storeFilter);
+
+    const today = new Date();
+    const monthsBetween = (end: Date) => {
+      let m = (end.getFullYear() - today.getFullYear()) * 12 + (end.getMonth() - today.getMonth());
+      if (end.getDate() < today.getDate()) m -= 1;
+      return m > 0 ? m : 0;
+    };
+    const latestMonthlyRent = (l: LeaseRecord) => {
+      const sched = l.rentSchedule ?? [];
+      if (!sched.length) return 0;
+      const last = sched[sched.length - 1];
+      return (last.rent ?? 0) + (last.cam ?? 0) + (last.otherCharges ?? 0);
+    };
+
+    const n = rows.length;
+    let totalMonthlyRent = 0;
+    let totalRemainingMonths = 0;
+    let totalFutureRent = 0;
+    for (const l of rows) {
+      const monthlyRent = latestMonthlyRent(l);
+      const end = l.expiry_Due ? new Date(l.expiry_Due) : null;
+      const remMonths = end && !isNaN(end.getTime()) ? monthsBetween(end) : 0;
+      totalMonthlyRent += monthlyRent;
+      totalRemainingMonths += remMonths;
+      totalFutureRent += monthlyRent * remMonths;
+    }
+
+    return {
+      numberOfStores: n,
+      averageMonthlyRent: n ? totalMonthlyRent / n : 0,
+      annualRentExpense: totalMonthlyRent * 12,
+      averageRemainingYears: n ? totalRemainingMonths / n / 12 : 0,
+      totalFutureRent,
+    };
+  }, [activeStores, marketFilter, storeFilter]);
+
   const d = selected;
   const optionPeriodAnswer =
     d?.optionPeriod === true
@@ -181,6 +272,7 @@ export default function LeasingViewPage() {
 
   return (
     <div className="w-full space-y-4 animate-fade-in pb-8">
+      {/*
       <div>
         <h1 className="font-display text-2xl font-semibold tracking-tight">Leasing View</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
@@ -221,8 +313,75 @@ export default function LeasingViewPage() {
           </Command>
         </PopoverContent>
       </Popover>
+      */}
 
-      {selected && d && (
+      <Card className="p-4">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <h2 className="mr-auto text-sm font-semibold">Executive Summary</h2>
+          <Select
+            value={marketFilter}
+            onValueChange={(v) => {
+              setMarketFilter(v);
+              setStoreFilter("all");
+            }}
+          >
+            <SelectTrigger className="h-9 w-[180px]">
+              <SelectValue placeholder="All markets" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All markets</SelectItem>
+              {marketOptions.map((m) => (
+                <SelectItem key={m} value={m}>
+                  {m}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Popover open={storePickerOpen} onOpenChange={setStorePickerOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                role="combobox"
+                className="flex h-9 w-[260px] items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              >
+                <span className={cn("truncate", storeFilter === "all" && "text-muted-foreground")}>
+                  {storeFilter === "all" ? "All stores" : storeOptions.find((s) => s.techId === storeFilter)?.label ?? "All stores"}
+                </span>
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+              <Command filter={(value, search) => (value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0)}>
+                <CommandInput placeholder="Search store..." />
+                <CommandList className="max-h-72">
+                  <CommandEmpty>No store found.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem value="All stores" onSelect={() => { setStoreFilter("all"); setStorePickerOpen(false); }}>
+                      <Check className={cn("mr-2 h-4 w-4 shrink-0", storeFilter === "all" ? "opacity-100" : "opacity-0")} />
+                      All stores
+                    </CommandItem>
+                    {storeOptions.map((s) => (
+                      <CommandItem key={s.techId} value={s.label} onSelect={() => { setStoreFilter(s.techId); setStorePickerOpen(false); }}>
+                        <Check className={cn("mr-2 h-4 w-4 shrink-0", storeFilter === s.techId ? "opacity-100" : "opacity-0")} />
+                        <span className="truncate">{s.label}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <StatCard label="Number of Stores" value={summary.numberOfStores.toLocaleString("en-US")} />
+          <StatCard label="Average Monthly Rent" value={`$${summary.averageMonthlyRent.toLocaleString("en-US", { maximumFractionDigits: 0 })}`} />
+          <StatCard label="Annual Rent Expense" value={`$${summary.annualRentExpense.toLocaleString("en-US", { maximumFractionDigits: 0 })}`} />
+          <StatCard label="Avg Remaining Lease Term" value={`${summary.averageRemainingYears.toFixed(1)} yrs`} />
+          <StatCard label="Total Undiscounted Future Rent" value={`$${summary.totalFutureRent.toLocaleString("en-US", { maximumFractionDigits: 0 })}`} />
+        </div>
+      </Card>
+
+      {/* selected && d && (
         <Card className="overflow-hidden">
           <div className="flex flex-wrap items-start justify-between gap-2 border-b p-4">
             <div>
@@ -246,16 +405,25 @@ export default function LeasingViewPage() {
                 <ExpiryBadge expiryDate={d.expiry_Due} />
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                navigate(`/leasing/leasing-detail/${d.techId}`);
-                window.scrollTo(0, 0);
-              }}
-              className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-            >
-              <ExternalLink className="h-3.5 w-3.5" /> View Full Details
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => downloadExecutiveSummaryPdf(d)}
+                className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+              >
+                <FileText className="h-3.5 w-3.5" /> Executive Summary
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  navigate(`/leasing/leasing-detail/${d.techId}`);
+                  window.scrollTo(0, 0);
+                }}
+                className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+              >
+                <ExternalLink className="h-3.5 w-3.5" /> View Full Details
+              </button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -311,14 +479,7 @@ export default function LeasingViewPage() {
             />
           </div>
         </Card>
-      )}
-
-      {!selected && !loading && (
-        <div className="flex flex-col items-center gap-2 py-16 text-muted-foreground">
-          <Search className="h-10 w-10 opacity-30" />
-          <p className="text-sm">Search for a lease above to view its quick summary.</p>
-        </div>
-      )}
+      ) */}
     </div>
   );
 }

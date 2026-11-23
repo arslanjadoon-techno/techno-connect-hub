@@ -26,20 +26,21 @@ const updateReactionLocally = (
     const isTarget = reaction.emoji === emoji;
 
     // A user may have only one reaction on a message. When adding a new
-    // emoji, remove that user from every previous emoji first.
-    const nextUsers = add && hadUser && !isTarget
-      ? users.filter((id: string) => id !== userId)
-      : users;
-    const nextCount = Math.max(
-      0,
-      Number(reaction.count || 0) - (add && hadUser && !isTarget ? 1 : 0),
-    );
+    // emoji, remove that user from every previous emoji first. When removing
+    // the target emoji, remove the user and decrement the count immediately
+    // so the UI does not wait for a realtime refresh to become correct.
+    const shouldRemoveUser = hadUser && (isTarget ? !add : add);
+    const nextUsers = shouldRemoveUser ? users.filter((id: string) => id !== userId) : users;
+    const nextCount = Math.max(0, Number(reaction.count || 0) - (shouldRemoveUser ? 1 : 0));
 
     if (nextCount > 0) {
       result.push({
         ...reaction,
         count: nextCount,
-        reacted: isTarget ? Boolean(userId && nextUsers.includes(userId)) : false,
+        // `reacted` describes the current user, not whether anyone selected
+        // this emoji. A target reaction owned by another user must still be
+        // counted when the current user adds the same emoji.
+        reacted: isTarget ? (add ? hadUser : false) : add ? false : Boolean(reaction.reacted),
         users: nextUsers,
       });
     }
@@ -51,8 +52,9 @@ const updateReactionLocally = (
   const target = next.find((reaction: ChatRecord) => reaction.emoji === emoji);
   if (target) {
     const users = Array.isArray(target.users) ? target.users.map(String) : [];
+    const alreadyReacted = Boolean(target.reacted) || Boolean(userId && users.includes(userId));
     if (userId && !users.includes(userId)) users.push(userId);
-    target.count = Number(target.count || 0) + (userId && users.includes(userId) ? 1 : 0);
+    target.count = Number(target.count || 0) + (alreadyReacted ? 0 : 1);
     target.reacted = true;
     target.users = users;
   } else {

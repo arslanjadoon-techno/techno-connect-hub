@@ -6,17 +6,26 @@ import {
   getMessageSenderId,
   getMessageText,
 } from "./chatHealper";
-import { normalizeRealtimeMessage, resolveLocalChatKey } from "./chatMessageNormalization";
 import {
-  getMessageTimestamp,
-  isMessageReadByUser,
-  messageMentionsUser,
-} from "./ChatSystemUtils";
-import { areChatMessagesSame, mergeChatMessages } from "./chatMessageState";
-import { saveCachedChatMessages } from "./chatMessageIndexedDb";
-import { CHAT_APP_BASE_PATH } from "./chatRoutes";
-import { playMessageNotificationSound, showChatNotification } from "./chatNotifications";
-import { markConversationReadService } from "@/services/Team-chat/chat.service";
+  isMessageFromCurrentUser,
+  normalizeRealtimeMessage,
+  resolveLocalChatKey,
+} from "./chatMessageNormalization";
+import { getMessageTimestamp, isMessageReadByUser, messageMentionsUser } from "./ChatSystemUtils";
+import { areChatMessagesSame, getMessageClientId, mergeChatMessages } from "./chatMessageState";
+import { saveCachedChatMessages, updatePendingChatSend } from "./chatMessageIndexedDb";
+import { applyRememberedReceiptStatus } from "./chatReceiptStatus";
+import { getChatRoute } from "./chatRoutes";
+import {
+  getRealtimeConversationId,
+  getRealtimeMessage,
+  getRealtimeMessageId,
+} from "./chatRealtimePayload";
+import {
+  isChatDoNotDisturb,
+  playMessageNotificationSound,
+  showChatNotification,
+} from "./chatNotifications";
 import { updateConversationPreview } from "./chatConversationKeys";
 
 type ChatRecord = Record<string, any>;
@@ -32,7 +41,6 @@ type ChatRealtimeMessageOptions = {
   messagesByChat: Record<string, ChatRecord[]>;
   mutedChatIds: string[];
   mentionNotifications: boolean;
-  navigate: (path: string) => void;
   handledRealtimeMessageKeysRef?: { current: Set<string> };
   realtimeStartedAtRef: { current: number };
   selectedChat: ChatRecord | null;
@@ -52,7 +60,6 @@ export function useChatRealtimeMessage({
   messagesByChat,
   mutedChatIds,
   mentionNotifications,
-  navigate,
   handledRealtimeMessageKeysRef,
   realtimeStartedAtRef,
   selectedChat,
@@ -67,41 +74,25 @@ export function useChatRealtimeMessage({
     (payload: ChatRecord = {}) => {
       // Accept both the wrapped notification shape and a raw message DTO so
       // clients remain compatible with every chat notification producer.
-      const wrappedMessage = payload?.message || payload?.data?.message;
-      const message =
-        wrappedMessage && typeof wrappedMessage === "object"
-          ? wrappedMessage
-          : payload?.data && typeof payload.data === "object"
-            ? payload.data
-            : payload;
-      const chatId =
-        payload?.chatId ??
-        payload?.chat_id ??
-        payload?.data?.chatId ??
-        payload?.data?.chat_id ??
-        message?.chatId ??
-        message?.chat_id ??
-        message?.conversationId ??
-        message?.conversation_id;
+      const message = getRealtimeMessage(payload);
+      const chatId = getRealtimeConversationId(payload, message);
 
       if (!chatId || !message) return;
 
       const senderId = getMessageSenderId(message);
-      const isOwnMessage = senderId && String(senderId) === String(currentUserId);
+      const isOwnMessage = isMessageFromCurrentUser(
+        message,
+        currentUser,
+        currentUserId,
+        currentUserEmail,
+      );
 
       if (!isOwnMessage && blockedUserIds.includes(String(senderId))) {
         return;
       }
 
       const messageId =
-        message?.message_id ||
-        message?.messageId ||
-        message?.id ||
-        message?.clientMessageId ||
-        message?.client_message_id ||
-        message?.createdAt ||
-        message?.timestamp ||
-        "";
+        getRealtimeMessageId(payload, message) || message?.createdAt || message?.timestamp || "";
 
       const hasMessageId =
         messageId !== undefined && messageId !== null && String(messageId).trim().length > 0;
@@ -119,11 +110,16 @@ export function useChatRealtimeMessage({
         currentUserId,
       });
 
-      const normalizedMessage = normalizeRealtimeMessage(message, {
+      const baseNormalizedMessage = normalizeRealtimeMessage(message, {
         ...(selectedChat || {}),
         id: localKey || selectedChat?.id,
+        currentUser,
         currentUserId,
+        currentUserEmail,
       });
+      const normalizedMessage = baseNormalizedMessage
+        ? applyRememberedReceiptStatus(baseNormalizedMessage)
+        : null;
 
       if (!normalizedMessage) {
         return;
@@ -131,6 +127,19 @@ export function useChatRealtimeMessage({
 
       if (blockedUserIds.includes(String(normalizedMessage.authorId))) {
         return;
+      }
+
+      const normalizedClientMessageId = getMessageClientId(normalizedMessage);
+      if (isOwnMessage && normalizedClientMessageId) {
+        void updatePendingChatSend(normalizedClientMessageId, {
+          status: "accepted",
+          ...(normalizedMessage.id ? { serverMessageId: String(normalizedMessage.id) } : {}),
+          error: undefined,
+          unknownOutcome: false,
+          nextRetryAt: undefined,
+        }).catch(() => {
+          // Realtime delivery remains authoritative even if local storage is unavailable.
+        });
       }
 
       // Record the event only after validation so invalid messages can be retried.
@@ -196,8 +205,12 @@ export function useChatRealtimeMessage({
               areChatMessagesSame(item, normalizedMessage)
                 ? {
                     ...item,
-                    sendState: "sent",
-                    deliveryStatus: item.deliveryStatus || "sent",
+                    sendState: "accepted",
+                    deliveryStatus: ["pending", "sending"].includes(
+                      String(item.deliveryStatus || "").toLowerCase(),
+                    )
+                      ? "sent"
+                      : item.deliveryStatus || "sent",
                   }
                 : item,
             );
@@ -293,10 +306,7 @@ export function useChatRealtimeMessage({
         );
       }
 
-      const isDoNotDisturb =
-        String(currentStatus || "")
-          .trim()
-          .toLowerCase() === "dnd";
+      const isDoNotDisturb = isChatDoNotDisturb() || currentStatus === "do_not_disturb";
 
       const shouldNotify =
         !isOwnMessage &&
@@ -327,29 +337,22 @@ export function useChatRealtimeMessage({
               ? `${senderName}: ${getMessageText(message)}`
               : getMessageText(message),
             icon: getImageUrl(message?.sender),
-            tag: `chat-${chatId}`,
+            // Edge groups/replaces notifications that share a tag. Keep the
+            // tag unique per message so one event cannot hide another.
+            tag: `chat-${chatId}-${String(normalizedMessageId || messageId)}`,
             dedupeKey: `chat-message:${String(normalizedMessageId || messageId)}`,
-            url: localKey
-              ? `${CHAT_APP_BASE_PATH}/${encodeURIComponent(localKey)}`
-              : CHAT_APP_BASE_PATH,
-            onClick: () => {
-              if (localKey) {
-                navigate(`${CHAT_APP_BASE_PATH}/${encodeURIComponent(localKey)}`);
-              }
-            },
+            // localKey is a participant/user key used by the local message
+            // store. Desktop notification links must use the persisted
+            // conversation ID from the realtime event.
+            url: getChatRoute(chatId),
           });
 
           if (shown) playMessageNotificationSound();
         }
       }
 
-      if (shouldTreatAsRead && !isOwnMessage) {
-        markConversationReadService(chatId).catch(() => {});
-      }
-
       return {
         acknowledgeDelivery: !isOwnMessage && hasMessageId,
-        acknowledgeRead: shouldTreatAsRead && !isOwnMessage && hasMessageId,
       };
     },
     [
@@ -363,7 +366,6 @@ export function useChatRealtimeMessage({
       messagesByChat,
       mutedChatIds,
       mentionNotifications,
-      navigate,
       messageKeysRef,
       realtimeStartedAtRef,
       selectedChat,

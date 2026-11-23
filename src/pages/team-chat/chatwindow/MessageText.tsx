@@ -1,4 +1,5 @@
 import { getBuddyName } from "../chatHealper";
+import { MENTION_ALL_LABEL } from "../ChatSystemUtils";
 
 type RecordValue = Record<string, any>;
 const URL_PATTERN = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
@@ -12,7 +13,10 @@ export default function MessageText({
   text: string;
   mentionableUsers?: RecordValue[];
 }) {
-  const labels = mentionableUsers.map((user) => getBuddyName(user)).filter(Boolean);
+  const labels = [
+    MENTION_ALL_LABEL,
+    ...mentionableUsers.map((user) => getBuddyName(user)),
+  ].filter(Boolean);
   const escapedLabels = labels.map((label) => String(label).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   const mentionPattern = escapedLabels.length
     ? new RegExp("(@(?:" + escapedLabels.join("|") + "))(?=\\s|$|[.,!?;:])", "g")

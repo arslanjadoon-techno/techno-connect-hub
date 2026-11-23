@@ -18,7 +18,13 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getChatMessageInfoService } from "@/services/Team-chat/chat.service";
-import { getBuddyName, getImageUrl, parseChatDate } from "../chatHealper";
+import {
+  getBuddyEmail,
+  getBuddyName,
+  getBuddySendId,
+  getImageUrl,
+  parseChatDate,
+} from "../chatHealper";
 import MessageAttachments from "./MessageAttachments";
 import MessageText from "./MessageText";
 import MessageActions from "./MessageActions";
@@ -84,8 +90,14 @@ function Status({ status }: { status?: string }) {
     case "pending":
       return <Clock aria-label="Sending" className="h-3 w-3" />;
 
+    case "retrying":
+      return <Clock aria-label="Retrying" className="h-3 w-3 text-amber-500" />;
+
     case "failed":
       return <AlertCircle aria-label="Failed to send" className="h-4 w-4 text-red-500" />;
+
+    case "cancelled":
+      return <AlertCircle aria-label="Cancelled" className="h-4 w-4 text-muted-foreground" />;
 
     default:
       return <Check aria-label="Sent" className="h-4 w-4" />;
@@ -161,7 +173,34 @@ function MessageRow({
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressed = useRef(false);
 
-  const isMe = message.direction === "outbound";
+  const currentUserAliases = [
+    getBuddySendId(currentUser),
+    currentUser?.id,
+    currentUser?.userId,
+    currentUser?.user_id,
+    currentUser?.appUserId,
+    currentUser?.app_user_id,
+    getBuddyEmail(currentUser),
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase());
+  const messageAuthorAliases = [
+    message.authorId,
+    message.author_id,
+    message.senderId,
+    message.sender_id,
+    message.sender?.id,
+    message.sender?.userId,
+    message.sender?.user_id,
+    message.authorEmail,
+    message.author_email,
+    getBuddyEmail(message.sender),
+  ]
+    .filter(Boolean)
+    .map((value) => String(value).trim().toLowerCase());
+  const isMe =
+    message.direction === "outbound" ||
+    messageAuthorAliases.some((value) => currentUserAliases.includes(value));
   const name = isMe
     ? getBuddyName(currentUser)
     : getBuddyName({ ...(message.sender || {}), name: authorName });
@@ -513,14 +552,17 @@ function MessageRow({
               >
                 {message.edited && !deleted && <span>Edited</span>}
                 {message.timestamp || ""}
-                {isMe &&
-                  (message.deliveryStatus === "seen" || message.deliveryStatus === "read" ? (
-                    <CheckCheck className="h-3.5 w-3.5 text-blue-500" />
-                  ) : message.deliveryStatus === "delivered" ? (
-                    <CheckCheck className="h-3.5 w-3.5 text-muted-foreground" />
-                  ) : (
-                    <Check className="h-3.5 w-3.5" />
-                  ))}
+                {isMe && (
+                  <Status
+                    status={
+                      message.deliveryStatus ||
+                      message.delivery_status ||
+                      message.status ||
+                      message.sendState ||
+                      message.send_state
+                    }
+                  />
+                )}
               </span>
             </div>
           </div>
@@ -572,15 +614,17 @@ function MessageRow({
             <div className="w-8 shrink-0" />
           ))}
 
-        <Dialog open={Boolean(reactionDetails)} onOpenChange={(open) => !open && setReactionDetails(null)}>
+        <Dialog
+          open={Boolean(reactionDetails)}
+          onOpenChange={(open) => !open && setReactionDetails(null)}
+        >
           <DialogContent className="max-w-sm">
             <DialogHeader>
-              <DialogTitle>
-                {reactionDetails?.emoji} reactions
-              </DialogTitle>
+              <DialogTitle>{reactionDetails?.emoji} reactions</DialogTitle>
             </DialogHeader>
             <div className="space-y-2">
-              {Array.isArray(reactionDetails?.userDetails) && reactionDetails.userDetails.length > 0 ? (
+              {Array.isArray(reactionDetails?.userDetails) &&
+              reactionDetails.userDetails.length > 0 ? (
                 reactionDetails.userDetails.map((user: RecordValue) => (
                   <div key={String(user.id)} className="flex items-center gap-2 text-sm">
                     <span>{reactionDetails.emoji}</span>

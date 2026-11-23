@@ -56,18 +56,7 @@ export default function AppLayout() {
       setServerUnreadCount(Number(body?.unreadCount) || 0);
       const items = Array.isArray(body?.items) ? body.items : [];
       const serverNotifications = items.map((item: any) => {
-        const type = String(item.type || "").toLowerCase();
-        const link = type === "otp_manager"
-          ? "/otp/manager"
-          : type === "otp_backoffice_pending"
-            ? "/otp/backoffice"
-            : type === "otp"
-              ? "/chat"
-              : type.startsWith("otp:")
-                ? `/chat/${encodeURIComponent(type.slice("otp:".length))}`
-              : type.startsWith("chat_message:") || type.startsWith("chat_reaction:")
-                ? `/chat/${encodeURIComponent(type.slice(type.indexOf(":") + 1))}`
-              : undefined;
+        const link = getNotificationLink(item.type, item.requestId);
 
         return {
         id: String(item.id),
@@ -112,37 +101,6 @@ export default function AppLayout() {
       disposed = true;
       window.clearInterval(interval);
     };
-  }, [set, user?.id]);
-
-  useEffect(() => {
-    const handleRealtimeNotification = (event: Event) => {
-      const payload = (event as CustomEvent).detail || {};
-      const item =
-        payload?.notification ||
-        payload?.data?.notification ||
-        (payload?.data && typeof payload.data === "object" ? payload.data : payload);
-      const id = item?.id == null ? "" : String(item.id);
-      if (!id || notificationsRef.current.some((notification) => notification.id === id)) return;
-      const notification = {
-        id,
-        userId: String(item.userId ?? user?.id ?? ""),
-        requestId: item.requestId,
-        type: item.type,
-        title: item.title ?? "Notification",
-        body: item.message ?? item.body ?? "",
-        link: getNotificationLink(item.type, item.requestId),
-        createdAt: item.createdAt ?? new Date().toISOString(),
-        read: Boolean(item.isRead ?? item.read),
-      };
-
-      const next = [notification, ...notificationsRef.current].slice(0, 100);
-      notificationsRef.current = next;
-      set("notifications", next);
-      if (!notification.read) setServerUnreadCount((count) => count + 1);
-    };
-
-    window.addEventListener("app:notification", handleRealtimeNotification);
-    return () => window.removeEventListener("app:notification", handleRealtimeNotification);
   }, [set, user?.id]);
 
   const myNotifications = useMemo(

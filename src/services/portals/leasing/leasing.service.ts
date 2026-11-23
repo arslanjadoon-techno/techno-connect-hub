@@ -301,7 +301,7 @@ export class LeasingService {
   async populateRentInMonthlyTable(month: number, year: number): Promise<unknown> {
     return this.request(LEASING_API_PATHS.populateRentInMonthlyTable, {
       method: "POST",
-      body: { month, year },
+      body: { month, year: String(year) },
     });
   }
 
@@ -370,6 +370,15 @@ export class LeasingService {
       LEASING_API_PATHS.getAllLeaseExpirationRemarks,
     );
     return Array.isArray(data) ? data : [];
+  }
+
+  async addStore(data: Partial<LeaseRecord>): Promise<unknown> {
+    const result = await this.request(LEASING_API_PATHS.addLeasingStore, {
+      method: "POST",
+      body: data,
+    });
+    this.leasesCache = null;
+    return result;
   }
 
   async saveLeaseExpirationRemarks(data: unknown): Promise<unknown> {

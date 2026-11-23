@@ -12,20 +12,15 @@ import {
 } from "./chatHealper";
 import { getCachedChatMessages, saveCachedChatMessages } from "./chatMessageIndexedDb";
 import { setChatNotificationsEnabled } from "./chatNotifications";
-import {
-  normalizeChatMessages,
-  unwrapChatMessagesResponse,
-} from "./chatMessageNormalization";
+import { normalizeChatMessages, unwrapChatMessagesResponse } from "./chatMessageNormalization";
 import { mergeChatMessages } from "./chatMessageState";
 import { dedupeConversationRecords } from "./chatConversationKeys";
 import {
-  markConversationReadService,
   getChatConversationsService,
   getChatMessagesService,
   getChatSettingsService,
   getChatStatusService,
   getChatUsersService,
-  updateChatStatusService,
 } from "@/services/Team-chat/chat.service";
 import { getStoredUser } from "@/lib/api/client";
 
@@ -34,6 +29,7 @@ type ChatRecord = Record<string, any>;
 type ChatDataOptions = {
   chatClearVersionsRef: { current: Map<string, number> };
   clearUnreadForChat: (chat: ChatRecord) => void;
+  currentUserEmail?: string;
   currentUserId: string;
   id?: string;
   isCurrentUserRecord: (user: ChatRecord) => boolean;
@@ -70,6 +66,7 @@ function unwrapEnvelope<T = any>(response: any): T {
 export function useChatData({
   chatClearVersionsRef,
   clearUnreadForChat,
+  currentUserEmail = "",
   currentUserId,
   id,
   isCurrentUserRecord,
@@ -247,9 +244,11 @@ export function useChatData({
 
         loadedChatHistoryRef.current.add(chatKey);
 
-        setSelectedChat((prev: ChatRecord | null) =>
-          prev?.id === chat.id ? { ...prev, chatId } : prev,
-        );
+        setSelectedChat((prev: ChatRecord | null) => {
+          if (prev?.id !== chat.id) return prev;
+          if (String(prev.chatId ?? "") === String(chatId)) return prev;
+          return { ...prev, chatId };
+        });
 
         // 1. Read cache using the same key used by the chat UI.
         const cachedMessages = await getCachedChatMessages(chat.id);
@@ -318,22 +317,20 @@ export function useChatData({
         );
 
         setMessagesByChat((prev: Record<string, ChatRecord[]>) => {
-          const latest = mergeChatMessages(
-            mergedMessages,
-            prev[chat.id] || [],
-            prev[chatId] || [],
-          );
+          const latest = mergeChatMessages(mergedMessages, prev[chat.id] || [], prev[chatId] || []);
           return { ...prev, [chat.id]: latest, [chatId]: latest };
         });
 
-        setSelectedChat((prev: ChatRecord | null) =>
-          prev?.id === chat.id
-            ? { ...prev, firstUnreadMessageId: firstUnreadMessageId || null }
-            : prev,
-        );
+        const nextFirstUnreadMessageId = firstUnreadMessageId || null;
+        setSelectedChat((prev: ChatRecord | null) => {
+          if (prev?.id !== chat.id) return prev;
+          if (prev.firstUnreadMessageId === nextFirstUnreadMessageId) return prev;
+          return { ...prev, firstUnreadMessageId: nextFirstUnreadMessageId };
+        });
 
         // 4. Persist merged messages for the next visit.
-        await saveCachedChatMessages(chat.id, mergedMessages);
+        const syncCursor = historyPayload?.pagination?.syncCursor;
+        await saveCachedChatMessages(chat.id, mergedMessages, syncCursor);
 
         setMessagePaginationByChat((prev: Record<string, ChatRecord>) => ({
           ...prev,
@@ -404,15 +401,15 @@ export function useChatData({
           const latest = mergeChatMessages(mergedMessages, prev[chat.id] || []);
           return { ...prev, [chat.id]: latest };
         });
-        setSelectedChat((prev: ChatRecord | null) =>
-          prev?.id === chat.id
-            ? {
-                ...prev,
-                firstUnreadMessageId:
-                  mergedMessages.find((message) => message.isUnread)?.id || null,
-              }
-            : prev,
-        );
+        const nextFirstUnreadMessageId =
+          mergedMessages.find((message) => message.isUnread)?.id || null;
+        setSelectedChat((prev: ChatRecord | null) => {
+          if (prev?.id !== chat.id) return prev;
+          if (prev.firstUnreadMessageId === nextFirstUnreadMessageId) return prev;
+          return { ...prev, firstUnreadMessageId: nextFirstUnreadMessageId };
+        });
+        const syncCursor = historyPayload?.pagination?.syncCursor;
+        await saveCachedChatMessages(chat.id, mergedMessages, syncCursor);
         setMessagePaginationByChat((prev: Record<string, ChatRecord>) => ({
           ...prev,
           [chat.id]: historyPayload?.pagination || { hasMore: false },
@@ -427,6 +424,7 @@ export function useChatData({
       loadedChatHistoryRef,
       setMessagePaginationByChat,
       setMessagesByChat,
+      setSelectedChat,
       setSendError,
     ],
   );
@@ -436,19 +434,33 @@ export function useChatData({
     setLoadError("");
 
     try {
-      const [buddyResponse, channelResponse, statusResponse, settingsResponse]: any[] =
-        await Promise.all([
-          getChatUsersService({ excludeSelf: true }),
-          getChatConversationsService(),
-          getChatStatusService().catch((err) => {
-            console.warn("[chat] status load failed", err);
-            return null;
-          }),
-          getChatSettingsService().catch((err) => {
-            console.warn("[chat] settings load failed", err);
-            return null;
-          }),
-        ]);
+      const [buddyResult, channelResult, statusResult, settingsResult] = await Promise.allSettled([
+        getChatUsersService({ excludeSelf: true }),
+        getChatConversationsService(),
+        getChatStatusService().catch((err) => {
+          console.warn("[chat] status load failed", err);
+          return null;
+        }),
+        getChatSettingsService().catch((err) => {
+          console.warn("[chat] settings load failed", err);
+          return null;
+        }),
+      ]);
+
+      if (channelResult.status === "rejected") throw channelResult.reason;
+
+      const buddyResponse = buddyResult.status === "fulfilled" ? buddyResult.value : null;
+      const channelResponse = channelResult.value;
+      const statusResponse = statusResult.status === "fulfilled" ? statusResult.value : null;
+      const settingsResponse =
+        settingsResult.status === "fulfilled" ? settingsResult.value : null;
+
+      if (buddyResult.status === "rejected") {
+        // User Management is a separate database from ChatDb. Existing
+        // conversations can still be rendered from the conversation response
+        // when the directory database is temporarily unavailable.
+        console.warn("[chat] user directory load failed; continuing with conversations", buddyResult.reason);
+      }
 
       const persistedSettings = unwrapEnvelope<Record<string, any>>(settingsResponse);
 
@@ -475,9 +487,6 @@ export function useChatData({
       }
 
       // ChatUsersController returns a plain array; conversation endpoints return { data }.
-      const chatUsers: ChatRecord[] = getArrayPayload(
-        buddyResponse?.data?.data ?? buddyResponse?.data,
-      ) as ChatRecord[];
       const chatConversations: ChatRecord[] = dedupeConversationRecords(
         getArrayPayload(channelResponse?.data?.data ?? channelResponse?.data) as ChatRecord[],
       );
@@ -486,30 +495,32 @@ export function useChatData({
         (conversation) => !isSelfConversation(conversation),
       );
 
-      initialChatUsersRef.current = chatUsers;
-      if (!latestUserSearchRef.current) setBuddies(chatUsers);
+      const chatUsers: ChatRecord[] = buddyResponse
+        ? (getArrayPayload(buddyResponse?.data?.data ?? buddyResponse?.data) as ChatRecord[])
+        : [];
+
+      if (buddyResponse) {
+        initialChatUsersRef.current = chatUsers;
+        if (!latestUserSearchRef.current) setBuddies(chatUsers);
+      }
       setChannels(chatConversations);
 
       const statusPayload = unwrapEnvelope<Record<string, any>>(statusResponse);
       const backendUser = statusPayload.user || statusPayload;
 
-      const savedPresence = normalizePresence(localStorage.getItem("chat_presence"));
       const serverPresence = normalizePresence(backendUser?.presence || backendUser?.status);
-      // The browser value represents the current authenticated session. The
-      // backend value can still be Offline briefly while the new SignalR
-      // connection is coming online, so do not restore the previous session's
-      // status over the fresh login default.
-      const restoredPresence = savedPresence || serverPresence || "online";
+      const serverPreference = normalizePresence(
+        backendUser?.preferredStatus || backendUser?.preferred_status || serverPresence,
+      );
+      // The server owns the persisted preference. While the socket is offline,
+      // show that preference; once connected, show the actual live presence.
+      const restoredPresence = serverPresence === "offline" ? serverPreference : serverPresence;
 
       setCurrentStatus(restoredPresence);
       // Keep the root MIS notification listener on the same presence policy
       // when the user leaves the Chat page. The chat page still owns the
       // authoritative API update; this value is only the local policy cache.
       localStorage.setItem("chat_presence", restoredPresence);
-
-      if (savedPresence && savedPresence !== "online" && serverPresence !== savedPresence) {
-        updateChatStatusService(savedPresence).catch(() => {});
-      }
 
       if (backendUser) {
         setProfileUser((prev: ChatRecord | null) => {
@@ -538,7 +549,7 @@ export function useChatData({
         }
       }
 
-      if (id && !selectedChat) {
+      if (id) {
         const decodedId = decodeURIComponent(id);
         const directConversation = otherConversations.find(
           (conversation) =>
@@ -641,6 +652,7 @@ export function useChatData({
             subtitle: getBuddyEmail(resolvedBuddy),
             imageUrl: getImageUrl(resolvedBuddy),
             currentUserId,
+            currentUserEmail,
             raw: resolvedBuddy,
           });
           setTab("conversations");
@@ -655,6 +667,7 @@ export function useChatData({
             subtitle: restoredChannelId,
             imageUrl: getImageUrl(channel),
             currentUserId,
+            currentUserEmail,
             raw: channel,
           });
 
@@ -665,7 +678,6 @@ export function useChatData({
                 : conversation,
             ),
           );
-          markConversationReadService(restoredChannelId).catch(() => {});
           setTab("conversations");
         }
       }
@@ -675,11 +687,11 @@ export function useChatData({
       setLoading(false);
     }
   }, [
+    currentUserEmail,
     currentUserId,
     id,
     isCurrentUserRecord,
     isSelfConversation,
-    selectedChat,
     setBlockedUserIds,
     setBuddies,
     setChannels,

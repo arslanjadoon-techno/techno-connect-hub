@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from "react";
-import { buildConversationItems } from "./conversationListModal";
+import { buildConversationIndexes, buildConversationItems } from "./conversationListModal";
 import {
   getBuddyEmail,
   getBuddyName,
@@ -204,14 +204,16 @@ export function useChatConversationView({
       .flatMap((conversation) =>
         Array.isArray(conversation?.participants) ? conversation.participants : [],
       );
+    const directParticipantKeys = new Set(
+      directParticipants.flatMap((participant: ChatRecord) => [
+        ...getUserIds(participant),
+        String(getBuddyEmail(participant) || "").toLowerCase(),
+      ]),
+    );
     const hasPreviousDirectConversation = (buddy: ChatRecord) => {
       const buddyIds = getUserIds(buddy);
       const buddyEmail = String(getBuddyEmail(buddy) || "").toLowerCase();
-      return directParticipants.some(
-        (participant: ChatRecord) =>
-          getUserIds(participant).some((participantId) => buddyIds.includes(participantId)) ||
-          (buddyEmail && String(getBuddyEmail(participant)).toLowerCase() === buddyEmail),
-      );
+      return [...buddyIds, buddyEmail].some((key) => key && directParticipantKeys.has(key));
     };
 
     return uniqueUsersByIdentity(
@@ -252,6 +254,16 @@ export function useChatConversationView({
       ),
     [visibleChannels],
   );
+  const conversationIndexes = useMemo(
+    () =>
+      buildConversationIndexes({
+        allVisibleBuddies,
+        isCurrentUserRecord,
+        messagesByChat,
+        visibleDirectChannels,
+      }),
+    [allVisibleBuddies, isCurrentUserRecord, messagesByChat, visibleDirectChannels],
+  );
   const conversationItems = useMemo(() => {
     return buildConversationItems({
       allVisibleBuddies,
@@ -261,6 +273,7 @@ export function useChatConversationView({
       searchTerm,
       selectedChat,
       messagesByChat,
+      conversationIndexes,
       currentUser,
       currentUserEmail,
       isCurrentUserRecord,
@@ -270,6 +283,7 @@ export function useChatConversationView({
     allVisibleBuddies,
     currentUser,
     currentUserEmail,
+    conversationIndexes,
     isCurrentUserRecord,
     messagesByChat,
     searchTerm,

@@ -1,4 +1,4 @@
-import { normalizeChatMessages } from "./chatMessageNormalization";
+import { messageBelongsToChat, normalizeChatMessages } from "./chatMessageNormalization";
 import { mergeChatMessages } from "./chatMessageState";
 import { getChatStateKeys } from "./chatConversationKeys";
 
@@ -11,11 +11,20 @@ export function useChatMessageList({ selectedChat, messagesByChat }: any) {
 
   const messageStateKeys = getChatStateKeys(selectedChat);
   const storedMessages = mergeChatMessages(
-    ...messageStateKeys.map((key) => (Array.isArray(messagesByChat[key]) ? messagesByChat[key] : [])),
+    ...messageStateKeys.map((key) =>
+      Array.isArray(messagesByChat[key]) ? messagesByChat[key] : [],
+    ),
   );
+  const scopedMessages = storedMessages.filter((message) =>
+    messageBelongsToChat(message, selectedChat),
+  );
+  const fallbackMessages = selectedLastMessage
+    ? normalizeChatMessages([selectedLastMessage], selectedChat).filter((message) =>
+        messageBelongsToChat(message, selectedChat),
+      )
+    : [];
   const currentMessages = selectedChat
-    ? (storedMessages.length ? storedMessages : undefined) ||
-      (selectedLastMessage ? normalizeChatMessages([selectedLastMessage], selectedChat) : [])
+    ? (scopedMessages.length ? scopedMessages : undefined) || fallbackMessages
     : [];
 
   return { currentMessages, messageStateKeys };

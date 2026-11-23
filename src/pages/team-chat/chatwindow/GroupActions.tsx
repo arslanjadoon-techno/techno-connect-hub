@@ -44,6 +44,7 @@ interface GroupActionsProps {
   onOpenAddMembers?: () => void;
   onOpenMedia?: () => void;
   onClearChat?: () => void;
+  onViewUser?: (user: Person) => void;
   onOpenLeaveConfirm?: () => void;
   isGroupAdmin?: boolean;
   isGroupOwner?: boolean;
@@ -78,14 +79,27 @@ const PersonRow = ({
   removable,
   isAdmin,
   onRemove,
+  onView,
 }: {
   member: Person;
   current: boolean;
   removable?: boolean;
   isAdmin?: boolean;
   onRemove?: () => void;
+  onView?: () => void;
 }) => (
-  <div className="flex items-center gap-3 rounded-md px-2 py-2">
+  <div
+    className={`flex items-center gap-3 rounded-md px-2 py-2 ${onView ? "cursor-pointer hover:bg-accent" : ""}`}
+    role={onView ? "button" : undefined}
+    tabIndex={onView ? 0 : undefined}
+    onClick={onView}
+    onKeyDown={(event) => {
+      if (onView && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        onView();
+      }
+    }}
+  >
     <Avatar className="h-8 w-8">
       <AvatarImage src={getImageUrl(member)} />
       <AvatarFallback>{getBuddyName(member).charAt(0)}</AvatarFallback>
@@ -102,7 +116,15 @@ const PersonRow = ({
       </div>
     </div>
     {removable && (
-      <Button size="icon" variant="ghost" className="text-destructive" onClick={onRemove}>
+      <Button
+        size="icon"
+        variant="ghost"
+        className="text-destructive"
+        onClick={(event) => {
+          event.stopPropagation();
+          onRemove?.();
+        }}
+      >
         <UserMinus />
       </Button>
     )}
@@ -126,6 +148,7 @@ export default function GroupActions({
   onRemoveMember,
   onOpenInfo,
   onOpenAddMembers,
+  onViewUser,
   onOpenMedia,
   onClearChat,
   onOpenLeaveConfirm,
@@ -276,6 +299,7 @@ export default function GroupActions({
                 )}
                 removable={isGroupAdmin && !isSamePerson(member, currentUser)}
                 onRemove={() => setRemoveMember(member)}
+                onView={() => onViewUser?.(member)}
               />
             ))}
           </div>

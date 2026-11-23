@@ -2,6 +2,11 @@ import { useEffect, useRef } from "react";
 import { HubConnectionBuilder, HubConnectionState, LogLevel } from "@microsoft/signalr";
 import { getToken } from "@/lib/api/client";
 import { CHAT_API_BASE_URL } from "@/lib/config";
+import {
+  getRealtimeConversationId,
+  getRealtimeMessage,
+  getRealtimeMessageId,
+} from "./chatRealtimePayload";
 
 // The token and app name travel in the query string because browsers cannot send
 // custom headers on a WebSocket handshake. The server reads both from the query.
@@ -45,9 +50,6 @@ type RealtimeOptions = {
   onCallCancelled?: RealtimeHandler;
   onCallEnded?: RealtimeHandler;
   onCallMissed?: RealtimeHandler;
-  onCallPeerJoined?: RealtimeHandler;
-  onCallPeerLeft?: RealtimeHandler;
-  onCallSignal?: RealtimeHandler;
 };
 
 type ChatRealtimeClient = {
@@ -57,8 +59,6 @@ type ChatRealtimeClient = {
   readonly connected: boolean;
   disconnect: () => Promise<void>;
 };
-
-type JoinedCall = { chatId: string; callId: string };
 
 const getPayloadObject = (payload: RealtimePayload | undefined): Record<string, any> =>
   payload && typeof payload === "object" ? payload : {};
@@ -100,16 +100,10 @@ export function useChatRealtime({
   onCallCancelled,
   onCallEnded,
   onCallMissed,
-  onCallPeerJoined,
-  onCallPeerLeft,
-  onCallSignal,
 }: RealtimeOptions) {
   const ref = useRef<ChatRealtimeClient | null>(null);
   const active = useRef(activeConversationId);
   const handlers = useRef<Partial<Record<string, RealtimeHandler>>>({});
-
-  // Preserve joined call rooms across automatic reconnects.
-  const joinedCalls = useRef<Map<string, JoinedCall>>(new Map());
 
   active.current = activeConversationId;
 
@@ -137,9 +131,6 @@ export function useChatRealtime({
     onCallCancelled,
     onCallEnded,
     onCallMissed,
-    onCallPeerJoined,
-    onCallPeerLeft,
-    onCallSignal,
   };
 
   useEffect(() => {
@@ -182,9 +173,6 @@ export function useChatRealtime({
       "call:cancelled": "onCallCancelled",
       "call:ended": "onCallEnded",
       "call:missed": "onCallMissed",
-      "call:peer-joined": "onCallPeerJoined",
-      "call:peer-left": "onCallPeerLeft",
-      "call:signal": "onCallSignal",
     };
 
     const lifecycleEvents = new Set([
@@ -206,19 +194,9 @@ export function useChatRealtime({
           // it. Acknowledge before running UI code so an exception or an early
           // return in a notification/message handler cannot lose the receipt.
           if (event === "message:new") {
-            const message =
-              payload?.message || payload?.data?.message || payload?.data || payload;
-            const chatId =
-              payload?.chatId ||
-              payload?.chat_id ||
-              payload?.conversationId ||
-              payload?.conversation_id ||
-              message?.conversationId ||
-              message?.conversation_id ||
-              message?.chatId ||
-              message?.chat_id;
-            const messageId =
-              message?.id || message?.messageId || message?.message_id || payload?.messageId;
+            const message = getRealtimeMessage(payload);
+            const chatId = getRealtimeConversationId(payload, message);
+            const messageId = getRealtimeMessageId(payload, message);
             if (chatId && messageId) {
               void connection
                 .invoke("AcknowledgeMessageDelivered", String(chatId), String(messageId))
@@ -268,17 +246,6 @@ export function useChatRealtime({
 
     connection.onreconnected(async () => {
       await joinActiveConversation();
-
-      await Promise.all(
-        Array.from(joinedCalls.current.values()).map(async (call) => {
-          try {
-            await connection.invoke("JoinCall", call);
-          } catch (error) {
-            console.warn("[Chat realtime] Failed to rejoin call room", call, error);
-          }
-        }),
-      );
-
       handlers.current.onReconnected?.();
     });
 
@@ -286,17 +253,9 @@ export function useChatRealtime({
       "join:conversation": "JoinConversation",
       "leave:conversation": "LeaveConversation",
       "typing:update": "TypingUpdate",
-      "join:call": "JoinCall",
-      "leave:call": "LeaveCall",
-      "call:signal": "CallSignal",
       // This requires an exact matching method on ChatHub.
       "message:delivered:ack": "AcknowledgeMessageDelivered",
       "message:read:ack": "AcknowledgeMessagesRead",
-    };
-
-    const callKey = (payload: RealtimePayload | undefined) => {
-      const value = getPayloadObject(payload);
-      return `${value.chatId}:${value.callId}`;
     };
 
     const compat: ChatRealtimeClient = {
@@ -363,17 +322,6 @@ export function useChatRealtime({
 
         const trackedPromise = invocation
           .then((result) => {
-            if (event === "join:call" && result?.ok) {
-              joinedCalls.current.set(callKey(payload), {
-                chatId: String(payloadObject.chatId),
-                callId: String(payloadObject.callId),
-              });
-            }
-
-            if (event === "leave:call") {
-              joinedCalls.current.delete(callKey(payload));
-            }
-
             return result ?? { ok: true };
           })
           .catch((error) => {
@@ -448,7 +396,6 @@ export function useChatRealtime({
     return () => {
       disposed = true;
       if (ref.current === compat) ref.current = null;
-      joinedCalls.current.clear();
 
       // Wait for start/negotiation to settle before stopping the connection.
       void startPromise.then(() => connection.stop()).catch(() => undefined);

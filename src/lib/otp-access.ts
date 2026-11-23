@@ -1,6 +1,6 @@
 import type { UserPermissionEntry } from "@/lib/api/client";
 
-type OtpPermissionScope = "chat" | "manager" | "backoffice";
+type OtpPermissionScope = "chat" | "manager";
 
 const normalize = (value: unknown) => String(value ?? "").toLowerCase().replace(/[\s_-]/g, "");
 
@@ -39,7 +39,7 @@ export function hasOtpPermission(
 
 export function hasOtpAccess(
   permissions: readonly UserPermissionEntry[] | null | undefined,
-  scope: Exclude<OtpPermissionScope, "chat">,
+  scope: "manager",
   user?: unknown,
 ): boolean {
   return hasPortalAccess(user, scope);

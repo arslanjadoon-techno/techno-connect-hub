@@ -88,6 +88,7 @@ import RequestLeavePage from "@/pages/portals/leave-management/RequestLeave";
 import ApproveLeavePage from "@/pages/portals/leave-management/ApproveLeave";
 
 // ---------- Surveillance Portal ---------- //
+import SurveillanceDashboardPage from "@/pages/portals/surveillance/SurveillanceDashboardPage";
 import ReportRequestsPage from "@/pages/portals/surveillance/ReportRequestsPage";
 import ValidateAndAssignPage from "@/pages/portals/surveillance/ValidateAndAssignPage";
 import SurveillanceAgentsPage from "@/pages/portals/surveillance/SurveillanceAgentsPage";
@@ -99,6 +100,7 @@ import SurveillanceReportReviewPage from "@/pages/portals/surveillance/Surveilla
 import SurveillanceNoAccessPage from "@/pages/portals/surveillance/SurveillanceNoAccessPage";
 import {
   getSurveillanceRole,
+  canAccessSurveillanceDashboard,
   canRequestSurveillance,
   canValidateSurveillance,
   canAccessSurveillanceReports,
@@ -207,6 +209,15 @@ function LeaveRequestOnly({ children }: { children: ReactNode }) {
 function LeaveApproveOnly({ children }: { children: ReactNode }) {
   const isMgr = isLeaveManager();
   if (!isMgr) return <Navigate to="/leave/request" replace />;
+  return <>{children}</>;
+}
+
+function SurveillanceDashboardOnly({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const role = getSurveillanceRole(user);
+  if (!canAccessSurveillanceDashboard(role)) {
+    return <Navigate to={getSurveillanceDefaultRoute(user)} replace />;
+  }
   return <>{children}</>;
 }
 
@@ -324,15 +335,13 @@ function PermissionRouteGuard({ permKey, children }: { permKey: string; children
   return <>{children}</>;
 }
 
-function OtpRouteGuard({
-  kind,
-  children,
-}: {
-  kind: "manager" | "backoffice";
-  children: ReactNode;
-}) {
+function OtpRouteGuard({ children }: { children: ReactNode }) {
   const { user, permissions } = useAuth();
-  return hasOtpAccess(permissions, kind, user) ? <>{children}</> : <Navigate to="/ai-chat" replace />;
+  return hasOtpAccess(permissions, "manager", user) ? (
+    <>{children}</>
+  ) : (
+    <Navigate to="/ai-chat" replace />
+  );
 }
 
 function RankerPortalGuard() {
@@ -405,18 +414,10 @@ export function AppRoutes() {
         />
         <Route path="/settings" element={<SettingsPage />} />
         <Route
-          path="/otp/backoffice"
-          element={
-            <OtpRouteGuard kind="backoffice">
-              <OtpApprovalPage kind="backoffice" />
-            </OtpRouteGuard>
-          }
-        />
-        <Route
           path="/otp/manager"
           element={
-            <OtpRouteGuard kind="manager">
-              <OtpApprovalPage kind="manager" />
+            <OtpRouteGuard>
+              <OtpApprovalPage />
             </OtpRouteGuard>
           }
         />
@@ -946,6 +947,16 @@ export function AppRoutes() {
           element={
             <PortalRouteGuard portalKey="surveillance">
               <SurveillanceRedirect />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/surveillance/dashboard"
+          element={
+            <PortalRouteGuard portalKey="surveillance">
+              <SurveillanceDashboardOnly>
+                <SurveillanceDashboardPage />
+              </SurveillanceDashboardOnly>
             </PortalRouteGuard>
           }
         />

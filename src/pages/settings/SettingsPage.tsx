@@ -931,18 +931,18 @@ export default function SettingsPage() {
               <div className="flex items-center gap-2">
                 <h2 className="font-display text-lg font-semibold">Automatic Session Logout</h2>
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  Active (30 mins)
+                  Active (5 hrs)
                 </span>
               </div>
               <p className="mt-1 max-w-md text-xs text-muted-foreground">
-                If no activity (mouse, keyboard, scroll) is detected for 30 minutes, a 30-second
+                If no activity (mouse, keyboard, scroll) is detected for 5 hours, a 30-second
                 digital clock countdown modal appears before securely logging you out.
               </p>
             </div>
           </div>
           <div className="text-right">
             <span className="text-xs font-mono font-medium px-2.5 py-1 rounded bg-muted text-muted-foreground border">
-              30m Idle + 30s Warning
+              5h Idle + 30s Warning
             </span>
           </div>
         </div>

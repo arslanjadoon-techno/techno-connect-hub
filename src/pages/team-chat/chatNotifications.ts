@@ -15,6 +15,29 @@ type ChatNotificationOptions = {
 
 const hasNotificationApi = () => typeof window !== "undefined" && "Notification" in window;
 
+const getNotificationServiceWorker = async (): Promise<ServiceWorkerRegistration | null> => {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return null;
+
+  try {
+    const existingRegistration = await navigator.serviceWorker.getRegistration("/");
+    if (existingRegistration) return existingRegistration;
+
+    let timeoutId: number | undefined;
+    const timeout = new Promise<null>((resolve) => {
+      timeoutId = window.setTimeout(() => resolve(null), 1500);
+    });
+
+    try {
+      return await Promise.race([navigator.serviceWorker.ready, timeout]);
+    } finally {
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    }
+  } catch (error) {
+    console.warn("[Chat notifications] Could not access service worker", error);
+    return null;
+  }
+};
+
 /** Presence policy shared by Chat and the root MIS notification listener. */
 export const isChatDoNotDisturb = (): boolean => {
   if (typeof window === "undefined") return false;
@@ -23,10 +46,7 @@ export const isChatDoNotDisturb = (): boolean => {
     const presence = String(window.localStorage.getItem("chat_presence") || "")
       .trim()
       .toLowerCase();
-    // Offline is also a quiet state when selected manually. Realtime messages
-    // and in-app notification items are still processed; only browser alerts
-    // and notification sounds are suppressed until the user becomes available.
-    return presence === "dnd" || presence === "do not disturb" || presence === "offline";
+    return presence === "dnd" || presence === "do not disturb" || presence === "do_not_disturb";
   } catch {
     return false;
   }
@@ -123,9 +143,26 @@ const createWindowNotification = ({
     } as NotificationOptions);
 
     notification.onclick = () => {
-      window.focus();
-      onClick?.();
-      notification.close();
+      try {
+        window.focus();
+      } catch {
+        // Some browser privacy settings can reject focus from a notification.
+      }
+
+      try {
+        if (onClick) onClick();
+        else if (url) {
+          // Keep notification clicks inside the SPA when the service worker
+          // is unavailable and the browser creates a page-owned notification.
+          window.dispatchEvent(
+            new CustomEvent("chat-notification-click", {
+              detail: { url },
+            }),
+          );
+        }
+      } finally {
+        notification.close();
+      }
     };
 
     notification.onerror = (event) => {
@@ -164,16 +201,33 @@ export const showChatNotification = ({
     return null;
   }
   if (isChatDoNotDisturb()) {
-    console.debug("[Chat notifications] Skipped: user presence is quiet (DND/offline)");
+    console.debug("[Chat notifications] Skipped: user presence is Do Not Disturb");
     return null;
   }
   if (!claimDesktopNotification(dedupeKey)) return null;
 
   // Keep incoming-call alerts on the page's Notification object to avoid
-  // reloading the client and interrupting an active WebRTC call.
-  if (!preserveCall && "serviceWorker" in navigator && navigator.serviceWorker.controller) {
-    return navigator.serviceWorker.ready
+  // reloading the client and interrupting an active Chime call.
+  // A service-worker notification has no access to the React navigate callback.
+  // Use one service-worker click path for routed notifications in browsers
+  // that support it. Incoming calls stay page-owned so a click does not reload
+  // an active Chime session.
+  if (!preserveCall && url && "serviceWorker" in navigator) {
+    return getNotificationServiceWorker()
       .then(async (registration) => {
+        if (!registration) {
+          return createWindowNotification({
+            title,
+            body,
+            icon,
+            tag,
+            onClick,
+            url,
+            preserveCall,
+            requireInteraction,
+          });
+        }
+
         try {
           await registration.showNotification(title || "New message", {
             body: body || "",
@@ -183,7 +237,6 @@ export const showChatNotification = ({
             requireInteraction,
             data: { url: url || "/", preserveCall },
             silent: false,
-            vibrate: [120, 60, 120],
           } as NotificationOptions);
           console.debug("[Chat notifications] Desktop notification submitted to service worker", {
             title,

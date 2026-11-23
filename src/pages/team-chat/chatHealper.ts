@@ -4,6 +4,12 @@ export interface ChatAvailability {
   label: string;
   color: string;
 }
+export type ChatPresenceStatus =
+  | "available"
+  | "busy"
+  | "do_not_disturb"
+  | "away"
+  | "offline";
 export interface ChatAttachment extends ChatRecord {
   id: ChatId;
   name: string;
@@ -18,15 +24,18 @@ export interface NormalizedMessage extends ChatRecord {
   authorId: string;
 }
 
-export const normalizePresence = (value: unknown): string => {
+export const normalizePresence = (value: unknown): ChatPresenceStatus => {
   const status = String(value || "")
     .trim()
     .toLowerCase();
-  return status === "available" || status === "active"
-    ? "online"
-    : ["online", "away", "busy", "dnd", "offline"].includes(status)
-      ? status
-      : "online";
+  if (status === "online" || status === "active" || status === "available") return "available";
+  if (status === "dnd" || status === "do not disturb" || status === "do_not_disturb") {
+    return "do_not_disturb";
+  }
+  if (status === "busy") return "busy";
+  if (status === "away") return "away";
+  if (status === "offline") return "offline";
+  return "available";
 };
 export const getArrayPayload = (payload: unknown): ChatRecord[] => {
   let current: unknown = payload;
@@ -121,7 +130,11 @@ export const getBuddyName = (buddy: ChatRecord | null | undefined): string => {
     );
   });
   const fallback = String(getBuddyEmail(buddy) || "").trim();
-  return name || (fallback && !/^\d+$/.test(fallback) ? fallback : "Chat User");
+  return name
+    ? String(name)
+    : fallback && !/^\d+$/.test(fallback)
+      ? fallback
+      : "Chat User";
 };
 
 const normalizeAssetUrl = (value: unknown): string => {
@@ -217,7 +230,7 @@ export const getAvailability = (item: ChatRecord | null | undefined): ChatAvaila
     ]
       .map(pickStatusValue)
       .find(Boolean) || "";
-  const status = String(rawStatus).toLowerCase();
+  const rawStatusText = String(rawStatus).toLowerCase();
 
   const booleanAvailability =
     item?.is_available ?? item?.isAvailable ?? item?.is_online ?? item?.isOnline ?? item?.online;
@@ -229,29 +242,36 @@ export const getAvailability = (item: ChatRecord | null | undefined): ChatAvaila
     return { label: "Unavailable", color: "#9aa3af" };
   }
 
+  const status = normalizePresence(rawStatus);
+  if (status === "do_not_disturb") {
+    return { label: "Do Not Disturb", color: "#dc2626" };
+  }
+  if (status === "busy") {
+    return { label: "Busy", color: "#ef4444" };
+  }
+  if (status === "offline") {
+    return { label: "Offline", color: "#9aa3af" };
+  }
+  if (status === "away") {
+    return { label: "Away", color: "#f59e0b" };
+  }
   if (
-    status.includes("online") ||
-    status.includes("available") ||
-    status.includes("free") ||
-    status === "active" ||
-    status === "1"
+    rawStatusText.includes("online") ||
+    rawStatusText.includes("available") ||
+    rawStatusText.includes("free") ||
+    rawStatusText === "active" ||
+    rawStatusText === "1"
   ) {
     return { label: "Available", color: "#22c55e" };
   }
-  if (status.includes("dnd") || status.includes("do not disturb")) {
-    return { label: "Do Not Disturb", color: "#dc2626" };
-  }
-  if (status.includes("busy")) {
-    return { label: "Busy", color: "#ef4444" };
-  }
-  if (status.includes("offline") || status.includes("unavailable")) {
+  if (rawStatusText.includes("unavailable")) {
     return { label: "Offline", color: "#9aa3af" };
   }
-  if (status.includes("away") || status.includes("idle") || status.includes("break")) {
+  if (rawStatusText.includes("idle") || rawStatusText.includes("break")) {
     return { label: "Away", color: "#f59e0b" };
   }
 
-  return { label: "Unknown", color: "#9aa3af" };
+  return { label: "Offline", color: "#9aa3af" };
 };
 
 export const getPhoneNumber = (item: ChatRecord | null | undefined): string | number =>
@@ -344,12 +364,17 @@ export const getChatHost = (url: string) => {
 export const getFileUrl = (file: ChatRecord | null | undefined): string =>
   file?.url ||
   file?.Url ||
+  file?.URL ||
   file?.fileUrl ||
+  file?.FileUrl ||
   file?.file_url ||
   file?.attachmentUrl ||
+  file?.AttachmentUrl ||
   file?.attachment_url ||
   file?.path ||
+  file?.Path ||
   file?.filePath ||
+  file?.FilePath ||
   file?.downloadUrl ||
   file?.download_url ||
   file?.publicUrl ||
@@ -357,49 +382,76 @@ export const getFileUrl = (file: ChatRecord | null | undefined): string =>
   "";
 
 export const getMessageAttachments = (message: ChatRecord | null | undefined): ChatAttachment[] => {
-  const metadata = message?.metadata || {};
-  const content = message?.content || {};
+  const metadata = message?.metadata || message?.Metadata || {};
+  const content = message?.content || message?.Content || {};
   const candidates = [
     metadata.file,
+    metadata.File,
     metadata.attachment,
+    metadata.Attachment,
     message?.file,
+    message?.File,
     message?.attachment,
+    message?.Attachment,
     content.file,
+    content.File,
     content.attachment,
+    content.Attachment,
     ...(Array.isArray(message?.attachments) ? message.attachments : []),
+    ...(Array.isArray(message?.Attachments) ? message.Attachments : []),
     ...(Array.isArray(metadata.files) ? metadata.files : []),
+    ...(Array.isArray(metadata.Files) ? metadata.Files : []),
     ...(Array.isArray(metadata.attachments) ? metadata.attachments : []),
+    ...(Array.isArray(metadata.Attachments) ? metadata.Attachments : []),
     ...(Array.isArray(content.files) ? content.files : []),
+    ...(Array.isArray(content.Files) ? content.Files : []),
     ...(Array.isArray(content.attachments) ? content.attachments : []),
+    ...(Array.isArray(content.Attachments) ? content.Attachments : []),
   ].filter(Boolean);
 
-  if (metadata.type === "file" && candidates.length === 0) {
+  if ((metadata.type === "file" || metadata.Type === "file") && candidates.length === 0) {
     candidates.push(metadata);
   }
 
   return candidates.map((file, index) => {
     const name =
       file.name ||
+      file.Name ||
       file.fileName ||
+      file.FileName ||
       file.file_name ||
       file.originalName ||
+      file.OriginalName ||
       file.original_name ||
       content.file_name ||
+      content.fileName ||
+      content.FileName ||
       message?.file_name ||
       "Document";
 
     return {
-      id: file.id || file.key || getFileUrl(file) || `${name}-${index}`,
+      id: file.id || file.Id || file.key || file.Key || getFileUrl(file) || `${name}-${index}`,
       name,
       url: getFileUrl(file),
-      downloadUrl: file.downloadUrl || file.download_url || "",
-      size: file.size || file.contentLength || file.content_length || metadata.contentLength,
+      downloadUrl:
+        file.downloadUrl || file.DownloadUrl || file.download_url || file.DownloadURL || "",
+      size:
+        file.size ||
+        file.Size ||
+        file.contentLength ||
+        file.ContentLength ||
+        file.content_length ||
+        metadata.contentLength ||
+        metadata.ContentLength,
       contentType:
         file.contentType ||
+        file.ContentType ||
         file.content_type ||
         file.mimeType ||
+        file.MimeType ||
         file.mime_type ||
         metadata.contentType ||
+        metadata.ContentType ||
         "",
     };
   });
