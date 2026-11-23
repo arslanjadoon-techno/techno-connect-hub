@@ -1,125 +1,483 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Store, Hash, Mail, Phone, MapPin, Map, User, Loader2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Loader2, Search, Store as StoreIcon } from "lucide-react";
 import { toast } from "sonner";
-import { leasingService, type LeaseRecord } from "@/services/portals/leasing";
+import { storesService, statesService, marketsService, districtsService } from "@/services";
+import { useCanWrite } from "@/lib/leasing-permissions";
+import { leasingService } from "@/services/portals/leasing/leasing.service";
 
-interface StoreForm {
-  techId: string;
-  storeName: string;
-  storeEmail: string;
-  storePhoneNumber: string;
-  storeAddress: string;
-  marketName: string;
-  marketManager: string;
+interface State {
+  id: number;
+  name: string;
+  symbol: string;
 }
 
-const EMPTY: StoreForm = {
-  techId: "",
-  storeName: "",
-  storeEmail: "",
-  storePhoneNumber: "",
-  storeAddress: "",
-  marketName: "",
-  marketManager: "",
-};
+interface Market {
+  id: number;
+  name: string;
+}
+
+interface District {
+  id: number;
+  name: string;
+}
+
+// Add-Store permission key for this page (consistent with the other
+// leasing.show_* page-gating keys in leasing-permissions.ts).
+export const LEASING_ADD_STORE_PERMISSION_KEY = "leasing.show_add_store";
 
 export default function AddStorePage() {
-  const navigate = useNavigate();
-  const [form, setForm] = useState<StoreForm>(EMPTY);
+  const canWrite = useCanWrite(LEASING_ADD_STORE_PERMISSION_KEY);
+
+  const [states, setStates] = useState<State[]>([]);
+  const [statesLoaded, setStatesLoaded] = useState(false);
+  const statesLoadingRef = useRef(false);
+
+  const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [doorCode, setDoorCode] = useState("");
+
+  const [stateId, setStateId] = useState<string>("");
+  const [marketId, setMarketId] = useState<string>("");
+  const [districtId, setDistrictId] = useState<string>("");
+
+  const [markets, setMarkets] = useState<Market[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [marketsLoading, setMarketsLoading] = useState(false);
+  const [districtsLoading, setDistrictsLoading] = useState(false);
+
+  const [stateSearch, setStateSearch] = useState("");
+  const [marketSearch, setMarketSearch] = useState("");
+  const [districtSearch, setDistrictSearch] = useState("");
+
+  const stateSearchRef = useRef<HTMLInputElement>(null);
+  const marketSearchRef = useRef<HTMLInputElement>(null);
+  const districtSearchRef = useRef<HTMLInputElement>(null);
+
   const [saving, setSaving] = useState(false);
 
-  const set = (key: keyof StoreForm, value: string) => setForm((prev) => ({ ...prev, [key]: value }));
-
-  const handleSubmit = async () => {
-    if (!form.techId.trim()) {
-      toast.error("Tech ID is required.");
-      return;
-    }
-    if (!form.storeName.trim()) {
-      toast.error("Store name is required.");
-      return;
-    }
-    setSaving(true);
+  const ensureStatesLoaded = async () => {
+    if (statesLoaded || statesLoadingRef.current) return;
+    statesLoadingRef.current = true;
     try {
-      const payload: Partial<LeaseRecord> = {
-        techId: form.techId.trim().toUpperCase(),
-        storeName: form.storeName.trim(),
-        storeEmail: form.storeEmail.trim() || null,
-        storePhoneNumber: form.storePhoneNumber.trim() || null,
-        storeAddress: form.storeAddress.trim() || null,
-        marketName: form.marketName.trim() || null,
-        marketManager: form.marketManager.trim() || null,
-      };
-      await leasingService.addStore(payload);
-      toast.success("Store added successfully.");
-      navigate("/leasing/manage-leasing");
-    } catch (error) {
-      toast.error(`Failed to add store: ${(error as Error).message}`);
+      const res = await statesService.getAll();
+      if (res.success) {
+        setStates(res.data);
+        setStatesLoaded(true);
+      }
+    } catch (err) {
+      console.error("Failed to load states:", err);
+    } finally {
+      statesLoadingRef.current = false;
+    }
+  };
+
+  const handleStateChange = async (newStateId: string) => {
+    setStateId(newStateId);
+    setMarketId("");
+    setDistrictId("");
+    setMarkets([]);
+    setDistricts([]);
+
+    if (!newStateId) return;
+
+    try {
+      setMarketsLoading(true);
+      const match = states.find((s) => s.id.toString() === newStateId);
+      const stateParam = match ? match.name : newStateId;
+      const res = await marketsService.getAll({ State: stateParam });
+      if (res.success && Array.isArray(res.data)) {
+        setMarkets(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to load markets for state", err);
+    } finally {
+      setMarketsLoading(false);
+    }
+  };
+
+  const handleMarketChange = async (newMarketId: string) => {
+    setMarketId(newMarketId);
+    setDistrictId("");
+    setDistricts([]);
+
+    if (!newMarketId) return;
+
+    try {
+      setDistrictsLoading(true);
+      const match = markets.find((m) => m.id.toString() === newMarketId);
+      const marketParam = match ? match.name : newMarketId;
+      const res = await districtsService.getAll({ Market: marketParam });
+      if (res.success && Array.isArray(res.data)) {
+        setDistricts(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to load districts for market", err);
+    } finally {
+      setDistrictsLoading(false);
+    }
+  };
+
+  const filteredStates = useMemo(
+    () => states.filter((s) => s.name.toLowerCase().includes(stateSearch.toLowerCase())),
+    [states, stateSearch],
+  );
+  const filteredMarkets = useMemo(
+    () => markets.filter((m) => m.name.toLowerCase().includes(marketSearch.toLowerCase())),
+    [markets, marketSearch],
+  );
+  const filteredDistricts = useMemo(
+    () => districts.filter((d) => d.name.toLowerCase().includes(districtSearch.toLowerCase())),
+    [districts, districtSearch],
+  );
+
+  const isFormValid =
+    Boolean(name.trim()) &&
+    Boolean(address.trim()) &&
+    Boolean(email.trim()) &&
+    Boolean(stateId) &&
+    Boolean(marketId) &&
+    Boolean(districtId) &&
+    !saving &&
+    !marketsLoading &&
+    !districtsLoading;
+
+  const resetForm = () => {
+    setName("");
+    setAddress("");
+    setEmail("");
+    setPhone("");
+    setDoorCode("");
+    setStateId("");
+    setMarketId("");
+    setDistrictId("");
+    setMarkets([]);
+    setDistricts([]);
+  };
+
+  const handleSave = async () => {
+    if (!isFormValid) return;
+    try {
+      setSaving(true);
+      const res = await storesService.add({
+        name: name.trim(),
+        address: address.trim(),
+        email: email.trim(),
+        phone: phone.trim(),
+        doorCode: doorCode.trim(),
+        stateId: Number(stateId),
+        marketId: Number(marketId),
+        districtId: Number(districtId),
+      });
+      if (res.success) {
+        const created = res.data;
+        if (created?.techId) {
+          try {
+            await leasingService.addStoreInLeasingDB({
+              techId: created.techId,
+              storeName: created.name,
+              marketName: created.market?.name,
+            });
+          } catch (leaseErr) {
+            console.error("Store created, but failed to seed its lease record:", leaseErr);
+            toast.error(
+              "Store added, but it could not be added to Manage Leasing automatically - add it there manually.",
+            );
+          }
+        }
+        toast.success(res.message || "Store added successfully");
+        resetForm();
+      } else {
+        toast.error(res.message || "Failed to create store");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Operation failed");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <Card className="p-6">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <Store className="h-5 w-5" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold">New store</h1>
-            <p className="text-sm text-muted-foreground">Fill in the details to register a new store</p>
-          </div>
+    <div className="w-full space-y-4 animate-fade-in pb-8">
+      <div className="flex items-center gap-2.5">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <StoreIcon className="h-5 w-5" />
         </div>
-
-        <Section title="IDENTITY">
-          <Field label="Tech ID" required icon={<Hash className="h-4 w-4" />} value={form.techId} onChange={(v) => set("techId", v)} />
-          <Field label="Store name" required icon={<Store className="h-4 w-4" />} value={form.storeName} onChange={(v) => set("storeName", v)} />
-          <Field label="Store email" icon={<Mail className="h-4 w-4" />} value={form.storeEmail} onChange={(v) => set("storeEmail", v)} />
-          <Field label="Store phone" icon={<Phone className="h-4 w-4" />} value={form.storePhoneNumber} onChange={(v) => set("storePhoneNumber", v)} />
-        </Section>
-
-        <Section title="LOCATION">
-          <Field label="Store address" full icon={<MapPin className="h-4 w-4" />} value={form.storeAddress} onChange={(v) => set("storeAddress", v)} />
-          <Field label="Market" icon={<Map className="h-4 w-4" />} value={form.marketName} onChange={(v) => set("marketName", v)} />
-          <Field label="Market Manager" icon={<User className="h-4 w-4" />} value={form.marketManager} onChange={(v) => set("marketManager", v)} />
-        </Section>
-
-        <div className="mt-6">
-          <Button className="w-full" size="lg" onClick={handleSubmit} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add store"}
-          </Button>
+        <div>
+          <h1 className="font-display text-xl font-semibold">Add Store</h1>
+          <p className="text-sm text-muted-foreground">
+            Register a new store so it becomes available across the Leasing portal
+          </p>
         </div>
-      </Card>
-    </div>
-  );
-}
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="mb-6 border-t pt-4 first:border-t-0 first:pt-0">
-      <h2 className="mb-3 text-xs font-bold tracking-wide text-muted-foreground">{title}</h2>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
-    </div>
-  );
-}
-
-function Field({ label, value, onChange, icon, required, full }: { label: string; value: string; onChange: (v: string) => void; icon?: React.ReactNode; required?: boolean; full?: boolean }) {
-  return (
-    <div className={full ? "sm:col-span-2" : ""}>
-      <label className="mb-1 block text-xs text-muted-foreground">
-        {label}
-        {required && <span className="ml-0.5 text-destructive">*</span>}
-      </label>
-      <div className="relative">
-        {icon && <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">{icon}</span>}
-        <Input value={value} onChange={(e) => onChange(e.target.value)} className={icon ? "pl-9" : ""} />
       </div>
+
+      <Card className="p-5 max-w-3xl space-y-4">
+        {!canWrite && (
+          <p className="text-sm text-muted-foreground">
+            You have read-only access to this page and cannot add a store.
+          </p>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>
+              Store Name <span className="text-destructive font-semibold">*</span>
+            </Label>
+            <Input
+              value={name}
+              disabled={saving || !canWrite}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Westside Retail Hub"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Door Code{" "}
+              <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+            </Label>
+            <Input
+              value={doorCode}
+              disabled={saving || !canWrite}
+              onChange={(e) => setDoorCode(e.target.value)}
+              placeholder="123456"
+            />
+          </div>
+        </div>
+
+        <div className="w-full space-y-1.5">
+          <Label>
+            Address <span className="text-destructive font-semibold">*</span>
+          </Label>
+          <Input
+            value={address}
+            disabled={saving || !canWrite}
+            onChange={(e) => setAddress(e.target.value)}
+            placeholder="Complete street address details"
+            className="w-full"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <Label>
+              Email Contact <span className="text-destructive font-semibold">*</span>
+            </Label>
+            <Input
+              type="email"
+              value={email}
+              disabled={saving || !canWrite}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="store@email.com"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>
+              Phone Number{" "}
+              <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+            </Label>
+            <Input
+              value={phone}
+              disabled={saving || !canWrite}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+1 23 456 865"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          {/* State */}
+          <div className="space-y-1.5">
+            <Label>
+              State <span className="text-destructive font-semibold">*</span>
+            </Label>
+            <Select
+              value={stateId}
+              disabled={saving || !canWrite}
+              onValueChange={handleStateChange}
+              onOpenChange={(open) => {
+                if (open) {
+                  ensureStatesLoaded();
+                  setTimeout(() => stateSearchRef.current?.focus(), 100);
+                } else {
+                  setStateSearch("");
+                }
+              }}
+            >
+              <SelectTrigger className="w-full bg-white dark:bg-zinc-950">
+                <SelectValue placeholder="Select state" />
+              </SelectTrigger>
+              <SelectContent
+                onKeyDown={(e) => e.stopPropagation()}
+                onKeyUp={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
+                  <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
+                  <input
+                    ref={stateSearchRef}
+                    placeholder="Search states..."
+                    value={stateSearch}
+                    onChange={(e) => {
+                      setStateSearch(e.target.value);
+                      setTimeout(() => stateSearchRef.current?.focus(), 0);
+                    }}
+                    className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
+                {filteredStates.map((s) => (
+                  <SelectItem key={s.id} value={s.id.toString()}>
+                    {s.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Market */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label>
+                Market <span className="text-destructive font-semibold">*</span>
+              </Label>
+              {marketsLoading && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+            </div>
+            <Select
+              value={marketId}
+              disabled={saving || !canWrite || !stateId || marketsLoading}
+              onValueChange={handleMarketChange}
+              onOpenChange={(open) => {
+                if (!open) setMarketSearch("");
+                else setTimeout(() => marketSearchRef.current?.focus(), 100);
+              }}
+            >
+              <SelectTrigger className="w-full bg-white dark:bg-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed">
+                <SelectValue
+                  placeholder={
+                    !stateId
+                      ? "Select State First"
+                      : marketsLoading
+                        ? "Loading markets..."
+                        : filteredMarkets.length === 0
+                          ? "No markets available"
+                          : "Select market"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent
+                onKeyDown={(e) => e.stopPropagation()}
+                onKeyUp={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
+                  <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
+                  <input
+                    ref={marketSearchRef}
+                    placeholder="Search markets..."
+                    value={marketSearch}
+                    onChange={(e) => {
+                      setMarketSearch(e.target.value);
+                      setTimeout(() => marketSearchRef.current?.focus(), 0);
+                    }}
+                    className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
+                {filteredMarkets.length === 0 ? (
+                  <p className="text-[11px] text-center text-muted-foreground p-2">
+                    {marketsLoading ? "Fetching records..." : "No markets found"}
+                  </p>
+                ) : (
+                  filteredMarkets.map((m) => (
+                    <SelectItem key={m.id} value={m.id.toString()}>
+                      {m.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* District */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label>
+                District <span className="text-destructive font-semibold">*</span>
+              </Label>
+              {districtsLoading && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+            </div>
+            <Select
+              value={districtId}
+              disabled={saving || !canWrite || !marketId || districtsLoading}
+              onValueChange={setDistrictId}
+              onOpenChange={(open) => {
+                if (!open) setDistrictSearch("");
+                else setTimeout(() => districtSearchRef.current?.focus(), 100);
+              }}
+            >
+              <SelectTrigger className="w-full bg-white dark:bg-zinc-950 disabled:opacity-50 disabled:cursor-not-allowed">
+                <SelectValue
+                  placeholder={
+                    !marketId
+                      ? "Select Market First"
+                      : districtsLoading
+                        ? "Loading districts..."
+                        : filteredDistricts.length === 0
+                          ? "No districts available"
+                          : "Select district"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent
+                onKeyDown={(e) => e.stopPropagation()}
+                onKeyUp={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center px-2 py-1.5 border-b sticky top-0 bg-popover z-10">
+                  <Search className="h-3.5 w-3.5 mr-2 text-muted-foreground shrink-0" />
+                  <input
+                    ref={districtSearchRef}
+                    placeholder="Search districts..."
+                    value={districtSearch}
+                    onChange={(e) => {
+                      setDistrictSearch(e.target.value);
+                      setTimeout(() => districtSearchRef.current?.focus(), 0);
+                    }}
+                    className="w-full text-xs bg-transparent outline-none placeholder:text-muted-foreground"
+                  />
+                </div>
+                {filteredDistricts.length === 0 ? (
+                  <p className="text-[11px] text-center text-muted-foreground p-2">
+                    {districtsLoading ? "Fetching records..." : "No districts found"}
+                  </p>
+                ) : (
+                  filteredDistricts.map((d) => (
+                    <SelectItem key={d.id} value={d.id.toString()}>
+                      {d.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <Button
+          className="w-full flex items-center justify-center gap-2 sm:w-auto"
+          disabled={!isFormValid || !canWrite}
+          onClick={handleSave}
+        >
+          {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+          Save Store
+        </Button>
+      </Card>
     </div>
   );
 }

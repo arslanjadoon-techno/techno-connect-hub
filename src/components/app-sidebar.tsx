@@ -75,6 +75,7 @@ import { useAuth } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { hasOtpAccess, hasPortalAccess } from "@/lib/otp-access";
 import { LEASING_PAGE_PERMISSION_KEYS } from "@/lib/leasing-permissions";
+import { HOUSING_LEASING_PAGE_PERMISSION_KEYS } from "@/lib/housing-leasing-permissions";
 import SidebarRail from "@/pages/team-chat/sidebar/SidebarRail";
 import {
   getSurveillanceRole,
@@ -102,6 +103,7 @@ const otpManagerGroup: Group = {
 const PORTAL_ORDER = [
   "commission",
   "leasing",
+  "housingLeasing",
   "ranker",
   "ticketing",
   "surveillance",
@@ -169,6 +171,70 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
           { title: "Rent", url: "/leasing/bulk-upload/rent", icon: DollarSign },
           { title: "Accounting", url: "/leasing/bulk-upload/accounting", icon: BarChart3 },
           { title: "Lease Details", url: "/leasing/bulk-upload/lease-details", icon: FileText },
+        ],
+      },
+    ],
+  },
+  housingLeasing: {
+    title: "Housing Leasing",
+    icon: Home,
+    items: [
+      { title: "Dashboard", url: "/housing-leasing/dashboard", icon: Milestone },
+      { title: "Manage Properties", url: "/housing-leasing/manage-properties", icon: Home },
+      {
+        title: "Manage Housing Leasing",
+        url: "/housing-leasing/manage-housing-leasing",
+        icon: ClipboardList,
+      },
+      {
+        title: "Rent Payment List",
+        url: "/housing-leasing/manage-rent-payment-list",
+        icon: Receipt,
+      },
+      {
+        title: "Rent Payment Agreement",
+        url: "/housing-leasing/manage-rent-payment-agreement",
+        icon: FileSignature,
+      },
+      {
+        title: "Rent Agreement to Monthly Rent",
+        url: "/housing-leasing/rent-agreement-to-monthly-rent",
+        icon: CalendarDays,
+      },
+      {
+        title: "Lease Monitor",
+        url: "/housing-leasing/lease-monitor/next-month-rent-change",
+        icon: TrendingUp,
+        children: [
+          {
+            title: "Next Month Rent Change",
+            url: "/housing-leasing/lease-monitor/next-month-rent-change",
+            icon: TrendingUp,
+          },
+          {
+            title: "Lease Expiry Breakdown",
+            url: "/housing-leasing/lease-monitor/lease-expiry-breakdown",
+            icon: AlertCircle,
+          },
+        ],
+      },
+      { title: "Reports", url: "/housing-leasing/reports", icon: FileSpreadsheet },
+      {
+        title: "Bulk Upload",
+        url: "/housing-leasing/bulk-upload/rent",
+        icon: Upload,
+        children: [
+          { title: "Rent", url: "/housing-leasing/bulk-upload/rent", icon: DollarSign },
+          {
+            title: "Accounting",
+            url: "/housing-leasing/bulk-upload/accounting",
+            icon: BarChart3,
+          },
+          {
+            title: "Lease Details",
+            url: "/housing-leasing/bulk-upload/lease-details",
+            icon: FileText,
+          },
         ],
       },
     ],
@@ -440,6 +506,7 @@ function getCurrentPortalRole(user: any, pathname: string): string {
         (currentPortal === "ticketing" && pn.includes("ticket")) ||
         (currentPortal === "surveillance" && (pn.includes("surveil") || pn === "surveillance")) ||
         (currentPortal === "leasing" && pn.includes("leas")) ||
+        (currentPortal === "housingleasing" && pn.includes("housingleas")) ||
         (currentPortal === "ranker" && pn.includes("rank")) ||
         (currentPortal === "reporting" && pn.includes("report")) ||
         (currentPortal === "chat" && (pn.includes("chat") || pn.includes("team"))) ||
@@ -548,6 +615,7 @@ export function AppSidebar() {
         (target === "ticketing" && pNorm.includes("ticket")) ||
         (target === "surveillance" && (pNorm.includes("surveil") || pNorm === "surveillance")) ||
         (target === "leasing" && pNorm.includes("leas")) ||
+        (target === "housingleasing" && pNorm.includes("housingleas")) ||
         (target === "commission" && pNorm.includes("commiss")) ||
         (target === "ranker" && pNorm.includes("rank")) ||
         (target === "reporting" && pNorm.includes("report"))
@@ -565,6 +633,7 @@ export function AppSidebar() {
         (target === "ticketing" && pNorm.includes("ticket")) ||
         (target === "surveillance" && (pNorm.includes("surveil") || pNorm === "surveillance")) ||
         (target === "leasing" && pNorm.includes("leas")) ||
+        (target === "housingleasing" && pNorm.includes("housingleas")) ||
         (target === "commission" && pNorm.includes("commiss")) ||
         (target === "ranker" && pNorm.includes("rank")) ||
         (target === "reporting" && pNorm.includes("report"))
@@ -584,6 +653,7 @@ export function AppSidebar() {
         (target === "ticketing" && pNorm.includes("ticket")) ||
         (target === "surveillance" && (pNorm.includes("surveil") || pNorm === "surveillance")) ||
         (target === "leasing" && pNorm.includes("leas")) ||
+        (target === "housingleasing" && pNorm.includes("housingleas")) ||
         (target === "commission" && pNorm.includes("commiss")) ||
         (target === "ranker" && pNorm.includes("rank")) ||
         (target === "reporting" && pNorm.includes("report"))
@@ -599,6 +669,13 @@ export function AppSidebar() {
     return (entry?.accessLevel ?? "hide") !== "hide";
   };
 
+  const housingLeasingShowKeyAllows = (url: string): boolean => {
+    const permKey = HOUSING_LEASING_PAGE_PERMISSION_KEYS[url];
+    if (!permKey) return true;
+    const entry = permissions.find((p) => p.permissionKey === permKey);
+    return (entry?.accessLevel ?? "hide") !== "hide";
+  };
+
   const filterMasterGroup = (key: string, master: Group): Group => {
     if (key === "leasing") {
       const items = master.items
@@ -609,6 +686,20 @@ export function AppSidebar() {
             return { ...item, children, url: children[0].url };
           }
           return leasingShowKeyAllows(item.url) ? item : null;
+        })
+        .filter((i): i is Item => i !== null);
+      return { ...master, items };
+    }
+
+    if (key === "housingLeasing") {
+      const items = master.items
+        .map((item): Item | null => {
+          if (item.children) {
+            const children = item.children.filter((c) => housingLeasingShowKeyAllows(c.url));
+            if (children.length === 0) return null;
+            return { ...item, children, url: children[0].url };
+          }
+          return housingLeasingShowKeyAllows(item.url) ? item : null;
         })
         .filter((i): i is Item => i !== null);
       return { ...master, items };

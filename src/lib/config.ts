@@ -230,6 +230,7 @@ export const LEASING_STORE_PATHS = {
 export const LEASING_API_PATHS = {
   getLeasingInfo: "/GetLeasingInfo",
   postLeasingInfo: "/PostLeasingInfo",
+  addStoreInLeasingDB: "/AddStoreInLeasingDB",
   postLeasingDocs: "/PostLeasingDocs",
   getLeasingDocs: "/GetLeasingDocs",
   uploadFile: "/UploadFile",
@@ -261,6 +262,69 @@ export const LEASING_API_PATHS = {
   bulkUploadRent: "/BulkUpload",
   bulkUploadAccounting: "/BulkUploadAccounting",
   bulkUploadLeaseDetails: "/BulkUploadLeaseDetails",
+} as const;
+
+/**
+ * Housing Leasing portal - full duplicate of the Leasing portal above, keyed
+ * on UnitId (int, FK -> the pre-existing House registry's Id, same table the
+ * Commission portal's Houses page manages via HOUSE_API_PATHS below) instead
+ * of Leasing's TechId. Only the base-URL variants actually referenced by
+ * housing-leasing.service.ts are mirrored here (LEASING_READ/AUTH/BULK/
+ * SHOPPER/STORE_API_BASE_URL have no Housing equivalent).
+ */
+export const HOUSING_LEASING_API_BASE_URL =
+  (import.meta.env.VITE_HOUSING_LEASING_URL as string) || API_BASE_URL;
+export const HOUSING_LEASING_UPLOAD_API_BASE_URL =
+  (import.meta.env.VITE_HOUSING_LEASING_UPLOAD_URL as string) || API_BASE_URL;
+
+/**
+ * Housing Leasing portal endpoints. Most routes now carry an "api/HousingLeasing"
+ * prefix (added to HousingLeasingController itself) because several action names
+ * are identical to their Leasing counterpart (GetMonthlyRentFigure,
+ * GetLeaseRentAgreement, GetLeaseExpirationRemarks, etc.) - without a
+ * distinguishing prefix those collided with LeasingController's bare routes
+ * (ambiguous route match -> 500 at request time). The doc-management trio +
+ * UploadFile stay unprefixed (handled by the shared FileUploadController,
+ * untouched), and the report-template trio stays under HousingReportTemplatesController's
+ * own "[controller]" prefix, mirroring Leasing's nested "/ReportTemplates/*" shape.
+ */
+export const HOUSING_LEASING_API_PATHS = {
+  getHousingLeasingInfo: "/api/HousingLeasing/GetHousingLeasingInfo",
+  postHousingLeasingInfo: "/api/HousingLeasing/PostHousingLeasingInfo",
+  postHousingLeasingDocs: "/api/HousingLeasing/PostHousingLeasingDocs",
+  getHousingLeasingDocs: "/api/HousingLeasing/GetHousingLeasingDocs",
+  uploadFile: "/UploadFile",
+  deleteHousingLeaseDocs: "/DeleteHousingLeaseDocs",
+  renameHousingLeaseDocs: "/RenameHousingLeaseDocs",
+  reorderHousingLeaseDocs: "/UpdateHousingDocSortOrder",
+  missingDocsList: "/api/HousingLeasing/MissingDocsList",
+  addMissingDocsList: "/api/HousingLeasing/AddMissingDocsList",
+  getMonthlyRentFigure: "/api/HousingLeasing/GetMonthlyRentFigure",
+  getMonthlyRentFigureByUnitId: "/api/HousingLeasing/GetMonthlyRentFigureByUnitId",
+  insertLeaseRentAgreement: "/api/HousingLeasing/InsertLeaseRentAgreement",
+  getLeaseRentAgreement: "/api/HousingLeasing/GetLeaseRentAgreement",
+  updateLeaseRentAgreement: "/api/HousingLeasing/UpdateLeaseRentAgreement",
+  deleteLeaseRentAgreement: "/api/HousingLeasing/DeleteLeaseRentAgreement",
+  getLeaseExpirationRemarks: "/api/HousingLeasing/GetLeaseExpirationRemarks",
+  getAllLeaseExpirationRemarks: "/api/HousingLeasing/GetAllLeaseExpirationRemarks",
+  saveLeaseExpirationRemarks: "/api/HousingLeasing/SaveLeaseExpirationRemarks",
+  populateRentInMonthlyTable: "/api/HousingLeasing/PopulateRentInMonthlyTable",
+  getRentalPaymentDetails: "/api/HousingLeasing/GetRentalPaymentDetails",
+  updateFinancialMonthlyFigures: "/api/HousingLeasing/UpdateFinancialMonthlyFigures",
+  updateFinancialMonthlyFiguresRowWise: "/api/HousingLeasing/UpdateFinancialMonthlyFiguresRowWise",
+  getUpcomingRentChanges: "/api/HousingLeasing/GetHousingUpcomingRentChanges",
+  getBankingInfo: "/api/HousingLeasing/GetBankingInfo",
+  postBankingInfo: "/api/HousingLeasing/PostBankingInfo",
+  bulkUploadRent: "/api/HousingLeasing/BulkUpload",
+  bulkUploadAccounting: "/api/HousingLeasing/BulkUploadAccounting",
+  bulkUploadLeaseDetails: "/api/HousingLeasing/BulkUploadLeaseDetails",
+  getHousingReportTemplates: "/HousingReportTemplates/GetHousingReportTemplates",
+  saveHousingReportTemplate: "/HousingReportTemplates/SaveHousingReportTemplate",
+  deleteHousingReportTemplate: "/HousingReportTemplates/DeleteHousingReportTemplate",
+  getHousingOccupants: "/api/HousingLeasing/GetHousingOccupants",
+  addHousingOccupant: "/api/HousingLeasing/AddHousingOccupant",
+  shiftHousingOccupant: "/api/HousingLeasing/ShiftHousingOccupant",
+  removeHousingOccupant: "/api/HousingLeasing/RemoveHousingOccupant",
 } as const;
 
 export const RANKER_API_BASE_URL = (import.meta.env.VITE_RANKER_API_URL as string) || "";
