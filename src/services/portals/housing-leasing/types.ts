@@ -18,29 +18,23 @@ export interface HousingLeaseRecord {
   marketName?: string | null;
   districtName?: string | null;
   address?: string | null;
-  // Backend column is varchar, not numeric - comes through as a string despite the name.
-  securityDeposit?: string | null;
   leaseIncrementPercentage?: string | null;
   contactNumber?: string | null;
   landlordCoi?: string | null;
   metroCoi?: string | null;
   bankInformation?: string | null;
   entityName?: string | null;
-  guarantor?: string | null;
   ownerEmail?: string | null;
   createdAt?: string | null;
   lease_Term?: string | null;
   start_Date?: string | null;
   expiry_Due?: string | null;
-  hvac?: string | null;
-  exclusivity?: string | null;
-  termination?: string | null;
-  relocation?: string | null;
-  rightToSublease?: string | null;
   isDeleted?: boolean | null;
   deletedAt?: string | null;
-  optionPeriod?: boolean | null;
-  optionPeriodDuration?: string | null;
+  // Agreement Clauses, Housing-specific (not a copy of Leasing's commercial-lease
+  // clauses) - free-text tag lists, comma-separated.
+  appliancesByOwner?: string | null;
+  appliancesByTenant?: string | null;
 
   // HousingOwnersAccount
   ownerAccountNumber?: string | null;
@@ -79,13 +73,8 @@ export interface HousingLeaseRecord {
   tier?: string | null;
   assignmentDate?: string | null;
   leaseSignedBy?: string | null;
-  noticePeriodBeforeTermination?: string | null;
-  optionNoticeDate?: string | null;
-  subLease?: string | null;
   takeOverDate?: string | null;
   commencementDateRent?: string | null;
-  guarantyType?: string | null;
-  rightToTermination?: string | null;
   leaseStatus?: string | null;
   // Only ever set/updated by the backend when leaseStatus is saved as
   // "InActive" - left untouched on every other save.
@@ -239,4 +228,43 @@ export interface HousingReportTemplate {
   id?: number;
   name: string;
   fields: string[];
+}
+
+/**
+ * Mirrors TechnoComm.Controllers.HousingOccupantJoined exactly (camelCased).
+ * One row = one employee's stay in a unit. moveOutDate == null means they
+ * currently live there - a "Shift" closes this row out and opens a new one
+ * on the destination unit (see HousingLeasingService.shiftHousingOccupant),
+ * so a unit's full occupant history is just every row with that unitId.
+ */
+export interface HousingOccupant {
+  id: number;
+  unitId: number;
+  userId: number;
+  employeeName?: string | null;
+  employeeEmail?: string | null;
+  moveInDate: string;
+  moveOutDate?: string | null;
+  status?: string | null;
+  remarks?: string | null;
+}
+
+export interface AddHousingOccupantRequest {
+  unitId: number;
+  userId: number;
+  moveInDate: string;
+  remarks?: string | null;
+}
+
+export interface ShiftHousingOccupantRequest {
+  occupantId: number;
+  newUnitId: number;
+  moveDate: string;
+  remarks?: string | null;
+}
+
+export interface RemoveHousingOccupantRequest {
+  occupantId: number;
+  moveOutDate: string;
+  remarks?: string | null;
 }

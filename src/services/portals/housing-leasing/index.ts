@@ -13,4 +13,8 @@ export type {
   HousingFinancialMonthlyFiguresUpdate,
   NewHousingLeaseAgreement,
   HousingReportTemplate,
+  HousingOccupant,
+  AddHousingOccupantRequest,
+  ShiftHousingOccupantRequest,
+  RemoveHousingOccupantRequest,
 } from "./types";

@@ -1,17 +1,28 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ArrowLeft, Pencil, Check, Loader2, Trash2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   housingLeasingService,
   type HousingLeaseRecord,
   type HousingLeaseRentAgreement,
+  type HousingOccupant,
 } from "@/services/portals/housing-leasing";
 import { housesService } from "@/services/portals/commission";
+import { usersService } from "@/services/user-manager/users.service";
+import type { BackendUser } from "@/lib/api/client";
 import EditableField from "./components/EditableField";
 import MonthlyBillingActivitySection from "./components/MonthlyBillingActivitySection";
 import AttachmentsSection from "./components/AttachmentsSection";
@@ -49,19 +60,6 @@ const PAYMENT_MODE_OPTIONS = [
   "Hold",
   "COMPENSATION",
   "PENDING",
-];
-const YES_NO_UNKNOWN = ["Allowed", "Not Allowed", "Not Found"];
-const SUB_LEASE_OPTIONS = ["Yes", "No"];
-const RIGHT_TO_SUBLEASE_OPTIONS = [
-  "With Consent of Landlord",
-  "Without Consent of Landlord",
-  "Rights Not Given",
-];
-const GUARANTY_TYPE_OPTIONS = [
-  "Personal Guarantor",
-  "Corporate Guarantor",
-  "No Guarantor",
-  "Corporate and Personal",
 ];
 
 // Mirrors the local `House` interface in commission/HousesPage.tsx - the
@@ -112,12 +110,6 @@ function yesNoTone(v?: string | null): string {
   return "border-border bg-muted text-muted-foreground";
 }
 
-function subleaseRightTone(v?: string | null): string {
-  if (v && v !== "Rights Not Given")
-    return "border-emerald-300 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400";
-  return "border-border bg-muted text-muted-foreground";
-}
-
 export default function HousingLeasingDetailedPage() {
   const { unitId: unitIdParam } = useParams<{ unitId: string }>();
   const unitId = unitIdParam ? Number(unitIdParam) : NaN;
@@ -148,6 +140,24 @@ export default function HousingLeasingDetailedPage() {
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [savingRemarks, setSavingRemarks] = useState(false);
 
+  // Occupants
+  const [occupants, setOccupants] = useState<HousingOccupant[]>([]);
+  const [loadingOccupants, setLoadingOccupants] = useState(false);
+  const [addingOccupant, setAddingOccupant] = useState(false);
+  const [employeeQuery, setEmployeeQuery] = useState("");
+  const [employeeResults, setEmployeeResults] = useState<BackendUser[]>([]);
+  const [searchingEmployees, setSearchingEmployees] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<BackendUser | null>(null);
+  const [newOccupantMoveIn, setNewOccupantMoveIn] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [newOccupantRemarks, setNewOccupantRemarks] = useState("");
+  const [savingOccupant, setSavingOccupant] = useState(false);
+  const [shiftingOccupantId, setShiftingOccupantId] = useState<number | null>(null);
+  const [shiftTargetUnitId, setShiftTargetUnitId] = useState("");
+  const [shiftMoveDate, setShiftMoveDate] = useState(new Date().toISOString().slice(0, 10));
+  const [shiftRemarks, setShiftRemarks] = useState("");
+
   // Section-level permissions. Each section's Card is omitted entirely when
   // "hide"; its fields stay read-only (even while the page is in Edit mode)
   // unless the user specifically has "write" for that section.
@@ -166,6 +176,8 @@ export default function HousingLeasingDetailedPage() {
   const canWriteFinancial = useCanWrite("housingleasing.edit_lease_agreement_and_financial_details");
   const canShowClauses = useCanShow("housingleasing.edit_agreement_clauses");
   const canWriteClauses = useCanWrite("housingleasing.edit_agreement_clauses");
+  const canShowOccupants = useCanShow("housingleasing.edit_occupants");
+  const canWriteOccupants = useCanWrite("housingleasing.edit_occupants");
   const anyWriteAccess =
     canWriteGeneralInfo ||
     canWriteLeaseStatus ||
@@ -271,8 +283,6 @@ export default function HousingLeasingDetailedPage() {
         takeOverDate: formData.takeOverDate?.trim() === "" ? null : formData.takeOverDate,
         commencementDateRent:
           formData.commencementDateRent?.trim() === "" ? null : formData.commencementDateRent,
-        optionNoticeDate:
-          formData.optionNoticeDate?.trim() === "" ? null : formData.optionNoticeDate,
         leaseStatusDate:
           formData.leaseStatusDate?.trim() === "" ? null : formData.leaseStatusDate,
         isDeleted: false,
@@ -359,6 +369,128 @@ export default function HousingLeasingDetailedPage() {
       toast.error(`Failed to save remarks: ${(error as Error).message}`);
     } finally {
       setSavingRemarks(false);
+    }
+  };
+
+  const loadOccupants = useCallback(async () => {
+    if (!Number.isFinite(unitId)) return;
+    setLoadingOccupants(true);
+    try {
+      const data = await housingLeasingService.getHousingOccupants(unitId);
+      setOccupants(data);
+    } catch (error) {
+      console.error("Error loading occupants:", error);
+    } finally {
+      setLoadingOccupants(false);
+    }
+  }, [unitId]);
+
+  useEffect(() => {
+    loadOccupants();
+  }, [loadOccupants]);
+
+  // Debounced whole-database employee search, same pattern as the user search
+  // bar on AssignPermissionsPage (GET /api/users/search?search=).
+  useEffect(() => {
+    const trimmed = employeeQuery.trim();
+    if (!trimmed) {
+      setEmployeeResults([]);
+      return;
+    }
+    setSearchingEmployees(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await usersService.search(trimmed);
+        const list = Array.isArray(res) ? res : (res as { data?: BackendUser[] })?.data ?? [];
+        setEmployeeResults(list);
+      } catch (error) {
+        console.error("Failed to search employees:", error);
+        setEmployeeResults([]);
+      } finally {
+        setSearchingEmployees(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [employeeQuery]);
+
+  const resetAddOccupantForm = () => {
+    setAddingOccupant(false);
+    setEmployeeQuery("");
+    setEmployeeResults([]);
+    setSelectedEmployee(null);
+    setNewOccupantMoveIn(new Date().toISOString().slice(0, 10));
+    setNewOccupantRemarks("");
+  };
+
+  const handleAddOccupant = async () => {
+    if (!selectedEmployee || !Number.isFinite(unitId)) {
+      toast.error("Pick an employee first.");
+      return;
+    }
+    setSavingOccupant(true);
+    try {
+      await housingLeasingService.addHousingOccupant({
+        unitId,
+        userId: selectedEmployee.id,
+        moveInDate: newOccupantMoveIn,
+        remarks: newOccupantRemarks || null,
+      });
+      toast.success(`${selectedEmployee.fullName} added as an occupant.`);
+      resetAddOccupantForm();
+      loadOccupants();
+    } catch (error) {
+      toast.error((error as Error).message || "Failed to add occupant.");
+    } finally {
+      setSavingOccupant(false);
+    }
+  };
+
+  const resetShiftForm = () => {
+    setShiftingOccupantId(null);
+    setShiftTargetUnitId("");
+    setShiftMoveDate(new Date().toISOString().slice(0, 10));
+    setShiftRemarks("");
+  };
+
+  const handleShiftOccupant = async (occupant: HousingOccupant) => {
+    const newUnitId = Number(shiftTargetUnitId);
+    if (!Number.isFinite(newUnitId) || newUnitId <= 0) {
+      toast.error("Pick a destination unit first.");
+      return;
+    }
+    setSavingOccupant(true);
+    try {
+      await housingLeasingService.shiftHousingOccupant({
+        occupantId: occupant.id,
+        newUnitId,
+        moveDate: shiftMoveDate,
+        remarks: shiftRemarks || null,
+      });
+      toast.success(`${occupant.employeeName ?? "Employee"} shifted successfully.`);
+      resetShiftForm();
+      loadOccupants();
+    } catch (error) {
+      toast.error((error as Error).message || "Failed to shift occupant.");
+    } finally {
+      setSavingOccupant(false);
+    }
+  };
+
+  const handleRemoveOccupant = async (occupant: HousingOccupant) => {
+    if (!window.confirm(`Remove ${occupant.employeeName ?? "this employee"} from this unit?`))
+      return;
+    setSavingOccupant(true);
+    try {
+      await housingLeasingService.removeHousingOccupant({
+        occupantId: occupant.id,
+        moveOutDate: new Date().toISOString().slice(0, 10),
+      });
+      toast.success("Occupant removed.");
+      loadOccupants();
+    } catch (error) {
+      toast.error((error as Error).message || "Failed to remove occupant.");
+    } finally {
+      setSavingOccupant(false);
     }
   };
 
@@ -954,108 +1086,26 @@ export default function HousingLeasingDetailedPage() {
       </Card>
       )}
 
-      {/* Agreement Clauses */}
+      {/* Agreement Clauses - Housing-specific, not a copy of Leasing's
+          commercial-lease clauses (HVAC/Exclusivity/Termination/etc don't apply
+          to employee housing). Free-text tag lists instead. */}
       {canShowClauses && (
       <Card className="p-4">
         <h2 className="mb-3 text-base font-bold">Agreement Clauses</h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <EditableField
-            label="HVAC"
-            value={f.hvac ?? ""}
+            label="Appliances by Owner"
+            value={f.appliancesByOwner ?? ""}
             editing={isEditing && canWriteClauses}
-            type="select"
-            options={["Tenants Responsibility", "Landlord Responsibility", "Not Found"]}
-            onChange={(v) => set("hvac", v)}
-            badgeTone={!isEditing ? yesNoTone(leaseData.hvac) : undefined}
-            displayValue={!isEditing ? leaseData.hvac || "Not Found" : undefined}
+            onChange={(v) => set("appliancesByOwner", v)}
+            maxLength={1000}
           />
           <EditableField
-            label="Exclusivity"
-            value={f.exclusivity ?? ""}
+            label="Appliances by Tenant"
+            value={f.appliancesByTenant ?? ""}
             editing={isEditing && canWriteClauses}
-            type="select"
-            options={["Yes", "No", "Not Found"]}
-            onChange={(v) => set("exclusivity", v)}
-            badgeTone={!isEditing ? yesNoTone(leaseData.exclusivity) : undefined}
-            displayValue={!isEditing ? leaseData.exclusivity || "Not Found" : undefined}
-          />
-          <EditableField
-            label="Termination"
-            value={f.termination ?? ""}
-            editing={isEditing && canWriteClauses}
-            type="select"
-            options={YES_NO_UNKNOWN}
-            onChange={(v) => set("termination", v)}
-            badgeTone={!isEditing ? yesNoTone(leaseData.termination) : undefined}
-            displayValue={!isEditing ? leaseData.termination || "Not Found" : undefined}
-          />
-          <EditableField
-            label="Notice Period before Termination"
-            value={f.noticePeriodBeforeTermination ?? ""}
-            editing={isEditing && canWriteClauses}
-            onChange={(v) => set("noticePeriodBeforeTermination", v)}
-          />
-          <EditableField
-            label="Right to Sublease"
-            value={f.rightToSublease ?? ""}
-            editing={isEditing && canWriteClauses}
-            type="select"
-            options={RIGHT_TO_SUBLEASE_OPTIONS}
-            onChange={(v) => set("rightToSublease", v)}
-            badgeTone={!isEditing ? subleaseRightTone(leaseData.rightToSublease) : undefined}
-            displayValue={!isEditing ? leaseData.rightToSublease || "Not Found" : undefined}
-          />
-          <EditableField
-            label="Sub Lease"
-            value={f.subLease ?? ""}
-            editing={isEditing && canWriteClauses}
-            type="select"
-            options={SUB_LEASE_OPTIONS}
-            onChange={(v) => set("subLease", v)}
-          />
-          <EditableField
-            label="Option Period Duration"
-            value={f.optionPeriodDuration ?? ""}
-            editing={isEditing && canWriteClauses}
-            onChange={(v) => set("optionPeriodDuration", v)}
-            maxLength={200}
-          />
-          <EditableField
-            label="Option Notice Date"
-            value={f.optionNoticeDate ?? ""}
-            editing={isEditing && canWriteClauses}
-            type="date"
-            onChange={(v) => set("optionNoticeDate", v)}
-          />
-          <EditableField
-            label="Guarantor"
-            value={f.guarantor ?? ""}
-            editing={isEditing && canWriteClauses}
-            onChange={(v) => set("guarantor", v)}
-          />
-          <EditableField
-            label="Guaranty Type"
-            value={f.guarantyType ?? ""}
-            editing={isEditing && canWriteClauses}
-            type="select"
-            options={GUARANTY_TYPE_OPTIONS}
-            onChange={(v) => set("guarantyType", v)}
-          />
-          <EditableField
-            label="Relocation"
-            value={f.relocation ?? ""}
-            editing={isEditing && canWriteClauses}
-            type="select"
-            options={YES_NO_UNKNOWN}
-            onChange={(v) => set("relocation", v)}
-            badgeTone={!isEditing ? yesNoTone(leaseData.relocation) : undefined}
-            displayValue={!isEditing ? leaseData.relocation || "Not Found" : undefined}
-          />
-          <EditableField
-            label="Security Deposit"
-            value={String(f.securityDeposit ?? "")}
-            editing={isEditing && canWriteClauses}
-            onChange={(v) => set("securityDeposit", v)}
+            onChange={(v) => set("appliancesByTenant", v)}
+            maxLength={1000}
           />
         </div>
       </Card>
@@ -1068,6 +1118,251 @@ export default function HousingLeasingDetailedPage() {
         <AttachmentsSection unitId={leaseData.unitId} isEditing={isEditing && anyWriteAccess} />
       )}
       {leaseData.unitId != null && <MissingDocumentsSection unitId={leaseData.unitId} />}
+
+      {/* Occupants - employees currently/previously living in this unit. Add,
+          Shift (move to another unit - closes this row and opens a new one
+          there) and Remove all act immediately (not gated behind the page's
+          Edit/Save toggle), same as the Remarks section above. */}
+      {canShowOccupants && (
+      <Card className="p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-bold">Occupants</h2>
+          {canWriteOccupants && !addingOccupant && (
+            <Button size="sm" variant="outline" onClick={() => setAddingOccupant(true)}>
+              <Plus className="mr-1 h-3.5 w-3.5" /> Add Occupant
+            </Button>
+          )}
+        </div>
+
+        {addingOccupant && (
+          <div className="mb-4 space-y-3 rounded-md border p-3">
+            <div className="relative">
+              <div className="mb-1 text-xs font-semibold text-muted-foreground">Employee</div>
+              {selectedEmployee ? (
+                <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
+                  <span>
+                    {selectedEmployee.fullName}{" "}
+                    <span className="text-muted-foreground">({selectedEmployee.email})</span>
+                  </span>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    onClick={() => setSelectedEmployee(null)}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Input
+                    value={employeeQuery}
+                    onChange={(e) => setEmployeeQuery(e.target.value)}
+                    placeholder="Search employee by name or email..."
+                    className="h-9"
+                  />
+                  {employeeQuery.trim() !== "" && (
+                    <div className="absolute z-10 mt-1 w-full rounded-md border bg-popover shadow-md">
+                      {searchingEmployees ? (
+                        <div className="p-2 text-xs text-muted-foreground">Searching...</div>
+                      ) : employeeResults.length === 0 ? (
+                        <div className="p-2 text-xs text-muted-foreground">No matches.</div>
+                      ) : (
+                        employeeResults.map((u) => (
+                          <button
+                            key={u.id}
+                            type="button"
+                            className="block w-full px-3 py-2 text-left text-sm hover:bg-muted"
+                            onClick={() => {
+                              setSelectedEmployee(u);
+                              setEmployeeQuery("");
+                              setEmployeeResults([]);
+                            }}
+                          >
+                            {u.fullName} <span className="text-muted-foreground">({u.email})</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <div className="mb-1 text-xs font-semibold text-muted-foreground">Move In Date</div>
+                <Input
+                  type="date"
+                  value={newOccupantMoveIn}
+                  onChange={(e) => setNewOccupantMoveIn(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+              <div>
+                <div className="mb-1 text-xs font-semibold text-muted-foreground">Remarks</div>
+                <Input
+                  value={newOccupantRemarks}
+                  onChange={(e) => setNewOccupantRemarks(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={resetAddOccupantForm}>
+                Cancel
+              </Button>
+              <Button size="sm" onClick={handleAddOccupant} disabled={savingOccupant}>
+                {savingOccupant ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Add"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {loadingOccupants ? (
+          <p className="text-sm text-muted-foreground">Loading occupants...</p>
+        ) : occupants.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No occupants recorded for this unit.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-left text-xs font-semibold text-muted-foreground">
+                  <th className="py-2">Employee</th>
+                  <th className="py-2">Move In</th>
+                  <th className="py-2">Move Out</th>
+                  <th className="py-2">Status</th>
+                  <th className="py-2">Remarks</th>
+                  {canWriteOccupants && <th className="py-2 text-right">Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {occupants.map((o) => {
+                  const isActive = o.moveOutDate == null;
+                  const otherUnits = allLeases.filter(
+                    (l) => l.unitId != null && l.unitId !== unitId,
+                  );
+                  return (
+                    <Fragment key={o.id}>
+                      <tr className="border-b last:border-0">
+                        <td className="py-2">
+                          <div>{o.employeeName ?? `User #${o.userId}`}</div>
+                          <div className="text-xs text-muted-foreground">{o.employeeEmail}</div>
+                        </td>
+                        <td className="py-2">{o.moveInDate?.slice(0, 10)}</td>
+                        <td className="py-2">{o.moveOutDate?.slice(0, 10) ?? "—"}</td>
+                        <td className="py-2">
+                          <Badge
+                            variant="outline"
+                            className={
+                              isActive
+                                ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400"
+                                : "border-border bg-muted text-muted-foreground"
+                            }
+                          >
+                            {o.status ?? (isActive ? "Active" : "Moved Out")}
+                          </Badge>
+                        </td>
+                        <td className="py-2">{o.remarks ?? "—"}</td>
+                        {canWriteOccupants && (
+                          <td className="py-2 text-right">
+                            {isActive && (
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() =>
+                                    shiftingOccupantId === o.id
+                                      ? resetShiftForm()
+                                      : setShiftingOccupantId(o.id)
+                                  }
+                                >
+                                  Shift
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="text-destructive"
+                                  onClick={() => handleRemoveOccupant(o)}
+                                  disabled={savingOccupant}
+                                >
+                                  Remove
+                                </Button>
+                              </div>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                      {shiftingOccupantId === o.id && (
+                        <tr>
+                          <td colSpan={canWriteOccupants ? 6 : 5} className="pb-3">
+                            <div className="flex flex-wrap items-end gap-3 rounded-md border p-3">
+                              <div className="min-w-[200px]">
+                                <div className="mb-1 text-xs font-semibold text-muted-foreground">
+                                  Destination Unit
+                                </div>
+                                <Select value={shiftTargetUnitId} onValueChange={setShiftTargetUnitId}>
+                                  <SelectTrigger className="h-9">
+                                    <SelectValue placeholder="Select unit" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {otherUnits.map((l) => (
+                                      <SelectItem key={l.unitId} value={String(l.unitId)}>
+                                        {l.unitName ?? `Unit ${l.unitId}`}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div>
+                                <div className="mb-1 text-xs font-semibold text-muted-foreground">
+                                  Move Date
+                                </div>
+                                <Input
+                                  type="date"
+                                  value={shiftMoveDate}
+                                  onChange={(e) => setShiftMoveDate(e.target.value)}
+                                  className="h-9"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-[160px]">
+                                <div className="mb-1 text-xs font-semibold text-muted-foreground">
+                                  Remarks
+                                </div>
+                                <Input
+                                  value={shiftRemarks}
+                                  onChange={(e) => setShiftRemarks(e.target.value)}
+                                  className="h-9"
+                                />
+                              </div>
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="ghost" onClick={resetShiftForm}>
+                                  Cancel
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleShiftOccupant(o)}
+                                  disabled={savingOccupant}
+                                >
+                                  {savingOccupant ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    "Confirm Shift"
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+      )}
     </div>
   );
 }

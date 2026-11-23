@@ -17,6 +17,10 @@ import type {
   HousingFinancialMonthlyFiguresUpdate,
   NewHousingLeaseAgreement,
   HousingReportTemplate,
+  HousingOccupant,
+  AddHousingOccupantRequest,
+  ShiftHousingOccupantRequest,
+  RemoveHousingOccupantRequest,
 } from "./types";
 
 /**
@@ -106,7 +110,17 @@ export class HousingLeasingService {
     });
 
     if (!res.ok) {
-      throw new Error(`Housing Leasing request failed (${res.status}: ${res.statusText})`);
+      // Occupant endpoints (e.g. AddHousingOccupant's 409 on a duplicate active
+      // assignment) return a JSON { Message } body with the real reason - surface
+      // that instead of the generic status text when it's there.
+      let message = `Housing Leasing request failed (${res.status}: ${res.statusText})`;
+      try {
+        const body = await res.clone().json();
+        if (body?.Message || body?.message) message = body.Message ?? body.message;
+      } catch {
+        // response wasn't JSON - keep the generic message
+      }
+      throw new Error(message);
     }
 
     // Some endpoints (e.g. PostHousingLeasingInfo) return a plain success message, not JSON.
@@ -450,6 +464,37 @@ export class HousingLeasingService {
     return this.request(HOUSING_LEASING_API_PATHS.deleteHousingReportTemplate, {
       method: "DELETE",
       query: { id },
+    });
+  }
+
+  // ---------- Occupants ---------- //
+
+  async getHousingOccupants(unitId: number): Promise<HousingOccupant[]> {
+    const data = await this.request<HousingOccupant[]>(HOUSING_LEASING_API_PATHS.getHousingOccupants, {
+      query: { UnitId: unitId },
+    });
+    return Array.isArray(data) ? data : [];
+  }
+
+  /** 409 means the employee already has an active assignment elsewhere - surfaced as a thrown Error by `request`. */
+  async addHousingOccupant(data: AddHousingOccupantRequest): Promise<unknown> {
+    return this.request(HOUSING_LEASING_API_PATHS.addHousingOccupant, {
+      method: "POST",
+      body: data,
+    });
+  }
+
+  async shiftHousingOccupant(data: ShiftHousingOccupantRequest): Promise<unknown> {
+    return this.request(HOUSING_LEASING_API_PATHS.shiftHousingOccupant, {
+      method: "POST",
+      body: data,
+    });
+  }
+
+  async removeHousingOccupant(data: RemoveHousingOccupantRequest): Promise<unknown> {
+    return this.request(HOUSING_LEASING_API_PATHS.removeHousingOccupant, {
+      method: "POST",
+      body: data,
     });
   }
 }

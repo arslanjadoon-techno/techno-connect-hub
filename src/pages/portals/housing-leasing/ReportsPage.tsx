@@ -49,23 +49,8 @@ const ALL_FIELDS: Field[] = [
   { key: "leaseStatus", label: "Lease Status", group: "General" },
   { key: "leaseStatusDate", label: "Status Date", group: "General" },
   { key: "leaseExpirationRemarks", label: "Lease Expiration Remarks", group: "General" },
-  { key: "securityDeposit", label: "Security Deposit", group: "Agreement" },
-  { key: "hvac", label: "HVAC", group: "Agreement" },
-  { key: "exclusivity", label: "Exclusivity", group: "Agreement" },
-  { key: "termination", label: "Termination", group: "Agreement" },
-  { key: "relocation", label: "Relocation", group: "Agreement" },
-  { key: "rightToSublease", label: "Right to Sublease", group: "Agreement" },
-  { key: "optionPeriodDuration", label: "Option Period Duration", group: "Agreement" },
-  {
-    key: "noticePeriodBeforeTermination",
-    label: "Notice Period before Termination",
-    group: "Agreement",
-  },
-  { key: "optionNoticeDate", label: "Option Notice Date", group: "Agreement" },
-  { key: "subLease", label: "Sub Lease", group: "Agreement" },
-  { key: "guarantor", label: "Guarantor", group: "Agreement" },
-  { key: "guarantyType", label: "Guaranty Type", group: "Agreement" },
-  { key: "rightToTermination", label: "Right to Termination", group: "Agreement" },
+  { key: "appliancesByOwner", label: "Appliances by Owner", group: "Agreement" },
+  { key: "appliancesByTenant", label: "Appliances by Tenant", group: "Agreement" },
   { key: "landLordName", label: "Landlord Name", group: "Landlord" },
   { key: "landLordPointOfContact", label: "Point of Contact", group: "Landlord" },
   { key: "landLordContactNumber", label: "Phone Number", group: "Landlord" },
@@ -88,12 +73,6 @@ const ALL_FIELDS: Field[] = [
 
 const LABEL_MAP = Object.fromEntries(ALL_FIELDS.map((f) => [f.key, f.label]));
 const GROUPS = [...new Set(ALL_FIELDS.map((f) => f.group))];
-
-function formatTermination(v: unknown): string {
-  if (v === true || v === "true") return "Allowed";
-  if (v === false || v === "false") return "Not Allowed";
-  return (v as string) || "";
-}
 
 export default function ReportsPage() {
   const [available, setAvailable] = useState<Field[]>(ALL_FIELDS);
@@ -179,7 +158,6 @@ export default function ReportsPage() {
       const remarksByUnitId = new Map(remarksList.map((r) => [r.unitId, r.remarks ?? ""]));
       const data = rows.map((row) => ({
         ...row,
-        termination: formatTermination(row.termination),
         ...(needsRemarks ? { leaseExpirationRemarks: remarksByUnitId.get(row.unitId) ?? "" } : {}),
       }));
       exportToExcel(data as unknown as Record<string, unknown>[], fieldKeys, LABEL_MAP, {
