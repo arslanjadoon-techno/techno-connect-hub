@@ -1,5 +1,3 @@
-import type { Room, RemoteParticipant } from "livekit-client";
-
 export type CallType = "audio" | "video";
 export type CallStatus = "ringing" | "accepted" | "ended" | string;
 
@@ -8,6 +6,8 @@ export interface ChatCall {
   chatId: string | number;
   type: CallType;
   status: CallStatus;
+  provider?: string;
+  providerMeetingId?: string | null;
   startedBy?: { name?: string; avatarUrl?: string };
 }
 
@@ -34,6 +34,3 @@ export interface CallPanelProps {
   onMinimize?: () => void;
   onEnd: () => void;
 }
-
-export type RemoteCallParticipant = RemoteParticipant;
-export type CallRoom = Room;

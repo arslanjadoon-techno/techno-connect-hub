@@ -434,19 +434,33 @@ export function useChatData({
     setLoadError("");
 
     try {
-      const [buddyResponse, channelResponse, statusResponse, settingsResponse]: any[] =
-        await Promise.all([
-          getChatUsersService({ excludeSelf: true }),
-          getChatConversationsService(),
-          getChatStatusService().catch((err) => {
-            console.warn("[chat] status load failed", err);
-            return null;
-          }),
-          getChatSettingsService().catch((err) => {
-            console.warn("[chat] settings load failed", err);
-            return null;
-          }),
-        ]);
+      const [buddyResult, channelResult, statusResult, settingsResult] = await Promise.allSettled([
+        getChatUsersService({ excludeSelf: true }),
+        getChatConversationsService(),
+        getChatStatusService().catch((err) => {
+          console.warn("[chat] status load failed", err);
+          return null;
+        }),
+        getChatSettingsService().catch((err) => {
+          console.warn("[chat] settings load failed", err);
+          return null;
+        }),
+      ]);
+
+      if (channelResult.status === "rejected") throw channelResult.reason;
+
+      const buddyResponse = buddyResult.status === "fulfilled" ? buddyResult.value : null;
+      const channelResponse = channelResult.value;
+      const statusResponse = statusResult.status === "fulfilled" ? statusResult.value : null;
+      const settingsResponse =
+        settingsResult.status === "fulfilled" ? settingsResult.value : null;
+
+      if (buddyResult.status === "rejected") {
+        // User Management is a separate database from ChatDb. Existing
+        // conversations can still be rendered from the conversation response
+        // when the directory database is temporarily unavailable.
+        console.warn("[chat] user directory load failed; continuing with conversations", buddyResult.reason);
+      }
 
       const persistedSettings = unwrapEnvelope<Record<string, any>>(settingsResponse);
 
@@ -473,9 +487,6 @@ export function useChatData({
       }
 
       // ChatUsersController returns a plain array; conversation endpoints return { data }.
-      const chatUsers: ChatRecord[] = getArrayPayload(
-        buddyResponse?.data?.data ?? buddyResponse?.data,
-      ) as ChatRecord[];
       const chatConversations: ChatRecord[] = dedupeConversationRecords(
         getArrayPayload(channelResponse?.data?.data ?? channelResponse?.data) as ChatRecord[],
       );
@@ -484,8 +495,14 @@ export function useChatData({
         (conversation) => !isSelfConversation(conversation),
       );
 
-      initialChatUsersRef.current = chatUsers;
-      if (!latestUserSearchRef.current) setBuddies(chatUsers);
+      const chatUsers: ChatRecord[] = buddyResponse
+        ? (getArrayPayload(buddyResponse?.data?.data ?? buddyResponse?.data) as ChatRecord[])
+        : [];
+
+      if (buddyResponse) {
+        initialChatUsersRef.current = chatUsers;
+        if (!latestUserSearchRef.current) setBuddies(chatUsers);
+      }
       setChannels(chatConversations);
 
       const statusPayload = unwrapEnvelope<Record<string, any>>(statusResponse);

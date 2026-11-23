@@ -105,17 +105,12 @@ export function useChatCallActions({
   };
 
   const handleRespondToCall = async (action: "accept" | "decline") => {
-    const chatId =
-      incomingCall?.chatId ||
-      incomingCall?.chat_id ||
-      incomingCall?.conversationId ||
-      incomingCall?.conversation_id;
-    if (!incomingCall?.id || !chatId || callResponding) return;
+    if (!incomingCall?.id || callResponding) return;
     setCallResponding(true);
     setSendError("");
     setCallError("");
     try {
-      const response: any = await respondConversationCallService(chatId, incomingCall.id, action);
+      const response: any = await respondConversationCallService(incomingCall.id, action);
       const call = normalizeCall(response?.data?.data || response?.data || response);
       setIncomingCall(null);
       localStorage.removeItem(PENDING_CALL_STORAGE_KEY);
@@ -136,14 +131,14 @@ export function useChatCallActions({
   };
 
   const handleEndActiveCall = async () => {
-    if (!activeCall?.id || !activeCall?.chatId) {
+    if (!activeCall?.id) {
       setActiveCall(null);
       setCallMinimized(false);
       return;
     }
 
     try {
-      await endConversationCallService(activeCall.chatId, activeCall.id);
+      await endConversationCallService(activeCall.id);
     } catch (error) {
       setCallNotice(normalizeChatError(error));
     } finally {

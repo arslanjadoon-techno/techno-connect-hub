@@ -35,6 +35,14 @@ const getReceiptStatus = (message: ChatRecord): string =>
       "",
   );
 
+const getMessageUpdatedAt = (message: ChatRecord): number => {
+  const value = message?.updatedAt ?? message?.updated_at;
+  if (!value) return 0;
+
+  const timestamp = Date.parse(String(value));
+  return Number.isFinite(timestamp) ? timestamp : 0;
+};
+
 export const getMessageClientId = (message: ChatRecord | null | undefined): string =>
   nonEmptyString(
     message?.clientMessageId ??
@@ -142,6 +150,17 @@ const mergeMessageRecords = (current: ChatRecord, incoming: ChatRecord): ChatRec
   const incomingStatus = getReceiptStatus(incoming);
   if (receiptStatusRank(currentStatus) > receiptStatusRank(incomingStatus)) {
     merged.deliveryStatus = currentStatus;
+  }
+
+  // Reaction updates are broadcast as complete message snapshots. When several
+  // users react at nearly the same time, SignalR can deliver those snapshots out
+  // of order. Keep the newer reaction snapshot instead of letting an older one
+  // erase reactions that were already received.
+  const currentUpdatedAt = getMessageUpdatedAt(current);
+  const incomingUpdatedAt = getMessageUpdatedAt(incoming);
+  if (currentUpdatedAt > incomingUpdatedAt) {
+    merged.updatedAt = current.updatedAt ?? current.updated_at;
+    if (Array.isArray(current.reactions)) merged.reactions = current.reactions;
   }
 
   return merged;

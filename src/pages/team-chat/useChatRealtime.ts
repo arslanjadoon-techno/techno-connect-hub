@@ -50,9 +50,6 @@ type RealtimeOptions = {
   onCallCancelled?: RealtimeHandler;
   onCallEnded?: RealtimeHandler;
   onCallMissed?: RealtimeHandler;
-  onCallPeerJoined?: RealtimeHandler;
-  onCallPeerLeft?: RealtimeHandler;
-  onCallSignal?: RealtimeHandler;
 };
 
 type ChatRealtimeClient = {
@@ -62,8 +59,6 @@ type ChatRealtimeClient = {
   readonly connected: boolean;
   disconnect: () => Promise<void>;
 };
-
-type JoinedCall = { chatId: string; callId: string };
 
 const getPayloadObject = (payload: RealtimePayload | undefined): Record<string, any> =>
   payload && typeof payload === "object" ? payload : {};
@@ -105,16 +100,10 @@ export function useChatRealtime({
   onCallCancelled,
   onCallEnded,
   onCallMissed,
-  onCallPeerJoined,
-  onCallPeerLeft,
-  onCallSignal,
 }: RealtimeOptions) {
   const ref = useRef<ChatRealtimeClient | null>(null);
   const active = useRef(activeConversationId);
   const handlers = useRef<Partial<Record<string, RealtimeHandler>>>({});
-
-  // Preserve joined call rooms across automatic reconnects.
-  const joinedCalls = useRef<Map<string, JoinedCall>>(new Map());
 
   active.current = activeConversationId;
 
@@ -142,9 +131,6 @@ export function useChatRealtime({
     onCallCancelled,
     onCallEnded,
     onCallMissed,
-    onCallPeerJoined,
-    onCallPeerLeft,
-    onCallSignal,
   };
 
   useEffect(() => {
@@ -154,7 +140,6 @@ export function useChatRealtime({
     }
 
     let disposed = false;
-    const joinedCallsForConnection = joinedCalls.current;
 
     const connection = new HubConnectionBuilder()
       .withUrl(getHubUrl(), {
@@ -188,9 +173,6 @@ export function useChatRealtime({
       "call:cancelled": "onCallCancelled",
       "call:ended": "onCallEnded",
       "call:missed": "onCallMissed",
-      "call:peer-joined": "onCallPeerJoined",
-      "call:peer-left": "onCallPeerLeft",
-      "call:signal": "onCallSignal",
     };
 
     const lifecycleEvents = new Set([
@@ -264,17 +246,6 @@ export function useChatRealtime({
 
     connection.onreconnected(async () => {
       await joinActiveConversation();
-
-      await Promise.all(
-        Array.from(joinedCalls.current.values()).map(async (call) => {
-          try {
-            await connection.invoke("JoinCall", call);
-          } catch (error) {
-            console.warn("[Chat realtime] Failed to rejoin call room", call, error);
-          }
-        }),
-      );
-
       handlers.current.onReconnected?.();
     });
 
@@ -282,17 +253,9 @@ export function useChatRealtime({
       "join:conversation": "JoinConversation",
       "leave:conversation": "LeaveConversation",
       "typing:update": "TypingUpdate",
-      "join:call": "JoinCall",
-      "leave:call": "LeaveCall",
-      "call:signal": "CallSignal",
       // This requires an exact matching method on ChatHub.
       "message:delivered:ack": "AcknowledgeMessageDelivered",
       "message:read:ack": "AcknowledgeMessagesRead",
-    };
-
-    const callKey = (payload: RealtimePayload | undefined) => {
-      const value = getPayloadObject(payload);
-      return `${value.chatId}:${value.callId}`;
     };
 
     const compat: ChatRealtimeClient = {
@@ -359,17 +322,6 @@ export function useChatRealtime({
 
         const trackedPromise = invocation
           .then((result) => {
-            if (event === "join:call" && result?.ok) {
-              joinedCalls.current.set(callKey(payload), {
-                chatId: String(payloadObject.chatId),
-                callId: String(payloadObject.callId),
-              });
-            }
-
-            if (event === "leave:call") {
-              joinedCalls.current.delete(callKey(payload));
-            }
-
             return result ?? { ok: true };
           })
           .catch((error) => {
@@ -444,7 +396,6 @@ export function useChatRealtime({
     return () => {
       disposed = true;
       if (ref.current === compat) ref.current = null;
-      joinedCallsForConnection.clear();
 
       // Wait for start/negotiation to settle before stopping the connection.
       void startPromise.then(() => connection.stop()).catch(() => undefined);

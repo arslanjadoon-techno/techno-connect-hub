@@ -207,11 +207,11 @@ export const showChatNotification = ({
   if (!claimDesktopNotification(dedupeKey)) return null;
 
   // Keep incoming-call alerts on the page's Notification object to avoid
-  // reloading the client and interrupting an active WebRTC call.
+  // reloading the client and interrupting an active Chime call.
   // A service-worker notification has no access to the React navigate callback.
   // Use one service-worker click path for routed notifications in browsers
   // that support it. Incoming calls stay page-owned so a click does not reload
-  // an active WebRTC session.
+  // an active Chime session.
   if (!preserveCall && url && "serviceWorker" in navigator) {
     return getNotificationServiceWorker()
       .then(async (registration) => {

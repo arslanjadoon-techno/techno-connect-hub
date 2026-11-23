@@ -38,7 +38,7 @@ export function useChatLifecycle({
   setPendingFiles,
   setReplyToMessage,
 }: ChatLifecycleOptions) {
-  const previousRouteChatIdRef = useRef<string | undefined>();
+  const previousRouteChatIdRef = useRef<string | undefined>(undefined);
   const historySelectedChatRef = useRef(selectedChat);
   historySelectedChatRef.current = selectedChat;
   const historyChatId = String(selectedChat?.id ?? "");
@@ -52,13 +52,29 @@ export function useChatLifecycle({
 
     if (initialFetchStartedRef.current) {
       if (previousRouteChatId === normalizedRouteChatId || !normalizedRouteChatId) return;
+
+      // Selecting a row already updates selectedChat before navigation. In
+      // that case the route is only reflecting the current in-memory chat;
+      // refetching every sidebar, status, and settings endpoint makes the
+      // conversation appear to refresh on each click.
+      const selectedRouteChatId =
+        selectedChat?.type === "person"
+          ? selectedChat.chatId || selectedChat.raw?.chatId || selectedChat.raw?.chat_id
+          : selectedChat?.id || selectedChat?.chatId;
+      if (
+        selectedRouteChatId &&
+        String(selectedRouteChatId) === normalizedRouteChatId
+      ) {
+        return;
+      }
+
       void fetchChatData();
       return;
     }
 
     initialFetchStartedRef.current = true;
     void fetchChatData();
-  }, [fetchChatData, initialFetchStartedRef, routeChatId]);
+  }, [fetchChatData, initialFetchStartedRef, routeChatId, selectedChat]);
 
   useEffect(() => {
     const query = searchTerm.trim();

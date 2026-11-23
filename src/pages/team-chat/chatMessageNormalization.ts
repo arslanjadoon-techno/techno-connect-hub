@@ -168,6 +168,7 @@ export const normalizeChatMessages = (
       chatId: message?.chatId || message?.chat_id || message?.conversationId || null,
       chat_id: message?.chat_id || message?.chatId || message?.conversationId || null,
       createdAt: message?.createdAt || message?.created_at || null,
+      updatedAt: message?.updatedAt || message?.updated_at || null,
       authorEmail:
         getBuddyEmail(message?.sender) || message?.authorEmail || message?.author_email || "",
       text: deletedAt

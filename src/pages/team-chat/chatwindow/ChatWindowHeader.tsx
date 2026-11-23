@@ -7,9 +7,11 @@ import {
   CalendarDays,
   MoreHorizontal,
   Paperclip,
+  Phone,
   Search,
   Trash2,
   UsersRound,
+  Video,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -69,6 +71,8 @@ export default function ChatWindowHeader(props: Record<string, any>) {
     onDeleteGroup,
     onRemoveGroupMember,
     onScheduleCall,
+    onStartConversationCall,
+    callStarting = false,
     onSearchMessages,
     onToggleGroupMute,
     muteConversationId,
@@ -296,6 +300,33 @@ export default function ChatWindowHeader(props: Record<string, any>) {
           >
             <Search />
           </Button>
+        )}
+
+        {onStartConversationCall && (
+          <>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-9 w-9 shrink-0"
+              title="Start voice call"
+              aria-label="Start voice call"
+              disabled={callStarting}
+              onClick={() => onStartConversationCall("audio")}
+            >
+              <Phone />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-9 w-9 shrink-0"
+              title="Start video call"
+              aria-label="Start video call"
+              disabled={callStarting}
+              onClick={() => onStartConversationCall("video")}
+            >
+              <Video />
+            </Button>
+          </>
         )}
 
         <Button

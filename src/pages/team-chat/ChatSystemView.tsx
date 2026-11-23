@@ -234,7 +234,7 @@ export default function ChatSystemView(props: Record<string, any>) {
             className={`min-h-0 min-w-0 ${selectedChat ? "block" : "hidden md:block"}`}
           >
             <ChatWindow
-              activeCall={activeCallIsAccepted ? null : activeCall}
+              activeCall={callsEnabled ? (activeCallIsAccepted ? null : activeCall) : null}
               callSocketRef={callSocketRef}
               chatBoxRef={chatBoxRef}
               callStarting={callStarting || Boolean(activeCall) || Boolean(incomingCall)}

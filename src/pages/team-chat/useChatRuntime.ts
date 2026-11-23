@@ -128,6 +128,8 @@ export function useChatRuntime(options: ChatRuntimeOptions) {
     currentUserEmail,
     currentUserId,
     mutedChatIds,
+    selectedChat,
+    setMessagesByChat,
   });
   const handleRealtimePresence = useChatRealtimePresence({
     currentUserId,

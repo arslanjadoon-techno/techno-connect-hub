@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "./auth";
 import { toast } from "sonner";
 
-export const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+export const INACTIVITY_TIMEOUT_MS = 5 * 60 * 60 * 1000; // 5 hours
 export const COUNTDOWN_SECONDS = 30; // 30 seconds countdown
 const LAST_ACTIVITY_KEY = "app_last_active_timestamp";
 const THROTTLE_INTERVAL_MS = 1000; // Throttle activity updates to once per second
@@ -133,7 +133,7 @@ export function useInactivityTimer() {
             // ignore
           }
           logout();
-          toast.error("You have been logged out due to 30 minutes of inactivity.", {
+          toast.error("You have been logged out due to 5 hours of inactivity.", {
             duration: 6000,
           });
         } else {

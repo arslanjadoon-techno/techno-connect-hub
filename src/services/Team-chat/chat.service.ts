@@ -551,16 +551,16 @@ export const startCallService = (payload: {
 export const getActiveConversationCallsService = () =>
   api.get("/api/v1/chat/calls/active", CHAT_HEADERS);
 
-export const endConversationCallService = (chatId: ChatId, callId: ChatId) =>
+export const endConversationCallService = (callId: ChatId) =>
   api.post(
-    `/api/v1/chat/${encodeURIComponent(chatId)}/calls/${encodeURIComponent(callId)}/end`,
+    `/api/v1/chat/calls/${encodeURIComponent(callId)}/end`,
     {},
     CHAT_HEADERS,
   );
 
-export const respondConversationCallService = (chatId: ChatId, callId: ChatId, action: string) =>
+export const respondConversationCallService = (callId: ChatId, action: string) =>
   api.post(
-    `/api/v1/chat/${encodeURIComponent(chatId)}/calls/${encodeURIComponent(callId)}/respond`,
+    `/api/v1/chat/calls/${encodeURIComponent(callId)}/respond`,
     { action },
     CHAT_HEADERS,
   );
