@@ -30,3 +30,38 @@ export interface LoomisReportRow {
   coinDispense: number;
   reconDate: string;
 }
+
+export interface SalesReportRow {
+  id: number;
+  market: string;
+  customer: string;
+  company: string;
+  invDate: string;
+  tangibleQty: number;
+  tangibleRev: number;
+  tangibleCost: number;
+  tangibleProfit: number;
+  serialQty: number;
+  serialRev: number;
+  serialCost: number;
+  serialProfit: number;
+  serviceQty: number;
+  serviceRev: number;
+  serviceCost: number;
+  serviceProfit: number;
+  paymentQty: number;
+  paymentRev: number;
+  paymentCost: number;
+  paymentProfit: number;
+  pettyCash: number;
+  totalTax: number;
+  totalPpTax: number;
+  cashPaid: number;
+  creditPaid: number;
+  debitPaid: number;
+  financePaid: number;
+  otherPaid: number;
+  totalRevenue: number;
+  cashSale: number;
+  cardSale: number;
+}
