@@ -233,9 +233,9 @@ export function UserMenu() {
     };
   }, [authUser?.id, storedUser?.id]);
 
-  const user = useMemo(() => {
+  const user = useMemo<Record<string, any>>(() => {
     const raw = readStoredUser();
-    const merged = {
+    const merged: Record<string, any> = {
       ...(raw || {}),
       ...(authUser || {}),
       ...(storedUser || {}),
