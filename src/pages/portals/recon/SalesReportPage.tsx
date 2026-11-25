@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { DateRange } from "react-day-picker";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,8 +13,10 @@ import {
 import { DataTable, type Column } from "@/components/data-table";
 import { FilterReset } from "@/components/filter-reset";
 import { exportToExcel } from "@/lib/excel-export";
+import { useAuth } from "@/lib/auth";
 import { salesReportService, type SalesReportRow } from "@/services/portals/recon";
-import { BarChart3, Download, RefreshCw, Loader2 } from "lucide-react";
+import { ReconDateRangePicker } from "./components/ReconDateRangePicker";
+import { AlertCircle, BarChart3, Download, Loader2, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 const EXPORT_COLUMNS = [
@@ -84,43 +87,125 @@ const EXPORT_HEADER_MAP: Record<string, string> = {
   cardSale: "Card Sale",
 };
 
-const formatCurrency = (value: number): string =>
-  `$${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const formatCurrency = (value: number): string => {
+  const abs = Math.abs(value);
+  const formatted = `$${abs.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+  return value < 0 ? `-${formatted}` : formatted;
+};
 
 const formatQuantity = (value: number): string => value.toLocaleString("en-US");
 
+function formatApiSlashDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}/${m}/${d}`;
+}
+
+function getDefaultDateRange(): DateRange {
+  const now = new Date();
+  const to = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+  return { from, to };
+}
+
+function normalizeMarketOption(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 export default function SalesReportPage() {
+  const { user } = useAuth();
+
+  const userMarkets = useMemo(() => {
+    const raw = Array.isArray(user?.markets) ? user.markets : [];
+    return raw.map((m) => normalizeMarketOption(String(m?.name ?? ""))).filter(Boolean);
+  }, [user]);
+
+  const defaultMarket = userMarkets[0] ? userMarkets[0].toLowerCase() : "all";
+
   const [rows, setRows] = useState<SalesReportRow[]>([]);
+  const [apiMarkets, setApiMarkets] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [marketFilter, setMarketFilter] = useState("all");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => getDefaultDateRange());
+  const [marketFilter, setMarketFilter] = useState<string>(defaultMarket);
   const [companyFilter, setCompanyFilter] = useState("all");
 
-  const loadReports = useCallback(async (showToast = false) => {
-    try {
-      setLoading(true);
-      const data = await salesReportService.getSalesReports();
-      setRows(data);
-      if (showToast) {
-        toast.success("Sales report refreshed.");
-      }
-    } catch (error) {
-      console.error("Failed to load sales report:", error);
-      toast.error("Failed to load sales report data.");
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    let active = true;
+    void salesReportService.getMarkets().then((markets) => {
+      if (active) setApiMarkets(markets);
+    });
+    return () => {
+      active = false;
+    };
   }, []);
+
+  const loadReports = useCallback(
+    async (showToast = false) => {
+      try {
+        setLoading(true);
+        setErrorMessage(null);
+
+        const fromDate = dateRange?.from ? formatApiSlashDate(dateRange.from) : undefined;
+        const toSource = dateRange?.to ?? dateRange?.from;
+        const toDate = toSource ? formatApiSlashDate(toSource) : undefined;
+        const market = marketFilter !== "all" ? marketFilter.toLowerCase() : undefined;
+
+        const data = await salesReportService.getSalesReports({
+          fromDate,
+          toDate,
+          market,
+        });
+        setRows(data);
+
+        if (showToast) {
+          toast.success("Sales report refreshed.");
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error && error.message
+            ? error.message
+            : "Failed to load sales report data.";
+        console.error("Failed to load sales report:", error);
+        setErrorMessage(message);
+        setRows([]);
+        toast.error(message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [dateRange, marketFilter],
+  );
 
   useEffect(() => {
     void loadReports(false);
   }, [loadReports]);
 
   const marketOptions = useMemo(() => {
-    return Array.from(new Set(rows.map((r) => r.market).filter(Boolean))).sort((a, b) =>
-      a.localeCompare(b),
-    );
-  }, [rows]);
+    const map = new Map<string, string>();
+    const addOption = (raw: string) => {
+      const normalized = normalizeMarketOption(raw);
+      if (!normalized) return;
+      const key = normalized.toLowerCase();
+      if (!map.has(key)) map.set(key, normalized);
+    };
+
+    userMarkets.forEach(addOption);
+    apiMarkets.forEach(addOption);
+    rows.forEach((r) => addOption(r.market));
+
+    return Array.from(map.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [userMarkets, apiMarkets, rows]);
 
   const companyOptions = useMemo(() => {
     return Array.from(new Set(rows.map((r) => r.company).filter(Boolean))).sort((a, b) =>
@@ -131,7 +216,6 @@ export default function SalesReportPage() {
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
     return rows.filter((row) => {
-      if (marketFilter !== "all" && row.market !== marketFilter) return false;
       if (companyFilter !== "all" && row.company !== companyFilter) return false;
       if (!q) return true;
       return (
@@ -141,13 +225,21 @@ export default function SalesReportPage() {
         row.invDate.toLowerCase().includes(q)
       );
     });
-  }, [rows, search, marketFilter, companyFilter]);
+  }, [rows, search, companyFilter]);
 
-  const hasActiveFilters = search !== "" || marketFilter !== "all" || companyFilter !== "all";
+  const defaultRange = useMemo(() => getDefaultDateRange(), []);
+  const isCustomDateRange =
+    !dateRange?.from ||
+    dateRange.from.getTime() !== defaultRange.from?.getTime() ||
+    (dateRange.to ?? dateRange.from).getTime() !== defaultRange.to?.getTime();
+
+  const hasActiveFilters =
+    search !== "" || marketFilter !== defaultMarket || companyFilter !== "all" || isCustomDateRange;
 
   const resetFilters = () => {
     setSearch("");
-    setMarketFilter("all");
+    setDateRange(getDefaultDateRange());
+    setMarketFilter(defaultMarket);
     setCompanyFilter("all");
   };
 
@@ -156,25 +248,25 @@ export default function SalesReportPage() {
       key: "market",
       header: "Market",
       className: "whitespace-nowrap",
-      accessor: (r) => r.market,
+      accessor: (r) => <span className="font-medium">{r.market || "—"}</span>,
     },
     {
       key: "customer",
       header: "Customer",
       className: "whitespace-nowrap",
-      accessor: (r) => <span className="font-medium">{r.customer}</span>,
+      accessor: (r) => <span className="font-medium">{r.customer || "—"}</span>,
     },
     {
       key: "company",
       header: "Company",
       className: "whitespace-nowrap",
-      accessor: (r) => r.company,
+      accessor: (r) => r.company || "—",
     },
     {
       key: "invDate",
       header: "Inv Date",
       className: "whitespace-nowrap",
-      accessor: (r) => <span className="tabular-nums">{r.invDate}</span>,
+      accessor: (r) => <span className="tabular-nums">{r.invDate || "—"}</span>,
     },
     {
       key: "tangibleQty",
@@ -403,15 +495,16 @@ export default function SalesReportPage() {
           placeholder="Search market, customer, company, invoice date..."
           className="h-9 min-w-[220px] flex-[2]"
         />
+        <ReconDateRangePicker value={dateRange} onChange={setDateRange} />
         <Select value={marketFilter} onValueChange={setMarketFilter}>
           <SelectTrigger className="h-9 w-44">
             <SelectValue placeholder="Market" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All markets</SelectItem>
-            {marketOptions.map((market) => (
-              <SelectItem key={market} value={market}>
-                {market}
+            {marketOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
               </SelectItem>
             ))}
           </SelectContent>
@@ -437,6 +530,19 @@ export default function SalesReportPage() {
           <div className="flex flex-col items-center gap-2 py-16 text-muted-foreground">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
             <p className="text-sm">Loading sales report...</p>
+          </div>
+        ) : errorMessage ? (
+          <div className="flex flex-col items-center gap-3 py-14 text-center">
+            <AlertCircle className="h-7 w-7 text-destructive" />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">
+                Unable to load sales report records
+              </p>
+              <p className="text-xs text-muted-foreground">{errorMessage}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => void loadReports(false)}>
+              <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Try Again
+            </Button>
           </div>
         ) : (
           <DataTable<SalesReportRow>

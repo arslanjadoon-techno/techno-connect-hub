@@ -6,6 +6,8 @@ export type {
   GetLoomisParams,
   LoomisApiRecord,
   LoomisReportRow,
+  GetSalesReportParams,
+  SalesReportApiRecord,
   SalesReportRow,
   GetCardPointParams,
   CardPointApiRecord,

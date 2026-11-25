@@ -196,95 +196,121 @@ export default function SummaryReportPage() {
     [dateBounds],
   );
 
-  // Build market lookup per store from Sales rows and Loomis location
-  const storeMarketLookup = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const row of dataset.salesRows) {
-      if (row.customer && row.market) map.set(row.customer, row.market);
-    }
+  // Build market and display-label lookups across all 3 Recon datasets keyed by storeCode/storeName
+  const storeMetaLookup = useMemo(() => {
+    const marketMap = new Map<string, string>();
+    const labelMap = new Map<string, string>();
+
+    const setIfMissing = (map: Map<string, string>, key: string, value: string) => {
+      if (key && value && !map.has(key)) map.set(key, value);
+    };
+
     for (const row of dataset.loomisRows) {
-      if (row.storeName && !map.has(row.storeName)) {
-        map.set(row.storeName, normalizeMarketName(row.market, row.location));
-      }
+      const key = row.storeCode || row.storeName;
+      setIfMissing(marketMap, key, normalizeMarketName(row.market, row.location));
+      setIfMissing(labelMap, key, row.storeName);
     }
     for (const row of dataset.cardPointerRows) {
-      if (row.storeName && !map.has(row.storeName)) {
-        map.set(row.storeName, normalizeMarketName(row.market, row.location));
-      }
+      const key = row.storeCode || row.storeName;
+      setIfMissing(marketMap, key, normalizeMarketName(row.market, row.location));
+      setIfMissing(labelMap, key, row.storeName);
     }
-    return map;
+    for (const row of dataset.salesRows) {
+      const key = row.storeCode || row.customer;
+      setIfMissing(marketMap, key, normalizeMarketName(row.market, ""));
+      setIfMissing(labelMap, key, row.customer);
+    }
+
+    return { marketMap, labelMap };
   }, [dataset]);
 
   const storeOptions = useMemo(() => {
     const names = new Set<string>();
-    dataset.loomisRows.forEach((r) => names.add(r.storeName));
-    dataset.salesRows.forEach((r) => names.add(r.customer));
-    dataset.cardPointerRows.forEach((r) => names.add(r.storeName));
+    storeMetaLookup.labelMap.forEach((label) => names.add(label));
     return Array.from(names).sort((a, b) => a.localeCompare(b));
-  }, [dataset]);
+  }, [storeMetaLookup]);
 
   const marketOptions = useMemo(() => {
     const markets = new Set<string>();
-    storeMarketLookup.forEach((m) => markets.add(m));
+    storeMetaLookup.marketMap.forEach((m) => markets.add(m));
     return Array.from(markets).sort((a, b) => a.localeCompare(b));
-  }, [storeMarketLookup]);
+  }, [storeMetaLookup]);
 
   const filteredLoomis = useMemo(
     () =>
       dataset.loomisRows.filter((row) => {
+        const key = row.storeCode || row.storeName;
+        const label = storeMetaLookup.labelMap.get(key) ?? row.storeName;
         const market =
-          storeMarketLookup.get(row.storeName) ?? normalizeMarketName(row.market, row.location);
-        if (storeFilter !== "all" && row.storeName !== storeFilter) return false;
+          storeMetaLookup.marketMap.get(key) ?? normalizeMarketName(row.market, row.location);
+        if (storeFilter !== "all" && label !== storeFilter && row.storeName !== storeFilter) {
+          return false;
+        }
         if (marketFilter !== "all" && market !== marketFilter) return false;
         return inDateRange(row.reconDate);
       }),
-    [dataset.loomisRows, storeFilter, marketFilter, storeMarketLookup, inDateRange],
+    [dataset.loomisRows, storeFilter, marketFilter, storeMetaLookup, inDateRange],
   );
 
   const filteredSales = useMemo(
     () =>
       dataset.salesRows.filter((row) => {
-        if (storeFilter !== "all" && row.customer !== storeFilter) return false;
-        if (marketFilter !== "all" && row.market !== marketFilter) return false;
+        const key = row.storeCode || row.customer;
+        const label = storeMetaLookup.labelMap.get(key) ?? row.customer;
+        const market = storeMetaLookup.marketMap.get(key) ?? normalizeMarketName(row.market, "");
+        if (storeFilter !== "all" && label !== storeFilter && row.customer !== storeFilter) {
+          return false;
+        }
+        if (marketFilter !== "all" && market !== marketFilter) return false;
         return inDateRange(row.invDate);
       }),
-    [dataset.salesRows, storeFilter, marketFilter, inDateRange],
+    [dataset.salesRows, storeFilter, marketFilter, storeMetaLookup, inDateRange],
   );
 
   const filteredCardPointer = useMemo(
     () =>
       dataset.cardPointerRows.filter((row) => {
+        const key = row.storeCode || row.storeName;
+        const label = storeMetaLookup.labelMap.get(key) ?? row.storeName;
         const market =
-          storeMarketLookup.get(row.storeName) ?? normalizeMarketName(row.market, row.location);
-        if (storeFilter !== "all" && row.storeName !== storeFilter) return false;
+          storeMetaLookup.marketMap.get(key) ?? normalizeMarketName(row.market, row.location);
+        if (storeFilter !== "all" && label !== storeFilter && row.storeName !== storeFilter) {
+          return false;
+        }
         if (marketFilter !== "all" && market !== marketFilter) return false;
         return inDateRange(row.date);
       }),
-    [dataset.cardPointerRows, storeFilter, marketFilter, storeMarketLookup, inDateRange],
+    [dataset.cardPointerRows, storeFilter, marketFilter, storeMetaLookup, inDateRange],
   );
 
   const storeRows = useMemo<ReconSummaryStoreRow[]>(() => {
     const map = new Map<string, ReconSummaryStoreRow>();
 
     const ensureStore = (
-      storeName: string,
+      storeKey: string,
+      storeLabel: string,
       marketHint?: string,
       companyHint?: string,
       addressHint?: string,
     ): ReconSummaryStoreRow => {
-      const existing = map.get(storeName);
-      const directoryInfo = dataset.storeDirectory[storeName];
+      const existing = map.get(storeKey);
+      const directoryInfo = dataset.storeDirectory[storeLabel] ?? dataset.storeDirectory[storeKey];
       if (existing) {
         if (marketHint && existing.market === "Other") existing.market = marketHint;
         if (companyHint && !existing.company) existing.company = companyHint;
-        if (addressHint && !existing.address) existing.address = addressHint;
+        if (addressHint && (existing.address === "-" || !existing.address)) {
+          existing.address = addressHint;
+        }
+        if (storeLabel && existing.storeName === storeKey && storeLabel !== storeKey) {
+          existing.storeName = storeLabel;
+        }
         return existing;
       }
       const created: ReconSummaryStoreRow = {
-        responsible: directoryInfo?.responsible || "Unassigned",
+        responsible: directoryInfo?.responsible || "Store Manager",
         salesDate: "",
-        market: marketHint || storeMarketLookup.get(storeName) || "Other",
-        storeName,
+        market: marketHint || storeMetaLookup.marketMap.get(storeKey) || "Other",
+        storeName: storeMetaLookup.labelMap.get(storeKey) || storeLabel,
         address: directoryInfo?.address || addressHint || "-",
         company: companyHint || "",
         salesCash: 0,
@@ -307,12 +333,19 @@ export default function SummaryReportPage() {
         netVariance: 0,
         latestDate: "",
       };
-      map.set(storeName, created);
+      map.set(storeKey, created);
       return created;
     };
 
     for (const s of filteredSales) {
-      const entry = ensureStore(s.customer, s.market, s.company);
+      const key = s.storeCode || s.customer;
+      const entry = ensureStore(
+        key,
+        s.customer,
+        normalizeMarketName(s.market, ""),
+        s.company,
+        s.company,
+      );
       entry.salesCash += s.cashSale;
       entry.salesCard += s.cardSale;
       entry.totalRevenue += s.totalRevenue;
@@ -325,11 +358,12 @@ export default function SummaryReportPage() {
     }
 
     for (const l of filteredLoomis) {
+      const key = l.storeCode || l.storeName;
       const entry = ensureStore(
+        key,
         l.storeName,
         normalizeMarketName(l.market, l.location),
         l.customer,
-        l.location,
       );
       entry.loomisDrops += l.validatedDrops;
       entry.loomisPickup += l.loomisPickup;
@@ -339,7 +373,9 @@ export default function SummaryReportPage() {
     }
 
     for (const c of filteredCardPointer) {
+      const key = c.storeCode || c.storeName;
       const entry = ensureStore(
+        key,
         c.storeName,
         normalizeMarketName(c.market, c.location),
         undefined,
@@ -391,7 +427,7 @@ export default function SummaryReportPage() {
     filteredLoomis,
     filteredCardPointer,
     dataset.storeDirectory,
-    storeMarketLookup,
+    storeMetaLookup,
     search,
   ]);
 

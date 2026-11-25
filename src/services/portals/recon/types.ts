@@ -62,9 +62,53 @@ export interface LoomisReportRow {
   reconDate: string;
 }
 
+export interface GetSalesReportParams {
+  fromDate?: string;
+  toDate?: string;
+  market?: string;
+}
+
+export interface SalesReportApiRecord {
+  id: number;
+  marketId?: string | null;
+  market?: string | null;
+  customerNumber?: string | null;
+  customer?: string | null;
+  company?: string | null;
+  invoiceDate?: string | null;
+  tangibleQuantity?: number | null;
+  tangibleRevenue?: number | null;
+  tangibleCost?: number | null;
+  tangibleProfit?: number | null;
+  serialQuantity?: number | null;
+  serialRevenue?: number | null;
+  serialCost?: number | null;
+  serialProfit?: number | null;
+  serviceQuantity?: number | null;
+  serviceRevenue?: number | null;
+  serviceCost?: number | null;
+  serviceProfit?: number | null;
+  paymentQuantity?: number | null;
+  paymentRevenue?: number | null;
+  paymentCost?: number | null;
+  paymentProfit?: number | null;
+  pettyCash?: number | null;
+  totalTax?: number | null;
+  totalPpTax?: number | null;
+  cashPaid?: number | null;
+  creditPaid?: number | null;
+  debitPaid?: number | null;
+  financePaid?: number | null;
+  otherPaid?: number | null;
+  totalRevenue?: number | null;
+  cashSale?: number | null;
+  cardSale?: number | null;
+}
+
 export interface SalesReportRow {
   id: number;
   market: string;
+  storeCode: string;
   customer: string;
   company: string;
   invDate: string;
