@@ -340,4 +340,5 @@ export const RECON_API_BASE_URL =
 
 export const RECON_API_PATHS = {
   getLoomis: "/api/recon/GetLoomis",
+  getCardPoint: "/api/recon/GetCardPoint",
 } as const;

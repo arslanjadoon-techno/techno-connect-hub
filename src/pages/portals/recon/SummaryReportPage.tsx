@@ -207,6 +207,11 @@ export default function SummaryReportPage() {
         map.set(row.storeName, normalizeMarketName(row.market, row.location));
       }
     }
+    for (const row of dataset.cardPointerRows) {
+      if (row.storeName && !map.has(row.storeName)) {
+        map.set(row.storeName, normalizeMarketName(row.market, row.location));
+      }
+    }
     return map;
   }, [dataset]);
 
@@ -249,7 +254,8 @@ export default function SummaryReportPage() {
   const filteredCardPointer = useMemo(
     () =>
       dataset.cardPointerRows.filter((row) => {
-        const market = storeMarketLookup.get(row.storeName) ?? "Other";
+        const market =
+          storeMarketLookup.get(row.storeName) ?? normalizeMarketName(row.market, row.location);
         if (storeFilter !== "all" && row.storeName !== storeFilter) return false;
         if (marketFilter !== "all" && market !== marketFilter) return false;
         return inDateRange(row.date);
@@ -333,10 +339,20 @@ export default function SummaryReportPage() {
     }
 
     for (const c of filteredCardPointer) {
-      const entry = ensureStore(c.storeName);
+      const entry = ensureStore(
+        c.storeName,
+        normalizeMarketName(c.market, c.location),
+        undefined,
+        c.location,
+      );
       entry.cardPointerTxnCount += 1;
       entry.cardPointerAllAmount += c.amount;
-      if (c.status === "Approved" || c.status === "Settled") {
+      const normalizedStatus = c.status.trim().toUpperCase();
+      if (
+        normalizedStatus === "PROCESSED" ||
+        normalizedStatus === "APPROVED" ||
+        normalizedStatus === "SETTLED"
+      ) {
         entry.cardPointerSettledAmount += c.amount;
       } else {
         entry.cardPointerIssueCount += 1;

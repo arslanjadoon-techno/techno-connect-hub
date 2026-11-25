@@ -1,210 +1,81 @@
-import type { CardPointerRow } from "./types";
+import { HttpClient } from "@/services/http";
+import { MARKET_API_PATHS, RECON_API_BASE_URL, RECON_API_PATHS } from "@/lib/config";
+import type { CardPointApiRecord, CardPointerRow, GetCardPointParams } from "./types";
 
-const SAMPLE_CARD_POINTER_ROWS: CardPointerRow[] = [
-  {
-    id: 1,
-    date: "2026-11-25 14:22:10",
-    storeName: "Phoenix Central #1042",
-    transactionNo: "TXN-20261125-00841",
-    method: "Contactless",
-    name: "James Miller",
-    brand: "Visa",
-    last4: "4821",
-    amount: 148.5,
-    authCode: "A84219",
-    status: "Approved",
-  },
-  {
-    id: 2,
-    date: "2026-11-25 13:45:03",
-    storeName: "Mesa Fiesta #1087",
-    transactionNo: "TXN-20261125-00834",
-    method: "Chip",
-    name: "Sophia Garcia",
-    brand: "Mastercard",
-    last4: "9104",
-    amount: 329.99,
-    authCode: "M39104",
-    status: "Settled",
-  },
-  {
-    id: 3,
-    date: "2026-11-25 12:18:47",
-    storeName: "Tucson Mall #1104",
-    transactionNo: "TXN-20261125-00819",
-    method: "Chip",
-    name: "Liam Johnson",
-    brand: "Amex",
-    last4: "1007",
-    amount: 84.25,
-    authCode: "X71204",
-    status: "Approved",
-  },
-  {
-    id: 4,
-    date: "2026-11-25 11:04:19",
-    storeName: "Scottsdale Fashion #1129",
-    transactionNo: "TXN-20261125-00802",
-    method: "Swipe",
-    name: "Olivia Martinez",
-    brand: "Discover",
-    last4: "6532",
-    amount: 215.0,
-    authCode: "D50281",
-    status: "Declined",
-  },
-  {
-    id: 5,
-    date: "2026-11-25 09:51:36",
-    storeName: "Glendale Westgate #1153",
-    transactionNo: "TXN-20261125-00788",
-    method: "Contactless",
-    name: "Noah Brown",
-    brand: "Visa",
-    last4: "3319",
-    amount: 64.75,
-    authCode: "V19482",
-    status: "Settled",
-  },
-  {
-    id: 6,
-    date: "2026-11-24 18:33:52",
-    storeName: "Los Angeles Downtown #2011",
-    transactionNo: "TXN-20261124-00765",
-    method: "Chip",
-    name: "Emma Davis",
-    brand: "Mastercard",
-    last4: "7745",
-    amount: 542.8,
-    authCode: "M66310",
-    status: "Settled",
-  },
-  {
-    id: 7,
-    date: "2026-11-24 17:12:08",
-    storeName: "Pasadena Rose #2034",
-    transactionNo: "TXN-20261124-00749",
-    method: "Contactless",
-    name: "Ethan Rodriguez",
-    brand: "Visa",
-    last4: "2094",
-    amount: 119.4,
-    authCode: "V44920",
-    status: "Approved",
-  },
-  {
-    id: 8,
-    date: "2026-11-24 15:40:25",
-    storeName: "Long Beach Pike #2068",
-    transactionNo: "TXN-20261124-00721",
-    method: "Manual Entry",
-    name: "Ava Wilson",
-    brand: "Amex",
-    last4: "8812",
-    amount: 410.0,
-    authCode: "X90315",
-    status: "Pending",
-  },
-  {
-    id: 9,
-    date: "2026-11-24 14:09:14",
-    storeName: "Anaheim Plaza #2095",
-    transactionNo: "TXN-20261124-00698",
-    method: "Chip",
-    name: "Mason Anderson",
-    brand: "Visa",
-    last4: "5580",
-    amount: 95.6,
-    authCode: "V22871",
-    status: "Settled",
-  },
-  {
-    id: 10,
-    date: "2026-11-23 19:27:41",
-    storeName: "Chandler Crossroads #1180",
-    transactionNo: "TXN-20261123-00674",
-    method: "Contactless",
-    name: "Isabella Thomas",
-    brand: "Mastercard",
-    last4: "1492",
-    amount: 278.15,
-    authCode: "M81743",
-    status: "Settled",
-  },
-  {
-    id: 11,
-    date: "2026-11-23 16:54:09",
-    storeName: "Tempe Marketplace #1202",
-    transactionNo: "TXN-20261123-00650",
-    method: "Chip",
-    name: "Lucas Taylor",
-    brand: "Discover",
-    last4: "3904",
-    amount: 52.3,
-    authCode: "D11408",
-    status: "Voided",
-  },
-  {
-    id: 12,
-    date: "2026-11-23 13:15:58",
-    storeName: "Burbank Empire #2118",
-    transactionNo: "TXN-20261123-00629",
-    method: "Contactless",
-    name: "Mia Moore",
-    brand: "Visa",
-    last4: "6217",
-    amount: 189.9,
-    authCode: "V73562",
-    status: "Settled",
-  },
-  {
-    id: 13,
-    date: "2026-11-22 17:48:33",
-    storeName: "Santa Monica Promenade #2140",
-    transactionNo: "TXN-20261122-00604",
-    method: "Chip",
-    name: "Benjamin Jackson",
-    brand: "Amex",
-    last4: "4451",
-    amount: 635.0,
-    authCode: "X55290",
-    status: "Settled",
-  },
-  {
-    id: 14,
-    date: "2026-11-22 14:22:17",
-    storeName: "Peoria Arrowhead #1228",
-    transactionNo: "TXN-20261122-00581",
-    method: "Swipe",
-    name: "Charlotte White",
-    brand: "Mastercard",
-    last4: "8376",
-    amount: 112.45,
-    authCode: "M42917",
-    status: "Approved",
-  },
-  {
-    id: 15,
-    date: "2026-11-22 11:06:44",
-    storeName: "Torrance Del Amo #2166",
-    transactionNo: "TXN-20261122-00559",
-    method: "Contactless",
-    name: "Henry Harris",
-    brand: "Visa",
-    last4: "9640",
-    amount: 244.75,
-    authCode: "V68034",
-    status: "Settled",
-  },
-];
+function formatRaw24hDateTime(value: string | null | undefined): string {
+  if (!value) return "";
+  const trimmed = String(value).trim();
+  if (!trimmed) return "";
+  return trimmed
+    .replace("T", " ")
+    .replace(/\.\d+Z?$/, "")
+    .replace(/Z$/, "");
+}
+
+function toSafeNumber(value: number | null | undefined): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function mapCardPointApiRecord(record: CardPointApiRecord, index: number): CardPointerRow {
+  const transactionNo = String(record.transactionNumber ?? "").trim();
+  const location = String(record.location ?? "").trim();
+  const storeCode = String(record.storeCode ?? "").trim();
+
+  return {
+    id: transactionNo ? `${transactionNo}-${index}` : `cp-${index}`,
+    date: formatRaw24hDateTime(record.transactionDate),
+    market: String(record.market ?? "").trim(),
+    storeCode,
+    location,
+    storeName: location || storeCode || "—",
+    transactionNo,
+    method: String(record.method ?? "").trim(),
+    name: String(record.cardHolderName ?? "").trim(),
+    brand: String(record.brand ?? "").trim(),
+    last4: String(record.lastFourDigits ?? "").trim(),
+    amount: toSafeNumber(record.amount),
+    authCode: String(record.authCode ?? "").trim(),
+    status: String(record.status ?? "").trim(),
+  };
+}
 
 /**
- * Service class for Recon portal CardPointer transaction data.
- * Currently serves sample records until backend Recon endpoints are available.
+ * Service class for Recon portal CardPoint API integration.
+ * Endpoint: GET /api/recon/GetCardPoint
  */
 export class CardPointerService {
-  async getCardPointerTransactions(): Promise<CardPointerRow[]> {
-    return SAMPLE_CARD_POINTER_ROWS.map((row) => ({ ...row }));
+  private readonly http = new HttpClient(RECON_API_BASE_URL);
+
+  async getCardPointerTransactions(params: GetCardPointParams = {}): Promise<CardPointerRow[]> {
+    const query: Record<string, string | undefined> = {};
+
+    if (params.fromDate) {
+      query.fromDate = params.fromDate;
+    }
+    if (params.toDate) {
+      query.toDate = params.toDate;
+    }
+    if (params.market && params.market.toLowerCase() !== "all") {
+      query.market = params.market;
+    }
+
+    const response = await this.http.get<CardPointApiRecord[]>(RECON_API_PATHS.getCardPoint, query);
+    const records = Array.isArray(response.data) ? response.data : [];
+    return records.map(mapCardPointApiRecord);
+  }
+
+  async getMarkets(): Promise<string[]> {
+    try {
+      const response = await this.http.get<Array<{ id: number; name?: string }>>(
+        MARKET_API_PATHS.getAll,
+      );
+      if (!Array.isArray(response.data)) return [];
+      return Array.from(
+        new Set(response.data.map((m) => String(m?.name ?? "").trim()).filter(Boolean)),
+      ).sort((a, b) => a.localeCompare(b));
+    } catch {
+      return [];
+    }
   }
 }
 

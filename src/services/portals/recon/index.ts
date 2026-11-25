@@ -7,6 +7,8 @@ export type {
   LoomisApiRecord,
   LoomisReportRow,
   SalesReportRow,
+  GetCardPointParams,
+  CardPointApiRecord,
   CardPointerRow,
   CardPointerStatus,
   ReconStoreDirectoryInfo,

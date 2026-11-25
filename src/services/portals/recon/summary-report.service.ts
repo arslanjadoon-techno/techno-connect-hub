@@ -90,7 +90,7 @@ export class SummaryReportService {
     const [loomisRows, salesRows, cardPointerRows] = await Promise.all([
       loomisService.getLoomisReports(effectiveLoomisParams).catch(() => []),
       salesReportService.getSalesReports(),
-      cardPointerService.getCardPointerTransactions(),
+      cardPointerService.getCardPointerTransactions(effectiveLoomisParams).catch(() => []),
     ]);
 
     return {

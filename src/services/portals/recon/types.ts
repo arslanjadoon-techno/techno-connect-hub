@@ -97,11 +97,35 @@ export interface SalesReportRow {
   cardSale: number;
 }
 
-export type CardPointerStatus = "Approved" | "Settled" | "Pending" | "Declined" | "Voided";
+export type CardPointerStatus = string;
+
+export interface GetCardPointParams {
+  fromDate?: string;
+  toDate?: string;
+  market?: string;
+}
+
+export interface CardPointApiRecord {
+  transactionNumber?: string | null;
+  market?: string | null;
+  storeCode?: string | null;
+  location?: string | null;
+  transactionDate?: string | null;
+  method?: string | null;
+  cardHolderName?: string | null;
+  brand?: string | null;
+  lastFourDigits?: string | null;
+  amount?: number | null;
+  authCode?: string | null;
+  status?: string | null;
+}
 
 export interface CardPointerRow {
-  id: number;
+  id: string;
   date: string;
+  market: string;
+  storeCode: string;
+  location: string;
   storeName: string;
   transactionNo: string;
   method: string;
