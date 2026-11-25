@@ -655,10 +655,12 @@ export default function SummaryReportPage() {
       </Card>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Card className="p-5">
+        <Card className="border-blue-200/80 bg-blue-50/80 p-5 dark:border-blue-900/50 dark:bg-blue-950/30">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
-              <div className="text-xs font-medium text-muted-foreground">Total Sales Revenue</div>
+              <div className="text-xs font-medium text-blue-950/75 dark:text-blue-200/80">
+                Total Sales Revenue
+              </div>
               <div className="font-display text-2xl font-bold tracking-tight tabular-nums text-foreground">
                 {formatCurrency(summaryTotals.totalRevenue)}
               </div>
@@ -668,16 +670,18 @@ export default function SummaryReportPage() {
                 <span>Card {formatCurrency(summaryTotals.salesCard)}</span>
               </div>
             </div>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600/15 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300">
               <DollarSign className="h-5 w-5" />
             </div>
           </div>
         </Card>
 
-        <Card className="p-5">
+        <Card className="border-emerald-200/80 bg-emerald-50/80 p-5 dark:border-emerald-900/50 dark:bg-emerald-950/30">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
-              <div className="text-xs font-medium text-muted-foreground">Loomis Safe Pickups</div>
+              <div className="text-xs font-medium text-emerald-950/75 dark:text-emerald-200/80">
+                Loomis Safe Pickups
+              </div>
               <div className="font-display text-2xl font-bold tracking-tight tabular-nums text-foreground">
                 {formatCurrency(summaryTotals.loomisPickup)}
               </div>
@@ -689,16 +693,16 @@ export default function SummaryReportPage() {
                 </span>
               </div>
             </div>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-600/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
               <FileSpreadsheet className="h-5 w-5" />
             </div>
           </div>
         </Card>
 
-        <Card className="p-5">
+        <Card className="border-violet-200/80 bg-violet-50/80 p-5 dark:border-violet-900/50 dark:bg-violet-950/30">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
-              <div className="text-xs font-medium text-muted-foreground">
+              <div className="text-xs font-medium text-violet-950/75 dark:text-violet-200/80">
                 CardPointer Settled & Approved
               </div>
               <div className="font-display text-2xl font-bold tracking-tight tabular-nums text-foreground">
@@ -710,16 +714,18 @@ export default function SummaryReportPage() {
                 <span>{summaryTotals.cardIssues} pending/declined</span>
               </div>
             </div>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-violet-600/15 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300">
               <CreditCard className="h-5 w-5" />
             </div>
           </div>
         </Card>
 
-        <Card className="p-5">
+        <Card className="border-amber-200/80 bg-amber-50/80 p-5 dark:border-amber-900/50 dark:bg-amber-950/30">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 space-y-1">
-              <div className="text-xs font-medium text-muted-foreground">Cash Recon Variance</div>
+              <div className="text-xs font-medium text-amber-950/75 dark:text-amber-200/80">
+                Cash Recon Variance
+              </div>
               <div className="font-display text-2xl font-bold tracking-tight tabular-nums text-foreground">
                 {formatCurrency(summaryTotals.cashVariance)}
               </div>
@@ -729,7 +735,7 @@ export default function SummaryReportPage() {
                 <span>{storeRows.length} stores</span>
               </div>
             </div>
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-600/15 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300">
               <Scale className="h-5 w-5" />
             </div>
           </div>
