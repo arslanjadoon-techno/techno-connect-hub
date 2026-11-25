@@ -50,6 +50,7 @@ function detectPortalFromPath(pathname: string): string | null {
   if (first === "leave" || first === "attendance") return "leave";
   if (first === "scheduling") return "scheduling";
   if (first === "reporting") return "reporting";
+  if (first === "recon") return "recon";
   if (first === "chat" || first === "ai-chat") return "chat";
   if (first === "admin" || first === "user-manager") return "admin";
   if (first === "otp") return "otp";
@@ -85,6 +86,7 @@ function findPortalAccessEntry(portalKey: string, portalAccess: any[]): any {
     if (target === "leave") return pn.includes("leave") || pn.includes("attendance");
     if (target === "scheduling") return pn.includes("schedul") || pn.includes("attendance");
     if (target === "reporting") return pn.includes("report");
+    if (target === "recon") return pn.includes("recon");
     if (target === "chat") return pn.includes("chat") || pn.includes("team");
     if (target === "admin") return pn.includes("admin") || pn.includes("user") || pn.includes("management");
     if (target === "otp") return pn.includes("otp") || pn.includes("manager");

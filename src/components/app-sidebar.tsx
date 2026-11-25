@@ -47,6 +47,8 @@ import {
   Video,
   ClipboardCheck,
   Smartphone,
+  Landmark,
+  CreditCard,
 } from "lucide-react";
 import { canAccessAddDevices } from "@/lib/device-access";
 
@@ -110,6 +112,7 @@ const PORTAL_ORDER = [
   "leave",
   "scheduling",
   "reporting",
+  "recon",
 ];
 
 const MASTER_PORTAL_GROUPS: Record<string, Group> = {
@@ -295,6 +298,16 @@ const MASTER_PORTAL_GROUPS: Record<string, Group> = {
       { title: "Store Wise PD", url: "/reporting/store-wise-pd-compensation", icon: FileText },
       { title: "Retention & Activation", url: "/reporting/retention-activation", icon: FileText },
       { title: "Profitability", url: "/reporting/profitability", icon: FileText },
+    ],
+  },
+  recon: {
+    title: "Recon",
+    icon: Landmark,
+    items: [
+      { title: "Summary Report", url: "/recon/summary-report", icon: FileText },
+      { title: "Loomis Report", url: "/recon/loomis-report", icon: FileSpreadsheet },
+      { title: "Sales Report", url: "/recon/sales-report", icon: BarChart3 },
+      { title: "CardPointer", url: "/recon/card-pointer", icon: CreditCard },
     ],
   },
 };
@@ -509,6 +522,7 @@ function getCurrentPortalRole(user: any, pathname: string): string {
         (currentPortal === "housingleasing" && pn.includes("housingleas")) ||
         (currentPortal === "ranker" && pn.includes("rank")) ||
         (currentPortal === "reporting" && pn.includes("report")) ||
+        (currentPortal === "recon" && pn.includes("recon")) ||
         (currentPortal === "chat" && (pn.includes("chat") || pn.includes("team"))) ||
         (currentPortal === "admin" &&
           (pn.includes("admin") || pn.includes("user") || pn.includes("management")))
@@ -618,7 +632,8 @@ export function AppSidebar() {
         (target === "housingleasing" && pNorm.includes("housingleas")) ||
         (target === "commission" && pNorm.includes("commiss")) ||
         (target === "ranker" && pNorm.includes("rank")) ||
-        (target === "reporting" && pNorm.includes("report"))
+        (target === "reporting" && pNorm.includes("report")) ||
+        (target === "recon" && pNorm.includes("recon"))
       );
     });
     if (inAssigned) return true;
@@ -636,7 +651,8 @@ export function AppSidebar() {
         (target === "housingleasing" && pNorm.includes("housingleas")) ||
         (target === "commission" && pNorm.includes("commiss")) ||
         (target === "ranker" && pNorm.includes("rank")) ||
-        (target === "reporting" && pNorm.includes("report"))
+        (target === "reporting" && pNorm.includes("report")) ||
+        (target === "recon" && pNorm.includes("recon"))
       );
     });
     return inAccess;
@@ -656,7 +672,8 @@ export function AppSidebar() {
         (target === "housingleasing" && pNorm.includes("housingleas")) ||
         (target === "commission" && pNorm.includes("commiss")) ||
         (target === "ranker" && pNorm.includes("rank")) ||
-        (target === "reporting" && pNorm.includes("report"))
+        (target === "reporting" && pNorm.includes("report")) ||
+        (target === "recon" && pNorm.includes("recon"))
       );
     });
     return access?.roleName?.toLowerCase() ?? "";

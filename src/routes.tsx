@@ -107,6 +107,12 @@ import {
   getSurveillanceDefaultRoute,
 } from "@/services/portals/surveillance/types";
 
+// ---------- Recon Portal ---------- //
+import SummaryReportPage from "@/pages/portals/recon/SummaryReportPage";
+import LoomisReportPage from "@/pages/portals/recon/LoomisReportPage";
+import SalesReportPage from "@/pages/portals/recon/SalesReportPage";
+import CardPointerPage from "@/pages/portals/recon/CardPointerPage";
+
 // ---------- User manager ---------- //
 import UsersPage from "@/pages/user-manager/UsersPage";
 import UserDetailPage from "@/pages/user-manager/UserDetailPage";
@@ -298,7 +304,8 @@ function PortalRouteGuard({ portalKey, children }: { portalKey: string; children
             (target === "housingleasing" && pNorm.includes("housingleas")) ||
             (target === "commission" && pNorm.includes("commiss")) ||
             (target === "ranker" && pNorm.includes("rank")) ||
-            (target === "reporting" && pNorm.includes("report"))
+            (target === "reporting" && pNorm.includes("report")) ||
+            (target === "recon" && pNorm.includes("recon"))
           );
         }) ||
         access.some((p: any) => {
@@ -315,7 +322,8 @@ function PortalRouteGuard({ portalKey, children }: { portalKey: string; children
             (target === "housingleasing" && pNorm.includes("housingleas")) ||
             (target === "commission" && pNorm.includes("commiss")) ||
             (target === "ranker" && pNorm.includes("rank")) ||
-            (target === "reporting" && pNorm.includes("report"))
+            (target === "reporting" && pNorm.includes("report")) ||
+            (target === "recon" && pNorm.includes("recon"))
           );
         });
     }
@@ -1065,6 +1073,48 @@ export function AppRoutes() {
           element={
             <PortalRouteGuard portalKey="surveillance">
               <SurveillanceNoAccessPage />
+            </PortalRouteGuard>
+          }
+        />
+
+        {/* ---------- Recon Portal ---------- */}
+        <Route
+          path="/recon"
+          element={
+            <PortalRouteGuard portalKey="recon">
+              <Navigate to="/recon/summary-report" replace />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/recon/summary-report"
+          element={
+            <PortalRouteGuard portalKey="recon">
+              <SummaryReportPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/recon/loomis-report"
+          element={
+            <PortalRouteGuard portalKey="recon">
+              <LoomisReportPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/recon/sales-report"
+          element={
+            <PortalRouteGuard portalKey="recon">
+              <SalesReportPage />
+            </PortalRouteGuard>
+          }
+        />
+        <Route
+          path="/recon/card-pointer"
+          element={
+            <PortalRouteGuard portalKey="recon">
+              <CardPointerPage />
             </PortalRouteGuard>
           }
         />
