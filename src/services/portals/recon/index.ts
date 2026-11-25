@@ -1,3 +1,4 @@
 export { loomisService, LoomisService } from "./loomis.service";
 export { salesReportService, SalesReportService } from "./sales-report.service";
-export type { LoomisReportRow, SalesReportRow } from "./types";
+export { cardPointerService, CardPointerService } from "./card-pointer.service";
+export type { LoomisReportRow, SalesReportRow, CardPointerRow, CardPointerStatus } from "./types";

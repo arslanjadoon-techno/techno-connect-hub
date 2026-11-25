@@ -65,3 +65,19 @@ export interface SalesReportRow {
   cashSale: number;
   cardSale: number;
 }
+
+export type CardPointerStatus = "Approved" | "Settled" | "Pending" | "Declined" | "Voided";
+
+export interface CardPointerRow {
+  id: number;
+  date: string;
+  storeName: string;
+  transactionNo: string;
+  method: string;
+  name: string;
+  brand: string;
+  last4: string;
+  amount: number;
+  authCode: string;
+  status: CardPointerStatus;
+}

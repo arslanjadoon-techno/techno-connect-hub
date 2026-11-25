@@ -429,7 +429,7 @@ export default function SalesReportPage() {
             ))}
           </SelectContent>
         </Select>
-        {hasActiveFilters && <FilterReset onReset={resetFilters} />}
+        <FilterReset onReset={resetFilters} active={hasActiveFilters} />
       </Card>
 
       <Card className="p-4">

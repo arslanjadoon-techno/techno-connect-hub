@@ -411,7 +411,7 @@ export default function LoomisReportPage() {
             <SelectItem value="pending">Pending</SelectItem>
           </SelectContent>
         </Select>
-        {hasActiveFilters && <FilterReset onReset={resetFilters} />}
+        <FilterReset onReset={resetFilters} active={hasActiveFilters} />
       </Card>
 
       <Card className="p-4">
