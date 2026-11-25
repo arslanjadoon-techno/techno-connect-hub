@@ -81,3 +81,34 @@ export interface CardPointerRow {
   authCode: string;
   status: CardPointerStatus;
 }
+
+export interface ReconSummaryStoreRow {
+  storeName: string;
+  market: string;
+  company: string;
+  salesCash: number;
+  salesCard: number;
+  totalRevenue: number;
+  tangibleRev: number;
+  serialRev: number;
+  serviceRev: number;
+  paymentRev: number;
+  loomisDrops: number;
+  loomisPickup: number;
+  loomisVerifiedCount: number;
+  loomisRecordCount: number;
+  cardPointerSettledAmount: number;
+  cardPointerAllAmount: number;
+  cardPointerTxnCount: number;
+  cardPointerIssueCount: number;
+  cashVariance: number;
+  cardVariance: number;
+  netVariance: number;
+  latestDate: string;
+}
+
+export interface ReconSummaryDataset {
+  loomisRows: LoomisReportRow[];
+  salesRows: SalesReportRow[];
+  cardPointerRows: CardPointerRow[];
+}
