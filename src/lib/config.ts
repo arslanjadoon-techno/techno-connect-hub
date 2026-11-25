@@ -334,3 +334,10 @@ export const RANKER_API_PATHS = {
   getMonthlyAchieved: "/GetMonthlyAchieved",
   getGoalVsAchievement: "/GetGoalVsAchievement",
 } as const;
+
+export const RECON_API_BASE_URL =
+  cleanBaseUrl(import.meta.env.VITE_RECON_API_URL) || USER_MANAGEMENT_API_BASE_URL;
+
+export const RECON_API_PATHS = {
+  getLoomis: "/api/recon/GetLoomis",
+} as const;

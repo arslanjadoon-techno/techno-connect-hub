@@ -112,6 +112,14 @@ function deriveMarketFromLocation(location: string): string {
   return location || "Other";
 }
 
+function normalizeMarketName(market: string | undefined, location: string): string {
+  const trimmed = (market ?? "").trim();
+  if (trimmed) {
+    return trimmed.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+  return deriveMarketFromLocation(location);
+}
+
 function getShortStoreName(storeName: string): string {
   const hashIdx = storeName.indexOf("#");
   if (hashIdx > 0) {
@@ -196,7 +204,7 @@ export default function SummaryReportPage() {
     }
     for (const row of dataset.loomisRows) {
       if (row.storeName && !map.has(row.storeName)) {
-        map.set(row.storeName, deriveMarketFromLocation(row.location));
+        map.set(row.storeName, normalizeMarketName(row.market, row.location));
       }
     }
     return map;
@@ -220,7 +228,7 @@ export default function SummaryReportPage() {
     () =>
       dataset.loomisRows.filter((row) => {
         const market =
-          storeMarketLookup.get(row.storeName) ?? deriveMarketFromLocation(row.location);
+          storeMarketLookup.get(row.storeName) ?? normalizeMarketName(row.market, row.location);
         if (storeFilter !== "all" && row.storeName !== storeFilter) return false;
         if (marketFilter !== "all" && market !== marketFilter) return false;
         return inDateRange(row.reconDate);
@@ -313,7 +321,7 @@ export default function SummaryReportPage() {
     for (const l of filteredLoomis) {
       const entry = ensureStore(
         l.storeName,
-        deriveMarketFromLocation(l.location),
+        normalizeMarketName(l.market, l.location),
         l.customer,
         l.location,
       );

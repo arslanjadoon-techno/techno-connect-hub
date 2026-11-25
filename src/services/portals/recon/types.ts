@@ -1,15 +1,54 @@
+export interface GetLoomisParams {
+  fromDate?: string;
+  toDate?: string;
+  market?: string;
+}
+
+export interface LoomisApiRecord {
+  id: number;
+  market?: string | null;
+  storeCode?: string | null;
+  account?: string | null;
+  bank?: string | null;
+  bankName?: string | null;
+  customer?: string | null;
+  location?: string | null;
+  locationFriendlyName?: string | null;
+  safe?: string | null;
+  safeFriendlyName?: string | null;
+  serial?: string | null;
+  businessDate?: string | null;
+  transmittedOn?: string | null;
+  validatedChangePurchaseManualDropsTotal?: number | null;
+  validatedManualDropsTotal?: number | null;
+  validatedDropsTotal?: number | null;
+  validatedDropsBeforePickup?: number | null;
+  validatedDropsAfterPickup?: number | null;
+  changePurchaseTotal?: number | null;
+  loomisPickup?: number | null;
+  pickupOn?: string | null;
+  pickupVerified?: boolean | null;
+  pickupVerifiedOn?: string | null;
+  reconDate?: string | null;
+}
+
 export interface LoomisReportRow {
   id: number;
+  market: string;
+  storeCode: string;
+  account: string;
   storeName: string;
   bankName: string;
   customer: string;
   location: string;
+  locationFriendlyName: string;
   safe: string;
+  safeFriendlyName: string;
   serial: string;
   /** Raw business date and time in 24-hour format (YYYY-MM-DD HH:mm:ss). */
   businessDate: string;
-  /** Transmission timestamp in 24-hour format (YYYY-MM-DD HH:mm:ss). */
-  transmittedOn: string;
+  /** Transmission timestamp in 24-hour format (YYYY-MM-DD HH:mm:ss) or null. */
+  transmittedOn: string | null;
   validatedCpMd: number;
   validatedMd: number;
   validatedDrops: number;
@@ -20,14 +59,6 @@ export interface LoomisReportRow {
   pickupOn: string | null;
   pickupVerified: boolean;
   pickupVerifiedOn: string | null;
-  mdTotal: number;
-  manualRemovals: number;
-  manualTransfers: number;
-  tubeVend: number;
-  tubeLoad: number;
-  dispense: number;
-  cashDispense: number;
-  coinDispense: number;
   reconDate: string;
 }
 
