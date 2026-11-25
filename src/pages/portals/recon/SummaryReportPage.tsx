@@ -4,7 +4,6 @@ import type { DateRange } from "react-day-picker";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -57,39 +56,31 @@ import { toast } from "sonner";
 const CATEGORY_COLORS = ["#2563eb", "#0ea5e9", "#10b981", "#f59e0b"];
 
 const EXPORT_COLUMNS = [
-  "storeName",
+  "responsible",
+  "salesDate",
   "market",
-  "company",
-  "totalRevenue",
+  "storeName",
+  "address",
   "salesCash",
-  "loomisDrops",
   "loomisPickup",
   "cashVariance",
   "salesCard",
   "cardPointerSettledAmount",
   "cardVariance",
-  "netVariance",
-  "cardPointerTxnCount",
-  "loomisVerifiedCount",
-  "loomisRecordCount",
 ];
 
 const EXPORT_HEADER_MAP: Record<string, string> = {
-  storeName: "Store Name",
+  responsible: "Responsible",
+  salesDate: "Sales Date",
   market: "Market",
-  company: "Company",
-  totalRevenue: "Total Revenue",
-  salesCash: "Sales Cash",
-  loomisDrops: "Loomis Drops",
-  loomisPickup: "Loomis Pickup",
-  cashVariance: "Cash Variance",
-  salesCard: "Sales Card",
-  cardPointerSettledAmount: "CardPointer Settled",
-  cardVariance: "Card Variance",
-  netVariance: "Net Variance",
-  cardPointerTxnCount: "CardPointer Txns",
-  loomisVerifiedCount: "Loomis Verified",
-  loomisRecordCount: "Loomis Records",
+  storeName: "Store Name",
+  address: "Address",
+  salesCash: "Cash Sales RTPOS",
+  loomisPickup: "Loomis",
+  cashVariance: "Difference",
+  salesCard: "Card Sales RTPOS",
+  cardPointerSettledAmount: "Card Point",
+  cardVariance: "Difference",
 };
 
 const formatCurrency = (value: number): string => {
@@ -136,6 +127,7 @@ export default function SummaryReportPage() {
     loomisRows: [],
     salesRows: [],
     cardPointerRows: [],
+    storeDirectory: {},
   });
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -264,16 +256,22 @@ export default function SummaryReportPage() {
       storeName: string,
       marketHint?: string,
       companyHint?: string,
+      addressHint?: string,
     ): ReconSummaryStoreRow => {
       const existing = map.get(storeName);
+      const directoryInfo = dataset.storeDirectory[storeName];
       if (existing) {
         if (marketHint && existing.market === "Other") existing.market = marketHint;
         if (companyHint && !existing.company) existing.company = companyHint;
+        if (addressHint && !existing.address) existing.address = addressHint;
         return existing;
       }
       const created: ReconSummaryStoreRow = {
-        storeName,
+        responsible: directoryInfo?.responsible || "Unassigned",
+        salesDate: "",
         market: marketHint || storeMarketLookup.get(storeName) || "Other",
+        storeName,
+        address: directoryInfo?.address || addressHint || "-",
         company: companyHint || "",
         salesCash: 0,
         salesCard: 0,
@@ -308,11 +306,17 @@ export default function SummaryReportPage() {
       entry.serialRev += s.serialRev;
       entry.serviceRev += s.serviceRev;
       entry.paymentRev += s.paymentRev;
+      if (s.invDate > entry.salesDate) entry.salesDate = s.invDate;
       if (s.invDate > entry.latestDate) entry.latestDate = s.invDate;
     }
 
     for (const l of filteredLoomis) {
-      const entry = ensureStore(l.storeName, deriveMarketFromLocation(l.location), l.customer);
+      const entry = ensureStore(
+        l.storeName,
+        deriveMarketFromLocation(l.location),
+        l.customer,
+        l.location,
+      );
       entry.loomisDrops += l.validatedDrops;
       entry.loomisPickup += l.loomisPickup;
       entry.loomisRecordCount += 1;
@@ -340,6 +344,7 @@ export default function SummaryReportPage() {
         const cardVariance = entry.salesCard - entry.cardPointerSettledAmount;
         return {
           ...entry,
+          salesDate: entry.salesDate || entry.latestDate || "-",
           cashVariance,
           cardVariance,
           netVariance: cashVariance + cardVariance,
@@ -348,13 +353,23 @@ export default function SummaryReportPage() {
       .filter((entry) => {
         if (!q) return true;
         return (
-          entry.storeName.toLowerCase().includes(q) ||
+          entry.responsible.toLowerCase().includes(q) ||
+          entry.salesDate.toLowerCase().includes(q) ||
           entry.market.toLowerCase().includes(q) ||
+          entry.storeName.toLowerCase().includes(q) ||
+          entry.address.toLowerCase().includes(q) ||
           entry.company.toLowerCase().includes(q)
         );
       })
       .sort((a, b) => b.totalRevenue - a.totalRevenue);
-  }, [filteredSales, filteredLoomis, filteredCardPointer, storeMarketLookup, search]);
+  }, [
+    filteredSales,
+    filteredLoomis,
+    filteredCardPointer,
+    dataset.storeDirectory,
+    storeMarketLookup,
+    search,
+  ]);
 
   const summaryTotals = useMemo(() => {
     const totalRevenue = storeRows.reduce((sum, r) => sum + r.totalRevenue, 0);
@@ -454,10 +469,16 @@ export default function SummaryReportPage() {
 
   const columns: Column<ReconSummaryStoreRow>[] = [
     {
-      key: "storeName",
-      header: "Store Name",
+      key: "responsible",
+      header: "Responsible",
       className: "whitespace-nowrap",
-      accessor: (r) => <span className="font-medium">{r.storeName}</span>,
+      accessor: (r) => <span className="font-medium text-foreground">{r.responsible}</span>,
+    },
+    {
+      key: "salesDate",
+      header: "Sales Date",
+      className: "whitespace-nowrap",
+      accessor: (r) => <span className="font-mono text-xs tabular-nums">{r.salesDate}</span>,
     },
     {
       key: "market",
@@ -466,34 +487,32 @@ export default function SummaryReportPage() {
       accessor: (r) => <span className="text-muted-foreground">{r.market}</span>,
     },
     {
-      key: "totalRevenue",
-      header: "Total Revenue",
-      className: "whitespace-nowrap text-right",
-      accessor: (r) => (
-        <span className="font-medium tabular-nums">{formatCurrency(r.totalRevenue)}</span>
-      ),
+      key: "storeName",
+      header: "Store Name",
+      className: "whitespace-nowrap",
+      accessor: (r) => <span className="font-medium">{r.storeName}</span>,
+    },
+    {
+      key: "address",
+      header: "Address",
+      className: "whitespace-nowrap",
+      accessor: (r) => <span className="text-muted-foreground">{r.address}</span>,
     },
     {
       key: "salesCash",
-      header: "Sales Cash",
+      header: "Cash Sales RTPOS",
       className: "whitespace-nowrap text-right",
       accessor: (r) => <span className="tabular-nums">{formatCurrency(r.salesCash)}</span>,
     },
     {
-      key: "loomisDrops",
-      header: "Loomis Drops",
-      className: "whitespace-nowrap text-right",
-      accessor: (r) => <span className="tabular-nums">{formatCurrency(r.loomisDrops)}</span>,
-    },
-    {
       key: "loomisPickup",
-      header: "Loomis Pickup",
+      header: "Loomis",
       className: "whitespace-nowrap text-right",
       accessor: (r) => <span className="tabular-nums">{formatCurrency(r.loomisPickup)}</span>,
     },
     {
       key: "cashVariance",
-      header: "Cash Variance",
+      header: "Difference",
       className: "whitespace-nowrap text-right",
       accessor: (r) => (
         <span
@@ -511,13 +530,13 @@ export default function SummaryReportPage() {
     },
     {
       key: "salesCard",
-      header: "Sales Card",
+      header: "Card Sales RTPOS",
       className: "whitespace-nowrap text-right",
       accessor: (r) => <span className="tabular-nums">{formatCurrency(r.salesCard)}</span>,
     },
     {
       key: "cardPointerSettledAmount",
-      header: "CardPointer Settled",
+      header: "Card Point",
       className: "whitespace-nowrap text-right",
       accessor: (r) => (
         <span className="tabular-nums">{formatCurrency(r.cardPointerSettledAmount)}</span>
@@ -525,44 +544,21 @@ export default function SummaryReportPage() {
     },
     {
       key: "cardVariance",
-      header: "Card Variance",
+      header: "Difference",
       className: "whitespace-nowrap text-right",
       accessor: (r) => (
-        <span className="tabular-nums text-muted-foreground">{formatCurrency(r.cardVariance)}</span>
+        <span
+          className={`tabular-nums font-medium ${
+            Math.abs(r.cardVariance) < 0.01
+              ? "text-emerald-700 dark:text-emerald-400"
+              : r.cardVariance > 0
+                ? "text-amber-700 dark:text-amber-400"
+                : "text-rose-700 dark:text-rose-400"
+          }`}
+        >
+          {formatCurrency(r.cardVariance)}
+        </span>
       ),
-    },
-    {
-      key: "loomisStatus",
-      header: "Loomis Status",
-      className: "whitespace-nowrap",
-      accessor: (r) => {
-        if (r.loomisRecordCount === 0) {
-          return (
-            <Badge variant="outline" className="border-border bg-muted text-muted-foreground">
-              No Record
-            </Badge>
-          );
-        }
-        const allVerified = r.loomisVerifiedCount === r.loomisRecordCount;
-        return (
-          <Badge
-            variant="outline"
-            className={
-              allVerified
-                ? "border-emerald-300 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-400"
-                : "border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-400"
-            }
-          >
-            {allVerified ? "Verified" : "Pending"}
-          </Badge>
-        );
-      },
-    },
-    {
-      key: "cardPointerTxnCount",
-      header: "Card Txns",
-      className: "whitespace-nowrap text-right",
-      accessor: (r) => <span className="tabular-nums">{r.cardPointerTxnCount}</span>,
     },
   ];
 
@@ -621,7 +617,7 @@ export default function SummaryReportPage() {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search store, market, or company..."
+          placeholder="Search responsible, market, store, or address..."
           className="h-9 min-w-[220px] flex-[2]"
         />
         <ReconDateRangePicker value={dateRange} onChange={setDateRange} />
@@ -986,9 +982,9 @@ export default function SummaryReportPage() {
               <SheetHeader>
                 <SheetTitle className="font-display text-lg">{selectedStore.storeName}</SheetTitle>
                 <SheetDescription>
-                  {selectedStore.market}
-                  {selectedStore.company ? ` · ${selectedStore.company}` : ""}
+                  {selectedStore.market} · {selectedStore.responsible}
                 </SheetDescription>
+                <p className="text-xs text-muted-foreground">{selectedStore.address}</p>
               </SheetHeader>
 
               <div className="space-y-4">

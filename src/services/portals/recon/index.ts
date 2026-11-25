@@ -7,6 +7,7 @@ export type {
   SalesReportRow,
   CardPointerRow,
   CardPointerStatus,
+  ReconStoreDirectoryInfo,
   ReconSummaryStoreRow,
   ReconSummaryDataset,
 } from "./types";

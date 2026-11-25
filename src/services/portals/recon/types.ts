@@ -82,9 +82,17 @@ export interface CardPointerRow {
   status: CardPointerStatus;
 }
 
+export interface ReconStoreDirectoryInfo {
+  responsible: string;
+  address: string;
+}
+
 export interface ReconSummaryStoreRow {
-  storeName: string;
+  responsible: string;
+  salesDate: string;
   market: string;
+  storeName: string;
+  address: string;
   company: string;
   salesCash: number;
   salesCard: number;
@@ -111,4 +119,5 @@ export interface ReconSummaryDataset {
   loomisRows: LoomisReportRow[];
   salesRows: SalesReportRow[];
   cardPointerRows: CardPointerRow[];
+  storeDirectory: Record<string, ReconStoreDirectoryInfo>;
 }
