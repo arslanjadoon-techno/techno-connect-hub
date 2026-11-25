@@ -6,3 +6,4 @@ export * from "./leave-management";
 export * from "./ranker";
 export * from "./ticketing";
 export * from "./surveillance";
+export * from "./recon";
